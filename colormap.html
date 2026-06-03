@@ -329,12 +329,6 @@ function buildPointCloud() {
   const cz2 = (box.min.z + box.max.z) / 2;
 
   // Wireframe bounding box
-  const boxGeo = new THREE.BoxGeometry(
-    box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
-  const boxMesh = new THREE.Mesh(boxGeo,
-    new THREE.MeshBasicMaterial({color:0x3a3530, wireframe:true, transparent:true, opacity:0.35}));
-  boxMesh.position.set(cx2, cy2, cz2);
-  scene.add(boxMesh);
 
   // Grid plane — sized to bounding box footprint, sitting at min Y
   const gw = box.max.x - box.min.x, gd = box.max.z - box.min.z;
