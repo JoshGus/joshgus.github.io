@@ -59,6 +59,11 @@ canvas{display:block;width:100%;height:100%}
   background:rgba(14,13,11,.88);color:var(--accent);padding:5px 8px;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;max-width:180px}
 
+/* touch backdrop — tap to dismiss sheet */
+#bs-backdrop{position:absolute;inset:0;z-index:14;background:rgba(0,0,0,.45);
+  display:none;-webkit-tap-highlight-color:transparent}
+#bs-backdrop.open{display:block}
+
 /* bottom sheet — touch preview (full-width image, big drag bar) */
 #bottom-sheet{position:absolute;bottom:0;left:0;right:0;z-index:15;
   background:rgba(15,13,11,.97);border-top:1px solid rgba(244,237,227,.15);
@@ -219,6 +224,9 @@ canvas{display:block;width:100%;height:100%}
         <path d="M5.5 1H7v5H2V4.5h3.5V1zm3.5 0h1.5v3.5H14V6H9V1zM2 9.5h4.5V14H5v-3H2V9.5zm8.5 1H12v3h-1.5V16H9v-5h1.5v-.5z"/>
       </svg>
     </button>
+
+    <!-- Touch backdrop -->
+    <div id="bs-backdrop"></div>
 
     <!-- Touch: bottom sheet with full-width image -->
     <div id="bottom-sheet">
@@ -604,6 +612,8 @@ const bsTitle = document.getElementById('bs-title');
 const bsMeta  = document.getElementById('bs-meta');
 const bsConf  = document.getElementById('bs-conf');
 
+const backdrop = document.getElementById('bs-backdrop');
+
 function showBottomSheet(photo) {
   bsTitle.textContent = photo.species || photo.animal || photo.title || '';
   bsMeta.textContent  = [photo.category, photo.location, photo.season].filter(Boolean).join(' · ');
@@ -614,8 +624,12 @@ function showBottomSheet(photo) {
   bsImg.src = src || ''; bsImg.style.display = src ? 'block' : 'none';
   bsImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#1a1916';
   sheet.classList.add('open');
+  backdrop.classList.add('open');
 }
-function closeBottomSheet() { sheet.classList.remove('open'); }
+function closeBottomSheet() {
+  sheet.classList.remove('open');
+  backdrop.classList.remove('open');
+}
 
 if (isTouch) {
   let t0x = 0, t0y = 0, t0t = 0;
@@ -642,12 +656,8 @@ if (isTouch) {
     closeBottomSheet();
   });
 
-  // Swipe down anywhere on the sheet to dismiss (lower threshold = easier)
-  let sy0 = 0;
-  sheet.addEventListener('touchstart', e => { sy0 = e.touches[0].clientY; }, {passive:true});
-  sheet.addEventListener('touchend', e => {
-    if (e.changedTouches[0].clientY - sy0 > 20) closeBottomSheet();
-  }, {passive:true});
+  // Tap backdrop to dismiss
+  backdrop.addEventListener('click', closeBottomSheet);
 }
 
 // ---- animate ----
