@@ -343,17 +343,17 @@ function buildPointCloud() {
   grid.position.set(cx2, box.min.y, cz2);
   scene.add(grid);
 
-  // Axis lines — full extent of bounding box through origin, both directions
+  // Axis lines — origin outward to positive extent only (0,0,0 → max)
   function axLine(x1,y1,z1, x2,y2,z2, color) {
     const g = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(x1,y1,z1), new THREE.Vector3(x2,y2,z2)]);
     return new THREE.Line(g, new THREE.LineBasicMaterial({color, transparent:true, opacity:0.65}));
   }
-  scene.add(axLine(box.min.x,0,0, box.max.x,0,0, 0xff4c4c)); // X — red
-  scene.add(axLine(0,box.min.y,0, 0,box.max.y,0, 0x4cff70)); // Y — green
-  scene.add(axLine(0,0,box.min.z, 0,0,box.max.z, 0x4c7fff)); // Z — blue
+  scene.add(axLine(0,0,0, box.max.x,0,0, 0xff4c4c)); // X — red
+  scene.add(axLine(0,0,0, 0,box.max.y,0, 0x4cff70)); // Y — green
+  scene.add(axLine(0,0,0, 0,0,box.max.z, 0x4c7fff)); // Z — blue
 
-  // Axis letter labels at positive ends (R/G/B now have real meaning)
+  // R/G/B labels at positive ends
   function makeLabel(text, hex) {
     const c = Object.assign(document.createElement('canvas'), {width:128, height:128});
     const ctx = c.getContext('2d');
@@ -372,37 +372,6 @@ function buildPointCloud() {
    ['G', 0, box.max.y+labelPad, 0, '#4cff70'],
    ['B', 0, 0, box.max.z+labelPad, '#4c7fff']].forEach(([t,x,y,z,col]) => {
     const lbl = makeLabel(t, col); lbl.position.set(x,y,z); scene.add(lbl);
-  });
-
-  // End markers: swatch from most extreme photo at each axis pole
-  function extremeColor(dim, sign) {
-    let best = -Infinity, col = '#888888';
-    for (let i = 0; i < photos.length; i++) {
-      const v = positions[i*3 + dim] * sign;
-      if (v > best && photos[i].dominant_colors && photos[i].dominant_colors[0]) {
-        best = v; col = photos[i].dominant_colors[0];
-      }
-    }
-    return col;
-  }
-  function makeEndMarker(hex, axColor) {
-    const c = Object.assign(document.createElement('canvas'), {width:64, height:64});
-    const ctx = c.getContext('2d');
-    ctx.beginPath(); ctx.arc(32, 32, 26, 0, Math.PI * 2);
-    ctx.fillStyle = hex; ctx.fill();
-    ctx.strokeStyle = axColor; ctx.lineWidth = 5; ctx.stroke();
-    const sp = new THREE.Sprite(new THREE.SpriteMaterial(
-      {map: new THREE.CanvasTexture(c), transparent: true, depthTest: false}));
-    sp.scale.set(0.6, 0.6, 1);
-    return sp;
-  }
-  const pad = 0.55;
-  [[box.max.x+pad, 0, 0, 0, 1, '#ff4c4c'], [box.min.x-pad, 0, 0, 0, -1, '#ff4c4c'],
-   [0, box.max.y+pad, 0, 1, 1, '#4cff70'], [0, box.min.y-pad, 0, 1, -1, '#4cff70'],
-   [0, 0, box.max.z+pad, 2, 1, '#4c7fff'], [0, 0, box.min.z-pad, 2, -1, '#4c7fff'],
-  ].forEach(([x,y,z,dim,sign,axCol]) => {
-    const m = makeEndMarker(extremeColor(dim, sign), axCol);
-    m.position.set(x, y, z); scene.add(m);
   });
 }
 
