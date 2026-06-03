@@ -182,9 +182,10 @@ var heightMap; // Float32Array [0,1]
 var BALL_R=7, HOLE_R=9, BORDER=36;
 var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=850;
 var STOP_SPD=10, MAX_DRAG=125, SHOOT_SCALE=6.2;
+var GRAVITY_Z=20, RESTITUTION_Z=0.38, Z_SCALE=40, BOUNCE_THRES=0.5;
 
 // ── Game state ─────────────────────────────────────────────────────
-var ball={x:0,y:0,vx:0,vy:0};
+var ball={x:0,y:0,vx:0,vy:0,vz:0,z:0};
 var teeX=0, teeY=0, holeX=0, holeY=0;
 var shots=0, inHole=false;
 var dragging=false, dragX=0, dragY=0;
@@ -313,47 +314,97 @@ function getH(x,y){
 // ── Physics ────────────────────────────────────────────────────────
 function physics(dt){
   if(inHole) return;
-  // Gradient at ball position
-  var eps=2.5;
-  var gx=(getH(ball.x+eps,ball.y)-getH(ball.x-eps,ball.y))/(2*eps);
-  var gy=(getH(ball.x,ball.y+eps)-getH(ball.x,ball.y-eps))/(2*eps);
-  // Decompose slope into parallel (speed change) and perpendicular (turning)
-  // Perpendicular force is amplified — cross-slope breaks are more pronounced
-  var spd0=Math.hypot(ball.vx,ball.vy);
-  if(spd0>0.5){
-    var tx=ball.vx/spd0, ty=ball.vy/spd0; // unit direction of travel
-    var px=-ty, py=tx;                      // unit perpendicular (left)
-    var gPara=gx*tx+gy*ty;
-    var gPerp=gx*px+gy*py;
-    ball.vx+=(-gPara*tx*SLOPE_FORCE - gPerp*px*SLOPE_FORCE*LATERAL_MULT - ball.vx*FRICTION)*dt;
-    ball.vy+=(-gPara*ty*SLOPE_FORCE - gPerp*py*SLOPE_FORCE*LATERAL_MULT - ball.vy*FRICTION)*dt;
-  } else {
-    ball.vx+=(-gx*SLOPE_FORCE-ball.vx*FRICTION)*dt;
-    ball.vy+=(-gy*SLOPE_FORCE-ball.vy*FRICTION)*dt;
-  }
-  // Speed cap
-  var spd=Math.hypot(ball.vx,ball.vy);
-  if(spd>MAX_SPEED){var s=MAX_SPEED/spd; ball.vx*=s; ball.vy*=s;}
-  // Move
-  ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
-  // Boundary bounce
   var lo=BORDER+BALL_R, hiX=W-BORDER-BALL_R, hiY=H-BORDER-BALL_R;
-  if(ball.x<lo){ball.x=lo; ball.vx=Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88;}
-  if(ball.x>hiX){ball.x=hiX; ball.vx=-Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88;}
-  if(ball.y<lo){ball.y=lo; ball.vy=Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
-  if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
-  // Hole suction & detection — pull starts from HOLE_R*5 out
-  var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
-  var pullRange=HOLE_R*1.6;
-  if(dh<pullRange){
-    var pull=Math.pow((pullRange-dh)/pullRange,1.4); // stronger near edge
-    var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
-    ball.vx+=Math.cos(ang)*pull*550*dt;
-    ball.vy+=Math.sin(ang)*pull*550*dt;
-    if(dh<4){
-      inHole=true;
-      ball.x=holeX; ball.y=holeY; ball.vx=0; ball.vy=0;
-      onWin();
+
+  if(ball.z>0.002){
+    // ── AIRBORNE: gravity only, no slope force, no friction ──────
+    ball.vz-=GRAVITY_Z*dt;
+    ball.z +=ball.vz*dt;
+    ball.x +=ball.vx*dt;
+    ball.y +=ball.vy*dt;
+
+    // Boundary (walls still apply in air)
+    if(ball.x<lo) {ball.x=lo;  ball.vx= Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88;}
+    if(ball.x>hiX){ball.x=hiX; ball.vx=-Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88;}
+    if(ball.y<lo) {ball.y=lo;  ball.vy= Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
+    if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
+
+    // Landing
+    if(ball.z<=0){
+      ball.z=0;
+      if(ball.vz<-BOUNCE_THRES){
+        ball.vz=-ball.vz*RESTITUTION_Z;
+        ball.vx*=0.88; ball.vy*=0.88;
+      } else {
+        ball.vz=0;
+      }
+    }
+
+    // Hole: suction and sink only when near the ground
+    var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
+    if(dh<HOLE_R*1.6&&ball.z<0.06){
+      var pull=Math.pow((HOLE_R*1.6-dh)/(HOLE_R*1.6),1.4);
+      var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
+      ball.vx+=Math.cos(ang)*pull*550*dt;
+      ball.vy+=Math.sin(ang)*pull*550*dt;
+      if(dh<4&&ball.z<0.05){
+        inHole=true; ball.x=holeX; ball.y=holeY;
+        ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0; onWin();
+      }
+    }
+
+  } else {
+    // ── ON SURFACE: slope + friction ─────────────────────────────
+    ball.z=0;
+    var terrainH=getH(ball.x,ball.y);
+    var eps=2.5;
+    var gx=(getH(ball.x+eps,ball.y)-getH(ball.x-eps,ball.y))/(2*eps);
+    var gy=(getH(ball.x,ball.y+eps)-getH(ball.x,ball.y-eps))/(2*eps);
+
+    var spd0=Math.hypot(ball.vx,ball.vy);
+    if(spd0>0.5){
+      var tx=ball.vx/spd0, ty=ball.vy/spd0;
+      var px=-ty, py=tx;
+      var gPara=gx*tx+gy*ty;
+      var gPerp=gx*px+gy*py;
+      ball.vx+=(-gPara*tx*SLOPE_FORCE - gPerp*px*SLOPE_FORCE*LATERAL_MULT - ball.vx*FRICTION)*dt;
+      ball.vy+=(-gPara*ty*SLOPE_FORCE - gPerp*py*SLOPE_FORCE*LATERAL_MULT - ball.vy*FRICTION)*dt;
+    } else {
+      ball.vx+=(-gx*SLOPE_FORCE-ball.vx*FRICTION)*dt;
+      ball.vy+=(-gy*SLOPE_FORCE-ball.vy*FRICTION)*dt;
+    }
+
+    var spd=Math.hypot(ball.vx,ball.vy);
+    if(spd>MAX_SPEED){var s=MAX_SPEED/spd; ball.vx*=s; ball.vy*=s;}
+
+    // Terrain-following vertical velocity (rate of height change as ball moves)
+    ball.vz=gx*ball.vx+gy*ball.vy;
+
+    ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
+
+    if(ball.x<lo) {ball.x=lo;  ball.vx= Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88; ball.vz=0;}
+    if(ball.x>hiX){ball.x=hiX; ball.vx=-Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88; ball.vz=0;}
+    if(ball.y<lo) {ball.y=lo;  ball.vy= Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88; ball.vz=0;}
+    if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88; ball.vz=0;}
+
+    // Launch: if terrain drops below where ball's momentum carries it
+    var newH=getH(ball.x,ball.y);
+    if(newH<terrainH+ball.vz*dt-0.004){
+      ball.z=terrainH+ball.vz*dt-newH;
+    }
+
+    // Hole suction & detection
+    var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
+    var pullRange=HOLE_R*1.6;
+    if(dh<pullRange){
+      var pull=Math.pow((pullRange-dh)/pullRange,1.4);
+      var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
+      ball.vx+=Math.cos(ang)*pull*550*dt;
+      ball.vy+=Math.sin(ang)*pull*550*dt;
+      if(dh<4){
+        inHole=true; ball.x=holeX; ball.y=holeY;
+        ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0; onWin();
+      }
     }
   }
 }
@@ -440,23 +491,29 @@ function draw(){
     ctx.setLineDash([]);
   }
 
-  // Cast shadow — light top-right so shadow falls bottom-left
+  // Shadow and ball — z-aware: shadow stays on ground, ball shifts up and grows
   if(!inHole){
-    var sdx=ball.x-3, sdy=ball.y+4;
-    var sg=ctx.createRadialGradient(sdx,sdy,0,sdx,sdy,BALL_R*1.5);
-    sg.addColorStop(0,'rgba(0,0,0,0.32)'); sg.addColorStop(1,'rgba(0,0,0,0)');
-    ctx.beginPath(); ctx.arc(sdx,sdy,BALL_R*1.5,0,6.2832);
-    ctx.fillStyle=sg; ctx.fill();
-  }
+    var screenUp=ball.z*Z_SCALE;                              // pixels the ball is visually above ground
+    var drawR=BALL_R*(1+ball.z*0.7);                          // ball grows when higher (closer to overhead camera)
+    var drawBY=ball.y-screenUp;                               // ball's visual Y
 
-  // Ball — directional shading, highlight top-right
-  if(!inHole){
-    var hlx=ball.x+BALL_R*0.34, hly=ball.y-BALL_R*0.34;
-    var bg=ctx.createRadialGradient(hlx,hly,0.5,ball.x,ball.y,BALL_R*1.05);
+    // Shadow: ground-pinned, spreads and fades with height
+    var shdR=BALL_R*1.5+screenUp*0.45;
+    var shdOp=Math.max(0.04,0.32-ball.z*0.7);
+    var sdx=ball.x-3, sdy=ball.y+4;
+    var sg=ctx.createRadialGradient(sdx,sdy,0,sdx,sdy,shdR);
+    sg.addColorStop(0,'rgba(0,0,0,'+shdOp.toFixed(2)+')');
+    sg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(sdx,sdy,shdR,0,6.2832);
+    ctx.fillStyle=sg; ctx.fill();
+
+    // Ball — highlight stays top-right relative to visual centre
+    var hlx=ball.x+drawR*0.34, hly=drawBY-drawR*0.34;
+    var bg=ctx.createRadialGradient(hlx,hly,0.5,ball.x,drawBY,drawR*1.05);
     bg.addColorStop(0,'#ffffff');
     bg.addColorStop(0.45,'#dedad4');
-    bg.addColorStop(1,'#7a7672');  // shadowed bottom-left
-    ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,6.2832);
+    bg.addColorStop(1,'#7a7672');
+    ctx.beginPath(); ctx.arc(ball.x,drawBY,drawR,0,6.2832);
     ctx.fillStyle=bg; ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,0.14)'; ctx.lineWidth=0.8; ctx.stroke();
   }
@@ -478,7 +535,7 @@ function canvasPos(e){
   var src=e.changedTouches?e.changedTouches[0]||e.touches[0]:e;
   return{x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy};
 }
-function moving(){return Math.hypot(ball.vx,ball.vy)>STOP_SPD;}
+function moving(){return Math.hypot(ball.vx,ball.vy)>STOP_SPD||ball.z>0.002;}
 
 function onDown(e){
   if(e.target!==canvas) return;
@@ -541,7 +598,7 @@ function loadDay(){
   document.getElementById('hud-shots').textContent='0';
   document.getElementById('win').classList.remove('show');
   buildTerrain();
-  ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0;
+  ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0;
 }
 
 document.getElementById('btn-prev').onclick=function(){ dayOffset--; loadDay(); };
@@ -551,7 +608,7 @@ window.resetGame=function(){
   inHole=false; shots=0;
   document.getElementById('hud-shots').textContent='0';
   document.getElementById('win').classList.remove('show');
-  ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0;
+  ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0;
 };
 
 // ── Resize: only rescale display, never rebuild terrain ────────────
@@ -563,7 +620,7 @@ window.addEventListener('resize',function(){
 // ── Init ───────────────────────────────────────────────────────────
 buildTerrain();
 scaleCanvas();
-ball.x=teeX; ball.y=teeY;
+ball.x=teeX; ball.y=teeY; ball.vz=0; ball.z=0;
 requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
 
 })();
