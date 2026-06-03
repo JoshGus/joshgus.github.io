@@ -265,6 +265,12 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
         <div class="lb-details" id="lb-details"></div>
       </div>
 
+      <!-- Camera / EXIF -->
+      <div class="lb-section" id="lb-camera-section">
+        <div class="lb-section-label">Camera</div>
+        <div class="lb-details" id="lb-camera-details"></div>
+      </div>
+
       <!-- Dominant colors -->
       <div class="lb-section">
         <div class="lb-section-label">Colors</div>
@@ -514,6 +520,21 @@ function updateLightbox() {
     ['Type',     photo.category],
   ].filter(([, v]) => v);
   document.getElementById('lb-details').innerHTML = rows
+    .map(([k, v]) => `<span class="lb-detail-key">${k}</span><span class="lb-detail-val">${v}</span>`)
+    .join('');
+
+  // Camera EXIF
+  const exifRows = [
+    ['Camera',   photo.camera],
+    ['Lens',     photo.lens],
+    ['Shutter',  photo.shutter],
+    ['Aperture', photo.aperture],
+    ['ISO',      photo.iso],
+    ['Focal',    photo.focal_length],
+  ].filter(([, v]) => v);
+  const cameraSec = document.getElementById('lb-camera-section');
+  cameraSec.style.display = exifRows.length ? '' : 'none';
+  document.getElementById('lb-camera-details').innerHTML = exifRows
     .map(([k, v]) => `<span class="lb-detail-key">${k}</span><span class="lb-detail-val">${v}</span>`)
     .join('');
 

@@ -26,6 +26,7 @@ from dotenv import load_dotenv
 load_dotenv()  # loads .env into os.environ, no-op if file doesn't exist
 import numpy as np
 from PIL import Image
+from PIL.ExifTags import TAGS
 from sklearn.cluster import KMeans
 
 # -- optional deps -------------------------------------------------------------
@@ -90,6 +91,44 @@ def color_feature_vec(colors):
     for h in padded:
         vec += [int(h[1:3],16)/255, int(h[3:5],16)/255, int(h[5:7],16)/255]
     return vec
+
+# -- EXIF extraction ----------------------------------------------------------
+def _fmt_shutter(t):
+    if t is None: return None
+    t = float(t)
+    if t >= 1:
+        return f"{t:.1f}".rstrip("0").rstrip(".") + "s"
+    return f"1/{round(1/t)}s"
+
+def _fmt_aperture(f):
+    if f is None: return None
+    s = f"{float(f):.1f}".rstrip("0").rstrip(".")
+    return f"f/{s}"
+
+def extract_exif(img_path):
+    try:
+        raw = Image.open(img_path)._getexif()
+        if not raw:
+            return {}
+        t = {TAGS.get(k, k): v for k, v in raw.items()}
+        make  = (t.get("Make") or "").strip()
+        model = (t.get("Model") or "").strip()
+        if make and model.startswith(make):
+            model = model[len(make):].strip()
+        camera = f"{make} {model}".strip() if make else model
+        lens = (t.get("LensModel") or "").strip()
+        if "|" in lens:
+            lens = lens[:lens.index("|")].strip()
+        return {
+            "camera":       camera or None,
+            "lens":         lens or None,
+            "shutter":      _fmt_shutter(t.get("ExposureTime")),
+            "aperture":     _fmt_aperture(t.get("FNumber")),
+            "iso":          str(t["ISOSpeedRatings"]) if t.get("ISOSpeedRatings") else None,
+            "focal_length": f"{int(float(t['FocalLength']))}mm" if t.get("FocalLength") else None,
+        }
+    except Exception:
+        return {}
 
 # -- aspect ratio detection ---------------------------------------------------
 def detect_aspect(img_path):
@@ -199,6 +238,7 @@ def process(photos_dir, out_path, creds_path, skip_upload):
 
         aspect_label, ratio = detect_aspect(img_path)
         tags, tag_scores    = suggest_tags(img_path)
+        exif                = extract_exif(img_path)
         record = {
             "id":             final_id,
             "title":          img_path.stem.replace("-"," ").replace("_"," ").title(),
@@ -214,6 +254,7 @@ def process(photos_dir, out_path, creds_path, skip_upload):
             "_vec":           color_feature_vec(colors),
             "clip_embedding": get_clip_embedding(img_path),
             "umap_3d":        None,
+            **exif,
         }
         all_records.append(record)
         new_count += 1
@@ -236,6 +277,23 @@ def process(photos_dir, out_path, creds_path, skip_upload):
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(json.dumps(all_records, indent=2))
     print(f"\nDone -- {len(all_records)} total ({new_count} new) -> {out_path}")
+
+    # Write slimmed web JSON (no clip_embedding — too large for the browser)
+    build_web_json(all_records, out_path.parent / "photos-web.json")
+
+
+# Fields the frontend needs; clip_embedding is excluded (heavy, server-side only)
+WEB_KEYS = [
+    "id", "title", "species", "category", "location", "season", "aspect", "ratio",
+    "tags", "tag_scores", "dominant_colors", "umap_3d", "animal",
+    "bird_confidence", "scientific_name", "field_marks", "age_sex", "behavior",
+    "camera", "lens", "shutter", "aperture", "iso", "focal_length",
+]
+
+def build_web_json(records, web_path):
+    web = [{k: r[k] for k in WEB_KEYS if k in r} for r in records]
+    web_path.write_text(json.dumps(web))
+    print(f"Web JSON -- {len(web)} records -> {web_path}")
 
 
 if __name__ == "__main__":
