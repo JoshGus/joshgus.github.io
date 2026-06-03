@@ -438,12 +438,19 @@
       ctx.fillStyle = '#0e0d0b';
       ctx.fillRect(0, 0, W, H);
 
-      // Isometric projection of RGB cube
-      // r=X, g=Y(up), b=Z; project to 2D with iso angles
-      var SCALE = Math.min(W, H) * 0.045;
-      var OX = W * 0.38, OY = H * 0.75; // origin offset (bottom-left-ish)
+      // Isometric projection of the RGB cube (origin = pure black, axes = R/G/B)
+      // UNIT = one unit in RGB-space (0-1) mapped to pixels.
+      // Axis tips are at r=1,g=1,b=1 so the cube spans UNIT in each direction.
+      // We size UNIT so the full cube just fits the canvas.
       var cos30 = Math.cos(Math.PI / 6), sin30 = Math.sin(Math.PI / 6);
+      // Horizontal room needed for one unit: cos30 (R side) + cos30 (B side)
+      // Vertical room: sin30 (slope down) + 1 (G goes straight up)
+      var UNIT = Math.min(W / (2 * cos30 + 0.2), H / (1 + sin30 + 0.1)) * 0.72;
+      // Origin: centred horizontally, near the bottom so G axis has room to go up
+      var OX = W * 0.50;
+      var OY = H * 0.82;
 
+      // Draw dots — r,g,b in [0,1], project directly (same scale as axes)
       photos.forEach(function(p) {
         if (!p.dominant_colors || !p.dominant_colors.length) return;
         var palette = p.dominant_colors;
@@ -456,29 +463,29 @@
         });
         r /= palette.length; g /= palette.length; b /= palette.length;
 
-        // Isometric: R goes right-down, G goes up, B goes left-down
-        var sx = OX + (r - b) * cos30 * SCALE;
-        var sy = OY - g * SCALE - (r + b) * sin30 * SCALE;
+        // Isometric: R → right-down, G → straight up, B → left-down
+        var sx = OX + (r - b) * cos30 * UNIT;
+        var sy = OY - g * UNIT - (r + b) * sin30 * UNIT;
 
-        ctx.globalAlpha = 0.75;
+        ctx.globalAlpha = 0.8;
         ctx.fillStyle = palette[0] || '#888';
-        ctx.fillRect(sx - 1.2, sy - 1.2, 2.4, 2.4);
+        ctx.fillRect(sx - 1.5, sy - 1.5, 3, 3);
       });
       ctx.globalAlpha = 1;
 
-      // Faint axis lines from origin
-      ctx.lineWidth = 0.8;
+      // Axis lines from origin to full-saturation tips
+      ctx.lineWidth = 1;
       [[1,0,0,'#ff4c4c','R'],[0,1,0,'#4cff70','G'],[0,0,1,'#4c7fff','B']].forEach(function(ax) {
         var rx=ax[0], gy=ax[1], bz=ax[2], col=ax[3], lbl=ax[4];
-        var ex = OX + (rx - bz) * cos30 * SCALE * 9;
-        var ey = OY - gy * SCALE * 9 - (rx + bz) * sin30 * SCALE * 9;
-        ctx.globalAlpha = 0.45;
+        var ex = OX + (rx - bz) * cos30 * UNIT;
+        var ey = OY - gy * UNIT - (rx + bz) * sin30 * UNIT;
+        ctx.globalAlpha = 0.5;
         ctx.strokeStyle = col;
         ctx.beginPath(); ctx.moveTo(OX, OY); ctx.lineTo(ex, ey); ctx.stroke();
-        ctx.globalAlpha = 0.7;
+        ctx.globalAlpha = 0.8;
         ctx.fillStyle = col;
-        ctx.font = '500 10px "IBM Plex Mono",monospace';
-        ctx.fillText(lbl, ex + (ex > OX ? 4 : -12), ey + 4);
+        ctx.font = '600 11px "IBM Plex Mono",monospace';
+        ctx.fillText(lbl, ex + (rx ? 5 : bz ? -14 : -4), ey + (gy ? -5 : 12));
       });
       ctx.globalAlpha = 1;
     }

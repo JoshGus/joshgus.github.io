@@ -59,23 +59,50 @@ canvas{display:block;width:100%;height:100%}
   background:rgba(14,13,11,.88);color:var(--accent);padding:5px 8px;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;max-width:180px}
 
-/* bottom sheet — touch preview */
+/* bottom sheet — touch preview (full-width image, big drag bar) */
 #bottom-sheet{position:absolute;bottom:0;left:0;right:0;z-index:15;
-  background:rgba(18,16,14,.96);border-top:1px solid rgba(244,237,227,.15);
-  backdrop-filter:blur(16px);transform:translateY(100%);
+  background:rgba(15,13,11,.97);border-top:1px solid rgba(244,237,227,.15);
+  backdrop-filter:blur(20px);transform:translateY(100%);
   transition:transform .32s cubic-bezier(.2,.7,.3,1)}
 #bottom-sheet.open{transform:translateY(0)}
-.bs-handle{width:36px;height:4px;background:rgba(244,237,227,.2);border-radius:2px;margin:10px auto 0}
-.bs-content{display:flex;gap:14px;padding:14px 16px 28px;align-items:flex-start}
-#bs-img{width:100px;height:100px;object-fit:cover;flex-shrink:0;
-  border:1px solid rgba(244,237,227,.12);display:block}
-.bs-info{flex:1;min-width:0}
-.bs-title{font-family:var(--disp);font-weight:500;font-size:1.05rem;letter-spacing:-.01em;
+.bs-drag-bar{display:flex;align-items:center;justify-content:center;padding:11px 0 8px;cursor:grab}
+.bs-handle{width:44px;height:5px;background:rgba(244,237,227,.28);border-radius:3px}
+#bs-img{display:block;width:100%;height:200px;object-fit:cover;background:#1a1916}
+.bs-body{padding:14px 16px 32px}
+.bs-title{font-family:var(--disp);font-weight:500;font-size:1.1rem;letter-spacing:-.01em;
   color:rgba(244,237,227,.92);line-height:1.2;font-variation-settings:"opsz" 24}
-.bs-meta{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
-  color:rgba(244,237,227,.45);margin-top:7px;line-height:1.9}
-.bs-conf{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;
-  color:var(--accent);margin-top:6px}
+.bs-meta{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(244,237,227,.45);margin-top:8px;line-height:1.9}
+.bs-conf{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;
+  color:var(--accent);margin-top:7px}
+
+/* sidebar — desktop click preview */
+#sidebar{position:absolute;top:0;right:0;bottom:0;width:280px;z-index:10;
+  background:rgba(15,13,11,.95);border-left:1px solid rgba(244,237,227,.12);
+  backdrop-filter:blur(20px);transform:translateX(100%);
+  transition:transform .35s cubic-bezier(.2,.7,.3,1);
+  display:flex;flex-direction:column;overflow-y:auto}
+#sidebar.open{transform:translateX(0)}
+#sb-close{position:absolute;top:10px;right:10px;z-index:1;width:28px;height:28px;
+  border:1px solid rgba(244,237,227,.2);background:rgba(244,237,227,.08);
+  color:rgba(244,237,227,.7);font-size:.9rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  border-radius:3px;transition:background .2s,color .2s}
+#sb-close:hover{background:rgba(204,247,63,.2);color:#ccf73f;border-color:#ccf73f}
+#sb-img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#1a1916;flex-shrink:0}
+.sb-body{padding:14px 16px 24px;flex:1}
+.sb-title{font-family:var(--disp);font-weight:500;font-size:1.05rem;letter-spacing:-.01em;
+  color:rgba(244,237,227,.9);line-height:1.2;font-variation-settings:"opsz" 24;margin-bottom:8px}
+.sb-species{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--accent)}
+.sb-conf-row{display:flex;align-items:center;gap:8px;margin-top:6px}
+.sb-conf-label{font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;
+  color:rgba(244,237,227,.45);white-space:nowrap}
+.sb-conf-bar{flex:1;height:2px;background:rgba(244,237,227,.12);border-radius:1px;overflow:hidden}
+#sb-conf-fill{height:100%;background:var(--accent);border-radius:1px;transition:width .4s}
+.sb-meta{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(244,237,227,.38);margin-top:12px;line-height:2}
+.sb-colors{display:flex;gap:5px;margin-top:12px;flex-wrap:wrap}
 
 /* axis legend */
 #axis-legend{position:absolute;top:12px;left:12px;z-index:7;pointer-events:none;
@@ -115,18 +142,6 @@ canvas{display:block;width:100%;height:100%}
 .scene-wrap:fullscreen{border-radius:0;border:none;height:100dvh;width:100vw}
 .scene-wrap:-webkit-full-screen{border-radius:0;border:none;height:100dvh;width:100vw}
 
-/* click preview card */
-#click-card{position:absolute;z-index:8;width:220px;display:none;
-  background:var(--surface);border:1px solid var(--line-strong);
-  box-shadow:0 12px 32px rgba(0,0,0,.22)}
-#click-card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#1a1916}
-#click-card .cc-body{padding:12px}
-#click-card .cc-title{font-family:var(--disp);font-weight:500;font-size:1rem;letter-spacing:-.01em;
-  line-height:1.2;margin-bottom:6px;font-variation-settings:"opsz" 24}
-#click-card .cc-meta{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;
-  text-transform:uppercase;color:var(--dim);line-height:1.9}
-#click-card .cc-conf{display:inline-block;font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;
-  color:var(--accent-ink);border:1px solid var(--accent-ink);padding:2px 8px;margin-top:6px}
 #click-card .cc-close{position:absolute;top:8px;right:8px;width:24px;height:24px;
   border:none;background:rgba(14,13,11,.6);color:#fff;font-size:.9rem;cursor:pointer;
   display:flex;align-items:center;justify-content:center;pointer-events:all}
@@ -201,26 +216,30 @@ canvas{display:block;width:100%;height:100%}
       </svg>
     </button>
 
-    <!-- Touch bottom sheet -->
+    <!-- Touch: bottom sheet with full-width image -->
     <div id="bottom-sheet">
-      <div class="bs-handle"></div>
-      <div class="bs-content">
-        <img id="bs-img" src="" alt="">
-        <div class="bs-info">
-          <div class="bs-title" id="bs-title"></div>
-          <div class="bs-meta"  id="bs-meta"></div>
-          <div class="bs-conf"  id="bs-conf"></div>
-        </div>
+      <div class="bs-drag-bar" id="bs-drag-bar"><div class="bs-handle"></div></div>
+      <img id="bs-img" src="" alt="">
+      <div class="bs-body">
+        <div class="bs-title" id="bs-title"></div>
+        <div class="bs-meta"  id="bs-meta"></div>
+        <div class="bs-conf"  id="bs-conf"></div>
       </div>
     </div>
 
-    <div id="click-card">
-      <img id="cc-img" src="" alt="">
-      <button class="cc-close" id="cc-close">&times;</button>
-      <div class="cc-body">
-        <div class="cc-title" id="cc-title"></div>
-        <div class="cc-meta" id="cc-meta"></div>
-        <span class="cc-conf" id="cc-conf" style="display:none"></span>
+    <!-- Desktop: slide-in sidebar -->
+    <div id="sidebar">
+      <button id="sb-close">&times;</button>
+      <img id="sb-img" src="" alt="">
+      <div class="sb-body">
+        <div class="sb-title" id="sb-title"></div>
+        <div class="sb-species" id="sb-species"></div>
+        <div class="sb-conf-row" id="sb-conf-row" style="display:none">
+          <span class="sb-conf-label" id="sb-conf-label"></span>
+          <div class="sb-conf-bar"><div id="sb-conf-fill" style="width:0"></div></div>
+        </div>
+        <div class="sb-meta" id="sb-meta"></div>
+        <div class="sb-colors" id="sb-colors"></div>
       </div>
     </div>
   </div>
@@ -524,43 +543,50 @@ if (!isTouch) {
   });
 }
 
-// ---- click / tap preview ----
-const card    = document.getElementById('click-card');
-const ccImg   = document.getElementById('cc-img');
-const ccTitle = document.getElementById('cc-title');
-const ccMeta  = document.getElementById('cc-meta');
-const ccConf  = document.getElementById('cc-conf');
+// ---- desktop sidebar ----
+const sidebar     = document.getElementById('sidebar');
+const sbImg       = document.getElementById('sb-img');
+const sbTitle     = document.getElementById('sb-title');
+const sbSpecies   = document.getElementById('sb-species');
+const sbConfRow   = document.getElementById('sb-conf-row');
+const sbConfLabel = document.getElementById('sb-conf-label');
+const sbConfFill  = document.getElementById('sb-conf-fill');
+const sbMeta      = document.getElementById('sb-meta');
+const sbColors    = document.getElementById('sb-colors');
 
-document.getElementById('cc-close').addEventListener('click', e => {
-  e.stopPropagation(); closeCard();
-});
-
-function populateCard(photo) {
-  ccTitle.textContent = photo.species || photo.animal || photo.title || '';
-  const src = imgUrl(photo.id, 600);
-  ccImg.src = src || ''; ccImg.style.display = src ? 'block' : 'none';
-  ccImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#1a1916';
-  ccMeta.textContent = [photo.category, photo.location, photo.season].filter(Boolean).join(' · ');
+function showSidebar(photo) {
+  sbTitle.textContent   = photo.title || '';
+  const species = photo.species || photo.animal || '';
+  sbSpecies.textContent = species;
   const conf = photo.species_confidence || photo.bird_confidence || 0;
-  ccConf.textContent   = conf > 0 ? conf + '% confidence' : '';
-  ccConf.style.display = conf > 0 ? 'inline-block' : 'none';
+  if (conf > 0 && species) {
+    sbConfLabel.textContent  = conf + '%';
+    sbConfFill.style.width   = conf + '%';
+    sbConfRow.style.display  = 'flex';
+  } else {
+    sbConfRow.style.display  = 'none';
+  }
+  sbMeta.textContent = [photo.category, photo.location, photo.season].filter(Boolean).join('\n');
+  const src = imgUrl(photo.id, 700);
+  sbImg.src = src || '';
+  sbImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#1a1916';
+  sbColors.innerHTML = '';
+  (photo.dominant_colors || []).forEach(c => {
+    const s = document.createElement('div');
+    s.style.cssText = `width:22px;height:22px;background:${c};border-radius:3px;border:1px solid rgba(244,237,227,.15)`;
+    sbColors.appendChild(s);
+  });
+  sidebar.classList.add('open');
 }
+function closeSidebar() { sidebar.classList.remove('open'); }
 
-function closeCard() { card.style.display = 'none'; }
+document.getElementById('sb-close').addEventListener('click', e => { e.stopPropagation(); closeSidebar(); });
 
 if (!isTouch) {
   wrap.addEventListener('click', e => {
-    if (e.target.closest('#click-card')) return;
-    if (hoveredIdx < 0) { closeCard(); return; }
-    const photo = photos[hoveredIdx];
-    const pt = toCanvas(hoveredIdx);
-    const W = wrap.clientWidth, H = wrap.clientHeight, CW = 220, pad = 12;
-    let cx = pt.x + 32, cy = pt.y - 60;
-    if (cx + CW > W - pad) cx = pt.x - CW - 32;
-    if (cy < pad) cy = pad;
-    if (cy + 320 > H - pad) cy = H - 320 - pad;
-    card.style.left = cx + 'px'; card.style.top = cy + 'px'; card.style.display = 'block';
-    populateCard(photo);
+    if (e.target.closest('#sidebar')) return;
+    if (hoveredIdx < 0) { closeSidebar(); return; }
+    showSidebar(photos[hoveredIdx]);
   });
 }
 
@@ -577,7 +603,7 @@ function showBottomSheet(photo) {
   const conf = photo.species_confidence || photo.bird_confidence || 0;
   bsConf.textContent   = conf > 0 ? conf + '% confidence' : '';
   bsConf.style.display = conf > 0 ? '' : 'none';
-  const src = imgUrl(photo.id, 500);
+  const src = imgUrl(photo.id, 700);
   bsImg.src = src || ''; bsImg.style.display = src ? 'block' : 'none';
   bsImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#1a1916';
   sheet.classList.add('open');
@@ -603,11 +629,20 @@ if (isTouch) {
     hits.length > 0 ? showBottomSheet(photos[hits[0].index]) : closeBottomSheet();
   }, {passive: true});
 
-  // Swipe down on the sheet to dismiss
+  // Swipe down on drag bar to dismiss
+  const dragBar = document.getElementById('bs-drag-bar');
   let sy0 = 0;
-  sheet.addEventListener('touchstart', e => { sy0 = e.touches[0].clientY; }, {passive:true});
-  sheet.addEventListener('touchend',   e => {
-    if (e.changedTouches[0].clientY - sy0 > 48) closeBottomSheet();
+  dragBar.addEventListener('touchstart', e => { sy0 = e.touches[0].clientY; }, {passive:true});
+  dragBar.addEventListener('touchend',   e => {
+    if (e.changedTouches[0].clientY - sy0 > 30) closeBottomSheet();
+  }, {passive:true});
+  // Also tap outside sheet to dismiss
+  wrap.addEventListener('touchend', e => {
+    if (!e.target.closest('#bottom-sheet') && sheet.classList.contains('open')) {
+      const t = e.changedTouches[0];
+      if (Math.hypot(t.clientX-t0x, t.clientY-t0y) < 12 && Date.now()-t0t < 350)
+        closeBottomSheet();
+    }
   }, {passive:true});
 }
 
