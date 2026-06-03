@@ -215,15 +215,15 @@
   #sb{display:none}
   @media(min-width:921px){
     html{scrollbar-width:none}
-    body::-webkit-scrollbar{display:none}
+    ::-webkit-scrollbar{display:none}
     #sb{
       display:flex;flex-direction:column;align-items:center;
-      position:fixed;right:16px;top:50px;bottom:16px;
+      position:fixed;right:14px;top:50px;bottom:14px;
       z-index:45;pointer-events:none;
     }
     .sb-a{
-      font-family:var(--mono);font-size:8px;line-height:11px;
-      color:var(--dimmer);display:block;
+      font-family:var(--mono);font-size:11px;line-height:14px;
+      color:var(--dim);display:block;
       transition:color .06s;
     }
     .sb-a.on{color:var(--accent)}
@@ -463,8 +463,8 @@
     if(!sb)return;
     function rebuild(){
       if(window.innerWidth<=920){sb.innerHTML='';return;}
-      var h=window.innerHeight-50-16;
-      var n=Math.max(8,Math.floor(h/11));
+      var h=window.innerHeight-50-14;
+      var n=Math.max(8,Math.floor(h/14));
       var frag=document.createDocumentFragment();
       for(var i=0;i<n;i++){
         var s=document.createElement('span');
