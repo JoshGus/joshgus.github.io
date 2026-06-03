@@ -57,6 +57,13 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   background:none;transition:background .2s,color .2s}
 .wbtn:hover{background:rgba(100,160,40,.3);color:#ccf73f}
 
+#restart-btn{position:fixed;bottom:18px;right:20px;z-index:50;
+  font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;
+  cursor:pointer;border:1px solid rgba(120,180,60,.35);color:rgba(160,220,90,.7);
+  padding:9px 15px;background:rgba(20,38,20,.72);backdrop-filter:blur(4px);
+  transition:background .18s,color .18s,border-color .18s}
+#restart-btn:hover{background:rgba(80,140,30,.35);color:#ccf73f;border-color:rgba(160,220,60,.6)}
+
 .info{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
   font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
   color:rgba(140,190,80,.5);text-align:center;pointer-events:none;z-index:50;transition:opacity .8s}
@@ -83,6 +90,8 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   <div class="sep"></div>
   <div class="dv" id="hud-date">—</div>
 </div>
+
+<button id="restart-btn" onclick="resetGame()">↺ Restart</button>
 
 <div id="win">
   <div class="wcard">
@@ -221,8 +230,8 @@ function buildTerrain(){
 function renderTerrain(){
   var img=offCtx.createImageData(W,H);
   var d=img.data;
-  // Light from upper-left
-  var lx=-0.58, ly=-0.45, lz=0.68;
+  // Light from upper-right
+  var lx=0.58, ly=-0.45, lz=0.68;
   var ll=Math.sqrt(lx*lx+ly*ly+lz*lz); lx/=ll; ly/=ll; lz/=ll;
 
   for(var y=0;y<H;y++){
@@ -318,7 +327,7 @@ function physics(dt){
   if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
   // Hole suction & detection — pull starts from HOLE_R*5 out
   var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
-  var pullRange=HOLE_R*5;
+  var pullRange=HOLE_R*2.8;
   if(dh<pullRange){
     var pull=Math.pow((pullRange-dh)/pullRange,1.4); // stronger near edge
     var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
@@ -414,17 +423,25 @@ function draw(){
     ctx.setLineDash([]);
   }
 
-  // Ball shadow
-  ctx.beginPath(); ctx.arc(ball.x+2,ball.y+3,BALL_R,0,6.2832);
-  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.fill();
-
-  // Ball (if not holed)
+  // Cast shadow — light top-right so shadow falls bottom-left
   if(!inHole){
-    var bg=ctx.createRadialGradient(ball.x-2,ball.y-2,1,ball.x,ball.y,BALL_R);
-    bg.addColorStop(0,'#ffffff'); bg.addColorStop(1,'#ccc8c0');
+    var sdx=ball.x-3, sdy=ball.y+4;
+    var sg=ctx.createRadialGradient(sdx,sdy,0,sdx,sdy,BALL_R*1.5);
+    sg.addColorStop(0,'rgba(0,0,0,0.32)'); sg.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.beginPath(); ctx.arc(sdx,sdy,BALL_R*1.5,0,6.2832);
+    ctx.fillStyle=sg; ctx.fill();
+  }
+
+  // Ball — directional shading, highlight top-right
+  if(!inHole){
+    var hlx=ball.x+BALL_R*0.34, hly=ball.y-BALL_R*0.34;
+    var bg=ctx.createRadialGradient(hlx,hly,0.5,ball.x,ball.y,BALL_R*1.05);
+    bg.addColorStop(0,'#ffffff');
+    bg.addColorStop(0.45,'#dedad4');
+    bg.addColorStop(1,'#7a7672');  // shadowed bottom-left
     ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,6.2832);
     ctx.fillStyle=bg; ctx.fill();
-    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=0.8; ctx.stroke();
+    ctx.strokeStyle='rgba(0,0,0,0.14)'; ctx.lineWidth=0.8; ctx.stroke();
   }
 }
 
