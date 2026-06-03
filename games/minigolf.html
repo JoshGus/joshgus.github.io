@@ -31,8 +31,8 @@ html,body{height:100%;overflow:hidden;background:#1a2e1a;-webkit-font-smoothing:
 #clock{color:rgba(140,160,120,.6)}
 @media(max-width:640px){.status nav{display:none}}
 
-.game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;flex-direction:column}
-canvas{flex:1;display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+.game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;align-items:center;justify-content:center;background:#111a11}
+canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 
 .hud{position:fixed;top:58px;left:50%;transform:translateX(-50%);
   display:flex;gap:18px;align-items:center;
@@ -145,14 +145,16 @@ function makeNoise(seed){
 // ── Canvas ─────────────────────────────────────────────────────────
 var canvas=document.getElementById('c');
 var ctx=canvas.getContext('2d');
-var W=0, H=0;
+var W=900, H=540; // fixed course dimensions — never changes
+canvas.width=W; canvas.height=H;
 var offscreen=document.createElement('canvas');
 var offCtx=offscreen.getContext('2d');
+offscreen.width=W; offscreen.height=H;
 var heightMap; // Float32Array [0,1]
 
 // ── Physics constants ──────────────────────────────────────────────
 var BALL_R=7, HOLE_R=12, BORDER=36;
-var SLOPE_FORCE=7000, FRICTION=1.4, RESTITUTION=0.58, MAX_SPEED=850;
+var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=850;
 var STOP_SPD=10, MAX_DRAG=125, SHOOT_SCALE=6.2;
 
 // ── Game state ─────────────────────────────────────────────────────
@@ -160,20 +162,16 @@ var ball={x:0,y:0,vx:0,vy:0};
 var teeX=0, teeY=0, holeX=0, holeY=0;
 var shots=0, inHole=false;
 var dragging=false, dragX=0, dragY=0;
+var dragStartX=0, dragStartY=0; // where the pointer went down
 var info=document.getElementById('info');
 var lastTs=0;
 
-// ── Resize ─────────────────────────────────────────────────────────
-function resize(){
+// ── Scale canvas display to fit viewport (internal size never changes) ──
+function scaleCanvas(){
   var wrap=document.querySelector('.game-wrap');
-  var newW=wrap.clientWidth, newH=wrap.clientHeight;
-  var bxF=W?ball.x/W:0, byF=H?ball.y/H:0;
-  W=newW; H=newH;
-  canvas.width=W; canvas.height=H;
-  offscreen.width=W; offscreen.height=H;
-  buildTerrain();
-  if(shots===0){ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0;}
-  else{ball.x=bxF*W; ball.y=byF*H;}
+  var sc=Math.min(wrap.clientWidth/W,(wrap.clientHeight)/H);
+  canvas.style.width=Math.round(W*sc)+'px';
+  canvas.style.height=Math.round(H*sc)+'px';
 }
 
 // ── Terrain ────────────────────────────────────────────────────────
@@ -293,9 +291,20 @@ function physics(dt){
   var eps=2.5;
   var gx=(getH(ball.x+eps,ball.y)-getH(ball.x-eps,ball.y))/(2*eps);
   var gy=(getH(ball.x,ball.y+eps)-getH(ball.x,ball.y-eps))/(2*eps);
-  // Slope + friction
-  ball.vx+=(-gx*SLOPE_FORCE-ball.vx*FRICTION)*dt;
-  ball.vy+=(-gy*SLOPE_FORCE-ball.vy*FRICTION)*dt;
+  // Decompose slope into parallel (speed change) and perpendicular (turning)
+  // Perpendicular force is amplified — cross-slope breaks are more pronounced
+  var spd0=Math.hypot(ball.vx,ball.vy);
+  if(spd0>0.5){
+    var tx=ball.vx/spd0, ty=ball.vy/spd0; // unit direction of travel
+    var px=-ty, py=tx;                      // unit perpendicular (left)
+    var gPara=gx*tx+gy*ty;
+    var gPerp=gx*px+gy*py;
+    ball.vx+=(-gPara*tx*SLOPE_FORCE - gPerp*px*SLOPE_FORCE*LATERAL_MULT - ball.vx*FRICTION)*dt;
+    ball.vy+=(-gPara*ty*SLOPE_FORCE - gPerp*py*SLOPE_FORCE*LATERAL_MULT - ball.vy*FRICTION)*dt;
+  } else {
+    ball.vx+=(-gx*SLOPE_FORCE-ball.vx*FRICTION)*dt;
+    ball.vy+=(-gy*SLOPE_FORCE-ball.vy*FRICTION)*dt;
+  }
   // Speed cap
   var spd=Math.hypot(ball.vx,ball.vy);
   if(spd>MAX_SPEED){var s=MAX_SPEED/spd; ball.vx*=s; ball.vy*=s;}
@@ -439,15 +448,18 @@ function moving(){return Math.hypot(ball.vx,ball.vy)>STOP_SPD;}
 function onDown(e){
   if(inHole||moving()) return;
   var p=canvasPos(e);
-  if(Math.hypot(p.x-ball.x,p.y-ball.y)<BALL_R+60){
-    dragging=true; dragX=p.x; dragY=p.y;
-  }
+  dragging=true;
+  dragStartX=p.x; dragStartY=p.y;
+  // virtual drag point starts at ball center; moves as pointer moves
+  dragX=ball.x; dragY=ball.y;
 }
 function onMove(e){
   if(!dragging) return;
   e.preventDefault();
   var p=canvasPos(e);
-  dragX=p.x; dragY=p.y;
+  // shift the virtual drag point by how far pointer has moved from press
+  dragX=ball.x-(p.x-dragStartX);
+  dragY=ball.y-(p.y-dragStartY);
 }
 function onUp(e){
   if(!dragging) return;
@@ -494,14 +506,15 @@ window.resetGame=function(){
   ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0;
 };
 
-// ── Resize debounce ────────────────────────────────────────────────
+// ── Resize: only rescale display, never rebuild terrain ────────────
 window.addEventListener('resize',function(){
   clearTimeout(window._rz);
-  window._rz=setTimeout(resize,120);
+  window._rz=setTimeout(scaleCanvas,80);
 });
 
 // ── Init ───────────────────────────────────────────────────────────
-resize();
+buildTerrain();
+scaleCanvas();
 ball.x=teeX; ball.y=teeY;
 requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
 
