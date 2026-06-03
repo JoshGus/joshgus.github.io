@@ -65,8 +65,12 @@ canvas{display:block;width:100%;height:100%}
   backdrop-filter:blur(20px);transform:translateY(100%);
   transition:transform .32s cubic-bezier(.2,.7,.3,1)}
 #bottom-sheet.open{transform:translateY(0)}
-.bs-drag-bar{display:flex;align-items:center;justify-content:center;padding:11px 0 8px;cursor:grab}
+.bs-drag-bar{position:relative;display:flex;align-items:center;justify-content:center;padding:11px 0 8px;cursor:grab}
 .bs-handle{width:44px;height:5px;background:rgba(244,237,227,.28);border-radius:3px}
+#bs-close{position:absolute;right:12px;top:50%;transform:translateY(-50%);
+  width:32px;height:32px;border:1px solid rgba(244,237,227,.2);background:rgba(244,237,227,.08);
+  color:rgba(244,237,227,.8);font-size:1.1rem;border-radius:50%;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
 #bs-img{display:block;width:100%;height:200px;object-fit:cover;background:#1a1916}
 .bs-body{padding:14px 16px 32px}
 .bs-title{font-family:var(--disp);font-weight:500;font-size:1.1rem;letter-spacing:-.01em;
@@ -218,7 +222,10 @@ canvas{display:block;width:100%;height:100%}
 
     <!-- Touch: bottom sheet with full-width image -->
     <div id="bottom-sheet">
-      <div class="bs-drag-bar" id="bs-drag-bar"><div class="bs-handle"></div></div>
+      <div class="bs-drag-bar" id="bs-drag-bar">
+        <div class="bs-handle"></div>
+        <button id="bs-close" aria-label="Close">&times;</button>
+      </div>
       <img id="bs-img" src="" alt="">
       <div class="bs-body">
         <div class="bs-title" id="bs-title"></div>
@@ -629,12 +636,17 @@ if (isTouch) {
     hits.length > 0 ? showBottomSheet(photos[hits[0].index]) : closeBottomSheet();
   }, {passive: true});
 
-  // Swipe down on drag bar to dismiss
-  const dragBar = document.getElementById('bs-drag-bar');
+  // Close button
+  document.getElementById('bs-close').addEventListener('click', e => {
+    e.stopPropagation();
+    closeBottomSheet();
+  });
+
+  // Swipe down anywhere on the sheet to dismiss (lower threshold = easier)
   let sy0 = 0;
-  dragBar.addEventListener('touchstart', e => { sy0 = e.touches[0].clientY; }, {passive:true});
-  dragBar.addEventListener('touchend',   e => {
-    if (e.changedTouches[0].clientY - sy0 > 30) closeBottomSheet();
+  sheet.addEventListener('touchstart', e => { sy0 = e.touches[0].clientY; }, {passive:true});
+  sheet.addEventListener('touchend', e => {
+    if (e.changedTouches[0].clientY - sy0 > 20) closeBottomSheet();
   }, {passive:true});
 }
 
