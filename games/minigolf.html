@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Daily Links — Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7ece1;--surface:#fdf5ea;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14);--line-strong:rgba(29,23,18,.30);
+  --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;background:#1a2e1a;-webkit-font-smoothing:antialiased}
+
+.status{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content:space-between;align-items:center;
+  padding:12px clamp(16px,3vw,48px);font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
+  background:rgba(26,46,26,.95);backdrop-filter:blur(8px)}
+.status .sig{font-weight:600;color:#d8e8c8;text-decoration:none}
+.status .sig:hover{color:var(--accent)}
+.status nav{display:flex;gap:16px}
+.status nav a{color:rgba(180,200,160,.7);transition:color .2s;text-decoration:none}
+.status nav a:hover,.status nav a.active{color:var(--accent)}
+#clock{color:rgba(140,160,120,.6)}
+@media(max-width:640px){.status nav{display:none}}
+
+.game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;flex-direction:column}
+canvas{flex:1;display:block;width:100%;height:100%;touch-action:none;cursor:crosshair}
+
+.hud{position:fixed;top:58px;left:50%;transform:translateX(-50%);
+  display:flex;gap:18px;align-items:center;
+  background:rgba(20,38,20,.82);backdrop-filter:blur(6px);
+  border:1px solid rgba(120,180,80,.25);padding:7px 18px;
+  font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(160,210,100,.7);pointer-events:none;z-index:50;white-space:nowrap}
+.hud .sv{font-size:1.5rem;font-weight:700;color:#ccf73f;font-family:var(--disp);line-height:1;letter-spacing:-.02em}
+.hud .sl{font-size:.5rem;color:rgba(160,210,100,.5)}
+.hud .sep{width:1px;height:26px;background:rgba(120,180,80,.2)}
+.hud .dv{font-size:.58rem;color:rgba(140,180,90,.6)}
+
+#win{display:none;position:fixed;inset:0;z-index:200;background:rgba(10,20,10,.75);
+  backdrop-filter:blur(6px);place-items:center}
+#win.show{display:grid}
+.wcard{background:#0e1f0e;border:1px solid rgba(120,180,60,.3);padding:48px 56px;text-align:center;max-width:340px;width:90%}
+.wcard .wt{font-family:var(--disp);font-weight:520;font-size:clamp(1.8rem,5vw,2.6rem);letter-spacing:-.02em;line-height:1;color:#d8f0a0;margin-bottom:6px}
+.wcard .ws{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;color:rgba(140,190,80,.6);margin-bottom:28px}
+.wcard .ws b{color:#ccf73f;font-size:2.2rem;display:block;font-family:var(--disp);font-weight:700;letter-spacing:-.02em;line-height:1;margin:6px 0}
+.wbtn{display:inline-block;margin:4px;font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+  cursor:pointer;border:1px solid rgba(120,180,60,.4);color:rgba(180,230,100,.8);padding:11px 20px;
+  background:none;transition:background .2s,color .2s}
+.wbtn:hover{background:rgba(100,160,40,.3);color:#ccf73f}
+
+.info{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(140,190,80,.5);text-align:center;pointer-events:none;z-index:50;transition:opacity .8s}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+    <a href="../colormap.html">Color Space</a>
+    <a href="../index.html#contact">Contact</a>
+  </nav>
+  <span id="clock">--:--</span>
+</div>
+
+<div class="game-wrap"><canvas id="c"></canvas></div>
+
+<div class="hud">
+  <div><div class="sl">Shots</div><div class="sv" id="hud-shots">0</div></div>
+  <div class="sep"></div>
+  <div class="dv" id="hud-date">—</div>
+</div>
+
+<div id="win">
+  <div class="wcard">
+    <div class="wt" id="win-title">Finished!</div>
+    <div class="ws">You holed out in<b id="win-shots">—</b></div>
+    <button class="wbtn" id="win-copy">Copy result</button>
+    <button class="wbtn" onclick="resetGame()">Play again</button>
+  </div>
+</div>
+
+<div class="info" id="info">Drag back from the ball to aim &mdash; release to shoot</div>
+
+<script>
+(function(){
+'use strict';
+
+// ── Clock ──────────────────────────────────────────────────────────
+var clk=document.getElementById('clock');
+function tickClock(){clk.textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});}
+tickClock(); setInterval(tickClock,30000);
+
+// ── Date / seed ────────────────────────────────────────────────────
+var now=new Date();
+var dateStr=now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+document.getElementById('hud-date').textContent=dateStr;
+var SEED=now.getFullYear()*10000+(now.getMonth()+1)*100+now.getDate();
+
+// ── PRNG (mulberry32) ──────────────────────────────────────────────
+function prng(s){
+  s=s>>>0;
+  return function(){
+    s+=0x6D2B79F5; var t=s;
+    t=Math.imul(t^(t>>>15),t|1); t^=t+Math.imul(t^(t>>>7),t|61);
+    return ((t^(t>>>14))>>>0)/4294967296;
+  };
+}
+
+// ── Perlin gradient noise ──────────────────────────────────────────
+function makeNoise(seed){
+  var r=prng(seed), p=new Uint8Array(512), gx=new Float32Array(512), gy=new Float32Array(512);
+  for(var i=0;i<256;i++) p[i]=i;
+  for(var i=255;i>0;i--){var j=0|(r()*(i+1)); var t=p[i]; p[i]=p[j]; p[j]=t;}
+  for(var i=0;i<256;i++) p[256+i]=p[i];
+  for(var i=0;i<512;i++){var a=r()*6.28318; gx[i]=Math.cos(a); gy[i]=Math.sin(a);}
+  function fade(t){return t*t*t*(t*(t*6-15)+10);}
+  function lerp(a,b,t){return a+(b-a)*t;}
+  return function(x,y){
+    var X=Math.floor(x)&255, Y=Math.floor(y)&255;
+    var xf=x-Math.floor(x), yf=y-Math.floor(y);
+    var u=fade(xf), v=fade(yf);
+    var A=p[X]+Y, B=p[X+1]+Y;
+    return lerp(
+      lerp(gx[p[A]]*xf+gy[p[A]]*yf, gx[p[B]]*(xf-1)+gy[p[B]]*yf, u),
+      lerp(gx[p[A+1]]*xf+gy[p[A+1]]*(yf-1), gx[p[B+1]]*(xf-1)+gy[p[B+1]]*(yf-1), u),
+      v
+    );
+  };
+}
+
+// ── Canvas ─────────────────────────────────────────────────────────
+var canvas=document.getElementById('c');
+var ctx=canvas.getContext('2d');
+var W=0, H=0;
+var offscreen=document.createElement('canvas');
+var offCtx=offscreen.getContext('2d');
+var heightMap; // Float32Array [0,1]
+
+// ── Physics constants ──────────────────────────────────────────────
+var BALL_R=7, HOLE_R=12, BORDER=36;
+var SLOPE_FORCE=7000, FRICTION=1.4, RESTITUTION=0.58, MAX_SPEED=850;
+var STOP_SPD=10, MAX_DRAG=125, SHOOT_SCALE=6.2;
+
+// ── Game state ─────────────────────────────────────────────────────
+var ball={x:0,y:0,vx:0,vy:0};
+var teeX=0, teeY=0, holeX=0, holeY=0;
+var shots=0, inHole=false;
+var dragging=false, dragX=0, dragY=0;
+var info=document.getElementById('info');
+var lastTs=0;
+
+// ── Resize ─────────────────────────────────────────────────────────
+function resize(){
+  var wrap=document.querySelector('.game-wrap');
+  var newW=wrap.clientWidth, newH=wrap.clientHeight;
+  var bxF=W?ball.x/W:0, byF=H?ball.y/H:0;
+  W=newW; H=newH;
+  canvas.width=W; canvas.height=H;
+  offscreen.width=W; offscreen.height=H;
+  buildTerrain();
+  if(shots===0){ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0;}
+  else{ball.x=bxF*W; ball.y=byF*H;}
+}
+
+// ── Terrain ────────────────────────────────────────────────────────
+function buildTerrain(){
+  // Deterministic positions from seed
+  var r=prng(SEED+99);
+  teeX=Math.round(BORDER+(0.1+r()*0.08)*(W-2*BORDER));
+  teeY=Math.round(BORDER+(0.28+r()*0.44)*(H-2*BORDER));
+  holeX=Math.round(BORDER+(0.8+r()*0.08)*(W-2*BORDER));
+  holeY=Math.round(BORDER+(0.28+r()*0.44)*(H-2*BORDER));
+
+  var n1=makeNoise(SEED), n2=makeNoise(SEED+37), n3=makeNoise(SEED+73);
+  var fx=3.8/W, fy=3.8/W; // ~4 noise periods across width
+
+  heightMap=new Float32Array(W*H);
+  var mn=Infinity, mx=-Infinity;
+
+  for(var y=0;y<H;y++){
+    for(var x=0;x<W;x++){
+      var nx=x*fx, ny=y*fy;
+      // 3-octave FBM
+      var h=n1(nx,ny)*0.500
+           +n2(nx*2.1+1.3,ny*2.1+7.4)*0.250
+           +n3(nx*4.3+3.7,ny*4.3+2.1)*0.125;
+      h/=0.875; // normalize sum of weights
+
+      // Flatten around tee and hole
+      var dtee=Math.hypot(x-teeX,y-teeY);
+      var dhole=Math.hypot(x-holeX,y-holeY);
+      var FR=52;
+      var ft=Math.exp(-dtee*dtee/(2*FR*FR));
+      var fh=Math.exp(-dhole*dhole/(2*FR*FR));
+      h*=(1-Math.max(ft,fh)*0.9);
+
+      heightMap[y*W+x]=h;
+      if(h<mn) mn=h; if(h>mx) mx=h;
+    }
+  }
+
+  // Normalize to [0,1]
+  var rng=mx-mn||1;
+  for(var i=0;i<heightMap.length;i++) heightMap[i]=(heightMap[i]-mn)/rng;
+
+  renderTerrain();
+}
+
+function renderTerrain(){
+  var img=offCtx.createImageData(W,H);
+  var d=img.data;
+  // Light from upper-left
+  var lx=-0.58, ly=-0.45, lz=0.68;
+  var ll=Math.sqrt(lx*lx+ly*ly+lz*lz); lx/=ll; ly/=ll; lz/=ll;
+
+  for(var y=0;y<H;y++){
+    for(var x=0;x<W;x++){
+      var idx=y*W+x;
+      var h=heightMap[idx];
+      // Gradient (central difference)
+      var hR=x<W-1?heightMap[idx+1]:h;
+      var hL=x>0?heightMap[idx-1]:h;
+      var hD=y<H-1?heightMap[idx+W]:h;
+      var hU=y>0?heightMap[idx-W]:h;
+      var gx=(hR-hL)*0.5, gy=(hD-hU)*0.5;
+      // Surface normal
+      var sc=7.0;
+      var nx=-gx*sc, ny=-gy*sc, nz=1.0;
+      var nl=Math.sqrt(nx*nx+ny*ny+nz*nz); nx/=nl; ny/=nl; nz/=nl;
+      var diff=Math.max(0,nx*lx+ny*ly+nz*lz);
+      var light=0.36+0.64*diff;
+      // Contour lines at 0.1 intervals
+      var ci=(h*10)%1.0;
+      var contour=ci<0.055||ci>0.945?0.78:1.0;
+      // Height color
+      var rgb=hColor(h);
+      var i4=idx*4;
+      d[i4  ]=Math.round(rgb[0]*light*contour);
+      d[i4+1]=Math.round(rgb[1]*light*contour);
+      d[i4+2]=Math.round(rgb[2]*light*contour);
+      d[i4+3]=255;
+    }
+  }
+  offCtx.putImageData(img,0,0);
+}
+
+function hColor(h){
+  // Deep hollow → rough → fairway → light rough → sandy hill → peak
+  var S=[
+    [0.00,[28,58,32]],
+    [0.18,[40,82,38]],
+    [0.38,[58,110,44]],
+    [0.55,[82,138,52]],
+    [0.70,[118,160,62]],
+    [0.84,[164,178,82]],
+    [1.00,[188,158,96]],
+  ];
+  for(var i=1;i<S.length;i++){
+    if(h<=S[i][0]){
+      var t=(h-S[i-1][0])/(S[i][0]-S[i-1][0]);
+      var a=S[i-1][1], b=S[i][1];
+      return[a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t, a[2]+(b[2]-a[2])*t];
+    }
+  }
+  return S[S.length-1][1];
+}
+
+// ── Height lookup ──────────────────────────────────────────────────
+function getH(x,y){
+  var xi=Math.max(0,Math.min(W-1,Math.round(x)));
+  var yi=Math.max(0,Math.min(H-1,Math.round(y)));
+  return heightMap[yi*W+xi];
+}
+
+// ── Physics ────────────────────────────────────────────────────────
+function physics(dt){
+  if(inHole) return;
+  // Gradient at ball position
+  var eps=2.5;
+  var gx=(getH(ball.x+eps,ball.y)-getH(ball.x-eps,ball.y))/(2*eps);
+  var gy=(getH(ball.x,ball.y+eps)-getH(ball.x,ball.y-eps))/(2*eps);
+  // Slope + friction
+  ball.vx+=(-gx*SLOPE_FORCE-ball.vx*FRICTION)*dt;
+  ball.vy+=(-gy*SLOPE_FORCE-ball.vy*FRICTION)*dt;
+  // Speed cap
+  var spd=Math.hypot(ball.vx,ball.vy);
+  if(spd>MAX_SPEED){var s=MAX_SPEED/spd; ball.vx*=s; ball.vy*=s;}
+  // Move
+  ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
+  // Boundary bounce
+  var lo=BORDER+BALL_R, hiX=W-BORDER-BALL_R, hiY=H-BORDER-BALL_R;
+  if(ball.x<lo){ball.x=lo; ball.vx=Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88;}
+  if(ball.x>hiX){ball.x=hiX; ball.vx=-Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88;}
+  if(ball.y<lo){ball.y=lo; ball.vy=Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
+  if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
+  // Hole suction & detection
+  var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
+  if(dh<HOLE_R+2){
+    var pull=((HOLE_R+2-dh)/(HOLE_R+2));
+    var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
+    ball.vx+=Math.cos(ang)*pull*300*dt;
+    ball.vy+=Math.sin(ang)*pull*300*dt;
+    if(dh<3){
+      inHole=true;
+      ball.x=holeX; ball.y=holeY; ball.vx=0; ball.vy=0;
+      onWin();
+    }
+  }
+}
+
+// ── Draw ───────────────────────────────────────────────────────────
+function draw(){
+  ctx.clearRect(0,0,W,H);
+  ctx.drawImage(offscreen,0,0);
+
+  // Course border
+  ctx.strokeStyle='rgba(0,0,0,0.55)';
+  ctx.lineWidth=4;
+  ctx.strokeRect(BORDER,BORDER,W-2*BORDER,H-2*BORDER);
+  ctx.strokeStyle='rgba(140,200,80,0.15)';
+  ctx.lineWidth=1;
+  ctx.strokeRect(BORDER+3,BORDER+3,W-2*BORDER-6,H-2*BORDER-6);
+
+  // Hole shadow + cup
+  ctx.beginPath(); ctx.arc(holeX+2,holeY+3,HOLE_R,0,6.2832);
+  ctx.fillStyle='rgba(0,0,0,0.3)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(holeX,holeY,HOLE_R,0,6.2832);
+  ctx.fillStyle='#0a0a0a'; ctx.fill();
+  ctx.beginPath(); ctx.arc(holeX,holeY,HOLE_R,0,6.2832);
+  ctx.strokeStyle='rgba(60,40,20,0.6)'; ctx.lineWidth=2; ctx.stroke();
+
+  // Flag pole + flag
+  ctx.beginPath();
+  ctx.moveTo(holeX,holeY-HOLE_R+1); ctx.lineTo(holeX,holeY-HOLE_R-24);
+  ctx.strokeStyle='rgba(220,220,200,0.9)'; ctx.lineWidth=1.5; ctx.stroke();
+  ctx.beginPath();
+  ctx.moveTo(holeX,holeY-HOLE_R-24);
+  ctx.lineTo(holeX+14,holeY-HOLE_R-18);
+  ctx.lineTo(holeX,holeY-HOLE_R-12);
+  ctx.fillStyle='#ccf73f'; ctx.fill();
+
+  // Tee marker
+  ctx.beginPath(); ctx.arc(teeX,teeY,4,0,6.2832);
+  ctx.fillStyle='rgba(255,255,255,0.22)'; ctx.fill();
+  ctx.beginPath(); ctx.arc(teeX,teeY,4,0,6.2832);
+  ctx.strokeStyle='rgba(255,255,255,0.35)'; ctx.lineWidth=1; ctx.stroke();
+
+  // Aim line while dragging
+  if(dragging){
+    var dx=ball.x-dragX, dy=ball.y-dragY;
+    var dist=Math.hypot(dx,dy);
+    var clamped=Math.min(dist,MAX_DRAG);
+    var power=clamped/MAX_DRAG;
+    var nx=dx/Math.max(dist,0.001), ny=dy/Math.max(dist,0.001);
+    var flen=clamped*1.5;
+
+    // Aim line forward
+    ctx.beginPath();
+    ctx.setLineDash([7,5]);
+    ctx.moveTo(ball.x,ball.y);
+    ctx.lineTo(ball.x+nx*flen,ball.y+ny*flen);
+    ctx.strokeStyle='rgba(255,255,255,0.65)'; ctx.lineWidth=1.5; ctx.stroke();
+    ctx.setLineDash([]);
+
+    // Arrowhead
+    var ax=ball.x+nx*flen, ay=ball.y+ny*flen;
+    var ang=Math.atan2(ny,nx);
+    ctx.beginPath();
+    ctx.moveTo(ax,ay);
+    ctx.lineTo(ax-11*Math.cos(ang-0.38),ay-11*Math.sin(ang-0.38));
+    ctx.lineTo(ax-11*Math.cos(ang+0.38),ay-11*Math.sin(ang+0.38));
+    ctx.closePath();
+    ctx.fillStyle='rgba(255,255,255,0.65)'; ctx.fill();
+
+    // Power arc around ball
+    var pc=power<0.4?'#ccf73f':power<0.75?'#dba93a':'#e05a3a';
+    ctx.beginPath();
+    ctx.arc(ball.x,ball.y,BALL_R+7,-Math.PI/2,-Math.PI/2+Math.PI*2*power);
+    ctx.strokeStyle=pc; ctx.lineWidth=2.5; ctx.stroke();
+
+    // Drag handle
+    ctx.beginPath(); ctx.arc(dragX,dragY,3.5,0,6.2832);
+    ctx.fillStyle='rgba(255,255,255,0.35)'; ctx.fill();
+
+    // Back line (ghost)
+    ctx.beginPath();
+    ctx.setLineDash([3,5]);
+    ctx.moveTo(ball.x,ball.y); ctx.lineTo(dragX,dragY);
+    ctx.strokeStyle='rgba(255,255,255,0.2)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Ball shadow
+  ctx.beginPath(); ctx.arc(ball.x+2,ball.y+3,BALL_R,0,6.2832);
+  ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.fill();
+
+  // Ball (if not holed)
+  if(!inHole){
+    var bg=ctx.createRadialGradient(ball.x-2,ball.y-2,1,ball.x,ball.y,BALL_R);
+    bg.addColorStop(0,'#ffffff'); bg.addColorStop(1,'#ccc8c0');
+    ctx.beginPath(); ctx.arc(ball.x,ball.y,BALL_R,0,6.2832);
+    ctx.fillStyle=bg; ctx.fill();
+    ctx.strokeStyle='rgba(0,0,0,0.18)'; ctx.lineWidth=0.8; ctx.stroke();
+  }
+}
+
+// ── Game loop ──────────────────────────────────────────────────────
+function loop(ts){
+  var dt=Math.min((ts-lastTs)/1000,0.05);
+  lastTs=ts;
+  if(!dragging) physics(dt);
+  draw();
+  requestAnimationFrame(loop);
+}
+
+// ── Input helpers ──────────────────────────────────────────────────
+function canvasPos(e){
+  var r=canvas.getBoundingClientRect();
+  var sx=W/r.width, sy=H/r.height;
+  var src=e.changedTouches?e.changedTouches[0]||e.touches[0]:e;
+  return{x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy};
+}
+function moving(){return Math.hypot(ball.vx,ball.vy)>STOP_SPD;}
+
+function onDown(e){
+  if(inHole||moving()) return;
+  var p=canvasPos(e);
+  if(Math.hypot(p.x-ball.x,p.y-ball.y)<BALL_R+60){
+    dragging=true; dragX=p.x; dragY=p.y;
+  }
+}
+function onMove(e){
+  if(!dragging) return;
+  e.preventDefault();
+  var p=canvasPos(e);
+  dragX=p.x; dragY=p.y;
+}
+function onUp(e){
+  if(!dragging) return;
+  dragging=false;
+  var dx=ball.x-dragX, dy=ball.y-dragY;
+  var dist=Math.hypot(dx,dy);
+  if(dist>7){
+    var cl=Math.min(dist,MAX_DRAG);
+    var nx=dx/dist, ny=dy/dist;
+    ball.vx=nx*cl*SHOOT_SCALE;
+    ball.vy=ny*cl*SHOOT_SCALE;
+    shots++;
+    document.getElementById('hud-shots').textContent=shots;
+    if(info){info.style.opacity='0'; setTimeout(function(){if(info)info.remove();info=null;},900);}
+  }
+}
+
+canvas.addEventListener('mousedown',onDown);
+canvas.addEventListener('mousemove',onMove);
+canvas.addEventListener('mouseup',onUp);
+canvas.addEventListener('touchstart',function(e){e.preventDefault();onDown(e);},{passive:false});
+canvas.addEventListener('touchmove',function(e){e.preventDefault();onMove(e);},{passive:false});
+canvas.addEventListener('touchend',function(e){e.preventDefault();onUp(e);},{passive:false});
+
+// ── Win ────────────────────────────────────────────────────────────
+function onWin(){
+  var s=shots;
+  document.getElementById('win-shots').textContent=s+(s===1?' shot':' shots');
+  document.getElementById('win-title').textContent=
+    s===1?'Hole in One!':s<=2?'Incredible!':s<=4?'Finished!':'Finally!';
+  document.getElementById('win').classList.add('show');
+  document.getElementById('win-copy').onclick=function(){
+    var txt='Daily Links — '+dateStr+'\n⛳ '+s+(s===1?' shot':' shots');
+    navigator.clipboard&&navigator.clipboard.writeText(txt).then(function(){
+      document.getElementById('win-copy').textContent='Copied!';
+    });
+  };
+}
+
+window.resetGame=function(){
+  inHole=false; shots=0;
+  document.getElementById('hud-shots').textContent='0';
+  document.getElementById('win').classList.remove('show');
+  ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0;
+};
+
+// ── Resize debounce ────────────────────────────────────────────────
+window.addEventListener('resize',function(){
+  clearTimeout(window._rz);
+  window._rz=setTimeout(resize,120);
+});
+
+// ── Init ───────────────────────────────────────────────────────────
+resize();
+ball.x=teeX; ball.y=teeY;
+requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
+
+})();
+</script>
+</body>
+</html>

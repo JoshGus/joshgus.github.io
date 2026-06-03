@@ -112,68 +112,41 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
 <div class="page-header">
   <span class="ph-idx">02 / Games</span>
   <h1>Built for <em>fun</em></h1>
-  <p>Little interactive puzzles — Wordle-style word and number games, built from scratch.</p>
+  <p>Little interactive games — built from scratch, new course every day.</p>
 </div>
 
 <div class="games-wrap">
   <div class="games-grid">
 
-    <a class="game-card" href="lexicon.html">
-      <div class="card-thumb">
-        <div class="tiles">
-          <span class="t present">C</span>
-          <span class="t absent">R</span>
-          <span class="t correct">A</span>
-          <span class="t absent">N</span>
-          <span class="t correct">E</span>
-        </div>
+    <a class="game-card" href="minigolf.html">
+      <div class="card-thumb" style="background:linear-gradient(145deg,#1a3a1a,#2d5a22);min-height:160px">
+        <svg viewBox="0 0 140 90" style="width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- terrain contour rings -->
+          <ellipse cx="68" cy="52" rx="50" ry="24" stroke="rgba(120,180,60,.18)" stroke-width="1.5"/>
+          <ellipse cx="68" cy="48" rx="36" ry="17" stroke="rgba(120,180,60,.22)" stroke-width="1.5"/>
+          <ellipse cx="72" cy="44" rx="22" ry="11" stroke="rgba(140,200,70,.28)" stroke-width="1.5"/>
+          <!-- tee marker -->
+          <circle cx="20" cy="58" r="4" fill="rgba(255,255,255,.25)"/>
+          <!-- aim line -->
+          <line x1="20" y1="58" x2="108" y2="40" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-dasharray="6,4"/>
+          <polygon points="108,40 100,38 102,46" fill="rgba(255,255,255,.5)"/>
+          <!-- ball -->
+          <circle cx="20" cy="58" r="5.5" fill="white"/>
+          <!-- hole -->
+          <circle cx="112" cy="40" r="6" fill="#080808"/>
+          <circle cx="112" cy="40" r="6" stroke="rgba(60,40,20,.5)" stroke-width="1.5"/>
+          <!-- flag pole -->
+          <line x1="112" y1="35" x2="112" y2="20" stroke="rgba(220,220,200,.85)" stroke-width="1.5"/>
+          <!-- flag -->
+          <polygon points="112,20 126,25 112,30" fill="#ccf73f"/>
+        </svg>
       </div>
       <div class="card-body">
-        <h2>Lexicon</h2>
-        <p>A daily five-letter word puzzle. Six guesses, colour-coded clues — the classic, rebuilt from scratch.</p>
+        <h2>Daily Links</h2>
+        <p>A seeded minigolf course generated fresh each day — Perlin-noise terrain, realistic slopes, drag-to-shoot. Same course for everyone.</p>
         <div class="card-foot">
-          <div class="stack"><b>JS</b><b>CSS</b></div>
+          <div class="stack"><b>Canvas</b><b>JS</b></div>
           <span class="play-label">Play <span class="arr">→</span></span>
-        </div>
-      </div>
-    </a>
-
-    <a class="game-card" href="numble.html">
-      <div class="card-thumb">
-        <div class="tiles">
-          <span class="t correct">4</span>
-          <span class="t absent">8</span>
-          <span class="t present">1</span>
-          <span class="t correct">5</span>
-          <span class="t absent">2</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <h2>Numble</h2>
-        <p>Wordle's logic with numbers instead of letters — crack the hidden sequence before the guesses run out.</p>
-        <div class="card-foot">
-          <div class="stack"><b>JS</b></div>
-          <span class="play-label">Play <span class="arr">→</span></span>
-        </div>
-      </div>
-    </a>
-
-    <a class="game-card coming-soon" href="#">
-      <div class="card-thumb">
-        <div class="tiles">
-          <span class="t absent">N</span>
-          <span class="t present">E</span>
-          <span class="t absent">X</span>
-          <span class="t correct">T</span>
-          <span class="t absent">?</span>
-        </div>
-      </div>
-      <div class="card-body">
-        <h2>Coming soon</h2>
-        <p>Another puzzle in progress. Check back later.</p>
-        <div class="card-foot">
-          <div class="stack"><b>WIP</b></div>
-          <span class="soon-label">Soon</span>
         </div>
       </div>
     </a>
