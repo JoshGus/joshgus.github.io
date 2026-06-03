@@ -137,7 +137,7 @@ let pointMesh = null;
 
 async function loadAndBuild() {
   try {
-    const r = await fetch('data/photos.json');
+    const r = await fetch('data/photos-web.json');
     photos = await r.json();
   } catch(e) {
     console.warn('Could not load photos.json', e);
