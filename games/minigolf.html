@@ -245,14 +245,14 @@ function renderTerrain(){
       var hU=y>0?heightMap[idx-W]:h;
       var gx=(hR-hL)*0.5, gy=(hD-hU)*0.5;
       // Surface normal
-      var sc=7.0;
+      var sc=18.0;
       var nx=-gx*sc, ny=-gy*sc, nz=1.0;
       var nl=Math.sqrt(nx*nx+ny*ny+nz*nz); nx/=nl; ny/=nl; nz/=nl;
       var diff=Math.max(0,nx*lx+ny*ly+nz*lz);
-      var light=0.36+0.64*diff;
+      var light=0.14+0.86*diff;
       // Contour lines at 0.1 intervals
       var ci=(h*10)%1.0;
-      var contour=ci<0.055||ci>0.945?0.78:1.0;
+      var contour=ci<0.055||ci>0.945?0.68:1.0;
       // Height color
       var rgb=hColor(h);
       var i4=idx*4;
