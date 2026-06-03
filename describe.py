@@ -36,6 +36,23 @@ DEFAULT_MODEL   = "llava:7b"    # stage-1 general description
 BIRD_ID_MODEL   = "llava:7b"    # stage-2 specialist bird identification
 IMG_EXTS        = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
 
+# ---- title-only (fast retitle pass) -----------------------------------------
+TITLE_PROMPT = """Look at this photo. Reply with ONLY this JSON — nothing else:
+{"title": "..."}
+
+Rules for the title value:
+- 3-5 words, Title Case
+- Plain literal description: what you literally see
+- General animal words only — bird, duck, goose, dragonfly, etc. (no species names)
+- No artsy or poetic language
+
+Example outputs:
+{"title": "Bird on Branch"}
+{"title": "Ducks on Water"}
+{"title": "Dragonfly on Reed"}
+{"title": "Geese in Field"}
+{"title": "Sunset Over Lake"}"""
+
 # ---- stage-1: general description -------------------------------------------
 PROMPT = """Look at this photo and return a JSON object with these fields:
 
@@ -151,6 +168,26 @@ def describe(img_path: Path, model: str) -> dict:
         if tmp_path and tmp_path.exists():
             tmp_path.unlink()
 
+# ---- title-only fast path ---------------------------------------------------
+def retitle(img_path: Path, model: str) -> str:
+    """Return just a new title string, or '' on failure."""
+    tmp_path = None
+    try:
+        tmp_path = resize_for_model(img_path)
+        resp = ollama.chat(
+            model=model,
+            format="json",
+            messages=[{"role": "user", "content": TITLE_PROMPT, "images": [str(tmp_path)]}],
+        )
+        result = extract_json(resp.message.content)
+        return result.get("title", "").strip()
+    except Exception as e:
+        print(f"  [retitle error] {e}")
+        return ""
+    finally:
+        if tmp_path and tmp_path.exists():
+            tmp_path.unlink()
+
 # ---- stage-2: bird specialist -----------------------------------------------
 def identify_bird(img_path: Path) -> dict:
     """Run specialist bird ID via llava:7b. Returns dict or {} on failure."""
@@ -174,7 +211,7 @@ def identify_bird(img_path: Path) -> dict:
             tmp_path.unlink()
 
 # ---- main --------------------------------------------------------------------
-def run(json_path: Path, model: str, limit: int | None, force_all: bool):
+def run(json_path: Path, model: str, limit: int | None, force_all: bool, retitle_only: bool = False):
     photos = json.loads(json_path.read_text())
 
     # check ollama is running
@@ -193,9 +230,10 @@ def run(json_path: Path, model: str, limit: int | None, force_all: bool):
         print(f"Run: ollama pull {model}")
         raise SystemExit(1)
 
+    # --retitle processes every photo; otherwise use UUID filter or --all
     todo = []
     for i, p in enumerate(photos):
-        if force_all or looks_like_uuid(p.get("title", "")):
+        if retitle_only or force_all or looks_like_uuid(p.get("title", "")):
             local = find_local_file(p)
             if local:
                 todo.append((i, p, local))
@@ -203,11 +241,12 @@ def run(json_path: Path, model: str, limit: int | None, force_all: bool):
     if limit:
         todo = todo[:limit]
 
-    print(f"Model : {model}")
-    print(f"Photos: {len(todo)} to describe ({len(photos)} total in JSON)")
+    mode = "retitle" if retitle_only else "describe"
+    print(f"Model : {model}  |  Mode: {mode}")
+    print(f"Photos: {len(todo)} to process ({len(photos)} total in JSON)")
     if not todo:
         print("Nothing to do — all titles already look descriptive.")
-        print("Use --all to re-describe everything.")
+        print("Use --all to re-describe everything, or --retitle to rename only.")
         return
 
     ok = 0
@@ -218,38 +257,49 @@ def run(json_path: Path, model: str, limit: int | None, force_all: bool):
         eta     = (len(todo) - n) / rate if rate > 0 else 0
         print(f"[{n}/{len(todo)}] ETA {eta/60:.1f}min  {local_path.name[:40]}", end=" ... ", flush=True)
 
-        result = describe(local_path, model)
-        if result:
-            photo["title"]              = result.get("title",             photo["title"])
-            photo["animal"]             = result.get("animal",            photo.get("animal", ""))
-            photo["species"]            = result.get("species",           photo.get("species", ""))
-            photo["species_confidence"] = result.get("species_confidence", photo.get("species_confidence", 0))
-            photo["category"]           = result.get("category",          photo.get("category", ""))
-            photo["season"]             = result.get("season",            photo.get("season", ""))
-            if not photo.get("location") and result.get("location_hint"):
-                photo["location"] = result["location_hint"]
-
-            # Stage 2: specialist bird identification (overrides stage-1 confidence for birds)
-            if photo.get("category") == "birds":
-                print(f"\n  → bird — running {BIRD_ID_MODEL} specialist ID...", end=" ", flush=True)
-                bird = identify_bird(local_path)
-                if bird and bird.get("confidence", 0) > 0:
-                    if bird.get("species") and bird.get("confidence", 0) >= 25:
-                        photo["species"] = bird["species"]
-                    photo["species_confidence"] = bird.get("confidence", 0)
-                    photo["scientific_name"]    = bird.get("scientific", "")
-                    photo["field_marks"]        = bird.get("field_marks", [])
-                    photo["age_sex"]            = bird.get("age_sex", "unknown")
-                    photo["behavior"]           = bird.get("behavior", "")
-                    print(f"{photo.get('species','?')} ({photo['species_confidence']}%)")
-                else:
-                    print("[bird-id failed]")
-
-            photos[i] = photo
-            print(photo["title"])
-            ok += 1
+        if retitle_only:
+            # Fast path: only update the title field
+            new_title = retitle(local_path, model)
+            if new_title:
+                photo["title"] = new_title
+                photos[i] = photo
+                print(new_title)
+                ok += 1
+            else:
+                print("[skipped]")
         else:
-            print("[skipped]")
+            result = describe(local_path, model)
+            if result:
+                photo["title"]              = result.get("title",             photo["title"])
+                photo["animal"]             = result.get("animal",            photo.get("animal", ""))
+                photo["species"]            = result.get("species",           photo.get("species", ""))
+                photo["species_confidence"] = result.get("species_confidence", photo.get("species_confidence", 0))
+                photo["category"]           = result.get("category",          photo.get("category", ""))
+                photo["season"]             = result.get("season",            photo.get("season", ""))
+                if not photo.get("location") and result.get("location_hint"):
+                    photo["location"] = result["location_hint"]
+
+                # Stage 2: specialist bird identification
+                if photo.get("category") == "birds":
+                    print(f"\n  → bird — running {BIRD_ID_MODEL} specialist ID...", end=" ", flush=True)
+                    bird = identify_bird(local_path)
+                    if bird and bird.get("confidence", 0) > 0:
+                        if bird.get("species") and bird.get("confidence", 0) >= 25:
+                            photo["species"] = bird["species"]
+                        photo["species_confidence"] = bird.get("confidence", 0)
+                        photo["scientific_name"]    = bird.get("scientific", "")
+                        photo["field_marks"]        = bird.get("field_marks", [])
+                        photo["age_sex"]            = bird.get("age_sex", "unknown")
+                        photo["behavior"]           = bird.get("behavior", "")
+                        print(f"{photo.get('species','?')} ({photo['species_confidence']}%)")
+                    else:
+                        print("[bird-id failed]")
+
+                photos[i] = photo
+                print(photo["title"])
+                ok += 1
+            else:
+                print("[skipped]")
 
         # save every 10 photos
         if n % 10 == 0 or n == len(todo):
@@ -265,7 +315,8 @@ if __name__ == "__main__":
     ap.add_argument("--model",      default=DEFAULT_MODEL)
     ap.add_argument("--bird-model", default=BIRD_ID_MODEL)
     ap.add_argument("--limit",      type=int, default=None)
-    ap.add_argument("--all",        action="store_true")
+    ap.add_argument("--all",        action="store_true", help="re-describe all photos (full pipeline)")
+    ap.add_argument("--retitle",    action="store_true", help="only regenerate titles (fast, skips species/bird ID)")
     args = ap.parse_args()
-    BIRD_ID_MODEL = args.bird_model  # allow CLI override
-    run(Path(args.json), args.model, args.limit, args.all)
+    BIRD_ID_MODEL = args.bird_model
+    run(Path(args.json), args.model, args.limit, args.all, args.retitle)

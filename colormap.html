@@ -59,6 +59,24 @@ canvas{display:block;width:100%;height:100%}
   background:rgba(14,13,11,.88);color:var(--accent);padding:5px 8px;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;max-width:180px}
 
+/* bottom sheet — touch preview */
+#bottom-sheet{position:absolute;bottom:0;left:0;right:0;z-index:15;
+  background:rgba(18,16,14,.96);border-top:1px solid rgba(244,237,227,.15);
+  backdrop-filter:blur(16px);transform:translateY(100%);
+  transition:transform .32s cubic-bezier(.2,.7,.3,1)}
+#bottom-sheet.open{transform:translateY(0)}
+.bs-handle{width:36px;height:4px;background:rgba(244,237,227,.2);border-radius:2px;margin:10px auto 0}
+.bs-content{display:flex;gap:14px;padding:14px 16px 28px;align-items:flex-start}
+#bs-img{width:100px;height:100px;object-fit:cover;flex-shrink:0;
+  border:1px solid rgba(244,237,227,.12);display:block}
+.bs-info{flex:1;min-width:0}
+.bs-title{font-family:var(--disp);font-weight:500;font-size:1.05rem;letter-spacing:-.01em;
+  color:rgba(244,237,227,.92);line-height:1.2;font-variation-settings:"opsz" 24}
+.bs-meta{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(244,237,227,.45);margin-top:7px;line-height:1.9}
+.bs-conf{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;
+  color:var(--accent);margin-top:6px}
+
 /* axis legend */
 #axis-legend{position:absolute;top:12px;left:12px;z-index:7;pointer-events:none;
   background:rgba(14,13,11,.55);border:1px solid rgba(244,237,227,.12);
@@ -182,6 +200,19 @@ canvas{display:block;width:100%;height:100%}
         <path d="M5.5 1H7v5H2V4.5h3.5V1zm3.5 0h1.5v3.5H14V6H9V1zM2 9.5h4.5V14H5v-3H2V9.5zm8.5 1H12v3h-1.5V16H9v-5h1.5v-.5z"/>
       </svg>
     </button>
+
+    <!-- Touch bottom sheet -->
+    <div id="bottom-sheet">
+      <div class="bs-handle"></div>
+      <div class="bs-content">
+        <img id="bs-img" src="" alt="">
+        <div class="bs-info">
+          <div class="bs-title" id="bs-title"></div>
+          <div class="bs-meta"  id="bs-meta"></div>
+          <div class="bs-conf"  id="bs-conf"></div>
+        </div>
+      </div>
+    </div>
 
     <div id="click-card">
       <img id="cc-img" src="" alt="">
@@ -383,17 +414,27 @@ document.getElementById('rc-btn').addEventListener('click', () => {
   controls.update();
 });
 
-// ---- hover ----
+// ---- input mode ----
+const isTouch = navigator.maxTouchPoints > 0;
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.18;
+const mouse = new THREE.Vector2();
+let hoveredIdx = -1;
+
+// Swap controls hint for touch
+if (isTouch) {
+  document.getElementById('ctrl-overlay').innerHTML =
+    '<span class="ctrl-pill">drag — orbit</span>' +
+    '<span class="ctrl-pill">pinch — zoom</span>' +
+    '<span class="ctrl-pill">tap — preview</span>';
+}
+
+// ---- hover (mouse only) ----
 const svg        = document.getElementById('hover-svg');
 const hoverThumb = document.getElementById('hover-thumb');
 const htImg      = document.getElementById('ht-img');
 const htLabel    = document.getElementById('ht-label');
-const raycaster  = new THREE.Raycaster();
-raycaster.params.Points.threshold = 0.18;
-const mouse = new THREE.Vector2();
-let hoveredIdx = -1;
-let svgLine    = null;
-
+let svgLine      = null;
 const TW = 180, TH = 130;
 
 // Fullscreen
@@ -472,73 +513,102 @@ function updateHover(e) {
   }
 }
 
-wrap.addEventListener('mousemove', updateHover);
-wrap.addEventListener('mouseleave', () => {
-  hoveredIdx = -1;
-  hoverThumb.style.display = 'none';
-  svg.style.display = 'none';
-  controls.autoRotate = true;
-  wrap.style.cursor = 'default';
-});
+if (!isTouch) {
+  wrap.addEventListener('mousemove', updateHover);
+  wrap.addEventListener('mouseleave', () => {
+    hoveredIdx = -1;
+    hoverThumb.style.display = 'none';
+    svg.style.display = 'none';
+    controls.autoRotate = true;
+    wrap.style.cursor = 'default';
+  });
+}
 
-// ---- click preview ----
-const card     = document.getElementById('click-card');
-const ccImg    = document.getElementById('cc-img');
-const ccTitle  = document.getElementById('cc-title');
-const ccMeta   = document.getElementById('cc-meta');
-const ccConf   = document.getElementById('cc-conf');
-let   cardOpen = false;
+// ---- click / tap preview ----
+const card    = document.getElementById('click-card');
+const ccImg   = document.getElementById('cc-img');
+const ccTitle = document.getElementById('cc-title');
+const ccMeta  = document.getElementById('cc-meta');
+const ccConf  = document.getElementById('cc-conf');
 
 document.getElementById('cc-close').addEventListener('click', e => {
-  e.stopPropagation();
-  closeCard();
+  e.stopPropagation(); closeCard();
 });
 
-wrap.addEventListener('click', e => {
-  if (e.target.closest('#click-card')) return;
-  if (hoveredIdx < 0) { closeCard(); return; }
-
-  const photo = photos[hoveredIdx];
-  const pt    = toCanvas(hoveredIdx);
-  const W     = wrap.clientWidth, H = wrap.clientHeight;
-  const CW    = 220, pad = 12;
-
-  let cx = pt.x + 32;
-  let cy = pt.y - 60;
-  if (cx + CW > W - pad) cx = pt.x - CW - 32;
-  if (cy < pad) cy = pad;
-  if (cy + 320 > H - pad) cy = H - 320 - pad;
-
-  card.style.left    = cx + 'px';
-  card.style.top     = cy + 'px';
-  card.style.display = 'block';
-  cardOpen = true;
-
+function populateCard(photo) {
   ccTitle.textContent = photo.species || photo.animal || photo.title || '';
   const src = imgUrl(photo.id, 600);
-  if (src) { ccImg.src = src; ccImg.style.display = 'block'; }
-  else      { ccImg.style.display = 'none'; }
+  ccImg.src = src || ''; ccImg.style.display = src ? 'block' : 'none';
   ccImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#1a1916';
-
-  const meta = [
-    photo.category,
-    photo.location,
-    photo.season,
-  ].filter(Boolean).join(' · ');
-  ccMeta.textContent = meta;
-
+  ccMeta.textContent = [photo.category, photo.location, photo.season].filter(Boolean).join(' · ');
   const conf = photo.species_confidence || photo.bird_confidence || 0;
-  if (conf > 0 && (photo.species || photo.animal)) {
-    ccConf.textContent    = conf + '% confidence';
-    ccConf.style.display  = 'inline-block';
-  } else {
-    ccConf.style.display  = 'none';
-  }
-});
+  ccConf.textContent   = conf > 0 ? conf + '% confidence' : '';
+  ccConf.style.display = conf > 0 ? 'inline-block' : 'none';
+}
 
-function closeCard() {
-  card.style.display = 'none';
-  cardOpen = false;
+function closeCard() { card.style.display = 'none'; }
+
+if (!isTouch) {
+  wrap.addEventListener('click', e => {
+    if (e.target.closest('#click-card')) return;
+    if (hoveredIdx < 0) { closeCard(); return; }
+    const photo = photos[hoveredIdx];
+    const pt = toCanvas(hoveredIdx);
+    const W = wrap.clientWidth, H = wrap.clientHeight, CW = 220, pad = 12;
+    let cx = pt.x + 32, cy = pt.y - 60;
+    if (cx + CW > W - pad) cx = pt.x - CW - 32;
+    if (cy < pad) cy = pad;
+    if (cy + 320 > H - pad) cy = H - 320 - pad;
+    card.style.left = cx + 'px'; card.style.top = cy + 'px'; card.style.display = 'block';
+    populateCard(photo);
+  });
+}
+
+// ---- touch bottom sheet ----
+const sheet   = document.getElementById('bottom-sheet');
+const bsImg   = document.getElementById('bs-img');
+const bsTitle = document.getElementById('bs-title');
+const bsMeta  = document.getElementById('bs-meta');
+const bsConf  = document.getElementById('bs-conf');
+
+function showBottomSheet(photo) {
+  bsTitle.textContent = photo.species || photo.animal || photo.title || '';
+  bsMeta.textContent  = [photo.category, photo.location, photo.season].filter(Boolean).join(' · ');
+  const conf = photo.species_confidence || photo.bird_confidence || 0;
+  bsConf.textContent   = conf > 0 ? conf + '% confidence' : '';
+  bsConf.style.display = conf > 0 ? '' : 'none';
+  const src = imgUrl(photo.id, 500);
+  bsImg.src = src || ''; bsImg.style.display = src ? 'block' : 'none';
+  bsImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#1a1916';
+  sheet.classList.add('open');
+}
+function closeBottomSheet() { sheet.classList.remove('open'); }
+
+if (isTouch) {
+  let t0x = 0, t0y = 0, t0t = 0;
+  wrap.addEventListener('touchstart', e => {
+    if (e.target.closest('#bottom-sheet')) return;
+    t0x = e.touches[0].clientX; t0y = e.touches[0].clientY; t0t = Date.now();
+  }, {passive: true});
+  wrap.addEventListener('touchend', e => {
+    if (e.target.closest('#bottom-sheet')) return;
+    const t = e.changedTouches[0];
+    if (Math.hypot(t.clientX-t0x, t.clientY-t0y) > 12 || Date.now()-t0t > 350) return;
+    const rect = wrap.getBoundingClientRect();
+    mouse.x =  ((t.clientX-rect.left)/rect.width)*2-1;
+    mouse.y = -((t.clientY-rect.top) /rect.height)*2+1;
+    if (!pointMesh) { closeBottomSheet(); return; }
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObject(pointMesh);
+    hits.length > 0 ? showBottomSheet(photos[hits[0].index]) : closeBottomSheet();
+  }, {passive: true});
+
+  // Swipe down on the sheet to dismiss
+  let sy0 = 0;
+  sheet.addEventListener('touchstart', e => { sy0 = e.touches[0].clientY; }, {passive:true});
+  sheet.addEventListener('touchend',   e => {
+    if (e.changedTouches[0].clientY - sy0 > 48) closeBottomSheet();
+  }, {passive:true});
 }
 
 // ---- animate ----

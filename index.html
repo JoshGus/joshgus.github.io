@@ -427,11 +427,13 @@
     function drawColorSpace(photos) {
       var canvas = document.getElementById('cs-canvas');
       if (!canvas) return;
-      // Size canvas to its CSS size
-      var rect = canvas.getBoundingClientRect();
-      canvas.width  = rect.width  || canvas.offsetWidth  || 600;
-      canvas.height = rect.height || canvas.offsetHeight || 300;
-      var W = canvas.width, H = canvas.height;
+      // Read dimensions from parent (.cs-wrap carries the aspect-ratio rule).
+      // Defer one frame so layout is complete before we read offsetWidth/Height.
+      var wrap = canvas.parentElement;
+      var W = wrap.offsetWidth  || 600;
+      var H = wrap.offsetHeight || Math.round(W / 2);
+      canvas.width  = W;
+      canvas.height = H;
       var ctx = canvas.getContext('2d');
       ctx.fillStyle = '#0e0d0b';
       ctx.fillRect(0, 0, W, H);
@@ -484,7 +486,7 @@
     fetch('data/photos-web.json')
       .then(function(r){ return r.json(); })
       .then(function(all) {
-        drawColorSpace(all);
+        requestAnimationFrame(function(){ drawColorSpace(all); });
         // Only use photos with a valid Cloudinary id and dominant color data
         var pool = shuffle(all.filter(function(p){ return p.id && p.dominant_colors && p.dominant_colors.length; }));
         if (!pool.length) return;
