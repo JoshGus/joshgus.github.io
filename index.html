@@ -424,76 +424,9 @@
       return { name: name, meta: meta };
     }
 
-    function drawColorSpace(photos) {
-      var canvas = document.getElementById('cs-canvas');
-      if (!canvas) return;
-      // Read dimensions from parent (.cs-wrap carries the aspect-ratio rule).
-      // Defer one frame so layout is complete before we read offsetWidth/Height.
-      var wrap = canvas.parentElement;
-      var W = wrap.offsetWidth  || 600;
-      var H = wrap.offsetHeight || Math.round(W / 2);
-      canvas.width  = W;
-      canvas.height = H;
-      var ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#0e0d0b';
-      ctx.fillRect(0, 0, W, H);
-
-      // Isometric projection of the RGB cube (origin = pure black, axes = R/G/B)
-      // UNIT = one unit in RGB-space (0-1) mapped to pixels.
-      // Axis tips are at r=1,g=1,b=1 so the cube spans UNIT in each direction.
-      // We size UNIT so the full cube just fits the canvas.
-      var cos30 = Math.cos(Math.PI / 6), sin30 = Math.sin(Math.PI / 6);
-      // Horizontal room needed for one unit: cos30 (R side) + cos30 (B side)
-      // Vertical room: sin30 (slope down) + 1 (G goes straight up)
-      var UNIT = Math.min(W / (2 * cos30 + 0.2), H / (1 + sin30 + 0.1)) * 0.72;
-      // Origin: centred horizontally, near the bottom so G axis has room to go up
-      var OX = W * 0.50;
-      var OY = H * 0.82;
-
-      // Draw dots — r,g,b in [0,1], project directly (same scale as axes)
-      photos.forEach(function(p) {
-        if (!p.dominant_colors || !p.dominant_colors.length) return;
-        var palette = p.dominant_colors;
-        var r = 0, g = 0, b = 0;
-        palette.forEach(function(hex) {
-          var v = parseInt((hex||'#808080').replace('#',''), 16);
-          r += ((v >> 16) & 0xff) / 255;
-          g += ((v >>  8) & 0xff) / 255;
-          b += ( v        & 0xff) / 255;
-        });
-        r /= palette.length; g /= palette.length; b /= palette.length;
-
-        // Isometric: R → right-down, G → straight up, B → left-down
-        var sx = OX + (r - b) * cos30 * UNIT;
-        var sy = OY - g * UNIT - (r + b) * sin30 * UNIT;
-
-        ctx.globalAlpha = 0.8;
-        ctx.fillStyle = palette[0] || '#888';
-        ctx.fillRect(sx - 1.5, sy - 1.5, 3, 3);
-      });
-      ctx.globalAlpha = 1;
-
-      // Axis lines from origin to full-saturation tips
-      ctx.lineWidth = 1;
-      [[1,0,0,'#ff4c4c','R'],[0,1,0,'#4cff70','G'],[0,0,1,'#4c7fff','B']].forEach(function(ax) {
-        var rx=ax[0], gy=ax[1], bz=ax[2], col=ax[3], lbl=ax[4];
-        var ex = OX + (rx - bz) * cos30 * UNIT;
-        var ey = OY - gy * UNIT - (rx + bz) * sin30 * UNIT;
-        ctx.globalAlpha = 0.5;
-        ctx.strokeStyle = col;
-        ctx.beginPath(); ctx.moveTo(OX, OY); ctx.lineTo(ex, ey); ctx.stroke();
-        ctx.globalAlpha = 0.8;
-        ctx.fillStyle = col;
-        ctx.font = '600 11px "IBM Plex Mono",monospace';
-        ctx.fillText(lbl, ex + (rx ? 5 : bz ? -14 : -4), ey + (gy ? -5 : 12));
-      });
-      ctx.globalAlpha = 1;
-    }
-
     fetch('data/photos-web.json')
       .then(function(r){ return r.json(); })
       .then(function(all) {
-        requestAnimationFrame(function(){ drawColorSpace(all); });
         // Only use photos with a valid Cloudinary id and dominant color data
         var pool = shuffle(all.filter(function(p){ return p.id && p.dominant_colors && p.dominant_colors.length; }));
         if (!pool.length) return;
@@ -549,5 +482,83 @@
   })();
 </script>
 
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.167.0/build/three.module.js"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+
+const canvas = document.getElementById('cs-canvas');
+if (canvas) {
+  const renderer = new THREE.WebGLRenderer({canvas, antialias: true});
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setClearColor(0x0e0d0b, 1);
+
+  const scene  = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(52, 2, 0.01, 200);
+
+  function resize() {
+    const w = canvas.parentElement.offsetWidth  || 600;
+    const h = canvas.parentElement.offsetHeight || 300;
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h;
+    camera.updateProjectionMatrix();
+  }
+  new ResizeObserver(resize).observe(canvas.parentElement);
+  resize();
+
+  const SCALE = 9;
+  let cx = SCALE/2, cy = SCALE/2, cz = SCALE/2; // centroid, updated after load
+
+  fetch('data/photos-web.json').then(r => r.json()).then(photos => {
+    const n = photos.length;
+    const pos    = new Float32Array(n * 3);
+    const colors = new Float32Array(n * 3);
+    const sizes  = new Float32Array(n);
+    let sx = 0, sy = 0, sz = 0;
+
+    photos.forEach((p, i) => {
+      const pal = p.dominant_colors && p.dominant_colors.length ? p.dominant_colors : ['#808080'];
+      let r = 0, g = 0, b = 0;
+      pal.forEach(h => { const c = new THREE.Color(h); r += c.r; g += c.g; b += c.b; });
+      r /= pal.length; g /= pal.length; b /= pal.length;
+      pos[i*3] = r*SCALE; pos[i*3+1] = g*SCALE; pos[i*3+2] = b*SCALE;
+      sx += r*SCALE; sy += g*SCALE; sz += b*SCALE;
+      const dot = new THREE.Color(pal[0]);
+      colors[i*3] = dot.r; colors[i*3+1] = dot.g; colors[i*3+2] = dot.b;
+      sizes[i] = 0.13;
+    });
+    cx = sx/n; cy = sy/n; cz = sz/n;
+
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+    geo.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
+    geo.setAttribute('size',     new THREE.BufferAttribute(sizes, 1));
+
+    scene.add(new THREE.Points(geo, new THREE.ShaderMaterial({
+      vertexColors: true, transparent: true, depthWrite: false,
+      uniforms: {uPR: {value: renderer.getPixelRatio()}},
+      vertexShader: `
+        attribute float size; varying vec3 vColor; uniform float uPR;
+        void main(){vColor=color;vec4 mv=modelViewMatrix*vec4(position,1.);
+          gl_PointSize=size*uPR*(200./-mv.z);gl_Position=projectionMatrix*mv;}`,
+      fragmentShader: `
+        varying vec3 vColor;
+        void main(){float d=distance(gl_PointCoord,vec2(.5));if(d>.5)discard;
+          gl_FragColor=vec4(vColor,1.-smoothstep(.3,.5,d));}`,
+    })));
+  }).catch(() => {});
+
+  let angle = 0;
+  const dist = 11;
+  (function animate() {
+    requestAnimationFrame(animate);
+    angle += 0.004;
+    camera.position.set(cx + Math.sin(angle)*dist, cy + 3, cz + Math.cos(angle)*dist);
+    camera.lookAt(cx, cy, cz);
+    renderer.render(scene, camera);
+  })();
+}
+</script>
 </body>
 </html>
