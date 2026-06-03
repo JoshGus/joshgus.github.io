@@ -354,17 +354,107 @@
   </main>
 </div>
 
-<!-- Optional enhancement only: the top-bar clock. The page works fully without it. -->
 <script>
+  // Clock
   try {
     var clk = document.getElementById('clock');
     var tick = function(){
       var d = new Date();
       clk.textContent = d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST';
     };
-    tick();
-    setInterval(tick, 30000);
-  } catch (e) { /* no-op */ }
+    tick(); setInterval(tick, 30000);
+  } catch(e) {}
+
+  // Cycling photo tiles
+  (function() {
+    var CLOUD      = 'dgxn8tymb';
+    var CYCLE_MS   = 5000;   // how long each photo shows
+    var FADE_MS    = 900;    // crossfade duration (ms)
+
+    function cloudUrl(id) {
+      return 'https://res.cloudinary.com/' + CLOUD + '/image/upload/w_700,f_auto,q_auto/' + id;
+    }
+
+    function shuffle(arr) {
+      var a = arr.slice();
+      for (var i = a.length - 1; i > 0; i--) {
+        var j = Math.floor(Math.random() * (i + 1));
+        var t = a[i]; a[i] = a[j]; a[j] = t;
+      }
+      return a;
+    }
+
+    function makeImg() {
+      var img = document.createElement('img');
+      img.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity ' + (FADE_MS/1000) + 's ease;';
+      return img;
+    }
+
+    function captionText(p) {
+      // Prefer species name; fall back to a non-UUID title
+      var name = p.species || p.animal || '';
+      var uuidPat = /^[0-9a-f]{8}[ \-]/i;
+      if (!name && p.title && !uuidPat.test(p.title)) name = p.title;
+      var meta = [p.location, p.season].filter(Boolean).join(' · ');
+      return { name: name, meta: meta };
+    }
+
+    fetch('data/photos-web.json')
+      .then(function(r){ return r.json(); })
+      .then(function(all) {
+        // Only use photos with a valid Cloudinary id and dominant color data
+        var pool = shuffle(all.filter(function(p){ return p.id && p.dominant_colors && p.dominant_colors.length; }));
+        if (!pool.length) return;
+
+        var tiles = document.querySelectorAll('.tile');
+        var stride = Math.floor(pool.length / Math.max(tiles.length, 1));
+
+        tiles.forEach(function(tile, ti) {
+          var ph = tile.querySelector('.ph');
+          if (!ph) return;
+
+          // Convert .ph into a crossfade container
+          ph.innerHTML = '';
+          ph.style.cssText = 'position:relative;overflow:hidden;display:block;aspect-ratio:3/4;background:#e8d7c4;';
+
+          var imgA = makeImg(), imgB = makeImg();
+          imgA.style.opacity = '1'; imgB.style.opacity = '0';
+          ph.appendChild(imgA); ph.appendChild(imgB);
+
+          var capT = tile.querySelector('.cap-t');
+          var capM = tile.querySelector('.cap-m');
+          var cur = imgA, nxt = imgB;
+          var ptr = (ti * stride) % pool.length;
+
+          function show(photo) {
+            var bg = (photo.dominant_colors && photo.dominant_colors[0]) || '#e8d7c4';
+            nxt.style.background = bg;
+            nxt.src = cloudUrl(photo.id);
+            nxt.onload = function() {
+              nxt.style.opacity = '1';
+              cur.style.opacity = '0';
+              var c = captionText(photo);
+              if (capT) capT.textContent = c.name;
+              if (capM) capM.textContent = c.meta;
+              var tmp = cur; cur = nxt; nxt = tmp;
+            };
+          }
+
+          // Show first photo immediately
+          show(pool[ptr]);
+          ptr = (ptr + 1) % pool.length;
+
+          // Stagger tile starts so they don't all flip at once
+          setTimeout(function() {
+            show(pool[ptr]); ptr = (ptr + 1) % pool.length;
+            setInterval(function() {
+              show(pool[ptr]); ptr = (ptr + 1) % pool.length;
+            }, CYCLE_MS);
+          }, ti * Math.round(CYCLE_MS / tiles.length));
+        });
+      })
+      .catch(function(){}); // graceful: static placeholders remain if fetch fails
+  })();
 </script>
 
 </body>

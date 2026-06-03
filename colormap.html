@@ -96,9 +96,17 @@ canvas{display:block;position:fixed;inset:0;z-index:0}
   </div>
 </div>
 
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.167.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.167.0/examples/jsm/"
+  }
+}
+</script>
 <script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
-import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 // ---- scene setup ----
 const canvas   = document.getElementById('c');
