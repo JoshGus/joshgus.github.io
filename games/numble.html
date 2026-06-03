@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Numble &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7ece1;--surface:#fdf5ea;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --correct:#5e7d0f;--correct-bg:#ccf73f;
+  --present:#a06d0a;--present-bg:#f0c040;
+  --absent-bg:#d4c4b4;--absent:#6a5c4e;
+  --line:rgba(29,23,18,.14);--line-strong:rgba(29,23,18,.30);
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --disp:"Bricolage Grotesque",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--mono);min-height:100vh;
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+body::after{content:"";position:fixed;inset:0;z-index:999;pointer-events:none;opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")}
+a{color:inherit;text-decoration:none}
+
+.status{display:flex;justify-content:space-between;align-items:center;
+  padding:14px 20px;font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+  border-bottom:1px solid var(--line);background:rgba(247,236,225,.9)}
+.status .sig{font-weight:600;color:var(--fg)}
+.status .sig:hover{color:var(--accent-ink)}
+.status nav{display:flex;gap:18px}
+.status nav a:hover,.status nav a.active{color:var(--accent-ink)}
+
+.game-wrap{flex:1;display:flex;flex-direction:column;align-items:center;padding:28px 16px 16px;max-width:500px;margin:0 auto;width:100%;gap:20px}
+.game-header{text-align:center}
+.game-header h1{font-family:var(--disp);font-weight:560;font-size:2.2rem;letter-spacing:-.03em;font-variation-settings:"opsz" 40}
+.game-header p{font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-top:6px}
+
+.legend{display:flex;gap:16px;font-size:.62rem;letter-spacing:.1em;text-transform:uppercase}
+.legend-item{display:flex;align-items:center;gap:7px}
+.legend-swatch{width:18px;height:18px;border-radius:2px}
+.legend-swatch.correct{background:var(--correct-bg)}
+.legend-swatch.present{background:var(--present-bg)}
+.legend-swatch.absent{background:var(--absent-bg)}
+
+.toast{position:fixed;top:80px;left:50%;transform:translateX(-50%);
+  background:var(--fg);color:var(--bg);padding:10px 22px;font-size:.72rem;letter-spacing:.12em;
+  text-transform:uppercase;z-index:50;opacity:0;pointer-events:none;transition:opacity .3s}
+.toast.show{opacity:1}
+
+.grid{display:grid;grid-template-rows:repeat(6,1fr);gap:6px;width:100%;max-width:330px}
+.row{display:grid;grid-template-columns:repeat(5,1fr);gap:6px}
+.tile{aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+  font-family:var(--disp);font-weight:700;font-size:1.8rem;letter-spacing:-.02em;
+  border:2px solid var(--line-strong);background:transparent;color:var(--fg);
+  font-variation-settings:"opsz" 40;}
+.tile.filled{border-color:var(--dim);animation:pop .1s ease}
+.tile.correct{background:var(--correct-bg);color:var(--correct);border-color:var(--correct-bg)}
+.tile.present{background:var(--present-bg);color:var(--present);border-color:var(--present-bg)}
+.tile.absent{background:var(--absent-bg);color:var(--absent);border-color:var(--absent-bg)}
+@keyframes pop{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+@keyframes flip-down{0%{transform:rotateX(0)}100%{transform:rotateX(-90deg)}}
+@keyframes flip-up{0%{transform:rotateX(90deg)}100%{transform:rotateX(0)}}
+.tile.flip-down{animation:flip-down .18s ease forwards}
+.tile.flip-up{animation:flip-up .18s ease forwards}
+@keyframes shake{0%,100%{transform:translateX(0)}20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.row.shake{animation:shake .4s ease}
+@keyframes bounce-win{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+.tile.win-bounce{animation:bounce-win .5s ease}
+
+.keyboard{width:100%;max-width:500px;display:flex;flex-direction:column;gap:7px}
+.kb-row{display:flex;gap:5px;justify-content:center}
+.key{font-family:var(--mono);font-weight:600;font-size:.9rem;height:58px;flex:1;max-width:52px;min-width:36px;
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--fg);
+  cursor:pointer;display:flex;align-items:center;justify-content:center;
+  transition:background .2s,color .2s;border-radius:3px;
+  -webkit-tap-highlight-color:transparent;user-select:none;}
+.key.wide{max-width:70px;font-size:.7rem}
+.key:active{transform:scale(.94)}
+.key.correct{background:var(--correct-bg);color:var(--correct);border-color:var(--correct-bg)}
+.key.present{background:var(--present-bg);color:var(--present);border-color:var(--present-bg)}
+.key.absent{background:var(--absent-bg);color:var(--absent);border-color:var(--absent-bg)}
+
+.modal-bg{position:fixed;inset:0;z-index:80;background:rgba(29,23,18,.6);display:none;align-items:center;justify-content:center}
+.modal-bg.open{display:flex}
+.modal{background:var(--surface);padding:36px 32px;max-width:340px;width:90%;text-align:center;border:1px solid var(--line-strong)}
+.modal h2{font-family:var(--disp);font-weight:560;font-size:2rem;letter-spacing:-.03em;margin-bottom:8px;font-variation-settings:"opsz" 40}
+.modal p{font-size:.8rem;letter-spacing:.08em;color:var(--dim);margin-bottom:20px;line-height:1.7}
+.modal .answer{font-family:var(--disp);font-size:2rem;font-weight:700;color:var(--accent-ink);letter-spacing:.08em;margin-bottom:20px}
+.modal-btns{display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+.btn{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  padding:12px 20px;border:1px solid var(--line-strong);background:transparent;color:var(--fg);
+  cursor:pointer;transition:all .2s}
+.btn.primary{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
+.btn:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="../index.html" class="sig">[NAME]</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="lexicon.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+  </nav>
+</div>
+
+<div class="game-wrap">
+  <div class="game-header">
+    <h1>Numble</h1>
+    <p>Guess the five-digit number in six tries</p>
+  </div>
+
+  <div class="legend">
+    <div class="legend-item"><div class="legend-swatch correct"></div>Right digit, right place</div>
+    <div class="legend-item"><div class="legend-swatch present"></div>Right digit, wrong place</div>
+    <div class="legend-item"><div class="legend-swatch absent"></div>Digit not in number</div>
+  </div>
+
+  <div class="grid" id="grid"></div>
+  <div class="keyboard" id="keyboard"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<div class="modal-bg" id="modal-bg">
+  <div class="modal">
+    <h2 id="modal-title"></h2>
+    <p id="modal-msg"></p>
+    <div class="answer" id="modal-answer"></div>
+    <div class="modal-btns">
+      <button class="btn primary" id="share-btn">Share result</button>
+      <button class="btn" onclick="location.reload()">Play again</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const ROWS = 6, COLS = 5;
+let answer, guesses, currentRow, currentGuess, gameOver;
+
+function getDailyNumber() {
+  const diff = Math.floor((Date.now() - new Date('2024-01-01')) / 86400000);
+  // Simple seeded number: cycle through interesting 5-digit numbers
+  let s = (diff * 2654435769 + 1013904223) >>> 0;
+  s = (s ^ (s >>> 16)) >>> 0;
+  // Ensure all 5 digits are distinct for a fair puzzle
+  let digits, tries = 0;
+  do {
+    s = (s * 1664525 + 1013904223) >>> 0;
+    const num = 10000 + (s % 90000);
+    digits = num.toString().split('');
+    tries++;
+  } while (new Set(digits).size < 5 && tries < 100);
+  return digits.join('');
+}
+
+function init() {
+  answer = getDailyNumber();
+  guesses = []; currentRow = 0; currentGuess = ''; gameOver = false;
+  buildGrid(); buildKeyboard();
+}
+
+function buildGrid() {
+  const grid = document.getElementById('grid');
+  grid.innerHTML = '';
+  for (let r = 0; r < ROWS; r++) {
+    const row = document.createElement('div');
+    row.className = 'row'; row.id = 'row-' + r;
+    for (let c = 0; c < COLS; c++) {
+      const t = document.createElement('div');
+      t.className = 'tile'; t.id = 'tile-' + r + '-' + c;
+      row.appendChild(t);
+    }
+    grid.appendChild(row);
+  }
+}
+
+function setTile(r, c, v) {
+  const t = document.getElementById('tile-' + r + '-' + c);
+  t.textContent = v;
+  v ? t.classList.add('filled') : t.classList.remove('filled');
+}
+
+function revealRow(row, result) {
+  result.forEach((state, c) => {
+    const tile = document.getElementById('tile-' + row + '-' + c);
+    const delay = c * 160;
+    setTimeout(() => {
+      tile.classList.add('flip-down');
+      setTimeout(() => {
+        tile.classList.remove('flip-down');
+        tile.classList.add(state);
+        tile.classList.add('flip-up');
+        setTimeout(() => tile.classList.remove('flip-up'), 180);
+      }, 180);
+    }, delay);
+  });
+  setTimeout(() => {
+    result.forEach((state, c) => {
+      const key = document.getElementById('key-' + guesses[row][c]);
+      if (!key) return;
+      const p = {correct:3,present:2,absent:1};
+      const cur = key.classList.contains('correct')?3:key.classList.contains('present')?2:key.classList.contains('absent')?1:0;
+      if ((p[state]||0) > cur) { key.classList.remove('correct','present','absent'); key.classList.add(state); }
+    });
+  }, COLS * 160 + 200);
+}
+
+const KB_ROWS = [['7','8','9'],['4','5','6'],['1','2','3'],['ENTER','0','DEL']];
+
+function buildKeyboard() {
+  const kb = document.getElementById('keyboard');
+  kb.innerHTML = '';
+  KB_ROWS.forEach(row => {
+    const r = document.createElement('div');
+    r.className = 'kb-row';
+    row.forEach(k => {
+      const btn = document.createElement('button');
+      btn.className = 'key' + (k.length > 1 ? ' wide' : '');
+      btn.id = 'key-' + k;
+      btn.textContent = k === 'DEL' ? '\u232B' : k;
+      btn.addEventListener('click', () => handleKey(k));
+      r.appendChild(btn);
+    });
+    kb.appendChild(r);
+  });
+}
+
+function handleKey(key) {
+  if (gameOver) return;
+  if (key === 'ENTER') return submitGuess();
+  if (key === 'DEL' || key === 'BACKSPACE') {
+    if (currentGuess.length > 0) { currentGuess = currentGuess.slice(0,-1); setTile(currentRow, currentGuess.length, ''); }
+    return;
+  }
+  if (/^[0-9]$/.test(key) && currentGuess.length < COLS) {
+    currentGuess += key;
+    setTile(currentRow, currentGuess.length - 1, key);
+  }
+}
+
+document.addEventListener('keydown', e => {
+  if (e.ctrlKey || e.metaKey || e.altKey) return;
+  const k = e.key.toUpperCase();
+  if (k === 'ENTER' || k === 'BACKSPACE' || /^[0-9]$/.test(k)) handleKey(k);
+});
+
+function evalGuess(guess, answer) {
+  const result = Array(COLS).fill('absent');
+  const aArr = answer.split(''), gArr = guess.split('');
+  const aUsed = Array(COLS).fill(false), gUsed = Array(COLS).fill(false);
+  gArr.forEach((d,i) => { if (d===aArr[i]) { result[i]='correct'; aUsed[i]=gUsed[i]=true; } });
+  gArr.forEach((d,i) => {
+    if (gUsed[i]) return;
+    const ai = aArr.findIndex((a,j) => a===d && !aUsed[j]);
+    if (ai !== -1) { result[i]='present'; aUsed[ai]=true; }
+  });
+  return result;
+}
+
+function submitGuess() {
+  if (currentGuess.length < COLS) { shake(currentRow); toast('Enter 5 digits'); return; }
+  const result = evalGuess(currentGuess, answer);
+  guesses.push(currentGuess);
+  revealRow(currentRow, result);
+  const won = result.every(r => r === 'correct');
+  currentRow++; currentGuess = '';
+  const delay = COLS * 160 + 300;
+  if (won) {
+    setTimeout(() => { bounceRow(currentRow-1); setTimeout(() => showModal(true), 600); }, delay);
+    gameOver = true;
+  } else if (currentRow >= ROWS) {
+    setTimeout(() => showModal(false), delay + 200);
+    gameOver = true;
+  }
+}
+
+function shake(row) { const r=document.getElementById('row-'+row); r.classList.add('shake'); setTimeout(()=>r.classList.remove('shake'),400); }
+function bounceRow(row) { for(let c=0;c<COLS;c++){const t=document.getElementById('tile-'+row+'-'+c);setTimeout(()=>{t.classList.add('win-bounce');setTimeout(()=>t.classList.remove('win-bounce'),500);},c*80);} }
+let toastTimer;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),1600);}
+
+function showModal(won) {
+  document.getElementById('modal-title').textContent = won ? 'Solved!' : 'Out of guesses';
+  const msgs=['Brilliant!','Impressive!','Great!','Good','Close!','Phew!'];
+  document.getElementById('modal-msg').textContent = won
+    ? msgs[Math.min(currentRow-1,msgs.length-1)] + '  Cracked in ' + currentRow + '/6.'
+    : 'The number was:';
+  document.getElementById('modal-answer').textContent = won ? '' : answer;
+  document.getElementById('modal-bg').classList.add('open');
+}
+
+document.getElementById('share-btn').addEventListener('click', () => {
+  const emojiMap={correct:'\uD83D\uDFE9',present:'\uD83D\uDFE8',absent:'\u2B1C'};
+  const header='Numble '+guesses.length+'/6\n\n';
+  const grid=guesses.map(g=>evalGuess(g,answer).map(r=>emojiMap[r]).join('')).join('\n');
+  navigator.clipboard.writeText(header+grid).then(()=>toast('Copied!'));
+});
+
+init();
+</script>
+</body>
+</html>

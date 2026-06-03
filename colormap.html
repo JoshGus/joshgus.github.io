@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Color Space &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#0e0d0b;--surface:#1a1916;--fg:#f4ede3;--dim:#7a7168;--dimmer:#4a4540;
+  --accent:#ccf73f;--accent-ink:#a8c828;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --disp:"Bricolage Grotesque",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--fg);font-family:var(--mono);overflow:hidden;height:100vh}
+body::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.35;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")}
+a{color:inherit;text-decoration:none}
+canvas{display:block;position:fixed;inset:0;z-index:0}
+
+.status{position:fixed;top:0;left:0;right:0;z-index:10;
+  display:flex;justify-content:space-between;align-items:center;
+  padding:14px 24px;font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
+  background:rgba(14,13,11,.7);backdrop-filter:blur(8px);border-bottom:1px solid rgba(244,237,227,.1)}
+.status .sig{color:var(--fg);font-size:.7rem}
+.status .sig:hover{color:var(--accent-ink)}
+.status nav{display:flex;gap:20px}
+.status nav a{color:var(--dim);transition:color .2s}
+.status nav a:hover,.status nav a.active{color:var(--accent-ink)}
+
+.hud{position:fixed;bottom:0;left:0;right:0;z-index:10;
+  padding:20px 24px;background:rgba(14,13,11,.7);backdrop-filter:blur(8px);
+  border-top:1px solid rgba(244,237,227,.1);
+  display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
+.hud-left h1{font-family:var(--disp);font-weight:440;font-size:clamp(1.4rem,3vw,2.2rem);
+  letter-spacing:-.02em;color:var(--fg);font-variation-settings:"opsz" 40}
+.hud-left h1 em{font-style:italic;color:var(--accent-ink)}
+.hud-sub{font-size:.62rem;letter-spacing:.14em;color:var(--dim);margin-top:6px}
+.hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.controls-hint{font-size:.6rem;letter-spacing:.12em;color:var(--dimmer);text-align:right;line-height:2}
+.photo-count{font-size:.7rem;letter-spacing:.14em;color:var(--accent-ink)}
+.gallery-link{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent-ink);border:1px solid var(--accent-ink);padding:8px 14px;
+  transition:background .2s,color .2s}
+.gallery-link:hover{background:var(--accent-ink);color:var(--bg)}
+
+/* Tooltip */
+.tooltip{position:fixed;z-index:20;pointer-events:none;background:var(--surface);
+  border:1px solid rgba(244,237,227,.15);padding:12px 14px;display:none;min-width:180px;
+  box-shadow:0 8px 24px rgba(0,0,0,.5)}
+.tt-title{font-family:var(--disp);font-size:1rem;font-weight:500;color:var(--fg);
+  letter-spacing:-.01em;margin-bottom:6px;font-variation-settings:"opsz" 24}
+.tt-meta{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);line-height:1.8}
+.tt-colors{display:flex;gap:4px;margin-top:8px}
+.tt-swatch{width:18px;height:18px;border-radius:2px}
+.tt-note{font-size:.56rem;letter-spacing:.1em;color:var(--dimmer);margin-top:6px}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="index.html" class="sig">[NAME]</a>
+  <nav>
+    <a href="code.html">Code</a>
+    <a href="games/lexicon.html">Games</a>
+    <a href="gallery.html">Photography</a>
+    <a href="colormap.html" class="active">Color Map</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<canvas id="c"></canvas>
+
+<div class="tooltip" id="tooltip">
+  <div class="tt-title" id="tt-title"></div>
+  <div class="tt-meta" id="tt-meta"></div>
+  <div class="tt-colors" id="tt-colors"></div>
+  <div class="tt-note">click to open in gallery</div>
+</div>
+
+<div class="hud">
+  <div class="hud-left">
+    <h1>Color <em>Space</em></h1>
+    <p class="hud-sub">Each point is a photo, positioned by color composition &mdash; similar palettes cluster together.</p>
+  </div>
+  <div class="hud-right">
+    <span class="photo-count" id="photo-count"></span>
+    <span class="controls-hint">
+      Drag &mdash; orbit &nbsp;|&nbsp; Scroll &mdash; zoom<br>
+      Hover &mdash; inspect &nbsp;|&nbsp; Click &mdash; open
+    </span>
+    <a href="gallery.html" class="gallery-link">&larr; Back to gallery</a>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.module.js';
+import { OrbitControls } from 'https://cdn.jsdelivr.net/npm/three@0.128.0/examples/jsm/controls/OrbitControls.js';
+
+// ---- scene setup ----
+const canvas   = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x0e0d0b, 1);
+
+const scene  = new THREE.Scene();
+const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.01, 200);
+camera.position.set(6, 4, 8);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.06;
+controls.autoRotate = true;
+controls.autoRotateSpeed = 0.4;
+controls.minDistance = 1;
+controls.maxDistance = 40;
+
+// resize
+function onResize() {
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+}
+window.addEventListener('resize', onResize);
+onResize();
+
+// ---- faint grid ----
+const gridHelper = new THREE.GridHelper(20, 20, 0x2a2825, 0x1e1c1a);
+scene.add(gridHelper);
+
+// ---- load photos ----
+let photos = [];
+let pointMesh = null;
+
+async function loadAndBuild() {
+  try {
+    const r = await fetch('data/photos.json');
+    photos = await r.json();
+  } catch(e) {
+    console.warn('Could not load photos.json', e);
+    photos = generatePlaceholders(40);
+  }
+  document.getElementById('photo-count').textContent = photos.length + ' photos';
+  buildPointCloud();
+}
+
+function generatePlaceholders(n) {
+  const arr = [];
+  for (let i = 0; i < n; i++) {
+    const angle = (i / n) * Math.PI * 2;
+    const r = 2 + Math.random() * 3;
+    const hue = Math.floor(Math.random() * 360);
+    const hex = hslToHex(hue, 60, 55);
+    arr.push({
+      id: null, title: 'Sample photo ' + (i+1), species: 'TBD',
+      location: '', season: '',
+      dominant_colors: [hex],
+      umap_3d: [
+        r * Math.cos(angle) + (Math.random()-.5)*1.5,
+        (Math.random()-.5)*3,
+        r * Math.sin(angle) + (Math.random()-.5)*1.5,
+      ]
+    });
+  }
+  return arr;
+}
+
+function hslToHex(h, s, l) {
+  s /= 100; l /= 100;
+  const k = n => (n + h/30) % 12;
+  const a = s * Math.min(l, 1-l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
+  return '#' + [f(0),f(8),f(4)].map(x => Math.round(x*255).toString(16).padStart(2,'0')).join('');
+}
+
+function buildPointCloud() {
+  const n = photos.length;
+  const positions = new Float32Array(n * 3);
+  const colors    = new Float32Array(n * 3);
+  const sizes     = new Float32Array(n);
+
+  // Compute centroid so the cloud is centered at origin for OrbitControls
+  let cx = 0, cy = 0, cz = 0;
+  photos.forEach(p => {
+    const [x, y, z] = p.umap_3d || [0, 0, 0];
+    cx += x; cy += y; cz += z;
+  });
+  cx /= n; cy /= n; cz /= n;
+
+  photos.forEach((p, i) => {
+    const [x, y, z] = p.umap_3d || [Math.random()*6-3, Math.random()*6-3, Math.random()*6-3];
+    positions[i*3]   = x - cx;
+    positions[i*3+1] = y - cy;
+    positions[i*3+2] = z - cz;
+
+    const hex = (p.dominant_colors && p.dominant_colors[0]) || '#ccf73f';
+    const col = new THREE.Color(hex);
+    colors[i*3]   = col.r;
+    colors[i*3+1] = col.g;
+    colors[i*3+2] = col.b;
+
+    sizes[i] = 0.18;
+  });
+
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+  geo.setAttribute('color',    new THREE.BufferAttribute(colors, 3));
+  geo.setAttribute('size',     new THREE.BufferAttribute(sizes, 1));
+
+  const mat = new THREE.ShaderMaterial({
+    vertexColors: true,
+    transparent: true,
+    depthWrite: false,
+    uniforms: { uPixelRatio: { value: renderer.getPixelRatio() } },
+    vertexShader: `
+      attribute float size;
+      varying vec3 vColor;
+      uniform float uPixelRatio;
+      void main() {
+        vColor = color;
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        gl_PointSize = size * uPixelRatio * (300.0 / -mv.z);
+        gl_Position  = projectionMatrix * mv;
+      }`,
+    fragmentShader: `
+      varying vec3 vColor;
+      void main() {
+        float d = distance(gl_PointCoord, vec2(0.5));
+        if (d > 0.5) discard;
+        float alpha = 1.0 - smoothstep(0.3, 0.5, d);
+        gl_FragColor = vec4(vColor, alpha);
+      }`,
+  });
+
+  pointMesh = new THREE.Points(geo, mat);
+  scene.add(pointMesh);
+}
+
+// ---- raycasting / hover ----
+const raycaster = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.15;
+const mouse    = new THREE.Vector2();
+const tooltip  = document.getElementById('tooltip');
+let hoveredIdx = -1;
+
+window.addEventListener('mousemove', e => {
+  mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
+  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+  if (!pointMesh) return;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObject(pointMesh);
+  if (hits.length > 0) {
+    const idx = hits[0].index;
+    if (idx !== hoveredIdx) {
+      hoveredIdx = idx;
+      showTooltip(photos[idx], e);
+    }
+    tooltip.style.left = (e.clientX + 16) + 'px';
+    tooltip.style.top  = (e.clientY - 40) + 'px';
+    controls.autoRotate = false;
+  } else {
+    hoveredIdx = -1;
+    tooltip.style.display = 'none';
+    controls.autoRotate = true;
+  }
+});
+
+window.addEventListener('click', () => {
+  if (hoveredIdx >= 0) {
+    window.location.href = 'gallery.html';
+  }
+});
+
+function showTooltip(photo, e) {
+  document.getElementById('tt-title').textContent = photo.title;
+  document.getElementById('tt-meta').innerHTML =
+    (photo.species  ? photo.species + '<br>' : '') +
+    [photo.location, photo.season].filter(Boolean).join(' &middot; ');
+  const colWrap = document.getElementById('tt-colors');
+  colWrap.innerHTML = '';
+  (photo.dominant_colors || []).slice(0, 5).forEach(c => {
+    const s = document.createElement('div');
+    s.className = 'tt-swatch';
+    s.style.background = c;
+    colWrap.appendChild(s);
+  });
+  tooltip.style.display = 'block';
+  tooltip.style.left = (e.clientX + 16) + 'px';
+  tooltip.style.top  = (e.clientY - 40) + 'px';
+}
+
+// ---- animate ----
+function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+  renderer.render(scene, camera);
+}
+animate();
+loadAndBuild();
+
+// ---- clock ----
+const clk = document.getElementById('clock');
+const tick = () => { clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST'; };
+tick(); setInterval(tick, 30000);
+</script>
+</body>
+</html>

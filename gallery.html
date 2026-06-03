@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Photography &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7ece1;--surface:#fdf5ea;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14);--line-strong:rgba(29,23,18,.30);
+  --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+::selection{background:var(--accent);color:var(--fg)}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;z-index:999;pointer-events:none;opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")}
+a{color:inherit;text-decoration:none}
+
+/* status bar */
+.status{position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;align-items:center;
+  padding:14px clamp(20px,4vw,64px);font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
+  background:rgba(247,236,225,.88);backdrop-filter:blur(8px)}
+.status .sig{font-weight:600;color:var(--fg)}
+.status .sig:hover{color:var(--accent-ink)}
+.status nav{display:flex;gap:20px}
+.status nav a{color:var(--dim);transition:color .2s}
+.status nav a:hover,.status nav a.active{color:var(--accent-ink)}
+#clock{color:var(--dimmer)}
+@media(max-width:640px){.status nav{display:none}}
+
+/* page header */
+.page-header{padding:clamp(48px,8vh,90px) clamp(20px,5vw,72px) clamp(28px,4vh,48px);border-bottom:1px solid var(--line)}
+.ph-top{display:flex;align-items:flex-end;justify-content:space-between;gap:24px;flex-wrap:wrap}
+.ph-idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;color:var(--accent-ink);display:block;margin-bottom:14px}
+.page-header h1{font-family:var(--disp);font-weight:440;font-size:clamp(2.6rem,7vw,5.2rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
+.page-header h1 em{font-style:italic;color:var(--accent-ink)}
+.colormap-btn{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent-ink);border:1px solid var(--accent-ink);padding:10px 18px;
+  transition:background .25s,color .25s;white-space:nowrap;align-self:flex-end}
+.colormap-btn:hover{background:var(--accent-ink);color:var(--bg)}
+
+/* controls */
+.controls{position:sticky;top:49px;z-index:30;background:rgba(247,236,225,.92);
+  backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  padding:14px clamp(20px,5vw,72px);display:flex;flex-wrap:wrap;gap:14px;align-items:center}
+.search-wrap{position:relative;flex:1;min-width:180px;max-width:340px}
+.search-wrap svg{position:absolute;left:12px;top:50%;transform:translateY(-50%);
+  width:15px;height:15px;color:var(--dimmer);pointer-events:none}
+#search{width:100%;padding:9px 12px 9px 34px;background:var(--surface);
+  border:1px solid var(--line-strong);font-family:var(--body);font-size:.95rem;color:var(--fg);
+  outline:none;transition:border-color .2s}
+#search:focus{border-color:var(--accent-ink)}
+#search::placeholder{color:var(--dimmer)}
+.view-toggle{display:flex;gap:1px}
+.view-toggle button{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  padding:9px 16px;border:1px solid var(--line-strong);color:var(--dim);background:var(--surface);
+  cursor:pointer;transition:all .2s}
+.view-toggle button:first-child{border-radius:3px 0 0 3px}
+.view-toggle button:last-child{border-radius:0 3px 3px 0}
+.view-toggle button+button{margin-left:-1px}
+.view-toggle button.active,.view-toggle button:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink);z-index:1}
+.filters{display:flex;flex-wrap:wrap;gap:7px}
+.chip{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:6px 12px;border:1px solid var(--line-strong);background:transparent;
+  color:var(--dim);cursor:pointer;border-radius:30px;transition:all .2s}
+.chip:hover,.chip.active{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
+.count-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;color:var(--dimmer);margin-left:auto}
+
+/* gallery wrap */
+.gallery-wrap{padding:clamp(28px,4vw,56px) clamp(20px,5vw,72px) 80px;min-height:50vh}
+
+/* ---- MASONRY VIEW ---- */
+.masonry-grid{columns:3 220px;column-gap:clamp(12px,2vw,22px)}
+figure.m-item{break-inside:avoid;margin-bottom:clamp(12px,2vw,22px);display:block;cursor:pointer;position:relative;overflow:hidden}
+.m-item .photo-fill{width:100%;display:block;background:var(--surface);position:relative;overflow:hidden;
+  transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+.m-item:hover .photo-fill{transform:scale(1.02)}
+.m-item img{width:100%;height:100%;object-fit:cover;display:block;position:absolute;inset:0;transition:opacity .4s}
+.m-item figcaption{position:absolute;inset:auto 0 0 0;padding:14px;
+  background:linear-gradient(transparent,rgba(20,16,12,.85));
+  transform:translateY(101%);transition:transform .35s cubic-bezier(.2,.7,.3,1)}
+.m-item:hover figcaption{transform:none}
+.cap-t{font-family:var(--disp);font-weight:500;font-size:1rem;color:#fbf2e8;letter-spacing:-.01em}
+.cap-m{font-family:var(--mono);font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-top:4px}
+
+/* ---- PLATES VIEW ---- */
+.plates{display:flex;flex-direction:column;gap:clamp(36px,6vh,72px)}
+.plate-group{}
+.plate-label-row{display:flex;align-items:baseline;gap:16px;margin-bottom:16px;padding-bottom:12px;border-bottom:1px solid var(--line)}
+.plate-label-row h3{font-family:var(--disp);font-weight:520;font-size:clamp(1.4rem,3vw,2rem);letter-spacing:-.02em;font-variation-settings:"opsz" 40}
+.plate-count{font-family:var(--mono);font-size:.64rem;letter-spacing:.14em;color:var(--dimmer)}
+.plate-layout{display:grid;grid-template-columns:2fr 1fr;gap:clamp(10px,1.5vw,16px)}
+.plate-hero{cursor:pointer;overflow:hidden;position:relative}
+.plate-hero .photo-fill{transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+.plate-hero:hover .photo-fill{transform:scale(1.03)}
+.plate-hero figcaption,.plate-thumb figcaption{position:absolute;inset:auto 0 0 0;padding:12px;
+  background:linear-gradient(transparent,rgba(20,16,12,.85));
+  transform:translateY(101%);transition:transform .35s}
+.plate-hero:hover figcaption,.plate-thumb:hover figcaption{transform:none}
+.plate-strip{display:grid;grid-template-rows:repeat(auto-fill,1fr);gap:clamp(10px,1.5vw,16px)}
+figure.plate-thumb{cursor:pointer;overflow:hidden;position:relative}
+.plate-thumb .photo-fill{transition:transform .5s cubic-bezier(.2,.7,.3,1)}
+.plate-thumb:hover .photo-fill{transform:scale(1.04)}
+@media(max-width:640px){.plate-layout{grid-template-columns:1fr}}
+
+/* ---- GRID VIEW ---- */
+.grid-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:clamp(10px,1.5vw,18px)}
+figure.g-item{cursor:pointer;position:relative;overflow:hidden}
+.g-item .photo-fill{transition:transform .45s cubic-bezier(.2,.7,.3,1)}
+.g-item:hover .photo-fill{transform:scale(1.04)}
+.g-item figcaption{position:absolute;inset:auto 0 0 0;padding:12px;
+  background:linear-gradient(transparent,rgba(20,16,12,.85));
+  transform:translateY(101%);transition:transform .35s}
+.g-item:hover figcaption{transform:none}
+.empty-state{text-align:center;padding:80px 20px;color:var(--dimmer);font-family:var(--mono);
+  font-size:.8rem;letter-spacing:.1em;text-transform:uppercase}
+
+/* ---- LIGHTBOX ---- */
+.lightbox{position:fixed;inset:0;z-index:100;background:rgba(20,16,12,.96);display:none;
+  align-items:center;justify-content:center;padding:20px}
+.lightbox.open{display:flex}
+.lb-inner{display:grid;grid-template-columns:1fr 320px;max-width:1200px;width:100%;
+  max-height:90vh;gap:0;background:var(--surface);overflow:hidden;position:relative}
+.lb-img-wrap{position:relative;background:#111;min-height:300px;display:flex;align-items:center;justify-content:center}
+#lb-img{max-width:100%;max-height:90vh;width:100%;height:100%;object-fit:contain;display:block}
+.lb-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center}
+.lb-info{padding:clamp(20px,3vw,36px);overflow-y:auto;border-left:1px solid var(--line);
+  display:flex;flex-direction:column;gap:18px}
+.lb-title{font-family:var(--disp);font-weight:520;font-size:clamp(1.3rem,2vw,1.8rem);letter-spacing:-.02em;line-height:1.1}
+.lb-meta{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);line-height:2}
+.lb-colors{display:flex;gap:6px}
+.swatch{width:28px;height:28px;border-radius:3px;border:1px solid var(--line)}
+.lb-tags{display:flex;flex-wrap:wrap;gap:6px}
+.lb-tags span{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid var(--line-strong);padding:4px 10px;border-radius:30px;color:var(--dim)}
+.lb-tags span em{font-style:normal;color:var(--accent-ink);margin-left:5px}
+/* Metadata sidebar sections */
+.lb-section{border-top:1px solid var(--line);padding-top:16px}
+.lb-section-label{font-family:var(--mono);font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;
+  color:var(--dimmer);margin-bottom:10px}
+/* Animal / subject */
+.lb-animal-type{display:inline-block;font-family:var(--mono);font-size:.56rem;letter-spacing:.14em;
+  text-transform:uppercase;padding:3px 10px;border:1px solid var(--line-strong);color:var(--dim);
+  border-radius:30px;margin-bottom:10px}
+.lb-animal-type.is-bird{color:var(--accent-ink);border-color:var(--accent-ink);background:rgba(204,247,63,.08)}
+/* Bird ID */
+.lb-common-name{font-family:var(--disp);font-weight:520;font-size:1.15rem;letter-spacing:-.015em;
+  line-height:1.1;font-variation-settings:"opsz" 24}
+.lb-scientific-name{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;color:var(--dim);
+  font-style:italic;margin-top:4px}
+.lb-confidence-row{display:flex;align-items:center;gap:10px;margin-top:10px}
+.lb-confidence-pct{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;
+  color:var(--accent-ink);min-width:36px}
+.lb-confidence-bar{flex:1;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.lb-confidence-fill{height:100%;background:var(--accent-ink);border-radius:2px;transition:width .5s ease}
+.lb-field-marks{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
+.lb-field-mark{font-family:var(--mono);font-size:.56rem;letter-spacing:.08em;padding:3px 9px;
+  background:rgba(204,247,63,.08);border:1px solid rgba(204,247,63,.3);color:var(--accent-ink);border-radius:2px}
+.lb-bird-sub{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dim);margin-top:8px}
+/* Details grid */
+.lb-details{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-family:var(--mono);
+  font-size:.62rem;letter-spacing:.06em}
+.lb-detail-key{color:var(--dimmer);text-transform:uppercase;letter-spacing:.12em;white-space:nowrap}
+.lb-detail-val{color:var(--fg)}
+.lb-close{position:absolute;top:16px;right:16px;z-index:10;width:36px;height:36px;
+  border:none;background:var(--surface);border:1px solid var(--line-strong);
+  font-size:1.1rem;cursor:pointer;color:var(--fg);display:flex;align-items:center;justify-content:center;
+  border-radius:3px;transition:background .2s}
+.lb-close:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
+.lb-nav{position:absolute;top:50%;transform:translateY(-50%);z-index:10;width:40px;height:40px;
+  border:1px solid var(--line-strong);background:rgba(253,245,234,.85);
+  font-family:var(--mono);font-size:1rem;cursor:pointer;color:var(--fg);
+  display:flex;align-items:center;justify-content:center;transition:background .2s,border-color .2s}
+.lb-nav:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
+.lb-prev{left:12px}
+.lb-next{right:12px}
+@media(max-width:720px){
+  .lb-inner{grid-template-columns:1fr;grid-template-rows:auto 1fr;max-height:95vh}
+  .lb-info{border-left:none;border-top:1px solid var(--line);max-height:200px}
+}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="index.html" class="sig">[NAME]</a>
+  <nav>
+    <a href="code.html">Code</a>
+    <a href="games/lexicon.html">Games</a>
+    <a href="gallery.html" class="active">Photography</a>
+    <a href="colormap.html">Color Map</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="page-header">
+  <div class="ph-top">
+    <div>
+      <span class="ph-idx">03 / Photography</span>
+      <h1>From the <em>field</em></h1>
+    </div>
+    <a href="colormap.html" class="colormap-btn">Explore color space &rarr;</a>
+  </div>
+</div>
+
+<div class="controls">
+  <div class="search-wrap">
+    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2">
+      <circle cx="8.5" cy="8.5" r="5.5"/><line x1="13" y1="13" x2="18" y2="18"/>
+    </svg>
+    <input type="text" id="search" placeholder="Search species, season, location&hellip;" autocomplete="off">
+  </div>
+  <div class="view-toggle">
+    <button data-view="masonry" class="active">Masonry</button>
+    <button data-view="plates">Plates</button>
+    <button data-view="grid">Grid</button>
+  </div>
+  <div class="filters" id="filters"></div>
+  <span class="count-label" id="count-label"></span>
+</div>
+
+<div class="gallery-wrap">
+  <div id="gallery-main"></div>
+</div>
+
+<!-- Lightbox -->
+<div id="lightbox" class="lightbox" role="dialog" aria-modal="true">
+  <button class="lb-close" id="lb-close" aria-label="Close">&times;</button>
+  <div class="lb-inner">
+    <div class="lb-img-wrap">
+      <div class="lb-placeholder" id="lb-placeholder"></div>
+      <img id="lb-img" src="" alt="">
+      <button class="lb-nav lb-prev" id="lb-prev" aria-label="Previous">&larr;</button>
+      <button class="lb-nav lb-next" id="lb-next" aria-label="Next">&rarr;</button>
+    </div>
+    <div class="lb-info">
+      <!-- Photo title -->
+      <div class="lb-title" id="lb-title"></div>
+
+      <!-- Animal / subject identification -->
+      <div class="lb-section" id="lb-subject-section">
+        <div class="lb-section-label">Subject</div>
+        <div id="lb-animal-type" class="lb-animal-type"></div>
+        <!-- Bird-specific fields (hidden when not a bird) -->
+        <div id="lb-bird-detail">
+          <div class="lb-common-name" id="lb-common-name"></div>
+          <div class="lb-scientific-name" id="lb-scientific-name"></div>
+          <div class="lb-confidence-row">
+            <span class="lb-confidence-pct" id="lb-confidence-pct"></span>
+            <div class="lb-confidence-bar"><div class="lb-confidence-fill" id="lb-confidence-fill" style="width:0"></div></div>
+          </div>
+          <div class="lb-field-marks" id="lb-field-marks"></div>
+          <div class="lb-bird-sub" id="lb-bird-sub"></div>
+        </div>
+      </div>
+
+      <!-- Photo details -->
+      <div class="lb-section">
+        <div class="lb-section-label">Details</div>
+        <div class="lb-details" id="lb-details"></div>
+      </div>
+
+      <!-- Dominant colors -->
+      <div class="lb-section">
+        <div class="lb-section-label">Colors</div>
+        <div class="lb-colors" id="lb-colors"></div>
+      </div>
+
+      <!-- CLIP tags with confidence -->
+      <div class="lb-section">
+        <div class="lb-section-label">Tags</div>
+        <div class="lb-tags" id="lb-tags"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ============================================================
+// CONFIGURATION — replace with your Cloudinary cloud name
+// ============================================================
+const CLOUD = 'dgxn8tymb';
+
+function imgUrl(id, w) {
+  if (!id || !CLOUD) return null;
+  return 'https://res.cloudinary.com/' + CLOUD + '/image/upload/w_' + w + ',f_auto,q_auto/' + id;
+}
+
+// Placeholder: colored box using dominant color.
+// fixedHeight: CSS string like '220px' — forces that height (for plates/grid).
+// Without fixedHeight, uses the stored ratio for a natural-aspect container.
+function placeholderEl(photo, fixedHeight) {
+  const d = document.createElement('div');
+  d.className = 'photo-fill';
+  d.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#e8d7c4';
+  d.style.position = 'relative';
+  d.style.overflow = 'hidden';
+  if (fixedHeight) {
+    d.style.height = fixedHeight;
+  } else {
+    // Natural aspect ratio via padding-top trick (ratio = width/height)
+    const ratio = photo.ratio || (photo.aspect === 'portrait' ? 0.75 : photo.aspect === 'square' ? 1.0 : 1.5);
+    d.style.height = '0';
+    d.style.paddingTop = (100 / ratio).toFixed(2) + '%';
+  }
+  const src = imgUrl(photo.id, 800);
+  if (src) {
+    const img = document.createElement('img');
+    img.src = src;
+    img.alt = photo.title;
+    img.style.position = 'absolute';
+    img.style.inset = '0';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    img.style.opacity = '0';
+    img.style.transition = 'opacity .5s';
+    img.onload = () => { img.style.opacity = '1'; };
+    d.appendChild(img);
+  }
+  return d;
+}
+
+// ============================================================
+// State
+// ============================================================
+let allPhotos = [];
+let filteredPhotos = [];
+let currentView = 'masonry';
+let activeFilter = null;
+let lbIndex = 0;
+
+// ============================================================
+// Load
+// ============================================================
+async function loadPhotos() {
+  try {
+    const r = await fetch('data/photos.json');
+    allPhotos = await r.json();
+  } catch(e) {
+    console.warn('Could not load data/photos.json', e);
+    document.getElementById('gallery-main').innerHTML =
+      '<div class="empty-state">Run a local server (Live Server) to load photos.json<br>Or add photos via process.py and push to GitHub</div>';
+    return;
+  }
+  buildFilters();
+  applyFilters();
+}
+
+// ============================================================
+// Filters
+// ============================================================
+function buildFilters() {
+  const seasons = [...new Set(allPhotos.map(p => p.season).filter(Boolean))];
+  const container = document.getElementById('filters');
+  container.innerHTML = '';
+  seasons.sort().forEach(s => {
+    const b = document.createElement('button');
+    b.className = 'chip';
+    b.textContent = s;
+    b.dataset.filter = s;
+    b.addEventListener('click', () => {
+      if (activeFilter === s) { activeFilter = null; b.classList.remove('active'); }
+      else {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        activeFilter = s; b.classList.add('active');
+      }
+      applyFilters();
+    });
+    container.appendChild(b);
+  });
+}
+
+function applyFilters() {
+  const q = document.getElementById('search').value.trim().toLowerCase();
+  filteredPhotos = allPhotos.filter(p => {
+    const matchFilter = !activeFilter || p.season === activeFilter;
+    if (!matchFilter) return false;
+    if (!q) return true;
+    const haystack = [p.title, p.species, p.category, p.location, p.season, ...(p.tags||[])].join(' ').toLowerCase();
+    return q.split(' ').every(word => haystack.includes(word));
+  });
+  document.getElementById('count-label').textContent = filteredPhotos.length + ' photo' + (filteredPhotos.length !== 1 ? 's' : '');
+  renderView();
+}
+
+// ============================================================
+// Render
+// ============================================================
+function renderView() {
+  const main = document.getElementById('gallery-main');
+  if (filteredPhotos.length === 0) {
+    main.innerHTML = '<div class="empty-state">No photos match your search</div>';
+    return;
+  }
+  if (currentView === 'masonry') renderMasonry(main);
+  else if (currentView === 'plates') renderPlates(main);
+  else renderGrid(main);
+}
+
+function makeCaption(photo) {
+  const fig = document.createElement('figcaption');
+  fig.innerHTML = '<div class="cap-t">' + photo.title + '</div>' +
+    '<div class="cap-m">' + [photo.location, photo.season].filter(Boolean).join(' &middot; ') + '</div>';
+  return fig;
+}
+
+function attachClick(el, index) {
+  el.addEventListener('click', () => openLightbox(index));
+}
+
+function renderMasonry(main) {
+  const grid = document.createElement('div');
+  grid.className = 'masonry-grid';
+  filteredPhotos.forEach((photo, i) => {
+    const fig = document.createElement('figure');
+    fig.className = 'm-item';
+    fig.appendChild(placeholderEl(photo));
+    fig.appendChild(makeCaption(photo));
+    attachClick(fig, i);
+    grid.appendChild(fig);
+  });
+  main.innerHTML = '';
+  main.appendChild(grid);
+}
+
+function renderPlates(main) {
+  const groups = {};
+  filteredPhotos.forEach((p, i) => {
+    const key = p.species || 'Unsorted';
+    if (!groups[key]) groups[key] = [];
+    groups[key].push({photo: p, idx: i});
+  });
+  const wrap = document.createElement('div');
+  wrap.className = 'plates';
+  Object.entries(groups).forEach(([species, items]) => {
+    const plate = document.createElement('div');
+    plate.className = 'plate-group';
+    const labelRow = document.createElement('div');
+    labelRow.className = 'plate-label-row';
+    labelRow.innerHTML = '<h3>' + species + '</h3><span class="plate-count">' + items.length + ' photo' + (items.length !== 1 ? 's' : '') + '</span>';
+    plate.appendChild(labelRow);
+    const layout = document.createElement('div');
+    layout.className = 'plate-layout';
+    // Hero
+    const hero = document.createElement('figure');
+    hero.className = 'plate-hero';
+    const heroFill = placeholderEl(items[0].photo, '380px');
+    hero.appendChild(heroFill);
+    hero.appendChild(makeCaption(items[0].photo));
+    attachClick(hero, items[0].idx);
+    layout.appendChild(hero);
+    // Strip (up to 3 thumbnails)
+    const strip = document.createElement('div');
+    strip.className = 'plate-strip';
+    items.slice(1, 4).forEach(item => {
+      const thumb = document.createElement('figure');
+      thumb.className = 'plate-thumb';
+      const fill = placeholderEl(item.photo, '114px');
+      thumb.appendChild(fill);
+      thumb.appendChild(makeCaption(item.photo));
+      attachClick(thumb, item.idx);
+      strip.appendChild(thumb);
+    });
+    layout.appendChild(strip);
+    plate.appendChild(layout);
+    wrap.appendChild(plate);
+  });
+  main.innerHTML = '';
+  main.appendChild(wrap);
+}
+
+function renderGrid(main) {
+  const grid = document.createElement('div');
+  grid.className = 'grid-gallery';
+  filteredPhotos.forEach((photo, i) => {
+    const fig = document.createElement('figure');
+    fig.className = 'g-item';
+    const fill = placeholderEl(photo, '220px');
+    fig.appendChild(fill);
+    fig.appendChild(makeCaption(photo));
+    attachClick(fig, i);
+    grid.appendChild(fig);
+  });
+  main.innerHTML = '';
+  main.appendChild(grid);
+}
+
+// ============================================================
+// Lightbox
+// ============================================================
+function openLightbox(index) {
+  lbIndex = index;
+  updateLightbox();
+  document.getElementById('lightbox').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeLightbox() {
+  document.getElementById('lightbox').classList.remove('open');
+  document.body.style.overflow = '';
+}
+
+function updateLightbox() {
+  const photo = filteredPhotos[lbIndex];
+
+  // Title
+  document.getElementById('lb-title').textContent = photo.title;
+
+  // Subject section
+  const isBird    = photo.category === 'birds';
+  const hasAnimal = photo.animal || photo.species || isBird;
+  const subjectEl = document.getElementById('lb-subject-section');
+  subjectEl.style.display = hasAnimal ? '' : 'none';
+
+  if (hasAnimal) {
+    const typeEl = document.getElementById('lb-animal-type');
+    typeEl.textContent = photo.category || 'wildlife';
+    typeEl.className = 'lb-animal-type' + (isBird ? ' is-bird' : '');
+
+    const birdDetailEl = document.getElementById('lb-bird-detail');
+    if (isBird && (photo.species || photo.scientific_name)) {
+      birdDetailEl.style.display = '';
+      document.getElementById('lb-common-name').textContent    = photo.species || '';
+      document.getElementById('lb-scientific-name').textContent = photo.scientific_name || '';
+
+      const conf = photo.bird_confidence || 0;
+      document.getElementById('lb-confidence-pct').textContent  = conf + '%';
+      document.getElementById('lb-confidence-fill').style.width = conf + '%';
+
+      document.getElementById('lb-field-marks').innerHTML =
+        (photo.field_marks || []).map(m => '<span class="lb-field-mark">' + m + '</span>').join('');
+
+      const sub = [photo.age_sex, photo.behavior].filter(s => s && s !== 'unknown').join(' · ');
+      document.getElementById('lb-bird-sub').textContent = sub;
+    } else {
+      birdDetailEl.style.display = 'none';
+      // Non-bird: just show species name under the type chip
+      const commonEl = document.getElementById('lb-common-name');
+      commonEl.textContent = photo.species || photo.animal || '';
+      commonEl.style.display = (photo.species || photo.animal) ? '' : 'none';
+      document.getElementById('lb-scientific-name').textContent = '';
+      document.getElementById('lb-confidence-pct').textContent  = '';
+      document.getElementById('lb-confidence-fill').style.width = '0';
+      document.getElementById('lb-field-marks').innerHTML = '';
+      document.getElementById('lb-bird-sub').textContent  = '';
+      birdDetailEl.style.display = '';
+    }
+  }
+
+  // Details grid
+  const rows = [
+    ['Location', photo.location],
+    ['Season',   photo.season],
+    ['Type',     photo.category],
+  ].filter(([, v]) => v);
+  document.getElementById('lb-details').innerHTML = rows
+    .map(([k, v]) => `<span class="lb-detail-key">${k}</span><span class="lb-detail-val">${v}</span>`)
+    .join('');
+
+  // Colors
+  const colors = document.getElementById('lb-colors');
+  colors.innerHTML = '';
+  (photo.dominant_colors || []).forEach(c => {
+    const s = document.createElement('div');
+    s.className = 'swatch';
+    s.style.background = c;
+    s.title = c;
+    colors.appendChild(s);
+  });
+
+  // Tags with score percentages
+  const tags = document.getElementById('lb-tags');
+  tags.innerHTML = (photo.tags || []).map((t, i) => {
+    const pct = photo.tag_scores && photo.tag_scores[i] != null
+      ? '<em>' + Math.round(photo.tag_scores[i]) + '%</em>' : '';
+    return '<span>' + t + pct + '</span>';
+  }).join('');
+
+  // Image
+  const img = document.getElementById('lb-img');
+  const ph  = document.getElementById('lb-placeholder');
+  ph.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#e8d7c4';
+  const src = imgUrl(photo.id, 1600);
+  if (src) {
+    img.style.opacity = '0';
+    img.src = src;
+    img.alt = photo.title;
+    img.onload = () => { img.style.opacity = '1'; ph.style.display = 'none'; };
+    img.style.display = 'block';
+  } else {
+    img.style.display = 'none';
+  }
+  document.getElementById('lb-prev').style.display = lbIndex > 0 ? '' : 'none';
+  document.getElementById('lb-next').style.display = lbIndex < filteredPhotos.length - 1 ? '' : 'none';
+}
+
+document.getElementById('lb-close').addEventListener('click', closeLightbox);
+document.getElementById('lb-prev').addEventListener('click', () => { lbIndex--; updateLightbox(); });
+document.getElementById('lb-next').addEventListener('click', () => { lbIndex++; updateLightbox(); });
+document.getElementById('lightbox').addEventListener('click', e => { if (e.target === e.currentTarget) closeLightbox(); });
+document.addEventListener('keydown', e => {
+  if (!document.getElementById('lightbox').classList.contains('open')) return;
+  if (e.key === 'Escape') closeLightbox();
+  if (e.key === 'ArrowLeft'  && lbIndex > 0) { lbIndex--; updateLightbox(); }
+  if (e.key === 'ArrowRight' && lbIndex < filteredPhotos.length - 1) { lbIndex++; updateLightbox(); }
+});
+
+// ============================================================
+// View toggle
+// ============================================================
+document.querySelectorAll('.view-toggle button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.view-toggle button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentView = btn.dataset.view;
+    renderView();
+  });
+});
+
+// Search
+document.getElementById('search').addEventListener('input', applyFilters);
+
+// Clock
+const clk = document.getElementById('clock');
+const tick = () => { clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST'; };
+tick(); setInterval(tick, 30000);
+
+// Boot
+loadPhotos();
+</script>
+</body>
+</html>

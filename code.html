@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Code &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7ece1;--surface:#fdf5ea;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14);--line-strong:rgba(29,23,18,.30);
+  --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+::selection{background:var(--accent);color:var(--fg)}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body::after{content:"";position:fixed;inset:0;z-index:999;pointer-events:none;opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")}
+a{color:inherit;text-decoration:none}
+
+.status{position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;align-items:center;
+  padding:14px clamp(20px,4vw,64px);font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
+  background:rgba(247,236,225,.88);backdrop-filter:blur(8px)}
+.status .sig{font-weight:600;color:var(--fg)}
+.status .sig:hover{color:var(--accent-ink)}
+.status nav{display:flex;gap:20px}
+.status nav a{color:var(--dim);transition:color .2s}
+.status nav a:hover,.status nav a.active{color:var(--accent-ink)}
+#clock{color:var(--dimmer)}
+@media(max-width:640px){.status nav{display:none}}
+
+.page-header{padding:clamp(48px,8vh,90px) clamp(20px,5vw,72px) clamp(28px,4vh,48px);border-bottom:1px solid var(--line)}
+.ph-idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;color:var(--accent-ink);display:block;margin-bottom:14px}
+.page-header h1{font-family:var(--disp);font-weight:440;font-size:clamp(2.6rem,7vw,5.2rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
+.page-header h1 em{font-style:italic;color:var(--accent-ink)}
+.page-header p{font-family:var(--body);font-size:1.05rem;color:var(--dim);margin-top:20px;max-width:560px;line-height:1.7}
+
+.projects{padding:0 clamp(20px,5vw,72px) 100px}
+
+/* project row */
+.project{border-bottom:1px solid var(--line);padding:0;overflow:hidden}
+.project-head{display:grid;grid-template-columns:3.5rem 1fr auto;align-items:start;gap:20px;
+  padding:28px 0;cursor:pointer;transition:background .2s}
+.project-head:hover .proj-title{color:var(--accent-ink)}
+.proj-num{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;color:var(--dimmer);padding-top:4px}
+.proj-title{font-family:var(--disp);font-weight:500;font-size:clamp(1.15rem,2.4vw,1.6rem);letter-spacing:-.02em;
+  font-variation-settings:"opsz" 36;transition:color .2s}
+.proj-subtitle{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dimmer);margin-top:6px}
+.proj-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.tag{font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;
+  border:1px solid var(--line-strong);padding:4px 9px;color:var(--dim)}
+.proj-arrow{font-family:var(--mono);font-size:.8rem;color:var(--dimmer);padding-top:4px;
+  transition:transform .3s,color .2s}
+.project.open .proj-arrow{transform:rotate(90deg);color:var(--accent-ink)}
+
+/* expand panel */
+.project-body{max-height:0;overflow:hidden;transition:max-height .45s cubic-bezier(.2,.7,.3,1)}
+.project.open .project-body{max-height:600px}
+.project-detail{padding:0 0 32px 3.5rem;display:grid;grid-template-columns:1fr 240px;gap:32px}
+.detail-desc{font-size:1rem;line-height:1.75;color:var(--dim)}
+.detail-desc strong{color:var(--fg)}
+.detail-meta{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--dim)}
+.detail-meta dt{color:var(--dimmer);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;margin-top:14px;margin-bottom:3px}
+.detail-meta dt:first-child{margin-top:0}
+.detail-meta dd{color:var(--fg)}
+.detail-links{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
+.dlink{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
+  border:1px solid var(--line-strong);padding:8px 14px;color:var(--accent-ink);transition:all .2s}
+.dlink:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
+@media(max-width:640px){
+  .project-detail{grid-template-columns:1fr}
+  .project-head{grid-template-columns:2.5rem 1fr auto}
+}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="index.html" class="sig">[NAME]</a>
+  <nav>
+    <a href="code.html" class="active">Code</a>
+    <a href="games/lexicon.html">Games</a>
+    <a href="gallery.html">Photography</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="page-header">
+  <span class="ph-idx">01 / Code</span>
+  <h1>Selected <em>builds</em></h1>
+  <p>Systems programming, machine learning, and things that run close to the metal. Each project here taught me something concrete about how computers actually work.</p>
+</div>
+
+<div class="projects" id="projects"></div>
+
+<script>
+const PROJECTS = [
+  {
+    num: '001',
+    title: 'Multi-Object Tracking Pipeline',
+    subtitle: 'Computer Vision &middot; C++',
+    tags: ['C++', 'YOLO', 'DeepSort', 'ByteTrack', 'ML'],
+    desc: 'Real-time multi-object tracking system combining <strong>YOLO detection</strong> with two association algorithms: DeepSort (appearance + motion) and ByteTrack (IoU-only, high-FPS). Designed as a controlled experiment to isolate the contribution of appearance embeddings to tracking accuracy. MeMOT's transformer component was deliberately reduced to hold architecture complexity constant.',
+    role: 'Lead — architecture, tracking module, evaluation pipeline',
+    stack: 'C++17, OpenCV, ONNXRuntime, CUDA',
+    year: '2024',
+    links: [{ label: 'GitHub', href: '#' }],
+  },
+  {
+    num: '002',
+    title: 'ML Post-Classifier',
+    subtitle: 'Machine Learning &middot; C++',
+    tags: ['C++', 'Classification', 'Feature Engineering'],
+    desc: 'Lightweight post-processing classifier that reranks raw detector outputs using handcrafted spatial and temporal features. Built to sit in front of any bounding-box detector with minimal latency overhead — the goal was accuracy lift with near-zero inference cost.',
+    role: 'Solo project',
+    stack: 'C++17, scikit-learn (prototype), custom inference',
+    year: '2024',
+    links: [{ label: 'GitHub', href: '#' }],
+  },
+  {
+    num: '003',
+    title: 'Network File Server',
+    subtitle: 'Systems Programming &middot; C++',
+    tags: ['C++', 'Concurrency', 'Networking', 'OS'],
+    desc: 'A fully concurrent network file server supporting <strong>create, read, write, and delete</strong> over a custom RPC protocol. The tricky part: hand-over-hand locking for safe concurrent tree traversal (no TOCTOU races, no deadlocks from improper lock handoff). Built in a four-person team as the capstone for EECS 482 Operating Systems.',
+    role: 'Team of 4 — focused on concurrency model and lock protocol',
+    stack: 'C++17, Boost.Thread, TCP sockets',
+    year: '2024',
+    links: [],
+  },
+  {
+    num: '004',
+    title: 'MapReduce Framework',
+    subtitle: 'Distributed Systems &middot; C++',
+    tags: ['C++', 'Threads', 'MapReduce', 'IPC'],
+    desc: 'A multithreaded MapReduce implementation with a thread pool, work-stealing queue, and automatic reducer grouping by key. Supports pluggable map and reduce functions via shared libraries. Focuses on correctness under high concurrency and correct handling of partial failures.',
+    role: 'Solo project — EECS 482 coursework',
+    stack: 'C++17, POSIX threads, shared memory',
+    year: '2024',
+    links: [],
+  },
+  {
+    num: '005',
+    title: 'Paged Virtual Memory Simulator',
+    subtitle: 'Operating Systems &middot; C++',
+    tags: ['C++', 'Virtual Memory', 'OS', 'Paging'],
+    desc: 'Simulates a paged virtual memory system with a <strong>clock-algorithm eviction policy</strong>, copy-on-write fork semantics, and demand paging. Supports multiple processes sharing a physical memory pool. Built to deeply understand what happens below the malloc line.',
+    role: 'Solo project — EECS 482 coursework',
+    stack: 'C++17, custom MMU simulation',
+    year: '2024',
+    links: [],
+  },
+  {
+    num: '006',
+    title: 'This Portfolio',
+    subtitle: 'Web &middot; Python &middot; ML',
+    tags: ['HTML/CSS/JS', 'Three.js', 'Python', 'CLIP', 'UMAP', 'Cloudinary'],
+    desc: 'Static site with a Python ML pipeline. <strong>process.py</strong> handles Cloudinary upload, CLIP embedding extraction, KMeans dominant-color extraction, and UMAP 3D projection for the color-space map. The Three.js colormap plots each photo as a point in 3D space, clustered by color composition.',
+    role: 'Solo',
+    stack: 'Vanilla JS, Three.js r128, Python, scikit-learn, umap-learn, Cloudinary',
+    year: '2025',
+    links: [{ label: 'GitHub', href: '#' }, { label: 'Color map', href: 'colormap.html' }],
+  },
+];
+
+function render() {
+  const wrap = document.getElementById('projects');
+  PROJECTS.forEach((p, i) => {
+    const section = document.createElement('div');
+    section.className = 'project';
+    section.innerHTML = \`
+      <div class="project-head" data-idx="\${i}">
+        <span class="proj-num">\${p.num}</span>
+        <div>
+          <div class="proj-title">\${p.title}</div>
+          <div class="proj-subtitle">\${p.subtitle}</div>
+          <div class="proj-tags">\${p.tags.map(t => '<span class="tag">'+t+'</span>').join('')}</div>
+        </div>
+        <span class="proj-arrow">&#9656;</span>
+      </div>
+      <div class="project-body">
+        <div class="project-detail">
+          <p class="detail-desc">\${p.desc}</p>
+          <dl class="detail-meta">
+            <dt>Role</dt><dd>\${p.role}</dd>
+            <dt>Stack</dt><dd>\${p.stack}</dd>
+            <dt>Year</dt><dd>\${p.year}</dd>
+            \${p.links.length ? '<dt>Links</dt><dd><div class="detail-links">'+p.links.map(l=>'<a href="'+l.href+'" class="dlink" target="_blank">'+l.label+'</a>').join('')+'</div></dd>' : ''}
+          </dl>
+        </div>
+      </div>\`;
+    section.querySelector('.project-head').addEventListener('click', () => {
+      section.classList.toggle('open');
+    });
+    wrap.appendChild(section);
+  });
+}
+
+// clock
+const clk = document.getElementById('clock');
+const tick = () => { clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST'; };
+tick(); setInterval(tick, 30000);
+
+render();
+</script>
+</body>
+</html>
