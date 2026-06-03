@@ -45,7 +45,7 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 .hud .sep{width:1px;height:26px;background:rgba(120,180,80,.2)}
 .hud .dv{font-size:.58rem;color:rgba(140,180,90,.6)}
 .day-btn{background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:.85rem;
-  color:rgba(160,210,100,.55);padding:0 4px;line-height:1;transition:color .15s}
+  color:rgba(160,210,100,.55);padding:0 4px;line-height:1;transition:color .15s;pointer-events:auto}
 .day-btn:hover:not(:disabled){color:#ccf73f}
 .day-btn:disabled{opacity:.2;cursor:default}
 
@@ -481,6 +481,7 @@ function canvasPos(e){
 function moving(){return Math.hypot(ball.vx,ball.vy)>STOP_SPD;}
 
 function onDown(e){
+  if(e.target!==canvas) return;
   if(inHole||moving()) return;
   var p=canvasPos(e);
   dragging=true;
