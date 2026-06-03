@@ -219,12 +219,13 @@
     #sb{
       display:flex;flex-direction:column;align-items:center;
       position:fixed;right:14px;top:50px;bottom:14px;
-      z-index:45;pointer-events:none;
+      z-index:45;cursor:grab;padding:0 6px;
     }
+    #sb:active{cursor:grabbing}
     .sb-a{
-      font-family:var(--mono);font-size:11px;line-height:14px;
+      font-family:var(--mono);font-size:14px;line-height:19px;
       color:var(--dim);display:block;
-      transition:color .06s;
+      transition:color .06s;user-select:none;
     }
     .sb-a.on{color:var(--accent)}
   }
@@ -461,10 +462,12 @@
   (function(){
     var sb=document.getElementById('sb');
     if(!sb)return;
+    var LH=19; // must match CSS line-height
+
     function rebuild(){
       if(window.innerWidth<=920){sb.innerHTML='';return;}
       var h=window.innerHeight-50-14;
-      var n=Math.max(8,Math.floor(h/14));
+      var n=Math.max(8,Math.floor(h/LH));
       var frag=document.createDocumentFragment();
       for(var i=0;i<n;i++){
         var s=document.createElement('span');
@@ -481,6 +484,27 @@
       var idx=Math.round(p*(a.length-1));
       for(var i=0;i<a.length;i++)a[i].className=i===idx?'sb-a on':'sb-a';
     }
+    function scrollToY(clientY){
+      var rect=sb.getBoundingClientRect();
+      var p=Math.max(0,Math.min(1,(clientY-rect.top)/rect.height));
+      var maxSc=document.documentElement.scrollHeight-window.innerHeight;
+      window.scrollTo(0,p*maxSc);
+    }
+
+    var dragging=false;
+    sb.addEventListener('mousedown',function(e){
+      dragging=true;
+      document.body.style.userSelect='none';
+      scrollToY(e.clientY);
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove',function(e){
+      if(dragging)scrollToY(e.clientY);
+    });
+    document.addEventListener('mouseup',function(){
+      if(dragging){dragging=false;document.body.style.userSelect='';}
+    });
+
     rebuild();
     window.addEventListener('scroll',tick,{passive:true});
     window.addEventListener('resize',rebuild);
