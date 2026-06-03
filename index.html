@@ -162,6 +162,16 @@
   .cap-t{font-family:var(--disp);font-weight:500;font-size:1.05rem;letter-spacing:-.01em;color:#fbf2e8}
   .cap-m{font-family:var(--mono);font-size:.56rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin-top:5px}
 
+  /* ---------- color space ---------- */
+  .cs-wrap{position:relative;border-radius:4px;overflow:hidden;border:1px solid var(--line-strong);background:#0e0d0b;aspect-ratio:2/1;max-height:280px}
+  #cs-canvas{display:block;width:100%;height:100%}
+  .cs-link{position:absolute;bottom:14px;right:14px;font-family:var(--mono);font-size:.62rem;
+    letter-spacing:.14em;text-transform:uppercase;color:#ccf73f;border:1px solid #ccf73f;
+    padding:7px 14px;text-decoration:none;transition:background .2s,color .2s;backdrop-filter:blur(4px)}
+  .cs-link:hover{background:#ccf73f;color:#0e0d0b}
+  .cs-caption{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--dimmer);margin-top:12px}
+
   /* ---------- footer ---------- */
   footer{padding:clamp(70px,12vh,130px) 0 40px}
   footer .big{font-family:var(--disp);font-weight:440;font-size:clamp(2rem,6vw,4.4rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
@@ -198,6 +208,7 @@
     <a href="code.html">Code</a>
     <a href="games/lexicon.html">Games</a>
     <a href="gallery.html">Photography</a>
+    <a href="colormap.html">Color Space</a>
     <a href="#contact">Contact</a>
   </nav>
   <span id="clock">—</span>
@@ -338,6 +349,20 @@
       </div>
     </section>
 
+    <!-- ================= COLOR SPACE ================= -->
+    <section id="colorspace">
+      <div class="sec-head reveal">
+        <span class="idx">04 / Color Space</span>
+        <h2>Every palette <em>mapped</em></h2>
+        <span class="desc">816 photos in 3D — X&thinsp;=&thinsp;Red, Y&thinsp;=&thinsp;Green, Z&thinsp;=&thinsp;Blue. Similar colors cluster.</span>
+      </div>
+      <div class="cs-wrap reveal">
+        <canvas id="cs-canvas"></canvas>
+        <a href="colormap.html" class="cs-link">Explore in 3D &rarr;</a>
+      </div>
+      <p class="cs-caption reveal">Each dot is one photo, positioned by the average RGB of its 5 dominant colors and colored by its most dominant hue.</p>
+    </section>
+
     <!-- ================= CONTACT ================= -->
     <footer id="contact">
       <!-- [LINKS] -->
@@ -399,9 +424,67 @@
       return { name: name, meta: meta };
     }
 
+    function drawColorSpace(photos) {
+      var canvas = document.getElementById('cs-canvas');
+      if (!canvas) return;
+      // Size canvas to its CSS size
+      var rect = canvas.getBoundingClientRect();
+      canvas.width  = rect.width  || canvas.offsetWidth  || 600;
+      canvas.height = rect.height || canvas.offsetHeight || 300;
+      var W = canvas.width, H = canvas.height;
+      var ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#0e0d0b';
+      ctx.fillRect(0, 0, W, H);
+
+      // Isometric projection of RGB cube
+      // r=X, g=Y(up), b=Z; project to 2D with iso angles
+      var SCALE = Math.min(W, H) * 0.045;
+      var OX = W * 0.38, OY = H * 0.75; // origin offset (bottom-left-ish)
+      var cos30 = Math.cos(Math.PI / 6), sin30 = Math.sin(Math.PI / 6);
+
+      photos.forEach(function(p) {
+        if (!p.dominant_colors || !p.dominant_colors.length) return;
+        var palette = p.dominant_colors;
+        var r = 0, g = 0, b = 0;
+        palette.forEach(function(hex) {
+          var v = parseInt((hex||'#808080').replace('#',''), 16);
+          r += ((v >> 16) & 0xff) / 255;
+          g += ((v >>  8) & 0xff) / 255;
+          b += ( v        & 0xff) / 255;
+        });
+        r /= palette.length; g /= palette.length; b /= palette.length;
+
+        // Isometric: R goes right-down, G goes up, B goes left-down
+        var sx = OX + (r - b) * cos30 * SCALE;
+        var sy = OY - g * SCALE - (r + b) * sin30 * SCALE;
+
+        ctx.globalAlpha = 0.75;
+        ctx.fillStyle = palette[0] || '#888';
+        ctx.fillRect(sx - 1.2, sy - 1.2, 2.4, 2.4);
+      });
+      ctx.globalAlpha = 1;
+
+      // Faint axis lines from origin
+      ctx.lineWidth = 0.8;
+      [[1,0,0,'#ff4c4c','R'],[0,1,0,'#4cff70','G'],[0,0,1,'#4c7fff','B']].forEach(function(ax) {
+        var rx=ax[0], gy=ax[1], bz=ax[2], col=ax[3], lbl=ax[4];
+        var ex = OX + (rx - bz) * cos30 * SCALE * 9;
+        var ey = OY - gy * SCALE * 9 - (rx + bz) * sin30 * SCALE * 9;
+        ctx.globalAlpha = 0.45;
+        ctx.strokeStyle = col;
+        ctx.beginPath(); ctx.moveTo(OX, OY); ctx.lineTo(ex, ey); ctx.stroke();
+        ctx.globalAlpha = 0.7;
+        ctx.fillStyle = col;
+        ctx.font = '500 10px "IBM Plex Mono",monospace';
+        ctx.fillText(lbl, ex + (ex > OX ? 4 : -12), ey + 4);
+      });
+      ctx.globalAlpha = 1;
+    }
+
     fetch('data/photos-web.json')
       .then(function(r){ return r.json(); })
       .then(function(all) {
+        drawColorSpace(all);
         // Only use photos with a valid Cloudinary id and dominant color data
         var pool = shuffle(all.filter(function(p){ return p.id && p.dominant_colors && p.dominant_colors.length; }));
         if (!pool.length) return;
