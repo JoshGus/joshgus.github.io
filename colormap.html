@@ -6,63 +6,89 @@
 <title>Color Space &mdash; Field Notes</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#0e0d0b;--surface:#1a1916;--fg:#f4ede3;--dim:#7a7168;--dimmer:#4a4540;
-  --accent:#ccf73f;--accent-ink:#a8c828;
-  --mono:"IBM Plex Mono",ui-monospace,monospace;
+  --bg:#f7ece1;--surface:#fdf5ea;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14);--line-strong:rgba(29,23,18,.30);
+  --canvas-bg:#0e0d0b;
   --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--fg);font-family:var(--mono);overflow:hidden;height:100vh}
-body::after{content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.35;
+html{scroll-behavior:smooth}
+::selection{background:var(--accent);color:var(--fg)}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;z-index:999;pointer-events:none;opacity:.4;
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")}
 a{color:inherit;text-decoration:none}
-canvas{display:block;position:fixed;inset:0;z-index:0}
 
-.status{position:fixed;top:0;left:0;right:0;z-index:10;
-  display:flex;justify-content:space-between;align-items:center;
-  padding:14px 24px;font-size:.64rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
-  background:rgba(14,13,11,.7);backdrop-filter:blur(8px);border-bottom:1px solid rgba(244,237,227,.1)}
-.status .sig{color:var(--fg);font-size:.7rem}
+/* status bar */
+.status{position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;align-items:center;
+  padding:14px clamp(20px,4vw,64px);font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
+  background:rgba(247,236,225,.88);backdrop-filter:blur(8px)}
+.status .sig{font-weight:600;color:var(--fg)}
 .status .sig:hover{color:var(--accent-ink)}
 .status nav{display:flex;gap:20px}
 .status nav a{color:var(--dim);transition:color .2s}
 .status nav a:hover,.status nav a.active{color:var(--accent-ink)}
+#clock{color:var(--dimmer)}
+@media(max-width:640px){.status nav{display:none}}
 
-.hud{position:fixed;bottom:0;left:0;right:0;z-index:10;
-  padding:20px 24px;background:rgba(14,13,11,.7);backdrop-filter:blur(8px);
-  border-top:1px solid rgba(244,237,227,.1);
-  display:flex;justify-content:space-between;align-items:flex-end;gap:24px;flex-wrap:wrap}
-.hud-left h1{font-family:var(--disp);font-weight:440;font-size:clamp(1.4rem,3vw,2.2rem);
-  letter-spacing:-.02em;color:var(--fg);font-variation-settings:"opsz" 40}
-.hud-left h1 em{font-style:italic;color:var(--accent-ink)}
-.hud-sub{font-size:.62rem;letter-spacing:.14em;color:var(--dim);margin-top:6px}
-.hud-right{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
-.controls-hint{font-size:.6rem;letter-spacing:.12em;color:var(--dimmer);text-align:right;line-height:2}
-.photo-count{font-size:.7rem;letter-spacing:.14em;color:var(--accent-ink)}
-.gallery-link{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--accent-ink);border:1px solid var(--accent-ink);padding:8px 14px;
-  transition:background .2s,color .2s}
+/* page header */
+.page-header{padding:clamp(40px,7vh,72px) clamp(20px,5vw,72px) clamp(24px,3vh,36px);border-bottom:1px solid var(--line)}
+.ph-idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;color:var(--accent-ink);display:block;margin-bottom:12px}
+.page-header h1{font-family:var(--disp);font-weight:440;font-size:clamp(2.4rem,6vw,4.6rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
+.page-header h1 em{font-style:italic;color:var(--accent-ink)}
+.page-header p{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;color:var(--dim);margin-top:16px;max-width:60ch}
+
+/* scene */
+.scene-outer{padding:clamp(20px,3vw,40px) clamp(20px,5vw,72px)}
+.scene-wrap{position:relative;border-radius:6px;overflow:hidden;background:var(--canvas-bg);
+  border:1px solid var(--line-strong);height:clamp(460px,68vh,780px)}
+canvas{display:block;width:100%;height:100%}
+#hover-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;overflow:visible}
+
+/* hover thumbnail */
+#hover-thumb{position:absolute;z-index:6;pointer-events:none;display:none}
+#hover-thumb img{display:block;width:110px;height:80px;object-fit:cover;border:1.5px solid var(--accent)}
+#hover-thumb .ht-label{font-family:var(--mono);font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;
+  background:rgba(14,13,11,.85);color:var(--accent);padding:3px 6px;white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:110px}
+
+/* click preview card */
+#click-card{position:absolute;z-index:8;width:220px;display:none;
+  background:var(--surface);border:1px solid var(--line-strong);
+  box-shadow:0 12px 32px rgba(0,0,0,.22)}
+#click-card img{display:block;width:100%;aspect-ratio:4/3;object-fit:cover;background:#1a1916}
+#click-card .cc-body{padding:12px}
+#click-card .cc-title{font-family:var(--disp);font-weight:500;font-size:1rem;letter-spacing:-.01em;
+  line-height:1.2;margin-bottom:6px;font-variation-settings:"opsz" 24}
+#click-card .cc-meta{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--dim);line-height:1.9}
+#click-card .cc-conf{display:inline-block;font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;
+  color:var(--accent-ink);border:1px solid var(--accent-ink);padding:2px 8px;margin-top:6px}
+#click-card .cc-close{position:absolute;top:8px;right:8px;width:24px;height:24px;
+  border:none;background:rgba(14,13,11,.6);color:#fff;font-size:.9rem;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;pointer-events:all}
+
+/* footer bar */
+.scene-footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
+  padding:14px clamp(20px,5vw,72px);border-top:1px solid var(--line)}
+.scene-footer .hint{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer)}
+#photo-count{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
+.gallery-link{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--accent-ink);border:1px solid var(--accent-ink);padding:8px 14px;transition:background .2s,color .2s}
 .gallery-link:hover{background:var(--accent-ink);color:var(--bg)}
-
-/* Tooltip */
-.tooltip{position:fixed;z-index:20;pointer-events:none;background:var(--surface);
-  border:1px solid rgba(244,237,227,.15);padding:12px 14px;display:none;min-width:180px;
-  box-shadow:0 8px 24px rgba(0,0,0,.5)}
-.tt-title{font-family:var(--disp);font-size:1rem;font-weight:500;color:var(--fg);
-  letter-spacing:-.01em;margin-bottom:6px;font-variation-settings:"opsz" 24}
-.tt-meta{font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);line-height:1.8}
-.tt-colors{display:flex;gap:4px;margin-top:8px}
-.tt-swatch{width:18px;height:18px;border-radius:2px}
-.tt-note{font-size:.56rem;letter-spacing:.1em;color:var(--dimmer);margin-top:6px}
 </style>
 </head>
 <body>
 
 <div class="status">
-  <a href="index.html" class="sig">[NAME]</a>
+  <a href="index.html" class="sig">Joshua Gustaveson</a>
   <nav>
     <a href="code.html">Code</a>
     <a href="games/lexicon.html">Games</a>
@@ -72,28 +98,33 @@ canvas{display:block;position:fixed;inset:0;z-index:0}
   <span id="clock">--:-- EST</span>
 </div>
 
-<canvas id="c"></canvas>
-
-<div class="tooltip" id="tooltip">
-  <div class="tt-title" id="tt-title"></div>
-  <div class="tt-meta" id="tt-meta"></div>
-  <div class="tt-colors" id="tt-colors"></div>
-  <div class="tt-note">click to open in gallery</div>
+<div class="page-header">
+  <span class="ph-idx">04 / Color Map</span>
+  <h1>Color <em>Space</em></h1>
+  <p>816 photos positioned by color composition — similar palettes cluster together. Drag to orbit &middot; right-drag to pan &middot; scroll to zoom &middot; hover for preview &middot; click to open.</p>
 </div>
 
-<div class="hud">
-  <div class="hud-left">
-    <h1>Color <em>Space</em></h1>
-    <p class="hud-sub">Each point is a photo, positioned by color composition &mdash; similar palettes cluster together.</p>
+<div class="scene-outer">
+  <div class="scene-wrap" id="scene-wrap">
+    <canvas id="c"></canvas>
+    <svg id="hover-svg"></svg>
+    <div id="hover-thumb"><img id="ht-img" src="" alt=""><div class="ht-label" id="ht-label"></div></div>
+    <div id="click-card">
+      <img id="cc-img" src="" alt="">
+      <button class="cc-close" id="cc-close">&times;</button>
+      <div class="cc-body">
+        <div class="cc-title" id="cc-title"></div>
+        <div class="cc-meta" id="cc-meta"></div>
+        <span class="cc-conf" id="cc-conf" style="display:none"></span>
+      </div>
+    </div>
   </div>
-  <div class="hud-right">
-    <span class="photo-count" id="photo-count"></span>
-    <span class="controls-hint">
-      Drag &mdash; orbit &nbsp;|&nbsp; Scroll &mdash; zoom<br>
-      Hover &mdash; inspect &nbsp;|&nbsp; Click &mdash; open
-    </span>
-    <a href="gallery.html" class="gallery-link">&larr; Back to gallery</a>
-  </div>
+</div>
+
+<div class="scene-footer">
+  <span id="photo-count"></span>
+  <span class="hint">Drag — orbit &nbsp;·&nbsp; Right-drag — pan &nbsp;·&nbsp; Scroll — zoom</span>
+  <a href="gallery.html" class="gallery-link">&larr; Back to gallery</a>
 </div>
 
 <script type="importmap">
@@ -108,109 +139,80 @@ canvas{display:block;position:fixed;inset:0;z-index:0}
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
+const CLOUD = 'dgxn8tymb';
+function imgUrl(id, w) {
+  if (!id || !CLOUD) return '';
+  return 'https://res.cloudinary.com/' + CLOUD + '/image/upload/w_' + w + ',f_auto,q_auto/' + id;
+}
+
 // ---- scene setup ----
-const canvas   = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false });
+const wrap   = document.getElementById('scene-wrap');
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setClearColor(0x0e0d0b, 1);
 
 const scene  = new THREE.Scene();
-const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.01, 200);
-camera.position.set(6, 4, 8);
+const camera = new THREE.PerspectiveCamera(55, 1, 0.01, 200);
+camera.position.set(6, 4, 10);
 
 const controls = new OrbitControls(camera, renderer.domElement);
-controls.enableDamping = true;
-controls.dampingFactor = 0.06;
-controls.autoRotate = true;
-controls.autoRotateSpeed = 0.4;
-controls.minDistance = 1;
-controls.maxDistance = 40;
+controls.enableDamping  = true;
+controls.dampingFactor  = 0.06;
+controls.autoRotate     = true;
+controls.autoRotateSpeed = 0.35;
+controls.enablePan      = true;
+controls.minDistance    = 1;
+controls.maxDistance    = 40;
 
-// resize
+// Resize to match container
 function onResize() {
-  camera.aspect = window.innerWidth / window.innerHeight;
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  camera.aspect = w / h;
   camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.setSize(w, h, false);
 }
-window.addEventListener('resize', onResize);
+new ResizeObserver(onResize).observe(wrap);
 onResize();
 
-// ---- faint grid ----
-const gridHelper = new THREE.GridHelper(20, 20, 0x2a2825, 0x1e1c1a);
-scene.add(gridHelper);
+// faint grid
+scene.add(new THREE.GridHelper(20, 20, 0x2a2825, 0x1e1c1a));
 
-// ---- load photos ----
-let photos = [];
+// ---- data ----
+let photos    = [];
+let positions = null;
 let pointMesh = null;
 
 async function loadAndBuild() {
   try {
-    const r = await fetch('data/photos-web.json');
-    photos = await r.json();
-  } catch(e) {
-    console.warn('Could not load photos.json', e);
-    photos = generatePlaceholders(40);
-  }
+    photos = await fetch('data/photos-web.json').then(r => r.json());
+  } catch(e) { photos = []; }
   document.getElementById('photo-count').textContent = photos.length + ' photos';
   buildPointCloud();
 }
 
-function generatePlaceholders(n) {
-  const arr = [];
-  for (let i = 0; i < n; i++) {
-    const angle = (i / n) * Math.PI * 2;
-    const r = 2 + Math.random() * 3;
-    const hue = Math.floor(Math.random() * 360);
-    const hex = hslToHex(hue, 60, 55);
-    arr.push({
-      id: null, title: 'Sample photo ' + (i+1), species: 'TBD',
-      location: '', season: '',
-      dominant_colors: [hex],
-      umap_3d: [
-        r * Math.cos(angle) + (Math.random()-.5)*1.5,
-        (Math.random()-.5)*3,
-        r * Math.sin(angle) + (Math.random()-.5)*1.5,
-      ]
-    });
-  }
-  return arr;
-}
-
-function hslToHex(h, s, l) {
-  s /= 100; l /= 100;
-  const k = n => (n + h/30) % 12;
-  const a = s * Math.min(l, 1-l);
-  const f = n => l - a * Math.max(-1, Math.min(k(n)-3, Math.min(9-k(n), 1)));
-  return '#' + [f(0),f(8),f(4)].map(x => Math.round(x*255).toString(16).padStart(2,'0')).join('');
-}
-
 function buildPointCloud() {
   const n = photos.length;
-  const positions = new Float32Array(n * 3);
-  const colors    = new Float32Array(n * 3);
-  const sizes     = new Float32Array(n);
+  if (!n) return;
+  positions = new Float32Array(n * 3);
+  const colors = new Float32Array(n * 3);
+  const sizes  = new Float32Array(n);
 
-  // Compute centroid so the cloud is centered at origin for OrbitControls
   let cx = 0, cy = 0, cz = 0;
-  photos.forEach(p => {
-    const [x, y, z] = p.umap_3d || [0, 0, 0];
-    cx += x; cy += y; cz += z;
-  });
-  cx /= n; cy /= n; cz /= n;
+  photos.forEach(p => { const [x,y,z] = p.umap_3d||[0,0,0]; cx+=x; cy+=y; cz+=z; });
+  cx/=n; cy/=n; cz/=n;
 
   photos.forEach((p, i) => {
-    const [x, y, z] = p.umap_3d || [Math.random()*6-3, Math.random()*6-3, Math.random()*6-3];
+    const [x,y,z] = p.umap_3d || [0,0,0];
     positions[i*3]   = x - cx;
     positions[i*3+1] = y - cy;
     positions[i*3+2] = z - cz;
 
-    const hex = (p.dominant_colors && p.dominant_colors[0]) || '#ccf73f';
-    const col = new THREE.Color(hex);
+    const col = new THREE.Color((p.dominant_colors && p.dominant_colors[0]) || '#888');
     colors[i*3]   = col.r;
     colors[i*3+1] = col.g;
     colors[i*3+2] = col.b;
-
-    sizes[i] = 0.18;
+    sizes[i] = 0.20;
   });
 
   const geo = new THREE.BufferGeometry();
@@ -219,27 +221,22 @@ function buildPointCloud() {
   geo.setAttribute('size',     new THREE.BufferAttribute(sizes, 1));
 
   const mat = new THREE.ShaderMaterial({
-    vertexColors: true,
-    transparent: true,
-    depthWrite: false,
-    uniforms: { uPixelRatio: { value: renderer.getPixelRatio() } },
+    vertexColors: true, transparent: true, depthWrite: false,
+    uniforms: { uPR: { value: renderer.getPixelRatio() } },
     vertexShader: `
-      attribute float size;
-      varying vec3 vColor;
-      uniform float uPixelRatio;
-      void main() {
+      attribute float size; varying vec3 vColor; uniform float uPR;
+      void main(){
         vColor = color;
-        vec4 mv = modelViewMatrix * vec4(position, 1.0);
-        gl_PointSize = size * uPixelRatio * (300.0 / -mv.z);
+        vec4 mv = modelViewMatrix * vec4(position,1.);
+        gl_PointSize = size * uPR * (280. / -mv.z);
         gl_Position  = projectionMatrix * mv;
       }`,
     fragmentShader: `
       varying vec3 vColor;
-      void main() {
-        float d = distance(gl_PointCoord, vec2(0.5));
-        if (d > 0.5) discard;
-        float alpha = 1.0 - smoothstep(0.3, 0.5, d);
-        gl_FragColor = vec4(vColor, alpha);
+      void main(){
+        float d = distance(gl_PointCoord, vec2(.5));
+        if(d > .5) discard;
+        gl_FragColor = vec4(vColor, 1.0 - smoothstep(.3,.5,d));
       }`,
   });
 
@@ -247,58 +244,157 @@ function buildPointCloud() {
   scene.add(pointMesh);
 }
 
-// ---- raycasting / hover ----
-const raycaster = new THREE.Raycaster();
-raycaster.params.Points.threshold = 0.15;
-const mouse    = new THREE.Vector2();
-const tooltip  = document.getElementById('tooltip');
+// ---- project 3D → canvas 2D ----
+function toCanvas(idx) {
+  const v = new THREE.Vector3(positions[idx*3], positions[idx*3+1], positions[idx*3+2]);
+  v.project(camera);
+  return {
+    x: (v.x + 1) / 2 * wrap.clientWidth,
+    y: (-v.y + 1) / 2 * wrap.clientHeight,
+  };
+}
+
+// ---- hover ----
+const svg        = document.getElementById('hover-svg');
+const hoverThumb = document.getElementById('hover-thumb');
+const htImg      = document.getElementById('ht-img');
+const htLabel    = document.getElementById('ht-label');
+const raycaster  = new THREE.Raycaster();
+raycaster.params.Points.threshold = 0.18;
+const mouse = new THREE.Vector2();
 let hoveredIdx = -1;
+let svgLine    = null;
 
-window.addEventListener('mousemove', e => {
-  mouse.x =  (e.clientX / window.innerWidth)  * 2 - 1;
-  mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+const TW = 110, TH = 80;
 
+function updateHover(e) {
+  const rect = wrap.getBoundingClientRect();
+  mouse.x =  ((e.clientX - rect.left) / rect.width)  * 2 - 1;
+  mouse.y = -((e.clientY - rect.top)  / rect.height) * 2 + 1;
   if (!pointMesh) return;
+
   raycaster.setFromCamera(mouse, camera);
   const hits = raycaster.intersectObject(pointMesh);
+
   if (hits.length > 0) {
     const idx = hits[0].index;
-    if (idx !== hoveredIdx) {
-      hoveredIdx = idx;
-      showTooltip(photos[idx], e);
-    }
-    tooltip.style.left = (e.clientX + 16) + 'px';
-    tooltip.style.top  = (e.clientY - 40) + 'px';
+    hoveredIdx = idx;
     controls.autoRotate = false;
+    wrap.style.cursor = 'pointer';
+
+    const pt  = toCanvas(idx);
+    const W   = wrap.clientWidth, H = wrap.clientHeight;
+    const pad = 14;
+
+    // Decide thumbnail position (avoid edges)
+    let tx = pt.x + 24, ty = pt.y - TH - 16;
+    if (tx + TW > W - pad) tx = pt.x - TW - 24;
+    if (ty < pad)          ty = pt.y + 16;
+    if (ty + TH > H - pad) ty = H - TH - pad;
+
+    // SVG line from point to thumb
+    if (!svgLine) {
+      svgLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+      svgLine.setAttribute('stroke', '#ccf73f');
+      svgLine.setAttribute('stroke-width', '1');
+      svgLine.setAttribute('stroke-dasharray', '4 3');
+      svg.appendChild(svgLine);
+    }
+    // Line endpoint: corner of thumbnail nearest to point
+    const lx = tx + (tx > pt.x ? 0 : TW);
+    const ly = ty + TH / 2;
+    svgLine.setAttribute('x1', pt.x); svgLine.setAttribute('y1', pt.y);
+    svgLine.setAttribute('x2', lx);   svgLine.setAttribute('y2', ly);
+    svg.style.display = 'block';
+
+    // Thumbnail image
+    const photo = photos[idx];
+    const src   = imgUrl(photo.id, 300);
+    if (src && htImg.dataset.idx !== String(idx)) {
+      htImg.src = src;
+      htImg.dataset.idx = idx;
+    }
+    htImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#333';
+    htLabel.textContent = photo.species || photo.title || '';
+    hoverThumb.style.left    = tx + 'px';
+    hoverThumb.style.top     = ty + 'px';
+    hoverThumb.style.display = 'block';
   } else {
     hoveredIdx = -1;
-    tooltip.style.display = 'none';
     controls.autoRotate = true;
+    wrap.style.cursor = 'default';
+    hoverThumb.style.display = 'none';
+    svg.style.display = 'none';
+  }
+}
+
+wrap.addEventListener('mousemove', updateHover);
+wrap.addEventListener('mouseleave', () => {
+  hoveredIdx = -1;
+  hoverThumb.style.display = 'none';
+  svg.style.display = 'none';
+  controls.autoRotate = true;
+  wrap.style.cursor = 'default';
+});
+
+// ---- click preview ----
+const card     = document.getElementById('click-card');
+const ccImg    = document.getElementById('cc-img');
+const ccTitle  = document.getElementById('cc-title');
+const ccMeta   = document.getElementById('cc-meta');
+const ccConf   = document.getElementById('cc-conf');
+let   cardOpen = false;
+
+document.getElementById('cc-close').addEventListener('click', e => {
+  e.stopPropagation();
+  closeCard();
+});
+
+wrap.addEventListener('click', e => {
+  if (e.target.closest('#click-card')) return;
+  if (hoveredIdx < 0) { closeCard(); return; }
+
+  const photo = photos[hoveredIdx];
+  const pt    = toCanvas(hoveredIdx);
+  const W     = wrap.clientWidth, H = wrap.clientHeight;
+  const CW    = 220, pad = 12;
+
+  let cx = pt.x + 32;
+  let cy = pt.y - 60;
+  if (cx + CW > W - pad) cx = pt.x - CW - 32;
+  if (cy < pad) cy = pad;
+  if (cy + 320 > H - pad) cy = H - 320 - pad;
+
+  card.style.left    = cx + 'px';
+  card.style.top     = cy + 'px';
+  card.style.display = 'block';
+  cardOpen = true;
+
+  ccTitle.textContent = photo.species || photo.animal || photo.title || '';
+  const src = imgUrl(photo.id, 600);
+  if (src) { ccImg.src = src; ccImg.style.display = 'block'; }
+  else      { ccImg.style.display = 'none'; }
+  ccImg.style.background = (photo.dominant_colors && photo.dominant_colors[0]) || '#1a1916';
+
+  const meta = [
+    photo.category,
+    photo.location,
+    photo.season,
+  ].filter(Boolean).join(' · ');
+  ccMeta.textContent = meta;
+
+  const conf = photo.species_confidence || photo.bird_confidence || 0;
+  if (conf > 0 && (photo.species || photo.animal)) {
+    ccConf.textContent    = conf + '% confidence';
+    ccConf.style.display  = 'inline-block';
+  } else {
+    ccConf.style.display  = 'none';
   }
 });
 
-window.addEventListener('click', () => {
-  if (hoveredIdx >= 0) {
-    window.location.href = 'gallery.html';
-  }
-});
-
-function showTooltip(photo, e) {
-  document.getElementById('tt-title').textContent = photo.title;
-  document.getElementById('tt-meta').innerHTML =
-    (photo.species  ? photo.species + '<br>' : '') +
-    [photo.location, photo.season].filter(Boolean).join(' &middot; ');
-  const colWrap = document.getElementById('tt-colors');
-  colWrap.innerHTML = '';
-  (photo.dominant_colors || []).slice(0, 5).forEach(c => {
-    const s = document.createElement('div');
-    s.className = 'tt-swatch';
-    s.style.background = c;
-    colWrap.appendChild(s);
-  });
-  tooltip.style.display = 'block';
-  tooltip.style.left = (e.clientX + 16) + 'px';
-  tooltip.style.top  = (e.clientY - 40) + 'px';
+function closeCard() {
+  card.style.display = 'none';
+  cardOpen = false;
 }
 
 // ---- animate ----
