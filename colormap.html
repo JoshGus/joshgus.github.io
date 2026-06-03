@@ -67,7 +67,7 @@ canvas{display:block;width:100%;height:100%}
   color:rgba(244,237,227,.45);margin-bottom:8px}
 .ax-row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.6rem;
   letter-spacing:.08em;color:rgba(244,237,227,.7);margin-bottom:5px}
-.ax-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.ax-line{display:inline-block;width:18px;height:2px;border-radius:1px;flex-shrink:0;margin-top:1px}
 .ax-note{font-family:var(--mono);font-size:.52rem;letter-spacing:.06em;
   color:rgba(244,237,227,.3);margin-top:8px;line-height:1.5;border-top:1px solid rgba(244,237,227,.1);padding-top:7px}
 
@@ -139,7 +139,7 @@ canvas{display:block;width:100%;height:100%}
 <div class="page-header">
   <span class="ph-idx">04 / Color Map</span>
   <h1>Color <em>Space</em></h1>
-  <p>816 photos positioned by color composition — similar palettes cluster together. Drag to orbit &middot; right-drag to pan &middot; scroll to zoom &middot; hover for preview &middot; click to open.</p>
+  <p>Each photo placed at its average palette's RGB coordinates — X&thinsp;=&thinsp;Red, Y&thinsp;=&thinsp;Green, Z&thinsp;=&thinsp;Blue. Dot color is its dominant hue. Hover for preview &middot; click to open.</p>
 </div>
 
 <div class="scene-outer">
@@ -160,10 +160,10 @@ canvas{display:block;width:100%;height:100%}
     <!-- Axis legend -->
     <div id="axis-legend">
       <div class="ax-title">How points are placed</div>
-      <div class="ax-row"><span class="ax-dot" style="background:#ccf73f"></span>Each dot = one photo, colored by its dominant palette</div>
-      <div class="ax-row"><span class="ax-dot" style="background:#888"></span>5 dominant colors → 15-dim RGB vector → UMAP 3D</div>
-      <div class="ax-row"><span class="ax-dot" style="background:#fff3"></span>Photos with similar palettes cluster together</div>
-      <div class="ax-note">The three axes have no fixed color meaning — they emerge from the structure of the data. Swatches at each axis end show the actual palette of the most extreme photo in that direction.</div>
+      <div class="ax-row"><span class="ax-line" style="background:#ff4c4c"></span>X axis = Red channel</div>
+      <div class="ax-row"><span class="ax-line" style="background:#4cff70"></span>Y axis = Green channel</div>
+      <div class="ax-row"><span class="ax-line" style="background:#4c7fff"></span>Z axis = Blue channel</div>
+      <div class="ax-note">Position = average of each photo's 5 dominant colors mapped directly to RGB coordinates. Dot color = most dominant hue. Swatches at axis ends show the most extreme photo in that direction.</div>
     </div>
 
     <!-- Fullscreen + recenter -->
@@ -264,6 +264,8 @@ async function loadAndBuild() {
   buildPointCloud();
 }
 
+const SCALE = 9; // maps 0–1 → –4.5 to +4.5 (centered at middle gray)
+
 function buildPointCloud() {
   const n = photos.length;
   if (!n) return;
@@ -271,20 +273,23 @@ function buildPointCloud() {
   const colors = new Float32Array(n * 3);
   const sizes  = new Float32Array(n);
 
-  let cx = 0, cy = 0, cz = 0;
-  photos.forEach(p => { const [x,y,z] = p.umap_3d||[0,0,0]; cx+=x; cy+=y; cz+=z; });
-  cx/=n; cy/=n; cz/=n;
-
   photos.forEach((p, i) => {
-    const [x,y,z] = p.umap_3d || [0,0,0];
-    positions[i*3]   = x - cx;
-    positions[i*3+1] = y - cy;
-    positions[i*3+2] = z - cz;
+    // Average all dominant colors for position so the full palette contributes
+    const palette = p.dominant_colors && p.dominant_colors.length ? p.dominant_colors : ['#808080'];
+    let r = 0, g = 0, b = 0;
+    palette.forEach(hex => { const c = new THREE.Color(hex); r += c.r; g += c.g; b += c.b; });
+    r /= palette.length; g /= palette.length; b /= palette.length;
 
-    const col = new THREE.Color((p.dominant_colors && p.dominant_colors[0]) || '#888');
-    colors[i*3]   = col.r;
-    colors[i*3+1] = col.g;
-    colors[i*3+2] = col.b;
+    // X = Red, Y = Green, Z = Blue  (centered at 0.5 = middle gray)
+    positions[i*3]   = (r - 0.5) * SCALE;
+    positions[i*3+1] = (g - 0.5) * SCALE;
+    positions[i*3+2] = (b - 0.5) * SCALE;
+
+    // Dot color = most dominant color in the photo
+    const dot = new THREE.Color(palette[0]);
+    colors[i*3]   = dot.r;
+    colors[i*3+1] = dot.g;
+    colors[i*3+2] = dot.b;
     sizes[i] = 0.20;
   });
 
@@ -348,7 +353,28 @@ function buildPointCloud() {
   scene.add(axLine(0,box.min.y,0, 0,box.max.y,0, 0x4cff70)); // Y — green
   scene.add(axLine(0,0,box.min.z, 0,0,box.max.z, 0x4c7fff)); // Z — blue
 
-  // End markers: colored swatch from the most extreme photo in each direction
+  // Axis letter labels at positive ends (R/G/B now have real meaning)
+  function makeLabel(text, hex) {
+    const c = Object.assign(document.createElement('canvas'), {width:128, height:128});
+    const ctx = c.getContext('2d');
+    ctx.font = 'bold 80px "IBM Plex Mono",monospace';
+    ctx.fillStyle = hex;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 64, 64);
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial(
+      {map: new THREE.CanvasTexture(c), transparent: true, depthTest: false}));
+    sp.scale.set(1.0, 1.0, 1);
+    return sp;
+  }
+  const labelPad = 1.1;
+  [['R', box.max.x+labelPad, 0, 0, '#ff4c4c'],
+   ['G', 0, box.max.y+labelPad, 0, '#4cff70'],
+   ['B', 0, 0, box.max.z+labelPad, '#4c7fff']].forEach(([t,x,y,z,col]) => {
+    const lbl = makeLabel(t, col); lbl.position.set(x,y,z); scene.add(lbl);
+  });
+
+  // End markers: swatch from most extreme photo at each axis pole
   function extremeColor(dim, sign) {
     let best = -Infinity, col = '#888888';
     for (let i = 0; i < photos.length; i++) {
@@ -362,28 +388,21 @@ function buildPointCloud() {
   function makeEndMarker(hex, axColor) {
     const c = Object.assign(document.createElement('canvas'), {width:64, height:64});
     const ctx = c.getContext('2d');
-    // Outer ring in axis color, filled with photo's dominant color
-    ctx.beginPath(); ctx.arc(32,32,28,0,Math.PI*2);
+    ctx.beginPath(); ctx.arc(32, 32, 26, 0, Math.PI * 2);
     ctx.fillStyle = hex; ctx.fill();
     ctx.strokeStyle = axColor; ctx.lineWidth = 5; ctx.stroke();
     const sp = new THREE.Sprite(new THREE.SpriteMaterial(
-      {map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
-    sp.scale.set(0.65, 0.65, 1);
+      {map: new THREE.CanvasTexture(c), transparent: true, depthTest: false}));
+    sp.scale.set(0.6, 0.6, 1);
     return sp;
   }
-  const pad = 0.6;
-  const ends = [
-    [box.max.x+pad, 0,           0,           0, 1,  '#ff4c4c'],
-    [box.min.x-pad, 0,           0,           0, -1, '#ff4c4c'],
-    [0,           box.max.y+pad, 0,           1, 1,  '#4cff70'],
-    [0,           box.min.y-pad, 0,           1, -1, '#4cff70'],
-    [0,           0,           box.max.z+pad, 2, 1,  '#4c7fff'],
-    [0,           0,           box.min.z-pad, 2, -1, '#4c7fff'],
-  ];
-  ends.forEach(([x,y,z,dim,sign,axCol]) => {
+  const pad = 0.55;
+  [[box.max.x+pad, 0, 0, 0, 1, '#ff4c4c'], [box.min.x-pad, 0, 0, 0, -1, '#ff4c4c'],
+   [0, box.max.y+pad, 0, 1, 1, '#4cff70'], [0, box.min.y-pad, 0, 1, -1, '#4cff70'],
+   [0, 0, box.max.z+pad, 2, 1, '#4c7fff'], [0, 0, box.min.z-pad, 2, -1, '#4c7fff'],
+  ].forEach(([x,y,z,dim,sign,axCol]) => {
     const m = makeEndMarker(extremeColor(dim, sign), axCol);
-    m.position.set(x, y, z);
-    scene.add(m);
+    m.position.set(x, y, z); scene.add(m);
   });
 }
 
