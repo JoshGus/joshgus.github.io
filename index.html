@@ -171,6 +171,18 @@
   .cs-link:hover{background:#ccf73f;color:#0e0d0b}
   .cs-caption{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
     color:var(--dimmer);margin-top:12px}
+  /* collapsible color space body */
+  .cs-body{overflow:hidden;transition:max-height .45s cubic-bezier(.2,.7,.3,1),opacity .35s ease}
+  .cs-body.collapsed{max-height:0!important;opacity:0}
+  .cs-toggle{
+    background:none;border:none;cursor:pointer;
+    font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent-ink);padding:0;margin-left:auto;display:flex;align-items:center;gap:8px;
+    transition:color .25s;
+  }
+  .cs-toggle:hover{color:var(--fg)}
+  .cs-toggle .cs-chev{display:inline-block;transition:transform .35s cubic-bezier(.2,.7,.3,1)}
+  .cs-toggle.collapsed .cs-chev{transform:rotate(-90deg)}
 
   /* ---------- footer ---------- */
   footer{padding:clamp(70px,12vh,130px) 0 40px}
@@ -197,6 +209,24 @@
     *{animation:none!important}
     figure.tile figcaption{transform:none}
     html{scroll-behavior:auto}
+  }
+
+  /* ---------- custom scrollbar (wide screens only) ---------- */
+  #sb{display:none}
+  @media(min-width:921px){
+    html{scrollbar-width:none}
+    body::-webkit-scrollbar{display:none}
+    #sb{
+      display:flex;flex-direction:column;align-items:center;
+      position:fixed;right:16px;top:50px;bottom:16px;
+      z-index:45;pointer-events:none;
+    }
+    .sb-a{
+      font-family:var(--mono);font-size:8px;line-height:11px;
+      color:var(--dimmer);display:block;
+      transition:color .06s;
+    }
+    .sb-a.on{color:var(--accent)}
   }
 </style>
 </head>
@@ -355,12 +385,17 @@
         <span class="idx">04 / Color Space</span>
         <h2>Every palette <em>mapped</em></h2>
         <span class="desc">816 photos in 3D — X&thinsp;=&thinsp;Red, Y&thinsp;=&thinsp;Green, Z&thinsp;=&thinsp;Blue. Similar colors cluster.</span>
+        <button class="cs-toggle" id="cs-toggle" aria-expanded="true" aria-controls="cs-body">
+          <span class="cs-chev">↓</span><span id="cs-toggle-label">Collapse</span>
+        </button>
       </div>
-      <div class="cs-wrap reveal">
-        <canvas id="cs-canvas"></canvas>
-        <a href="colormap.html" class="cs-link">Explore in 3D &rarr;</a>
+      <div class="cs-body reveal" id="cs-body">
+        <div class="cs-wrap">
+          <canvas id="cs-canvas"></canvas>
+          <a href="colormap.html" class="cs-link">Explore in 3D &rarr;</a>
+        </div>
+        <p class="cs-caption">Each dot is one photo, positioned by the average RGB of its 5 dominant colors and colored by its most dominant hue.</p>
       </div>
-      <p class="cs-caption reveal">Each dot is one photo, positioned by the average RGB of its 5 dominant colors and colored by its most dominant hue.</p>
     </section>
 
     <!-- ================= CONTACT ================= -->
@@ -379,6 +414,8 @@
   </main>
 </div>
 
+<div id="sb" aria-hidden="true"></div>
+
 <script>
   // Clock
   try {
@@ -389,6 +426,65 @@
     };
     tick(); setInterval(tick, 30000);
   } catch(e) {}
+
+  // Collapsible color space
+  (function(){
+    var btn=document.getElementById('cs-toggle');
+    var body=document.getElementById('cs-body');
+    var lbl=document.getElementById('cs-toggle-label');
+    if(!btn||!body)return;
+    // Set open max-height so CSS transition has a target
+    body.style.maxHeight=body.scrollHeight+'px';
+    body.style.opacity='1';
+    btn.addEventListener('click',function(){
+      var open=btn.getAttribute('aria-expanded')==='true';
+      if(open){
+        body.style.maxHeight=body.scrollHeight+'px'; // pin before collapsing
+        requestAnimationFrame(function(){
+          body.classList.add('collapsed');
+          body.style.maxHeight='0';
+        });
+        btn.classList.add('collapsed');
+        btn.setAttribute('aria-expanded','false');
+        lbl.textContent='Expand';
+      } else {
+        body.classList.remove('collapsed');
+        body.style.maxHeight=body.scrollHeight+'px';
+        btn.classList.remove('collapsed');
+        btn.setAttribute('aria-expanded','true');
+        lbl.textContent='Collapse';
+      }
+    });
+  })();
+
+  // Custom arrow scrollbar
+  (function(){
+    var sb=document.getElementById('sb');
+    if(!sb)return;
+    function rebuild(){
+      if(window.innerWidth<=920){sb.innerHTML='';return;}
+      var h=window.innerHeight-50-16;
+      var n=Math.max(8,Math.floor(h/11));
+      var frag=document.createDocumentFragment();
+      for(var i=0;i<n;i++){
+        var s=document.createElement('span');
+        s.className='sb-a';s.textContent='↓';
+        frag.appendChild(s);
+      }
+      sb.innerHTML='';sb.appendChild(frag);
+      tick();
+    }
+    function tick(){
+      var a=sb.children;if(!a.length)return;
+      var maxSc=document.documentElement.scrollHeight-window.innerHeight;
+      var p=maxSc>0?window.scrollY/maxSc:0;
+      var idx=Math.round(p*(a.length-1));
+      for(var i=0;i<a.length;i++)a[i].className=i===idx?'sb-a on':'sb-a';
+    }
+    rebuild();
+    window.addEventListener('scroll',tick,{passive:true});
+    window.addEventListener('resize',rebuild);
+  })();
 
   // Cycling photo tiles
   (function() {
