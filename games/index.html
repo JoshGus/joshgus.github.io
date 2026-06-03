@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Games &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7ece1;--surface:#fdf5ea;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14);--line-strong:rgba(29,23,18,.30);
+  --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+::selection{background:var(--accent);color:var(--fg)}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;
+  line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::after{content:"";position:fixed;inset:0;z-index:999;pointer-events:none;opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E")}
+a{color:inherit;text-decoration:none}
+
+/* status bar */
+.status{position:sticky;top:0;z-index:40;display:flex;justify-content:space-between;align-items:center;
+  padding:14px clamp(20px,4vw,64px);font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;
+  text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
+  background:rgba(247,236,225,.88);backdrop-filter:blur(8px)}
+.status .sig{font-weight:600;color:var(--fg)}
+.status .sig:hover{color:var(--accent-ink)}
+.status nav{display:flex;gap:20px}
+.status nav a{color:var(--dim);transition:color .2s}
+.status nav a:hover,.status nav a.active{color:var(--accent-ink)}
+#clock{color:var(--dimmer)}
+@media(max-width:640px){.status nav{display:none}}
+
+/* page header */
+.page-header{padding:clamp(48px,8vh,90px) clamp(20px,5vw,72px) clamp(28px,4vh,48px);border-bottom:1px solid var(--line)}
+.ph-idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;color:var(--accent-ink);display:block;margin-bottom:14px}
+.page-header h1{font-family:var(--disp);font-weight:440;font-size:clamp(2.6rem,7vw,5.2rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
+.page-header h1 em{font-style:italic;color:var(--accent-ink)}
+.page-header p{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:var(--dim);margin-top:18px;max-width:52ch}
+
+/* games grid */
+.games-wrap{padding:clamp(36px,6vw,72px) clamp(20px,5vw,72px) 80px}
+.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:clamp(18px,2.5vw,32px)}
+
+/* game card */
+a.game-card{display:flex;flex-direction:column;text-decoration:none;
+  background:var(--surface);border:1px solid var(--line);
+  transition:transform .4s cubic-bezier(.2,.7,.3,1),border-color .4s,box-shadow .4s}
+a.game-card:hover{transform:translateY(-8px);border-color:var(--line-strong);
+  box-shadow:0 20px 40px -24px rgba(29,23,18,.35)}
+a.game-card.coming-soon{opacity:.55;pointer-events:none}
+
+/* card thumb */
+.card-thumb{padding:clamp(32px,5vw,52px) clamp(24px,4vw,40px);
+  display:grid;place-items:center;
+  background:linear-gradient(135deg,#fbf3ea,#f0e1d0);
+  border-bottom:1px solid var(--line)}
+.tiles{display:flex;gap:8px}
+.t{width:clamp(36px,7vw,50px);aspect-ratio:1;display:grid;place-items:center;
+  font-family:var(--disp);font-weight:700;font-size:clamp(1rem,2vw,1.2rem);
+  color:var(--fg);border:1px solid var(--line-strong);border-radius:5px;
+  background:#f3e8da;transition:transform .35s cubic-bezier(.2,.7,.3,1)}
+.t.correct{background:var(--accent);color:var(--fg);border-color:var(--accent)}
+.t.present{background:#dba93a;color:var(--fg);border-color:#dba93a}
+.t.absent{background:#e6d8c8;color:var(--dim);border-color:transparent}
+a.game-card:hover .tiles .t{transform:translateY(-6px)}
+a.game-card:hover .tiles .t:nth-child(2){transition-delay:.05s}
+a.game-card:hover .tiles .t:nth-child(3){transition-delay:.1s}
+a.game-card:hover .tiles .t:nth-child(4){transition-delay:.15s}
+a.game-card:hover .tiles .t:nth-child(5){transition-delay:.2s}
+
+/* card body */
+.card-body{padding:clamp(20px,3vw,28px);display:flex;flex-direction:column;gap:14px;flex:1}
+.card-body h2{font-family:var(--disp);font-weight:520;font-size:clamp(1.6rem,3vw,2rem);
+  letter-spacing:-.02em;line-height:1;font-variation-settings:"opsz" 40;transition:color .3s}
+a.game-card:hover .card-body h2{color:var(--accent-ink)}
+.card-body p{color:var(--dim);font-size:.95rem;font-weight:300;flex:1}
+.card-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:4px}
+.stack{display:flex;gap:7px;flex-wrap:wrap}
+.stack b{font-family:var(--mono);font-weight:500;font-size:.58rem;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dim);border:1px solid var(--line-strong);
+  padding:4px 9px;border-radius:30px}
+.play-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent-ink);display:inline-flex;gap:8px;align-items:center;white-space:nowrap}
+.play-label .arr{transition:transform .3s}
+a.game-card:hover .play-label .arr{transform:translateX(5px)}
+.soon-label{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dimmer)}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+    <a href="../colormap.html">Color Space</a>
+    <a href="../index.html#contact">Contact</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="page-header">
+  <span class="ph-idx">02 / Games</span>
+  <h1>Built for <em>fun</em></h1>
+  <p>Little interactive puzzles — Wordle-style word and number games, built from scratch.</p>
+</div>
+
+<div class="games-wrap">
+  <div class="games-grid">
+
+    <a class="game-card" href="lexicon.html">
+      <div class="card-thumb">
+        <div class="tiles">
+          <span class="t present">C</span>
+          <span class="t absent">R</span>
+          <span class="t correct">A</span>
+          <span class="t absent">N</span>
+          <span class="t correct">E</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <h2>Lexicon</h2>
+        <p>A daily five-letter word puzzle. Six guesses, colour-coded clues — the classic, rebuilt from scratch.</p>
+        <div class="card-foot">
+          <div class="stack"><b>JS</b><b>CSS</b></div>
+          <span class="play-label">Play <span class="arr">→</span></span>
+        </div>
+      </div>
+    </a>
+
+    <a class="game-card" href="numble.html">
+      <div class="card-thumb">
+        <div class="tiles">
+          <span class="t correct">4</span>
+          <span class="t absent">8</span>
+          <span class="t present">1</span>
+          <span class="t correct">5</span>
+          <span class="t absent">2</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <h2>Numble</h2>
+        <p>Wordle's logic with numbers instead of letters — crack the hidden sequence before the guesses run out.</p>
+        <div class="card-foot">
+          <div class="stack"><b>JS</b></div>
+          <span class="play-label">Play <span class="arr">→</span></span>
+        </div>
+      </div>
+    </a>
+
+    <a class="game-card coming-soon" href="#">
+      <div class="card-thumb">
+        <div class="tiles">
+          <span class="t absent">N</span>
+          <span class="t present">E</span>
+          <span class="t absent">X</span>
+          <span class="t correct">T</span>
+          <span class="t absent">?</span>
+        </div>
+      </div>
+      <div class="card-body">
+        <h2>Coming soon</h2>
+        <p>Another puzzle in progress. Check back later.</p>
+        <div class="card-foot">
+          <div class="stack"><b>WIP</b></div>
+          <span class="soon-label">Soon</span>
+        </div>
+      </div>
+    </a>
+
+  </div>
+</div>
+
+<script>
+  try {
+    var clk = document.getElementById('clock');
+    var tick = function(){
+      clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST';
+    };
+    tick(); setInterval(tick, 30000);
+  } catch(e){}
+</script>
+</body>
+</html>

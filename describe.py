@@ -37,14 +37,18 @@ BIRD_ID_MODEL   = "llava:7b"    # stage-2 specialist bird identification
 IMG_EXTS        = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
 
 # ---- stage-1: general description -------------------------------------------
-PROMPT = """Describe this specific photo. Return a JSON object with these fields:
-- "title": unique 3-6 word title in Title Case describing what is actually in THIS image
-- "animal": common name of the main animal visible, or empty string
-- "species": specific species name if identifiable, else empty string
-- "species_confidence": integer 0-100, your confidence in the species ID (0 if no species)
+PROMPT = """Look at this photo and return a JSON object with these fields:
+
+- "title": 3-5 words, Title Case, plain and literal — describe only what you can see.
+    GOOD: "Bird on Branch", "Duck in Water", "Dragonfly on Stem", "Geese in Field", "Sunset Over Water"
+    BAD: anything poetic, artsy, or that names a species (no "Cedar Waxwing", no "Nature's Embrace")
+    Use general animal words: bird, duck, goose, dragonfly, butterfly, spider, squirrel, etc.
+- "animal": general common name of the main animal (e.g. "duck", "bird", "dragonfly"), or ""
+- "species": specific species if you are confident, else "" — this is the only field that should attempt classification
+- "species_confidence": integer 0-100 for species confidence (0 if no species identified)
 - "category": one of birds, insects, landscape, macro, other
-- "season": one of spring, summer, fall, winter, or empty string
-- "location_hint": brief habitat description, or empty string"""
+- "season": one of spring, summer, fall, winter, or ""
+- "location_hint": brief habitat type (e.g. "wetland", "forest", "urban park"), or "" """
 
 # ---- stage-2: specialist bird identification --------------------------------
 BIRD_PROMPT = """You are an expert ornithologist. Study this bird photo carefully and return ONLY a JSON object — no markdown, no explanation.
