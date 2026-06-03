@@ -255,7 +255,7 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
         <div id="lb-bird-detail">
           <div class="lb-common-name" id="lb-common-name"></div>
           <div class="lb-scientific-name" id="lb-scientific-name"></div>
-          <div class="lb-confidence-row">
+          <div class="lb-confidence-row" id="lb-confidence-row">
             <span class="lb-confidence-pct" id="lb-confidence-pct"></span>
             <div class="lb-confidence-bar"><div class="lb-confidence-fill" id="lb-confidence-fill" style="width:0"></div></div>
           </div>
@@ -519,7 +519,7 @@ function updateLightbox() {
 
   // Subject section
   const isBird    = photo.category === 'birds';
-  const hasAnimal = photo.animal || photo.species || isBird;
+  const hasAnimal = photo.animal || photo.species;
   const subjectEl = document.getElementById('lb-subject-section');
   subjectEl.style.display = hasAnimal ? '' : 'none';
 
@@ -528,33 +528,30 @@ function updateLightbox() {
     typeEl.textContent = photo.category || 'wildlife';
     typeEl.className = 'lb-animal-type' + (isBird ? ' is-bird' : '');
 
+    // Species name (common) — for all wildlife
+    document.getElementById('lb-common-name').textContent = photo.species || photo.animal || '';
+
+    // Scientific name — birds only
+    document.getElementById('lb-scientific-name').textContent = isBird ? (photo.scientific_name || '') : '';
+
+    // Confidence — show for any wildlife with a species ID
+    const conf = photo.species_confidence || photo.bird_confidence || 0;
+    const showConf = conf > 0 && (photo.species || photo.animal);
+    const confRow = document.getElementById('lb-confidence-row');
+    confRow.style.display = showConf ? '' : 'none';
+    document.getElementById('lb-confidence-pct').textContent  = conf + '%';
+    document.getElementById('lb-confidence-fill').style.width = conf + '%';
+
+    // Field marks + age/sex/behavior — birds only
     const birdDetailEl = document.getElementById('lb-bird-detail');
-    if (isBird && (photo.species || photo.scientific_name)) {
+    if (isBird && (photo.field_marks?.length || photo.age_sex)) {
       birdDetailEl.style.display = '';
-      document.getElementById('lb-common-name').textContent    = photo.species || '';
-      document.getElementById('lb-scientific-name').textContent = photo.scientific_name || '';
-
-      const conf = photo.bird_confidence || 0;
-      document.getElementById('lb-confidence-pct').textContent  = conf + '%';
-      document.getElementById('lb-confidence-fill').style.width = conf + '%';
-
       document.getElementById('lb-field-marks').innerHTML =
         (photo.field_marks || []).map(m => '<span class="lb-field-mark">' + m + '</span>').join('');
-
       const sub = [photo.age_sex, photo.behavior].filter(s => s && s !== 'unknown').join(' · ');
       document.getElementById('lb-bird-sub').textContent = sub;
     } else {
       birdDetailEl.style.display = 'none';
-      // Non-bird: just show species name under the type chip
-      const commonEl = document.getElementById('lb-common-name');
-      commonEl.textContent = photo.species || photo.animal || '';
-      commonEl.style.display = (photo.species || photo.animal) ? '' : 'none';
-      document.getElementById('lb-scientific-name').textContent = '';
-      document.getElementById('lb-confidence-pct').textContent  = '';
-      document.getElementById('lb-confidence-fill').style.width = '0';
-      document.getElementById('lb-field-marks').innerHTML = '';
-      document.getElementById('lb-bird-sub').textContent  = '';
-      birdDetailEl.style.display = '';
     }
   }
 

@@ -40,7 +40,8 @@ IMG_EXTS        = {".jpg", ".jpeg", ".png", ".webp", ".tif", ".tiff"}
 PROMPT = """Describe this specific photo. Return a JSON object with these fields:
 - "title": unique 3-6 word title in Title Case describing what is actually in THIS image
 - "animal": common name of the main animal visible, or empty string
-- "species": specific species name if identifiable, or empty string
+- "species": specific species name if identifiable, else empty string
+- "species_confidence": integer 0-100, your confidence in the species ID (0 if no species)
 - "category": one of birds, insects, landscape, macro, other
 - "season": one of spring, summer, fall, winter, or empty string
 - "location_hint": brief habitat description, or empty string"""
@@ -215,28 +216,28 @@ def run(json_path: Path, model: str, limit: int | None, force_all: bool):
 
         result = describe(local_path, model)
         if result:
-            photo["title"]    = result.get("title",    photo["title"])
-            photo["animal"]   = result.get("animal",   photo.get("animal", ""))
-            photo["species"]  = result.get("species",  photo.get("species", ""))
-            photo["category"] = result.get("category", photo.get("category", ""))
-            photo["season"]   = result.get("season",   photo.get("season", ""))
+            photo["title"]              = result.get("title",             photo["title"])
+            photo["animal"]             = result.get("animal",            photo.get("animal", ""))
+            photo["species"]            = result.get("species",           photo.get("species", ""))
+            photo["species_confidence"] = result.get("species_confidence", photo.get("species_confidence", 0))
+            photo["category"]           = result.get("category",          photo.get("category", ""))
+            photo["season"]             = result.get("season",            photo.get("season", ""))
             if not photo.get("location") and result.get("location_hint"):
                 photo["location"] = result["location_hint"]
 
-            # Stage 2: specialist bird identification
+            # Stage 2: specialist bird identification (overrides stage-1 confidence for birds)
             if photo.get("category") == "birds":
                 print(f"\n  → bird — running {BIRD_ID_MODEL} specialist ID...", end=" ", flush=True)
                 bird = identify_bird(local_path)
                 if bird and bird.get("confidence", 0) > 0:
-                    # Override species with specialist result if confident
                     if bird.get("species") and bird.get("confidence", 0) >= 25:
                         photo["species"] = bird["species"]
-                    photo["scientific_name"]  = bird.get("scientific", "")
-                    photo["bird_confidence"]  = bird.get("confidence", 0)
-                    photo["field_marks"]      = bird.get("field_marks", [])
-                    photo["age_sex"]          = bird.get("age_sex", "unknown")
-                    photo["behavior"]         = bird.get("behavior", "")
-                    print(f"{photo.get('species','?')} ({photo['bird_confidence']}%)")
+                    photo["species_confidence"] = bird.get("confidence", 0)
+                    photo["scientific_name"]    = bird.get("scientific", "")
+                    photo["field_marks"]        = bird.get("field_marks", [])
+                    photo["age_sex"]            = bird.get("age_sex", "unknown")
+                    photo["behavior"]           = bird.get("behavior", "")
+                    print(f"{photo.get('species','?')} ({photo['species_confidence']}%)")
                 else:
                     print("[bird-id failed]")
 
