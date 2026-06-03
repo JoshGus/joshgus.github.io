@@ -44,6 +44,10 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 .hud .sl{font-size:.5rem;color:rgba(160,210,100,.5)}
 .hud .sep{width:1px;height:26px;background:rgba(120,180,80,.2)}
 .hud .dv{font-size:.58rem;color:rgba(140,180,90,.6)}
+.day-btn{background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:.85rem;
+  color:rgba(160,210,100,.55);padding:0 4px;line-height:1;transition:color .15s}
+.day-btn:hover:not(:disabled){color:#ccf73f}
+.day-btn:disabled{opacity:.2;cursor:default}
 
 #win{display:none;position:fixed;inset:0;z-index:200;background:rgba(10,20,10,.75);
   backdrop-filter:blur(6px);place-items:center}
@@ -88,7 +92,9 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 <div class="hud">
   <div><div class="sl">Shots</div><div class="sv" id="hud-shots">0</div></div>
   <div class="sep"></div>
+  <button class="day-btn" id="btn-prev" title="Previous day">&#8592;</button>
   <div class="dv" id="hud-date">—</div>
+  <button class="day-btn" id="btn-next" title="Next day" disabled>&#8594;</button>
 </div>
 
 <button id="restart-btn" onclick="resetGame()">↺ Restart</button>
@@ -114,10 +120,21 @@ function tickClock(){clk.textContent=new Date().toLocaleTimeString('en-US',{hour
 tickClock(); setInterval(tickClock,30000);
 
 // ── Date / seed ────────────────────────────────────────────────────
-var now=new Date();
-var dateStr=now.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
-document.getElementById('hud-date').textContent=dateStr;
-var SEED=now.getFullYear()*10000+(now.getMonth()+1)*100+now.getDate();
+var today=new Date(); today.setHours(0,0,0,0);
+var dayOffset=0; // 0=today, negative=past
+var SEED=0, dateStr='';
+
+function offsetDate(){
+  var d=new Date(today); d.setDate(d.getDate()+dayOffset); return d;
+}
+function syncDay(){
+  var d=offsetDate();
+  SEED=d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+  dateStr=d.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'});
+  document.getElementById('hud-date').textContent=dateStr;
+  document.getElementById('btn-next').disabled=(dayOffset>=0);
+}
+syncDay();
 
 // ── PRNG (mulberry32) ──────────────────────────────────────────────
 function prng(s){
@@ -245,11 +262,11 @@ function renderTerrain(){
       var hU=y>0?heightMap[idx-W]:h;
       var gx=(hR-hL)*0.5, gy=(hD-hU)*0.5;
       // Surface normal
-      var sc=18.0;
+      var sc=28.0;
       var nx=-gx*sc, ny=-gy*sc, nz=1.0;
       var nl=Math.sqrt(nx*nx+ny*ny+nz*nz); nx/=nl; ny/=nl; nz/=nl;
       var diff=Math.max(0,nx*lx+ny*ly+nz*lz);
-      var light=0.14+0.86*diff;
+      var light=0.07+0.93*diff;
       // Contour lines at 0.1 intervals
       var ci=(h*10)%1.0;
       var contour=ci<0.055||ci>0.945?0.68:1.0;
@@ -516,6 +533,18 @@ function onWin(){
     });
   };
 }
+
+function loadDay(){
+  syncDay();
+  inHole=false; shots=0;
+  document.getElementById('hud-shots').textContent='0';
+  document.getElementById('win').classList.remove('show');
+  buildTerrain();
+  ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0;
+}
+
+document.getElementById('btn-prev').onclick=function(){ dayOffset--; loadDay(); };
+document.getElementById('btn-next').onclick=function(){ if(dayOffset<0){dayOffset++; loadDay();} };
 
 window.resetGame=function(){
   inHole=false; shots=0;
