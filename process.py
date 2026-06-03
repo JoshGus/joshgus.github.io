@@ -126,6 +126,8 @@ def extract_exif(img_path):
             "aperture":     _fmt_aperture(t.get("FNumber")),
             "iso":          str(t["ISOSpeedRatings"]) if t.get("ISOSpeedRatings") else None,
             "focal_length": f"{int(float(t['FocalLength']))}mm" if t.get("FocalLength") else None,
+            "date_taken":   (lambda d: d.replace(":", "-", 2).replace(" ", "T") if d else None)(
+                                (t.get("DateTimeOriginal") or "").strip()),
         }
     except Exception:
         return {}
@@ -287,7 +289,7 @@ WEB_KEYS = [
     "id", "title", "species", "category", "location", "season", "aspect", "ratio",
     "tags", "tag_scores", "dominant_colors", "umap_3d", "animal",
     "bird_confidence", "scientific_name", "field_marks", "age_sex", "behavior",
-    "camera", "lens", "shutter", "aperture", "iso", "focal_length",
+    "camera", "lens", "shutter", "aperture", "iso", "focal_length", "date_taken",
 ]
 
 def build_web_json(records, web_path):

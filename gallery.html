@@ -80,6 +80,18 @@ a{color:inherit;text-decoration:none}
   color:var(--dim);cursor:pointer;border-radius:30px;transition:all .2s}
 .chip:hover,.chip.active{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
 .count-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;color:var(--dimmer);margin-left:auto}
+/* sort controls */
+.sort-wrap{display:flex;align-items:center;gap:4px;flex-shrink:0}
+.sort-select{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:6px 10px;border:1px solid var(--line-strong);background:var(--surface);
+  color:var(--dim);cursor:pointer;border-radius:30px;outline:none;
+  appearance:none;-webkit-appearance:none;transition:all .2s}
+.sort-select:focus,.sort-select:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+.sort-dir{font-family:var(--mono);font-size:.72rem;padding:5px 10px;
+  border:1px solid var(--line-strong);background:var(--surface);color:var(--dim);
+  cursor:pointer;border-radius:30px;line-height:1;transition:all .2s}
+.sort-dir:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+.sort-dir.asc{transform:scaleY(-1)}
 
 /* gallery wrap */
 .gallery-wrap{padding:clamp(28px,4vw,56px) clamp(20px,5vw,72px) 80px;min-height:50vh}
@@ -219,6 +231,17 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
   <div class="view-toggle">
     <button data-view="masonry" class="active">Masonry</button>
     <button data-view="grid">Grid</button>
+  </div>
+  <div class="sort-wrap">
+    <select id="sort-key" class="sort-select" aria-label="Sort by">
+      <option value="date_taken">Date</option>
+      <option value="title">Title</option>
+      <option value="red">Red</option>
+      <option value="green">Green</option>
+      <option value="blue">Blue</option>
+      <option value="brightness">Brightness</option>
+    </select>
+    <button id="sort-dir" class="sort-dir" title="Toggle order">↓</button>
   </div>
   <div class="filters" id="filters"></div>
   <span class="count-label" id="count-label"></span>
@@ -385,6 +408,47 @@ function buildFilters() {
   });
 }
 
+// ============================================================
+// Sorting
+// ============================================================
+let sortKey = 'date_taken';
+let sortDir = 'desc';
+
+function colorChannel(hex, offset) {
+  return hex && hex.length === 7 ? parseInt(hex.slice(offset, offset + 2), 16) : 0;
+}
+
+function getSortVal(photo, key) {
+  const c = photo.dominant_colors && photo.dominant_colors[0];
+  switch (key) {
+    case 'date_taken': return photo.date_taken ? new Date(photo.date_taken).getTime() : 0;
+    case 'title':      return (photo.title || '').toLowerCase();
+    case 'red':        return colorChannel(c, 1);
+    case 'green':      return colorChannel(c, 3);
+    case 'blue':       return colorChannel(c, 5);
+    case 'brightness': {
+      const r = colorChannel(c, 1), g = colorChannel(c, 3), b = colorChannel(c, 5);
+      return 0.299 * r + 0.587 * g + 0.114 * b;
+    }
+    default: return 0;
+  }
+}
+
+function sortPhotos(arr) {
+  return [...arr].sort((a, b) => {
+    const av = getSortVal(a, sortKey), bv = getSortVal(b, sortKey);
+    const cmp = typeof av === 'string' ? av.localeCompare(bv) : (av - bv);
+    return sortDir === 'asc' ? cmp : -cmp;
+  });
+}
+
+document.getElementById('sort-key').addEventListener('change', e => { sortKey = e.target.value; applyFilters(); });
+document.getElementById('sort-dir').addEventListener('click', () => {
+  sortDir = sortDir === 'desc' ? 'asc' : 'desc';
+  document.getElementById('sort-dir').classList.toggle('asc', sortDir === 'asc');
+  applyFilters();
+});
+
 function applyFilters() {
   const q = document.getElementById('search').value.trim().toLowerCase();
   filteredPhotos = allPhotos.filter(p => {
@@ -394,6 +458,7 @@ function applyFilters() {
     const haystack = [p.title, p.species, p.category, p.location, p.season, ...(p.tags||[])].join(' ').toLowerCase();
     return q.split(' ').every(word => haystack.includes(word));
   });
+  filteredPhotos = sortPhotos(filteredPhotos);
   document.getElementById('count-label').textContent = filteredPhotos.length + ' photo' + (filteredPhotos.length !== 1 ? 's' : '');
   renderView();
 }

@@ -223,7 +223,7 @@
     }
     #sb:active{cursor:grabbing}
     .sb-a{
-      font-family:var(--mono);font-size:22px;line-height:28px;
+      font-family:var(--mono);font-size:72px;line-height:82px;
       color:var(--dim);display:block;
       transition:color .06s;user-select:none;
     }
@@ -462,7 +462,7 @@
   (function(){
     var sb=document.getElementById('sb');
     if(!sb)return;
-    var LH=28; // must match CSS line-height
+    var LH=82; // must match CSS line-height
 
     function rebuild(){
       if(window.innerWidth<=920){sb.innerHTML='';return;}
