@@ -153,7 +153,7 @@ offscreen.width=W; offscreen.height=H;
 var heightMap; // Float32Array [0,1]
 
 // ── Physics constants ──────────────────────────────────────────────
-var BALL_R=7, HOLE_R=12, BORDER=36;
+var BALL_R=7, HOLE_R=9, BORDER=36;
 var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=850;
 var STOP_SPD=10, MAX_DRAG=125, SHOOT_SCALE=6.2;
 
@@ -316,14 +316,15 @@ function physics(dt){
   if(ball.x>hiX){ball.x=hiX; ball.vx=-Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88;}
   if(ball.y<lo){ball.y=lo; ball.vy=Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
   if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
-  // Hole suction & detection
+  // Hole suction & detection — pull starts from HOLE_R*5 out
   var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
-  if(dh<HOLE_R+2){
-    var pull=((HOLE_R+2-dh)/(HOLE_R+2));
+  var pullRange=HOLE_R*5;
+  if(dh<pullRange){
+    var pull=Math.pow((pullRange-dh)/pullRange,1.4); // stronger near edge
     var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
-    ball.vx+=Math.cos(ang)*pull*300*dt;
-    ball.vy+=Math.sin(ang)*pull*300*dt;
-    if(dh<3){
+    ball.vx+=Math.cos(ang)*pull*550*dt;
+    ball.vy+=Math.sin(ang)*pull*550*dt;
+    if(dh<4){
       inHole=true;
       ball.x=holeX; ball.y=holeY; ball.vx=0; ball.vy=0;
       onWin();
@@ -457,9 +458,9 @@ function onMove(e){
   if(!dragging) return;
   e.preventDefault();
   var p=canvasPos(e);
-  // shift the virtual drag point by how far pointer has moved from press
-  dragX=ball.x-(p.x-dragStartX);
-  dragY=ball.y-(p.y-dragStartY);
+  // slingshot: drag direction is opposite to shot direction
+  dragX=ball.x+(p.x-dragStartX);
+  dragY=ball.y+(p.y-dragStartY);
 }
 function onUp(e){
   if(!dragging) return;
