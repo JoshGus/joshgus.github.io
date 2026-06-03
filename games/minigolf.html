@@ -327,7 +327,7 @@ function physics(dt){
   if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88;}
   // Hole suction & detection — pull starts from HOLE_R*5 out
   var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
-  var pullRange=HOLE_R*2.8;
+  var pullRange=HOLE_R*1.6;
   if(dh<pullRange){
     var pull=Math.pow((pullRange-dh)/pullRange,1.4); // stronger near edge
     var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
