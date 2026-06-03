@@ -179,11 +179,11 @@ offscreen.width=W; offscreen.height=H;
 var heightMap; // Float32Array [0,1]
 
 // ── Physics constants ──────────────────────────────────────────────
-var BALL_R=7, HOLE_R=9, BORDER=36;
-var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=850;
-var STOP_SPD=10, MAX_DRAG=125, SHOOT_SCALE=6.2;
+var BALL_R=4, HOLE_R=6, BORDER=36;
+var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=480;
+var STOP_SPD=8, MAX_DRAG=125, SHOOT_SCALE=3.4;
 var GRAVITY_Z=20, RESTITUTION_Z=0.38, Z_SCALE=40, BOUNCE_THRES=0.5;
-var WIND_AIR=1.0, WIND_GROUND=0.05; // ground wind is heavily damped by friction
+var WIND_AIR=2.0, WIND_GROUND=0.10; // ground wind is heavily damped by friction
 
 // ── Game state ─────────────────────────────────────────────────────
 var ball={x:0,y:0,vx:0,vy:0,vz:0,z:0};
@@ -208,20 +208,20 @@ function scaleCanvas(){
 function initWind(){
   var wr=prng(SEED+200);
   var ang=wr()*Math.PI*2;
-  // quadratic distribution: calm days more likely than gales; max ~300 px/s²
-  var str=wr()*wr()*300;
+  // quadratic distribution: calm days more likely than gales; max ~500 px/s²
+  var str=wr()*wr()*500;
   windAx=Math.cos(ang)*str;
   windAy=Math.sin(ang)*str;
   // Seed particle positions deterministically so they look identical for same day
   var pr=prng(SEED+301);
   windParts=[];
-  for(var i=0;i<60;i++){
+  for(var i=0;i<90;i++){
     windParts.push({
       x:BORDER+pr()*(W-2*BORDER),
       y:BORDER+pr()*(H-2*BORDER),
-      spd:0.55+pr()*0.9,   // speed multiplier
-      alpha:0.16+pr()*0.36, // per-particle opacity
-      len:4+pr()*15,        // streak length in px
+      spd:0.55+pr()*0.9,    // speed multiplier
+      alpha:0.28+pr()*0.50, // higher base opacity
+      len:6+pr()*22,        // longer streaks
     });
   }
 }
@@ -409,21 +409,27 @@ function physics(dt){
     ball.vx+=windAx*WIND_GROUND*dt;
     ball.vy+=windAy*WIND_GROUND*dt;
 
-    // Terrain-following vertical velocity (rate of height change as ball moves)
-    ball.vz=gx*ball.vx+gy*ball.vy;
+    // Vertical: gravity vs terrain constraint.
+    // The ball launches when gravity can no longer keep it pressed against the terrain —
+    // i.e. terrain requires faster descent than gravity provides (cliff / convex crest).
+    var vz_terrain=gx*ball.vx+gy*ball.vy; // h/s needed to follow terrain
+    ball.vz-=GRAVITY_Z*dt;               // gravity acts even on surface
+
+    if(ball.vz>vz_terrain+0.35){
+      // Ball trajectory outpaces terrain drop → launch
+      ball.z=Math.max(0.003,(ball.vz-vz_terrain)*dt);
+    } else {
+      // Terrain normal force holds ball on surface
+      ball.vz=vz_terrain;
+      ball.z=0;
+    }
 
     ball.x+=ball.vx*dt; ball.y+=ball.vy*dt;
 
-    if(ball.x<lo) {ball.x=lo;  ball.vx= Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88; ball.vz=0;}
-    if(ball.x>hiX){ball.x=hiX; ball.vx=-Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88; ball.vz=0;}
-    if(ball.y<lo) {ball.y=lo;  ball.vy= Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88; ball.vz=0;}
-    if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88; ball.vz=0;}
-
-    // Launch: if terrain drops below where ball's momentum carries it
-    var newH=getH(ball.x,ball.y);
-    if(newH<terrainH+ball.vz*dt-0.004){
-      ball.z=terrainH+ball.vz*dt-newH;
-    }
+    if(ball.x<lo) {ball.x=lo;  ball.vx= Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88; ball.vz=0; ball.z=0;}
+    if(ball.x>hiX){ball.x=hiX; ball.vx=-Math.abs(ball.vx)*RESTITUTION; ball.vy*=0.88; ball.vz=0; ball.z=0;}
+    if(ball.y<lo) {ball.y=lo;  ball.vy= Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88; ball.vz=0; ball.z=0;}
+    if(ball.y>hiY){ball.y=hiY; ball.vy=-Math.abs(ball.vy)*RESTITUTION; ball.vx*=0.88; ball.vz=0; ball.z=0;}
 
     // Hole suction & detection
     var dh=Math.hypot(ball.x-holeX,ball.y-holeY);
@@ -431,9 +437,9 @@ function physics(dt){
     if(dh<pullRange){
       var pull=Math.pow((pullRange-dh)/pullRange,1.4);
       var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
-      ball.vx+=Math.cos(ang)*pull*550*dt;
-      ball.vy+=Math.sin(ang)*pull*550*dt;
-      if(dh<4){
+      ball.vx+=Math.cos(ang)*pull*450*dt;
+      ball.vy+=Math.sin(ang)*pull*450*dt;
+      if(dh<2.5){
         inHole=true; ball.x=holeX; ball.y=holeY;
         ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0; onWin();
       }
@@ -447,21 +453,16 @@ function updateParticles(dt){
   if(wSpd<12) return;
   var wdx=windAx/wSpd, wdy=windAy/wSpd;
   var baseSpd=wSpd*0.42; // visual speed in px/s
+  var bW=W-2*BORDER, bH=H-2*BORDER;
   for(var i=0;i<windParts.length;i++){
     var p=windParts[i];
     p.x+=wdx*baseSpd*p.spd*dt;
     p.y+=wdy*baseSpd*p.spd*dt;
-    // Respawn on the upwind edge when leaving bounds
-    if(p.x<BORDER-6||p.x>W-BORDER+6||p.y<BORDER-6||p.y>H-BORDER+6){
-      var t=Math.random();
-      if(Math.abs(wdx)>=Math.abs(wdy)){
-        p.x=wdx>0?BORDER+2:W-BORDER-2;
-        p.y=BORDER+t*(H-2*BORDER);
-      } else {
-        p.x=BORDER+t*(W-2*BORDER);
-        p.y=wdy>0?BORDER+2:H-BORDER-2;
-      }
-    }
+    // Torus wrap — each axis independently so any wind angle fills the whole field
+    if(p.x>=W-BORDER) p.x-=bW;
+    else if(p.x<BORDER) p.x+=bW;
+    if(p.y>=H-BORDER) p.y-=bH;
+    else if(p.y<BORDER) p.y+=bH;
   }
 }
 
@@ -551,7 +552,7 @@ function draw(){
   var _wSpd=Math.hypot(windAx,windAy);
   if(_wSpd>12){
     var _wdx=windAx/_wSpd, _wdy=windAy/_wSpd;
-    var _wAlpha=Math.min(1,_wSpd/260)*0.8;
+    var _wAlpha=Math.min(1,_wSpd/200)*0.95;
     ctx.save();
     ctx.lineCap='round';
     ctx.lineWidth=1.1;
@@ -572,12 +573,12 @@ function draw(){
   // Shadow and ball — z-aware: shadow stays on ground, ball shifts up and grows
   if(!inHole){
     var screenUp=ball.z*Z_SCALE;                              // pixels the ball is visually above ground
-    var drawR=BALL_R*(1+ball.z*2.5);                          // pronounced size increase so height reads clearly
+    var drawR=BALL_R+ball.z*32;                               // super-exaggerated: tiny on ground, huge in air
     var drawBY=ball.y-screenUp;                               // ball's visual Y
 
     // Shadow: ground-pinned, spreads and fades with height
-    var shdR=BALL_R*1.5+screenUp*0.45;
-    var shdOp=Math.max(0.04,0.32-ball.z*0.7);
+    var shdR=Math.max(BALL_R*1.8, drawR*0.55+screenUp*0.3);
+    var shdOp=Math.max(0.04,0.38-ball.z*0.65);
     var sdx=ball.x-3, sdy=ball.y+4;
     var sg=ctx.createRadialGradient(sdx,sdy,0,sdx,sdy,shdR);
     sg.addColorStop(0,'rgba(0,0,0,'+shdOp.toFixed(2)+')');
