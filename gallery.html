@@ -69,6 +69,12 @@ a{color:inherit;text-decoration:none}
 .view-toggle button+button{margin-left:-1px}
 .view-toggle button.active,.view-toggle button:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink);z-index:1}
 .filters{display:flex;flex-wrap:wrap;gap:7px}
+@media(max-width:640px){
+  .filters{flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;
+    scrollbar-width:none;padding-bottom:2px}
+  .filters::-webkit-scrollbar{display:none}
+  .chip{flex-shrink:0}
+}
 .chip{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
   padding:6px 12px;border:1px solid var(--line-strong);background:transparent;
   color:var(--dim);cursor:pointer;border-radius:30px;transition:all .2s}
