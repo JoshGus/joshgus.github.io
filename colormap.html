@@ -116,11 +116,21 @@ canvas{display:block;width:100%;height:100%}
 .sb-colors{display:flex;gap:5px;margin-top:12px;flex-wrap:wrap}
 
 /* axis legend */
-#axis-legend{position:absolute;top:12px;left:12px;z-index:7;pointer-events:none;
+#axis-legend{position:absolute;top:12px;left:12px;z-index:7;pointer-events:all;
   background:rgba(14,13,11,.55);border:1px solid rgba(244,237,227,.12);
   backdrop-filter:blur(6px);padding:10px 12px;min-width:190px}
-.ax-title{font-family:var(--mono);font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;
-  color:rgba(244,237,227,.45);margin-bottom:8px}
+.ax-title{display:flex;justify-content:space-between;align-items:center;
+  font-family:var(--mono);font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(244,237,227,.45);margin-bottom:0}
+.ax-toggle{background:none;border:none;cursor:pointer;
+  color:rgba(244,237,227,.45);font-size:.8rem;line-height:1;padding:0 0 0 10px;
+  transition:color .2s,transform .3s cubic-bezier(.2,.7,.3,1);flex-shrink:0}
+.ax-toggle:hover{color:rgba(204,247,63,.8)}
+.ax-toggle.collapsed{transform:rotate(-90deg)}
+.ax-body{overflow:hidden;transition:max-height .35s cubic-bezier(.2,.7,.3,1),opacity .25s ease;
+  opacity:1}
+.ax-body.collapsed{max-height:0!important;opacity:0}
+.ax-body-inner{padding-top:8px}
 .ax-row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.6rem;
   letter-spacing:.08em;color:rgba(244,237,227,.7);margin-bottom:5px}
 .ax-line{display:inline-block;width:18px;height:2px;border-radius:1px;flex-shrink:0;margin-top:1px}
@@ -203,11 +213,18 @@ canvas{display:block;width:100%;height:100%}
 
     <!-- Axis legend -->
     <div id="axis-legend">
-      <div class="ax-title">How points are placed</div>
-      <div class="ax-row"><span class="ax-line" style="background:#ff4c4c"></span>X axis = Red channel</div>
-      <div class="ax-row"><span class="ax-line" style="background:#4cff70"></span>Y axis = Green channel</div>
-      <div class="ax-row"><span class="ax-line" style="background:#4c7fff"></span>Z axis = Blue channel</div>
-      <div class="ax-note">Position = average of each photo's 5 dominant colors mapped directly to RGB coordinates. Dot color = most dominant hue. Swatches at axis ends show the most extreme photo in that direction.</div>
+      <div class="ax-title">
+        How points are placed
+        <button class="ax-toggle" id="ax-toggle" aria-label="Toggle explanation">↓</button>
+      </div>
+      <div class="ax-body" id="ax-body">
+        <div class="ax-body-inner">
+          <div class="ax-row"><span class="ax-line" style="background:#ff4c4c"></span>X axis = Red channel</div>
+          <div class="ax-row"><span class="ax-line" style="background:#4cff70"></span>Y axis = Green channel</div>
+          <div class="ax-row"><span class="ax-line" style="background:#4c7fff"></span>Z axis = Blue channel</div>
+          <div class="ax-note">Position = average of each photo's 5 dominant colors mapped to RGB coordinates. Dot color = most dominant hue.</div>
+        </div>
+      </div>
     </div>
 
     <!-- Fullscreen + recenter -->
@@ -667,6 +684,27 @@ function animate() {
 }
 animate();
 loadAndBuild();
+
+// ---- collapsible axis legend ----
+{
+  const axBody   = document.getElementById('ax-body');
+  const axToggle = document.getElementById('ax-toggle');
+  axBody.style.maxHeight = axBody.scrollHeight + 'px';
+  axToggle.addEventListener('click', () => {
+    const closing = !axBody.classList.contains('collapsed');
+    if (closing) {
+      axBody.style.maxHeight = axBody.scrollHeight + 'px';
+      requestAnimationFrame(() => {
+        axBody.classList.add('collapsed');
+        axBody.style.maxHeight = '0';
+      });
+    } else {
+      axBody.classList.remove('collapsed');
+      axBody.style.maxHeight = axBody.scrollHeight + 'px';
+    }
+    axToggle.classList.toggle('collapsed', closing);
+  });
+}
 
 // ---- clock ----
 const clk = document.getElementById('clock');
