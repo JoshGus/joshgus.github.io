@@ -264,7 +264,8 @@ async function loadAndBuild() {
   buildPointCloud();
 }
 
-const SCALE = 9; // maps 0–1 → –4.5 to +4.5 (centered at middle gray)
+const SCALE = 9; // maps RGB 0–1 → 0–9; origin = pure black, (9,9,9) = pure white
+let dataCentroid = new THREE.Vector3(SCALE/2, SCALE/2, SCALE/2); // updated after data loads
 
 function buildPointCloud() {
   const n = photos.length;
@@ -280,10 +281,10 @@ function buildPointCloud() {
     palette.forEach(hex => { const c = new THREE.Color(hex); r += c.r; g += c.g; b += c.b; });
     r /= palette.length; g /= palette.length; b /= palette.length;
 
-    // X = Red, Y = Green, Z = Blue  (centered at 0.5 = middle gray)
-    positions[i*3]   = (r - 0.5) * SCALE;
-    positions[i*3+1] = (g - 0.5) * SCALE;
-    positions[i*3+2] = (b - 0.5) * SCALE;
+    // X = Red, Y = Green, Z = Blue  (0 = none, SCALE = full)
+    positions[i*3]   = r * SCALE;
+    positions[i*3+1] = g * SCALE;
+    positions[i*3+2] = b * SCALE;
 
     // Dot color = most dominant color in the photo
     const dot = new THREE.Color(palette[0]);
@@ -321,52 +322,48 @@ function buildPointCloud() {
   pointMesh = new THREE.Points(geo, mat);
   scene.add(pointMesh);
 
-  // Everything below is bounded to the actual data extents
-  geo.computeBoundingBox();
-  const box = geo.boundingBox;
-  const cx2 = (box.min.x + box.max.x) / 2;
-  const cy2 = (box.min.y + box.max.y) / 2;
-  const cz2 = (box.min.z + box.max.z) / 2;
-
-  // Wireframe bounding box
-
-  // Grid plane — sized to bounding box footprint, sitting at min Y
-  const gw = box.max.x - box.min.x, gd = box.max.z - box.min.z;
-  const grid = new THREE.GridHelper(1, 12, 0x2a2825, 0x1e1c1a);
-  grid.scale.set(gw, 1, gd);
-  grid.position.set(cx2, box.min.y, cz2);
+  // Grid — sits at y=0 (the "no green" floor), spans the full R and B range
+  const grid = new THREE.GridHelper(SCALE, 10, 0x2a2825, 0x1e1c1a);
+  grid.position.set(SCALE/2, 0, SCALE/2);
   scene.add(grid);
 
-  // Axis lines — origin outward to positive extent only (0,0,0 → max)
+  // Axes — origin (pure black) outward to SCALE (full channel saturation)
   function axLine(x1,y1,z1, x2,y2,z2, color) {
     const g = new THREE.BufferGeometry().setFromPoints([
       new THREE.Vector3(x1,y1,z1), new THREE.Vector3(x2,y2,z2)]);
     return new THREE.Line(g, new THREE.LineBasicMaterial({color, transparent:true, opacity:0.65}));
   }
-  scene.add(axLine(0,0,0, box.max.x,0,0, 0xff4c4c)); // X — red
-  scene.add(axLine(0,0,0, 0,box.max.y,0, 0x4cff70)); // Y — green
-  scene.add(axLine(0,0,0, 0,0,box.max.z, 0x4c7fff)); // Z — blue
+  scene.add(axLine(0,0,0, SCALE,0,0, 0xff4c4c)); // X = Red
+  scene.add(axLine(0,0,0, 0,SCALE,0, 0x4cff70)); // Y = Green
+  scene.add(axLine(0,0,0, 0,0,SCALE, 0x4c7fff)); // Z = Blue
 
-  // R/G/B labels at positive ends
+  // R/G/B labels at axis tips
   function makeLabel(text, hex) {
     const c = Object.assign(document.createElement('canvas'), {width:128, height:128});
     const ctx = c.getContext('2d');
     ctx.font = 'bold 80px "IBM Plex Mono",monospace';
     ctx.fillStyle = hex;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, 64, 64);
     const sp = new THREE.Sprite(new THREE.SpriteMaterial(
       {map: new THREE.CanvasTexture(c), transparent: true, depthTest: false}));
     sp.scale.set(1.0, 1.0, 1);
     return sp;
   }
-  const labelPad = 1.1;
-  [['R', box.max.x+labelPad, 0, 0, '#ff4c4c'],
-   ['G', 0, box.max.y+labelPad, 0, '#4cff70'],
-   ['B', 0, 0, box.max.z+labelPad, '#4c7fff']].forEach(([t,x,y,z,col]) => {
+  const lp = 1.1;
+  [['R', SCALE+lp, 0, 0, '#ff4c4c'],
+   ['G', 0, SCALE+lp, 0, '#4cff70'],
+   ['B', 0, 0, SCALE+lp, '#4c7fff']].forEach(([t,x,y,z,col]) => {
     const lbl = makeLabel(t, col); lbl.position.set(x,y,z); scene.add(lbl);
   });
+
+  // Compute data centroid and aim camera at it
+  let sx = 0, sy = 0, sz = 0;
+  for (let i = 0; i < n; i++) { sx += positions[i*3]; sy += positions[i*3+1]; sz += positions[i*3+2]; }
+  dataCentroid.set(sx/n, sy/n, sz/n);
+  controls.target.copy(dataCentroid);
+  camera.position.set(dataCentroid.x - 2, dataCentroid.y + 5, dataCentroid.z + 14);
+  controls.update();
 }
 
 // ---- project 3D → canvas 2D ----
@@ -381,8 +378,8 @@ function toCanvas(idx) {
 
 // ---- recenter ----
 document.getElementById('rc-btn').addEventListener('click', () => {
-  camera.position.set(6, 4, 10);
-  controls.target.set(0, 0, 0);
+  controls.target.copy(dataCentroid);
+  camera.position.set(dataCentroid.x - 2, dataCentroid.y + 5, dataCentroid.z + 14);
   controls.update();
 });
 
