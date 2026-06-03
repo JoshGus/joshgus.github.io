@@ -97,8 +97,8 @@ a{color:inherit;text-decoration:none}
 .gallery-wrap{padding:clamp(28px,4vw,56px) clamp(20px,5vw,72px) 80px;min-height:50vh}
 
 /* ---- MASONRY VIEW ---- */
-.masonry-grid{columns:3 220px;column-gap:clamp(12px,2vw,22px)}
-figure.m-item{break-inside:avoid;margin-bottom:clamp(12px,2vw,22px);display:block;cursor:pointer;position:relative;overflow:hidden}
+.masonry-grid{position:relative}
+figure.m-item{position:absolute;cursor:pointer;overflow:hidden}
 .m-item .photo-fill{width:100%;display:block;background:var(--surface);position:relative;overflow:hidden;
   transition:transform .5s cubic-bezier(.2,.7,.3,1)}
 .m-item:hover .photo-fill{transform:scale(1.02)}
@@ -113,7 +113,16 @@ figure.m-item{break-inside:avoid;margin-bottom:clamp(12px,2vw,22px);display:bloc
 /* ---- PLATES VIEW ---- */
 
 /* ---- GRID VIEW ---- */
-.grid-gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:clamp(10px,1.5vw,18px)}
+.grid-gallery{display:grid;gap:clamp(10px,1.5vw,18px)}
+/* zoom slider */
+.zoom-wrap{display:flex;align-items:center;gap:7px;flex-shrink:0}
+.zoom-icon{font-family:var(--mono);font-size:.7rem;color:var(--dimmer);line-height:1;user-select:none}
+input[type=range].zoom-sl{-webkit-appearance:none;appearance:none;width:72px;height:3px;
+  background:var(--line-strong);border-radius:2px;outline:none;cursor:pointer}
+input[type=range].zoom-sl::-webkit-slider-thumb{-webkit-appearance:none;width:13px;height:13px;
+  border-radius:50%;background:var(--accent-ink);cursor:pointer}
+input[type=range].zoom-sl::-moz-range-thumb{width:13px;height:13px;border:none;
+  border-radius:50%;background:var(--accent-ink);cursor:pointer}
 figure.g-item{cursor:pointer;position:relative;overflow:hidden}
 .g-item .photo-fill{transition:transform .45s cubic-bezier(.2,.7,.3,1)}
 .g-item:hover .photo-fill{transform:scale(1.04)}
@@ -242,6 +251,11 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
       <option value="brightness">Brightness</option>
     </select>
     <button id="sort-dir" class="sort-dir" title="Toggle order">↓</button>
+  </div>
+  <div class="zoom-wrap">
+    <span class="zoom-icon">⊞</span>
+    <input type="range" id="zoom-sl" class="zoom-sl" min="120" max="500" step="20" value="220">
+    <span class="zoom-icon">⊟</span>
   </div>
   <div class="filters" id="filters"></div>
   <span class="count-label" id="count-label"></span>
@@ -413,23 +427,24 @@ function buildFilters() {
 // ============================================================
 let sortKey = 'date_taken';
 let sortDir = 'desc';
+let colMinWidth = 220;
 
-function colorChannel(hex, offset) {
-  return hex && hex.length === 7 ? parseInt(hex.slice(offset, offset + 2), 16) : 0;
+function parseDominant(hex) {
+  if (!hex || hex.length !== 7) return {r:0,g:0,b:0,total:1};
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return {r, g, b, total: r + g + b + 1};
 }
 
 function getSortVal(photo, key) {
   const c = photo.dominant_colors && photo.dominant_colors[0];
+  const {r,g,b,total} = parseDominant(c);
   switch (key) {
     case 'date_taken': return photo.date_taken ? new Date(photo.date_taken).getTime() : 0;
     case 'title':      return (photo.title || '').toLowerCase();
-    case 'red':        return colorChannel(c, 1);
-    case 'green':      return colorChannel(c, 3);
-    case 'blue':       return colorChannel(c, 5);
-    case 'brightness': {
-      const r = colorChannel(c, 1), g = colorChannel(c, 3), b = colorChannel(c, 5);
-      return 0.299 * r + 0.587 * g + 0.114 * b;
-    }
+    case 'red':        return r / total;          // dominance ratio, not raw intensity
+    case 'green':      return g / total;
+    case 'blue':       return b / total;
+    case 'brightness': return (0.299*r + 0.587*g + 0.114*b) / 255;
     default: return 0;
   }
 }
@@ -447,6 +462,15 @@ document.getElementById('sort-dir').addEventListener('click', () => {
   sortDir = sortDir === 'desc' ? 'asc' : 'desc';
   document.getElementById('sort-dir').classList.toggle('asc', sortDir === 'asc');
   applyFilters();
+});
+document.getElementById('zoom-sl').addEventListener('input', e => {
+  colMinWidth = parseInt(e.target.value);
+  renderView();
+});
+let _resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(_resizeTimer);
+  _resizeTimer = setTimeout(renderView, 120);
 });
 
 function applyFilters() {
@@ -488,28 +512,49 @@ function attachClick(el, index) {
 }
 
 function renderMasonry(main) {
-  const grid = document.createElement('div');
-  grid.className = 'masonry-grid';
+  const wrap = document.createElement('div');
+  wrap.className = 'masonry-grid';
   filteredPhotos.forEach((photo, i) => {
+    const ratio = photo.ratio || (photo.aspect === 'portrait' ? 0.75 : photo.aspect === 'square' ? 1.0 : 1.5);
     const fig = document.createElement('figure');
     fig.className = 'm-item';
+    fig.dataset.ratio = ratio;
     fig.appendChild(placeholderEl(photo));
     fig.appendChild(makeCaption(photo));
     attachClick(fig, i);
-    grid.appendChild(fig);
+    wrap.appendChild(fig);
   });
   main.innerHTML = '';
-  main.appendChild(grid);
+  main.appendChild(wrap);
+  layoutMasonry(wrap);
 }
 
+function layoutMasonry(wrap) {
+  const W = wrap.parentElement ? wrap.parentElement.clientWidth : 900;
+  const GAP = 16;
+  const ncols = Math.max(1, Math.floor((W + GAP) / (colMinWidth + GAP)));
+  const colW = Math.floor((W - (ncols - 1) * GAP) / ncols);
+  const heights = new Array(ncols).fill(0);
+  Array.from(wrap.children).forEach(item => {
+    const col = heights.indexOf(Math.min(...heights));
+    const ratio = parseFloat(item.dataset.ratio) || 1.5;
+    const itemH = Math.round(colW / ratio);
+    item.style.left  = (col * (colW + GAP)) + 'px';
+    item.style.top   = heights[col] + 'px';
+    item.style.width = colW + 'px';
+    heights[col] += itemH + GAP;
+  });
+  wrap.style.height = (Math.max(...heights) - GAP) + 'px';
+}
 
 function renderGrid(main) {
   const grid = document.createElement('div');
   grid.className = 'grid-gallery';
+  grid.style.gridTemplateColumns = 'repeat(auto-fill,minmax(' + colMinWidth + 'px,1fr))';
   filteredPhotos.forEach((photo, i) => {
     const fig = document.createElement('figure');
     fig.className = 'g-item';
-    const fill = placeholderEl(photo, '220px');
+    const fill = placeholderEl(photo, Math.round(colMinWidth * 1.1) + 'px');
     fig.appendChild(fill);
     fig.appendChild(makeCaption(photo));
     attachClick(fig, i);
