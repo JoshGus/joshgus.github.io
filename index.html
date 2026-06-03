@@ -488,7 +488,7 @@
       var rect=sb.getBoundingClientRect();
       var p=Math.max(0,Math.min(1,(clientY-rect.top)/rect.height));
       var maxSc=document.documentElement.scrollHeight-window.innerHeight;
-      window.scrollTo(0,p*maxSc);
+      window.scrollTo({top:p*maxSc,behavior:'instant'});
     }
 
     var dragging=false;
