@@ -182,7 +182,7 @@ var heightMap; // Float32Array [0,1]
 var BALL_R=4, HOLE_R=6, BORDER=36;
 var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=480;
 var STOP_SPD=8, MAX_DRAG=125, SHOOT_SCALE=3.4;
-var GRAVITY_Z=20, RESTITUTION_Z=0.38, Z_SCALE=40, BOUNCE_THRES=0.5;
+var GRAVITY_Z=3, RESTITUTION_Z=0.42, Z_SCALE=40, BOUNCE_THRES=0.5;
 var WIND_AIR=2.0, WIND_GROUND=0.10; // ground wind is heavily damped by friction
 
 // ── Game state ─────────────────────────────────────────────────────
@@ -364,7 +364,11 @@ function physics(dt){
         ball.vz=-ball.vz*RESTITUTION_Z;
         ball.vx*=0.88; ball.vy*=0.88;
       } else {
-        ball.vz=0;
+        // Set vz to terrain-following rate so ground branch doesn't immediately relaunch
+        var _ep=2.5;
+        var _gxl=(getH(ball.x+_ep,ball.y)-getH(ball.x-_ep,ball.y))/(2*_ep);
+        var _gyl=(getH(ball.x,ball.y+_ep)-getH(ball.x,ball.y-_ep))/(2*_ep);
+        ball.vz=_gxl*ball.vx+_gyl*ball.vy;
       }
     }
 
@@ -375,7 +379,7 @@ function physics(dt){
       var ang=Math.atan2(holeY-ball.y,holeX-ball.x);
       ball.vx+=Math.cos(ang)*pull*550*dt;
       ball.vy+=Math.sin(ang)*pull*550*dt;
-      if(dh<4&&ball.z<0.05){
+      if(dh<2.5&&ball.z<0.05){
         inHole=true; ball.x=holeX; ball.y=holeY;
         ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0; onWin();
       }
