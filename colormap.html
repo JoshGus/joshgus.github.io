@@ -67,7 +67,7 @@ canvas{display:block;width:100%;height:100%}
   color:rgba(244,237,227,.45);margin-bottom:8px}
 .ax-row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.6rem;
   letter-spacing:.08em;color:rgba(244,237,227,.7);margin-bottom:5px}
-.ax-line{display:inline-block;width:18px;height:2px;border-radius:1px;flex-shrink:0}
+.ax-dot{display:inline-block;width:8px;height:8px;border-radius:50%;flex-shrink:0}
 .ax-note{font-family:var(--mono);font-size:.52rem;letter-spacing:.06em;
   color:rgba(244,237,227,.3);margin-top:8px;line-height:1.5;border-top:1px solid rgba(244,237,227,.1);padding-top:7px}
 
@@ -78,6 +78,13 @@ canvas{display:block;width:100%;height:100%}
   padding:5px 11px;border-radius:20px;backdrop-filter:blur(6px);display:flex;align-items:center;gap:6px}
 .ctrl-pill kbd{background:rgba(244,237,227,.18);border:1px solid rgba(244,237,227,.25);
   border-radius:3px;padding:1px 6px;font-size:.56rem;letter-spacing:.06em}
+
+/* recenter button */
+#rc-btn{position:absolute;top:12px;right:52px;z-index:7;width:34px;height:34px;
+  border:1px solid rgba(244,237,227,.22);background:rgba(14,13,11,.55);
+  color:rgba(244,237,227,.7);cursor:pointer;display:flex;align-items:center;justify-content:center;
+  border-radius:4px;backdrop-filter:blur(6px);transition:background .2s,color .2s}
+#rc-btn:hover{background:rgba(204,247,63,.2);color:#ccf73f;border-color:#ccf73f}
 
 /* fullscreen button */
 #fs-btn{position:absolute;top:12px;right:12px;z-index:7;width:34px;height:34px;
@@ -152,14 +159,21 @@ canvas{display:block;width:100%;height:100%}
 
     <!-- Axis legend -->
     <div id="axis-legend">
-      <div class="ax-title">Color dimensions</div>
-      <div class="ax-row"><span class="ax-line" style="background:#ff4c4c"></span>Warm–cool shift</div>
-      <div class="ax-row"><span class="ax-line" style="background:#4cff70"></span>Brightness range</div>
-      <div class="ax-row"><span class="ax-line" style="background:#4c7fff"></span>Saturation depth</div>
-      <div class="ax-note">Axes are UMAP projections of each photo's 5-color palette</div>
+      <div class="ax-title">How points are placed</div>
+      <div class="ax-row"><span class="ax-dot" style="background:#ccf73f"></span>Each dot = one photo, colored by its dominant palette</div>
+      <div class="ax-row"><span class="ax-dot" style="background:#888"></span>5 dominant colors → 15-dim RGB vector → UMAP 3D</div>
+      <div class="ax-row"><span class="ax-dot" style="background:#fff3"></span>Photos with similar palettes cluster together</div>
+      <div class="ax-note">The three axes have no fixed color meaning — they emerge from the structure of the data. Swatches at each axis end show the actual palette of the most extreme photo in that direction.</div>
     </div>
 
-    <!-- Fullscreen toggle -->
+    <!-- Fullscreen + recenter -->
+    <button id="rc-btn" aria-label="Recenter camera">
+      <svg viewBox="0 0 16 16" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="8" cy="8" r="2.5"/>
+        <line x1="8" y1="1" x2="8" y2="5"/><line x1="8" y1="11" x2="8" y2="15"/>
+        <line x1="1" y1="8" x2="5" y2="8"/><line x1="11" y1="8" x2="15" y2="8"/>
+      </svg>
+    </button>
     <button id="fs-btn" aria-label="Toggle fullscreen">
       <svg id="fs-icon-expand" viewBox="0 0 16 16" width="15" height="15" fill="currentColor">
         <path d="M1 1h5v1.5H2.5V6H1V1zm9 0h5v5h-1.5V2.5H10V1zM1 10h1.5v3.5H6V15H1v-5zm13.5 3.5H11V15h5v-5h-1.5v3.5z"/>
@@ -235,11 +249,7 @@ function onResize() {
 new ResizeObserver(onResize).observe(wrap);
 onResize();
 
-// faint grid
-scene.add(new THREE.GridHelper(20, 20, 0x2a2825, 0x1e1c1a));
-
-// Axis helper — colored lines show the three dimensions of color space
-scene.add(new THREE.AxesHelper(7));
+// Grid and axes are built after data loads so they match the bounding box.
 
 // ---- data ----
 let photos    = [];
@@ -306,24 +316,75 @@ function buildPointCloud() {
   pointMesh = new THREE.Points(geo, mat);
   scene.add(pointMesh);
 
-  // Wireframe bounding box — shows the 3D volume the data occupies
+  // Everything below is bounded to the actual data extents
   geo.computeBoundingBox();
   const box = geo.boundingBox;
+  const cx2 = (box.min.x + box.max.x) / 2;
+  const cy2 = (box.min.y + box.max.y) / 2;
+  const cz2 = (box.min.z + box.max.z) / 2;
+
+  // Wireframe bounding box
   const boxGeo = new THREE.BoxGeometry(
-    box.max.x - box.min.x,
-    box.max.y - box.min.y,
-    box.max.z - box.min.z,
-  );
-  const boxMat = new THREE.MeshBasicMaterial({
-    color: 0x3a3530, wireframe: true, transparent: true, opacity: 0.35,
-  });
-  const boxMesh = new THREE.Mesh(boxGeo, boxMat);
-  boxMesh.position.set(
-    (box.min.x + box.max.x) / 2,
-    (box.min.y + box.max.y) / 2,
-    (box.min.z + box.max.z) / 2,
-  );
+    box.max.x - box.min.x, box.max.y - box.min.y, box.max.z - box.min.z);
+  const boxMesh = new THREE.Mesh(boxGeo,
+    new THREE.MeshBasicMaterial({color:0x3a3530, wireframe:true, transparent:true, opacity:0.35}));
+  boxMesh.position.set(cx2, cy2, cz2);
   scene.add(boxMesh);
+
+  // Grid plane — sized to bounding box footprint, sitting at min Y
+  const gw = box.max.x - box.min.x, gd = box.max.z - box.min.z;
+  const grid = new THREE.GridHelper(1, 12, 0x2a2825, 0x1e1c1a);
+  grid.scale.set(gw, 1, gd);
+  grid.position.set(cx2, box.min.y, cz2);
+  scene.add(grid);
+
+  // Axis lines — full extent of bounding box through origin, both directions
+  function axLine(x1,y1,z1, x2,y2,z2, color) {
+    const g = new THREE.BufferGeometry().setFromPoints([
+      new THREE.Vector3(x1,y1,z1), new THREE.Vector3(x2,y2,z2)]);
+    return new THREE.Line(g, new THREE.LineBasicMaterial({color, transparent:true, opacity:0.65}));
+  }
+  scene.add(axLine(box.min.x,0,0, box.max.x,0,0, 0xff4c4c)); // X — red
+  scene.add(axLine(0,box.min.y,0, 0,box.max.y,0, 0x4cff70)); // Y — green
+  scene.add(axLine(0,0,box.min.z, 0,0,box.max.z, 0x4c7fff)); // Z — blue
+
+  // End markers: colored swatch from the most extreme photo in each direction
+  function extremeColor(dim, sign) {
+    let best = -Infinity, col = '#888888';
+    for (let i = 0; i < photos.length; i++) {
+      const v = positions[i*3 + dim] * sign;
+      if (v > best && photos[i].dominant_colors && photos[i].dominant_colors[0]) {
+        best = v; col = photos[i].dominant_colors[0];
+      }
+    }
+    return col;
+  }
+  function makeEndMarker(hex, axColor) {
+    const c = Object.assign(document.createElement('canvas'), {width:64, height:64});
+    const ctx = c.getContext('2d');
+    // Outer ring in axis color, filled with photo's dominant color
+    ctx.beginPath(); ctx.arc(32,32,28,0,Math.PI*2);
+    ctx.fillStyle = hex; ctx.fill();
+    ctx.strokeStyle = axColor; ctx.lineWidth = 5; ctx.stroke();
+    const sp = new THREE.Sprite(new THREE.SpriteMaterial(
+      {map:new THREE.CanvasTexture(c), transparent:true, depthTest:false}));
+    sp.scale.set(0.65, 0.65, 1);
+    return sp;
+  }
+  const pad = 0.6;
+  const ends = [
+    [box.max.x+pad, 0,           0,           0, 1,  '#ff4c4c'],
+    [box.min.x-pad, 0,           0,           0, -1, '#ff4c4c'],
+    [0,           box.max.y+pad, 0,           1, 1,  '#4cff70'],
+    [0,           box.min.y-pad, 0,           1, -1, '#4cff70'],
+    [0,           0,           box.max.z+pad, 2, 1,  '#4c7fff'],
+    [0,           0,           box.min.z-pad, 2, -1, '#4c7fff'],
+  ];
+  ends.forEach(([x,y,z,dim,sign,axCol]) => {
+    const m = makeEndMarker(extremeColor(dim, sign), axCol);
+    m.position.set(x, y, z);
+    scene.add(m);
+  });
 }
 
 // ---- project 3D → canvas 2D ----
@@ -335,6 +396,13 @@ function toCanvas(idx) {
     y: (-v.y + 1) / 2 * wrap.clientHeight,
   };
 }
+
+// ---- recenter ----
+document.getElementById('rc-btn').addEventListener('click', () => {
+  camera.position.set(6, 4, 10);
+  controls.target.set(0, 0, 0);
+  controls.update();
+});
 
 // ---- hover ----
 const svg        = document.getElementById('hover-svg');
