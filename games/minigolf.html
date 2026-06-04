@@ -558,7 +558,7 @@ function floodFillWater(sx,sy,delta){
   var queue=[]; var head=0;
   var start=sy*W+sx;
   queue.push(start); visited[start]=1;
-  var MAX_FILL=9000;
+  var MAX_FILL=60000;
 
   while(head<queue.length&&head<MAX_FILL){
     var idx=queue[head++];
