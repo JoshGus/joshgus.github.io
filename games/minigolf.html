@@ -48,13 +48,48 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   color:rgba(160,210,100,.55);padding:0 4px;line-height:1;transition:color .15s;pointer-events:auto}
 .day-btn:hover:not(:disabled){color:#ccf73f}
 .day-btn:disabled{opacity:.2;cursor:default}
+#hud-date{cursor:pointer;pointer-events:auto;transition:color .15s}
+#hud-date:hover{color:rgba(200,240,120,.9)}
+
+/* ── Calendar panel ── */
+#cal-panel{display:none;position:fixed;top:108px;left:50%;transform:translateX(-50%);
+  z-index:150;background:rgba(12,24,12,.97);border:1px solid rgba(120,180,60,.35);
+  backdrop-filter:blur(10px);padding:16px 14px;width:248px}
+#cal-panel.open{display:block}
+#cal-header{display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:10px;font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;
+  text-transform:uppercase;color:rgba(180,230,100,.85)}
+.cal-nav{background:none;border:none;cursor:pointer;font-size:1.1rem;line-height:1;
+  color:rgba(160,210,100,.7);padding:2px 6px;pointer-events:auto;transition:color .15s}
+.cal-nav:hover:not(:disabled){color:#ccf73f}
+.cal-nav:disabled{opacity:.2;cursor:default}
+#cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.cal-dow{font-family:var(--mono);font-size:.44rem;letter-spacing:.06em;text-transform:uppercase;
+  color:rgba(120,170,70,.5);text-align:center;padding:3px 0 5px}
+.cal-day{font-family:var(--mono);font-size:.58rem;text-align:center;padding:4px 1px 3px;
+  border-radius:3px;position:relative;line-height:1.1;transition:background .12s,color .12s}
+.cal-day:not(.future):not(.empty){cursor:pointer;color:rgba(160,210,100,.8);pointer-events:auto}
+.cal-day:not(.future):not(.empty):hover{background:rgba(100,160,40,.3);color:#ccf73f}
+.cal-day.today{background:rgba(80,130,30,.4);color:#ccf73f}
+.cal-day.selected{outline:1px solid rgba(160,220,60,.6)}
+.cal-day.future{color:rgba(120,160,80,.22)}
+.cal-day.empty{color:transparent}
+.cal-score{display:block;font-size:.4rem;color:rgba(160,220,80,.55);line-height:1;margin-top:1px}
+.cal-score.pb{color:#ccf73f}
+#cal-today-btn{display:block;width:100%;margin-top:10px;font-family:var(--mono);
+  font-size:.52rem;letter-spacing:.12em;text-transform:uppercase;
+  background:none;border:1px solid rgba(120,180,60,.3);color:rgba(160,220,90,.6);
+  padding:6px;cursor:pointer;pointer-events:auto;transition:background .15s,color .15s}
+#cal-today-btn:hover{background:rgba(80,140,30,.3);color:#ccf73f}
 
 #win{display:none;position:fixed;inset:0;z-index:200;background:rgba(10,20,10,.75);
   backdrop-filter:blur(6px);place-items:center}
 #win.show{display:grid}
 .wcard{background:#0e1f0e;border:1px solid rgba(120,180,60,.3);padding:48px 56px;text-align:center;max-width:340px;width:90%}
 .wcard .wt{font-family:var(--disp);font-weight:520;font-size:clamp(1.8rem,5vw,2.6rem);letter-spacing:-.02em;line-height:1;color:#d8f0a0;margin-bottom:6px}
-.wcard .ws{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;color:rgba(140,190,80,.6);margin-bottom:28px}
+.wcard .ws{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;color:rgba(140,190,80,.6);margin-bottom:12px}
+.wcard .wb{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:rgba(120,170,60,.55);margin-bottom:20px;min-height:1.4em}
+.wcard .wb.newpb{color:#ccf73f}
 .wcard .ws b{color:#ccf73f;font-size:2.2rem;display:block;font-family:var(--disp);font-weight:700;letter-spacing:-.02em;line-height:1;margin:6px 0}
 .wbtn{display:inline-block;margin:4px;font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
   cursor:pointer;border:1px solid rgba(120,180,60,.4);color:rgba(180,230,100,.8);padding:11px 20px;
@@ -68,9 +103,41 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   transition:background .18s,color .18s,border-color .18s}
 #restart-btn:hover{background:rgba(80,140,30,.35);color:#ccf73f;border-color:rgba(160,220,60,.6)}
 
-.info{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);
+.info{position:fixed;bottom:58px;left:50%;transform:translateX(-50%);
   font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
   color:rgba(140,190,80,.5);text-align:center;pointer-events:none;z-index:50;transition:opacity .8s}
+
+/* ── Club selector ── */
+#clubs{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:50;
+  display:flex;gap:0;border:1px solid rgba(120,180,60,.35);overflow:hidden;
+  background:rgba(20,38,20,.82);backdrop-filter:blur(4px)}
+.club-btn{background:none;border:none;cursor:pointer;font-family:var(--mono);
+  font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(160,220,90,.6);padding:8px 14px;transition:background .15s,color .15s;pointer-events:auto;
+  border-right:1px solid rgba(120,180,60,.25);display:flex;flex-direction:column;
+  align-items:center;gap:2px;line-height:1}
+.club-btn:last-child{border-right:none}
+.club-btn:hover{background:rgba(80,140,30,.3);color:#ccf73f}
+.club-btn.active{background:rgba(100,160,40,.35);color:#ccf73f}
+.club-loft{font-size:.38rem;color:rgba(140,200,70,.45);letter-spacing:.04em}
+.club-btn.active .club-loft{color:rgba(180,240,100,.6)}
+
+/* ── Tutorial overlay ── */
+#tutorial{position:fixed;inset:0;z-index:180;background:rgba(8,18,8,.82);
+  backdrop-filter:blur(6px);display:grid;place-items:center;cursor:pointer}
+#tutorial.hidden{display:none}
+.tcard{background:#0c1e0c;border:1px solid rgba(120,180,60,.3);padding:36px 44px;
+  max-width:320px;width:90%;text-align:center;pointer-events:none}
+.tcard h2{font-family:var(--disp);font-weight:520;font-size:1.6rem;letter-spacing:-.02em;
+  color:#d8f0a0;margin-bottom:4px;line-height:1}
+.tcard .tsub{font-family:var(--mono);font-size:.55rem;letter-spacing:.12em;
+  text-transform:uppercase;color:rgba(140,190,80,.5);margin-bottom:24px}
+.tcard .trow{font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;
+  color:rgba(180,230,110,.75);margin-bottom:10px;text-align:left}
+.tcard .trow span{color:rgba(120,170,70,.55);font-size:.55rem}
+.tcard .tdiv{height:1px;background:rgba(120,180,60,.18);margin:16px 0}
+.tcard .tdismiss{font-family:var(--mono);font-size:.52rem;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(140,190,80,.4);margin-top:20px}
 </style>
 </head>
 <body>
@@ -99,12 +166,44 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 
 <button id="restart-btn" onclick="resetGame()">↺ Restart</button>
 
+<div id="cal-panel">
+  <div id="cal-header">
+    <button class="cal-nav" id="cal-prev-mo">&#8249;</button>
+    <span id="cal-month-label"></span>
+    <button class="cal-nav" id="cal-next-mo">&#8250;</button>
+  </div>
+  <div id="cal-grid"></div>
+  <button id="cal-today-btn">Today</button>
+</div>
+
 <div id="win">
   <div class="wcard">
     <div class="wt" id="win-title">Finished!</div>
     <div class="ws">You holed out in<b id="win-shots">—</b></div>
+    <div class="wb" id="win-best"></div>
     <button class="wbtn" id="win-copy">Copy result</button>
     <button class="wbtn" onclick="resetGame()">Play again</button>
+  </div>
+</div>
+
+<div id="clubs">
+  <button class="club-btn" data-club="0">Driver<span class="club-loft">flat &amp; long</span></button>
+  <button class="club-btn active" data-club="1">Iron<span class="club-loft">balanced</span></button>
+  <button class="club-btn" data-club="2">Wedge<span class="club-loft">high launch</span></button>
+</div>
+
+<div id="tutorial">
+  <div class="tcard">
+    <h2>Daily Links</h2>
+    <div class="tsub">How to play</div>
+    <div class="trow">&#8592; Drag back from the ball to aim<br><span>release to shoot &mdash; drag from anywhere</span></div>
+    <div class="tdiv"></div>
+    <div class="trow">Driver &mdash; <span>long &amp; flat</span></div>
+    <div class="trow">Iron &mdash; <span>balanced, slight launch</span></div>
+    <div class="trow">Wedge &mdash; <span>short, high launch into air</span></div>
+    <div class="tdiv"></div>
+    <div class="trow">&#128197; Tap the date to browse past courses</div>
+    <div class="tdismiss">Tap anywhere to start</div>
   </div>
 </div>
 
@@ -180,10 +279,19 @@ var heightMap; // Float32Array [0,1]
 
 // ── Physics constants ──────────────────────────────────────────────
 var BALL_R=4, HOLE_R=6, BORDER=36;
-var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=480;
+var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=700;
 var STOP_SPD=8, MAX_DRAG=125, SHOOT_SCALE=3.4;
 var GRAVITY_Z=3, RESTITUTION_Z=0.42, Z_SCALE=40, BOUNCE_THRES=0.5;
 var WIND_AIR=2.0, WIND_GROUND=0.10; // ground wind is heavily damped by friction
+
+// ── Club definitions ───────────────────────────────────────────────
+// loft: vertical velocity (h/s) added per pixel of clamped drag
+var clubs=[
+  {name:'Driver', scale:5.0, maxDrag:145, loft:0.000},
+  {name:'Iron',   scale:3.4, maxDrag:125, loft:0.018},
+  {name:'Wedge',  scale:2.2, maxDrag:90,  loft:0.038},
+];
+var curClub=1;
 
 // ── Game state ─────────────────────────────────────────────────────
 var ball={x:0,y:0,vx:0,vy:0,vz:0,z:0};
@@ -511,8 +619,9 @@ function draw(){
   if(dragging){
     var dx=ball.x-dragX, dy=ball.y-dragY;
     var dist=Math.hypot(dx,dy);
-    var clamped=Math.min(dist,MAX_DRAG);
-    var power=clamped/MAX_DRAG;
+    var _md=clubs[curClub].maxDrag;
+    var clamped=Math.min(dist,_md);
+    var power=clamped/_md;
     var nx=dx/Math.max(dist,0.001), ny=dy/Math.max(dist,0.001);
     var flen=clamped*1.5;
 
@@ -644,10 +753,12 @@ function onUp(e){
   var dx=ball.x-dragX, dy=ball.y-dragY;
   var dist=Math.hypot(dx,dy);
   if(dist>7){
-    var cl=Math.min(dist,MAX_DRAG);
+    var c=clubs[curClub];
+    var cl=Math.min(dist,c.maxDrag);
     var nx=dx/dist, ny=dy/dist;
-    ball.vx=nx*cl*SHOOT_SCALE;
-    ball.vy=ny*cl*SHOOT_SCALE;
+    ball.vx=nx*cl*c.scale;
+    ball.vy=ny*cl*c.scale;
+    ball.vz+=c.loft*cl;
     shots++;
     document.getElementById('hud-shots').textContent=shots;
     if(info){info.style.opacity='0'; setTimeout(function(){if(info)info.remove();info=null;},900);}
@@ -661,12 +772,138 @@ canvas.addEventListener('touchstart',function(e){e.preventDefault();onDown(e);},
 canvas.addEventListener('touchmove',function(e){e.preventDefault();onMove(e);},{passive:false});
 canvas.addEventListener('touchend',function(e){e.preventDefault();onUp(e);},{passive:false});
 
+// ── Score storage (localStorage) ──────────────────────────────────
+function getBest(seed){
+  try{ var v=localStorage.getItem('mg_'+seed); return v!==null?parseInt(v,10):null; }
+  catch(e){ return null; }
+}
+function saveBest(seed,s){
+  try{ localStorage.setItem('mg_'+seed,s); }catch(e){}
+}
+
+// ── Calendar ────────────────────────────────────────────────────────
+var calOpen=false, calYear=0, calMonth=0;
+
+function seedForDate(d){
+  return d.getFullYear()*10000+(d.getMonth()+1)*100+d.getDate();
+}
+
+function renderCal(){
+  var now=new Date();
+  document.getElementById('cal-month-label').textContent=
+    new Date(calYear,calMonth,1).toLocaleDateString('en-US',{month:'long',year:'numeric'});
+  document.getElementById('cal-next-mo').disabled=
+    (calYear>now.getFullYear()||(calYear===now.getFullYear()&&calMonth>=now.getMonth()));
+
+  var dows=['Su','Mo','Tu','We','Th','Fr','Sa'];
+  var html='';
+  dows.forEach(function(d){html+='<div class="cal-dow">'+d+'</div>';});
+
+  var firstDow=new Date(calYear,calMonth,1).getDay();
+  var dim=new Date(calYear,calMonth+1,0).getDate();
+  var todaySeed=seedForDate(today);
+
+  for(var i=0;i<firstDow;i++) html+='<div class="cal-day empty"></div>';
+  for(var d=1;d<=dim;d++){
+    var dt=new Date(calYear,calMonth,d);
+    var seed=seedForDate(dt);
+    var future=dt>today;
+    var cls='cal-day'+(future?' future':'')+(seed===todaySeed?' today':'')+(seed===SEED?' selected':'');
+    var best=!future?getBest(seed):null;
+    var scoreHtml=best!==null?'<span class="cal-score'+(best<=2?' pb':'')+'">'+best+'</span>':'';
+    var ts=dt.getTime();
+    html+='<div class="'+cls+'"'+(future?'':' data-ts="'+ts+'"')+'>'+d+scoreHtml+'</div>';
+  }
+  document.getElementById('cal-grid').innerHTML=html;
+}
+
+function toggleCal(force){
+  calOpen=force!==undefined?force:!calOpen;
+  var panel=document.getElementById('cal-panel');
+  if(calOpen){
+    var cur=offsetDate();
+    calYear=cur.getFullYear(); calMonth=cur.getMonth();
+    renderCal();
+    panel.classList.add('open');
+  } else {
+    panel.classList.remove('open');
+  }
+}
+
+document.getElementById('hud-date').addEventListener('click',function(e){
+  e.stopPropagation(); toggleCal();
+});
+document.getElementById('cal-grid').addEventListener('click',function(e){
+  var el=e.target.closest('[data-ts]');
+  if(!el) return;
+  var picked=new Date(parseInt(el.dataset.ts,10));
+  dayOffset=Math.round((picked.getTime()-today.getTime())/86400000);
+  toggleCal(false); loadDay();
+});
+document.getElementById('cal-prev-mo').addEventListener('click',function(e){
+  e.stopPropagation();
+  calMonth--; if(calMonth<0){calMonth=11;calYear--;} renderCal();
+});
+document.getElementById('cal-next-mo').addEventListener('click',function(e){
+  e.stopPropagation();
+  var now=new Date();
+  if(calYear<now.getFullYear()||(calYear===now.getFullYear()&&calMonth<now.getMonth())){
+    calMonth++; if(calMonth>11){calMonth=0;calYear++;} renderCal();
+  }
+});
+document.getElementById('cal-today-btn').addEventListener('click',function(e){
+  e.stopPropagation(); dayOffset=0; toggleCal(false); loadDay();
+});
+document.getElementById('cal-panel').addEventListener('click',function(e){ e.stopPropagation(); });
+document.addEventListener('click',function(){ if(calOpen) toggleCal(false); });
+
+// ── Club selector ──────────────────────────────────────────────────
+document.getElementById('clubs').addEventListener('click',function(e){
+  var btn=e.target.closest('[data-club]');
+  if(!btn) return;
+  curClub=parseInt(btn.dataset.club,10);
+  document.querySelectorAll('.club-btn').forEach(function(b){
+    b.classList.toggle('active',parseInt(b.dataset.club,10)===curClub);
+  });
+});
+document.getElementById('clubs').addEventListener('click',function(e){ e.stopPropagation(); });
+
+// ── Tutorial ───────────────────────────────────────────────────────
+(function(){
+  var tut=document.getElementById('tutorial');
+  if(localStorage.getItem('mg_tutorial_seen')){
+    tut.classList.add('hidden');
+  } else {
+    tut.addEventListener('click',function(){
+      tut.classList.add('hidden');
+      try{localStorage.setItem('mg_tutorial_seen','1');}catch(e){}
+    });
+  }
+})();
+
 // ── Win ────────────────────────────────────────────────────────────
 function onWin(){
   var s=shots;
+  var prev=getBest(SEED);
+  var isNewBest=prev===null||s<prev;
+  if(isNewBest) saveBest(SEED,s);
+
   document.getElementById('win-shots').textContent=s+(s===1?' shot':' shots');
   document.getElementById('win-title').textContent=
     s===1?'Hole in One!':s<=2?'Incredible!':s<=4?'Finished!':'Finally!';
+
+  var wb=document.getElementById('win-best');
+  wb.className='wb';
+  if(prev===null){
+    wb.textContent='';
+  } else if(isNewBest){
+    wb.textContent='New personal best!'; wb.className='wb newpb';
+  } else if(s===prev){
+    wb.textContent='Matches your best';
+  } else {
+    wb.textContent='Your best: '+prev+(prev===1?' shot':' shots');
+  }
+
   document.getElementById('win').classList.add('show');
   document.getElementById('win-copy').onclick=function(){
     var txt='Daily Links — '+dateStr+'\n⛳ '+s+(s===1?' shot':' shots');
