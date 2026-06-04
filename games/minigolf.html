@@ -421,6 +421,9 @@ function buildTerrain(){
 
   renderTerrain();
   buildHazards();
+  // If tee or hole ended up under water, move each to nearest dry pixel
+  var tp=dryPointNear(teeX,teeY);  if(tp){teeX=tp.x; teeY=tp.y;}
+  var hp=dryPointNear(holeX,holeY); if(hp){holeX=hp.x; holeY=hp.y;}
 }
 
 function renderTerrain(){
@@ -490,14 +493,21 @@ function getH(x,y){
 }
 
 // ── Hazard generation ──────────────────────────────────────────────
-function clearWaterAroundPoint(cx,cy,r){
-  for(var dy=-r;dy<=r;dy++){
-    for(var dx=-r;dx<=r;dx++){
-      if(dx*dx+dy*dy>r*r) continue;
-      var px=Math.round(cx+dx),py=Math.round(cy+dy);
-      if(px>=0&&px<W&&py>=0&&py<H) waterMap[py*W+px]=0;
+// Returns nearest non-water pixel to (cx,cy), or null if already dry
+function dryPointNear(cx,cy){
+  var bxi=Math.round(cx),byi=Math.round(cy);
+  if(!waterMap[byi*W+bxi]) return null;
+  for(var r=1;r<300;r++){
+    for(var dy=-r;dy<=r;dy++){
+      for(var dx=-r;dx<=r;dx++){
+        if(Math.abs(dx)!==r&&Math.abs(dy)!==r) continue;
+        var nx=bxi+dx,ny=byi+dy;
+        if(nx<BORDER+5||nx>=W-BORDER-5||ny<BORDER+5||ny>=H-BORDER-5) continue;
+        if(!waterMap[ny*W+nx]) return {x:nx,y:ny};
+      }
     }
   }
+  return null;
 }
 
 function buildHazards(){
@@ -530,9 +540,6 @@ function buildHazards(){
       if(Math.hypot(lx-teeX,ly-teeY)<80||Math.hypot(lx-holeX,ly-holeY)<80) continue;
       if(getH(lx,ly)>0.50) continue; // water only in low-lying areas
       floodFillWater(lx,ly,0.04+hr()*0.03);
-      // clear water that seeped over tee or hole regardless of where fill started
-      clearWaterAroundPoint(teeX,teeY,72);
-      clearWaterAroundPoint(holeX,holeY,72);
       break;
     }
   }
