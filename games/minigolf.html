@@ -281,7 +281,7 @@ var heightMap; // Float32Array [0,1]
 
 // ── Physics constants ──────────────────────────────────────────────
 var BALL_R=4, HOLE_R=6, BORDER=36;
-var SLOPE_FORCE=5500, LATERAL_MULT=2.6, FRICTION=0.90, RESTITUTION=0.58, MAX_SPEED=520;
+var SLOPE_FORCE=7000, LATERAL_MULT=2.6, FRICTION=0.90, RESTITUTION=0.58, MAX_SPEED=520;
 var STOP_SPD=6, MAX_DRAG=125, SHOOT_SCALE=3.4;
 var GRAVITY_Z=3, RESTITUTION_Z=0.42, Z_SCALE=40, BOUNCE_THRES=0.5;
 var WIND_AIR=2.0, WIND_GROUND=0.10; // ground wind is heavily damped by friction
@@ -292,7 +292,7 @@ var clubs=[
   {name:'Driver', scale:3.8, maxDrag:138, loft:0.000},
   {name:'Iron',   scale:2.5, maxDrag:120, loft:0.019},
   {name:'Wedge',  scale:1.6, maxDrag:88,  loft:0.038},
-  {name:'Putter', scale:0.8, maxDrag:60,  loft:0.000},
+  {name:'Putter', scale:1.2, maxDrag:72,  loft:0.000},
 ];
 var curClub=0;
 
@@ -303,9 +303,13 @@ var windAx=0, windAy=0; // wind acceleration (px/s²)
 var windParts=[];        // particle pool
 var shots=0, inHole=false;
 var dragging=false, dragX=0, dragY=0;
-var dragStartX=0, dragStartY=0; // where the pointer went down
+var dragStartX=0, dragStartY=0;
 var info=document.getElementById('info');
-var lastTs=0;
+var lastTs=0, gameTime=0;
+var waterMap, waterOverlay;
+var sandRegions=[], trees=[];
+var lastShotX=0, lastShotY=0;
+var inWaterHazard=false;
 
 // ── Scale canvas display to fit viewport (internal size never changes) ──
 function scaleCanvas(){
@@ -380,6 +384,7 @@ function buildTerrain(){
   for(var i=0;i<heightMap.length;i++) heightMap[i]=(heightMap[i]-mn)/rng;
 
   renderTerrain();
+  buildHazards();
 }
 
 function renderTerrain(){
@@ -448,6 +453,151 @@ function getH(x,y){
   return heightMap[yi*W+xi];
 }
 
+// ── Hazard generation ──────────────────────────────────────────────
+function buildHazards(){
+  waterMap=new Uint8Array(W*H);
+  sandRegions=[]; trees=[];
+
+  var hr=prng(SEED+500);
+
+  // Water: 1-2 bodies, flood-filled into local terrain valleys
+  var nWater=1+(hr()<0.55?1:0);
+  for(var wi=0;wi<nWater;wi++){
+    for(var attempt=0;attempt<15;attempt++){
+      var sx=Math.round(BORDER+30+hr()*(W-2*BORDER-60));
+      var sy=Math.round(BORDER+30+hr()*(H-2*BORDER-60));
+      if(Math.hypot(sx-teeX,sy-teeY)<95||Math.hypot(sx-holeX,sy-holeY)<95) continue;
+      // Walk downhill to find local minimum (valley)
+      var lx=sx,ly=sy;
+      for(var step=0;step<120;step++){
+        var bx=lx,by=ly,bh=getH(lx,ly);
+        var ddxs=[-1,1,0,0],ddys=[0,0,-1,1];
+        for(var d=0;d<4;d++){
+          var nx2=lx+ddxs[d],ny2=ly+ddys[d];
+          if(nx2<BORDER||nx2>=W-BORDER||ny2<BORDER||ny2>=H-BORDER) continue;
+          var nh=getH(nx2,ny2); if(nh<bh){bh=nh;bx=nx2;by=ny2;}
+        }
+        if(bx===lx&&by===ly) break;
+        lx=bx;ly=by;
+      }
+      if(Math.hypot(lx-teeX,ly-teeY)<80||Math.hypot(lx-holeX,ly-holeY)<80) continue;
+      floodFillWater(lx,ly,0.05+hr()*0.04);
+      break;
+    }
+  }
+  renderWaterOverlay();
+
+  // Sand: 2-4 patches, avoid tee/hole
+  var nSand=2+Math.floor(hr()*3);
+  var si=0;
+  while(si<nSand){
+    var cx=Math.round(BORDER+20+hr()*(W-2*BORDER-40));
+    var cy=Math.round(BORDER+20+hr()*(H-2*BORDER-40));
+    if(Math.hypot(cx-teeX,cy-teeY)<60||Math.hypot(cx-holeX,cy-holeY)<60) continue;
+    sandRegions.push({cx:cx,cy:cy,r:22+hr()*30}); si++;
+  }
+
+  // Trees: 4-8 on medium-high terrain, avoid tee/hole and water
+  var nTrees=4+Math.floor(hr()*5);
+  var placed=0;
+  for(var ti=0;ti<nTrees*4&&placed<nTrees;ti++){
+    var tx=Math.round(BORDER+10+hr()*(W-2*BORDER-20));
+    var ty=Math.round(BORDER+10+hr()*(H-2*BORDER-20));
+    if(getH(tx,ty)<0.38) continue;
+    if(Math.hypot(tx-teeX,ty-teeY)<72||Math.hypot(tx-holeX,ty-holeY)<72) continue;
+    if(waterMap[ty*W+tx]) continue;
+    trees.push({x:tx,y:ty,r:10+hr()*7}); placed++;
+  }
+}
+
+function floodFillWater(sx,sy,delta){
+  var fillLevel=getH(sx,sy)+delta;
+  var visited=new Uint8Array(W*H);
+  var queue=[]; var head=0;
+  var start=sy*W+sx;
+  queue.push(start); visited[start]=1;
+  var MAX_FILL=5500;
+
+  while(head<queue.length&&head<MAX_FILL){
+    var idx=queue[head++];
+    var x=idx%W, y=(idx/W)|0;
+    if(getH(x,y)>fillLevel) continue;
+    waterMap[idx]=1;
+    var ns=[idx-1,idx+1,idx-W,idx+W];
+    for(var k=0;k<4;k++){
+      var ni=ns[k]; if(ni<0||ni>=W*H) continue;
+      var nx2=ni%W,ny2=(ni/W)|0;
+      if(nx2<BORDER||nx2>=W-BORDER||ny2<BORDER||ny2>=H-BORDER) continue;
+      if(!visited[ni]){visited[ni]=1; queue.push(ni);}
+    }
+  }
+}
+
+function renderWaterOverlay(){
+  if(!waterOverlay){waterOverlay=document.createElement('canvas');waterOverlay.width=W;waterOverlay.height=H;}
+  var wCtx=waterOverlay.getContext('2d');
+  var img=wCtx.createImageData(W,H);
+  var d=img.data;
+  for(var i=0;i<W*H;i++){
+    if(!waterMap[i]) continue;
+    var x=i%W,y=(i/W)|0;
+    var edge=!waterMap[i-1]||!waterMap[i+1]||!waterMap[i-W]||!waterMap[i+W];
+    if(edge){ d[i*4]=65;d[i*4+1]=155;d[i*4+2]=210;d[i*4+3]=200; }
+    else     { d[i*4]=22;d[i*4+1]=88; d[i*4+2]=172;d[i*4+3]=215; }
+  }
+  wCtx.putImageData(img,0,0);
+}
+
+function inSand(){
+  for(var i=0;i<sandRegions.length;i++){
+    var s=sandRegions[i];
+    var dx=ball.x-s.cx,dy=ball.y-s.cy;
+    if(dx*dx+dy*dy<s.r*s.r) return true;
+  }
+  return false;
+}
+
+function applyTreeCollisions(){
+  for(var i=0;i<trees.length;i++){
+    var t=trees[i];
+    var dx=ball.x-t.x,dy=ball.y-t.y;
+    var dist=Math.hypot(dx,dy);
+    var minD=t.r+BALL_R+1;
+    if(dist>0&&dist<minD){
+      var nx2=dx/dist,ny2=dy/dist;
+      var dot=ball.vx*nx2+ball.vy*ny2;
+      if(dot<0){ball.vx-=(1+RESTITUTION)*dot*nx2*0.50;ball.vy-=(1+RESTITUTION)*dot*ny2*0.50;}
+      ball.x=t.x+(minD+0.5)*nx2; ball.y=t.y+(minD+0.5)*ny2;
+    }
+  }
+}
+
+function checkWater(){
+  if(inWaterHazard) return;
+  var bxi=Math.round(ball.x),byi=Math.round(ball.y);
+  if(bxi<0||bxi>=W||byi<0||byi>=H) return;
+  if(waterMap[byi*W+bxi]&&ball.z<0.12) triggerWaterHazard();
+}
+
+function triggerWaterHazard(){
+  inWaterHazard=true;
+  shots++;
+  document.getElementById('hud-shots').textContent=shots;
+  ball.x=lastShotX; ball.y=lastShotY; ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0;
+  showHazardMsg('Water +1');
+  setTimeout(function(){inWaterHazard=false;},600);
+}
+
+function showHazardMsg(msg){
+  var el=document.createElement('div');
+  el.style.cssText='position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);font-family:var(--mono);'+
+    'font-size:1.1rem;letter-spacing:.12em;text-transform:uppercase;color:#5bc8f0;'+
+    'text-shadow:0 0 18px rgba(50,160,230,.9);pointer-events:none;z-index:160;transition:opacity .5s;';
+  el.textContent=msg;
+  document.body.appendChild(el);
+  setTimeout(function(){el.style.opacity='0';setTimeout(function(){el.remove();},500);},750);
+}
+
 // ── Physics ────────────────────────────────────────────────────────
 function physics(dt){
   if(inHole) return;
@@ -502,6 +652,7 @@ function physics(dt){
         ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0; onWin();
       }
     }
+    checkWater();
 
   } else {
     // ── ON SURFACE: slope + friction ─────────────────────────────
@@ -511,17 +662,18 @@ function physics(dt){
     var gx=(getH(ball.x+eps,ball.y)-getH(ball.x-eps,ball.y))/(2*eps);
     var gy=(getH(ball.x,ball.y+eps)-getH(ball.x,ball.y-eps))/(2*eps);
 
+    var sFric=inSand()?FRICTION*2.8:FRICTION;
     var spd0=Math.hypot(ball.vx,ball.vy);
     if(spd0>0.5){
       var tx=ball.vx/spd0, ty=ball.vy/spd0;
       var px=-ty, py=tx;
       var gPara=gx*tx+gy*ty;
       var gPerp=gx*px+gy*py;
-      ball.vx+=(-gPara*tx*SLOPE_FORCE - gPerp*px*SLOPE_FORCE*LATERAL_MULT - ball.vx*FRICTION)*dt;
-      ball.vy+=(-gPara*ty*SLOPE_FORCE - gPerp*py*SLOPE_FORCE*LATERAL_MULT - ball.vy*FRICTION)*dt;
+      ball.vx+=(-gPara*tx*SLOPE_FORCE - gPerp*px*SLOPE_FORCE*LATERAL_MULT - ball.vx*sFric)*dt;
+      ball.vy+=(-gPara*ty*SLOPE_FORCE - gPerp*py*SLOPE_FORCE*LATERAL_MULT - ball.vy*sFric)*dt;
     } else {
-      ball.vx+=(-gx*SLOPE_FORCE-ball.vx*FRICTION)*dt;
-      ball.vy+=(-gy*SLOPE_FORCE-ball.vy*FRICTION)*dt;
+      ball.vx+=(-gx*SLOPE_FORCE-ball.vx*sFric)*dt;
+      ball.vy+=(-gy*SLOPE_FORCE-ball.vy*sFric)*dt;
     }
 
     var spd=Math.hypot(ball.vx,ball.vy);
@@ -566,7 +718,13 @@ function physics(dt){
         ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0; onWin();
       }
     }
+
+    checkWater();
+    applyTreeCollisions();
   }
+
+  // Always check tree collisions when airborne too
+  if(ball.z>0.002) applyTreeCollisions();
 }
 
 // ── Wind particles ─────────────────────────────────────────────────
@@ -589,7 +747,7 @@ function updateParticles(dt){
 }
 
 // ── Draw ───────────────────────────────────────────────────────────
-function draw(){
+function draw(t){
   ctx.clearRect(0,0,W,H);
   ctx.drawImage(offscreen,0,0);
 
@@ -600,6 +758,37 @@ function draw(){
   ctx.strokeStyle='rgba(140,200,80,0.15)';
   ctx.lineWidth=1;
   ctx.strokeRect(BORDER+3,BORDER+3,W-2*BORDER-6,H-2*BORDER-6);
+
+  // Sand regions
+  for(var _si=0;_si<sandRegions.length;_si++){
+    var _s=sandRegions[_si];
+    var _sg=ctx.createRadialGradient(_s.cx,_s.cy,0,_s.cx,_s.cy,_s.r);
+    _sg.addColorStop(0,'rgba(215,192,118,0.60)');
+    _sg.addColorStop(0.65,'rgba(198,172,95,0.48)');
+    _sg.addColorStop(1,'rgba(178,152,72,0.0)');
+    ctx.beginPath(); ctx.arc(_s.cx,_s.cy,_s.r,0,6.2832);
+    ctx.fillStyle=_sg; ctx.fill();
+  }
+
+  // Water overlay (pre-rendered, animated shimmer)
+  if(waterOverlay){
+    ctx.globalAlpha=0.80+0.14*Math.sin(t*1.8);
+    ctx.drawImage(waterOverlay,0,0);
+    ctx.globalAlpha=1;
+  }
+
+  // Trees
+  for(var _ti=0;_ti<trees.length;_ti++){
+    var _tr=trees[_ti];
+    ctx.beginPath(); ctx.arc(_tr.x+2,_tr.y+3,_tr.r*0.9,0,6.2832);
+    ctx.fillStyle='rgba(0,0,0,0.18)'; ctx.fill();
+    var _tg=ctx.createRadialGradient(_tr.x-_tr.r*0.25,_tr.y-_tr.r*0.3,0,_tr.x,_tr.y,_tr.r);
+    _tg.addColorStop(0,'rgba(38,84,24,0.96)');
+    _tg.addColorStop(0.65,'rgba(18,56,10,0.92)');
+    _tg.addColorStop(1,'rgba(8,34,4,0.72)');
+    ctx.beginPath(); ctx.arc(_tr.x,_tr.y,_tr.r,0,6.2832);
+    ctx.fillStyle=_tg; ctx.fill();
+  }
 
   // Hole shadow + cup
   ctx.beginPath(); ctx.arc(holeX+2,holeY+3,HOLE_R,0,6.2832);
@@ -728,10 +917,10 @@ function draw(){
 // ── Game loop ──────────────────────────────────────────────────────
 function loop(ts){
   var dt=Math.min((ts-lastTs)/1000,0.05);
-  lastTs=ts;
+  lastTs=ts; gameTime+=dt;
   if(!dragging) physics(dt);
   updateParticles(dt);
-  draw();
+  draw(gameTime);
   requestAnimationFrame(loop);
 }
 
@@ -767,6 +956,7 @@ function onUp(e){
   var dx=ball.x-dragX, dy=ball.y-dragY;
   var dist=Math.hypot(dx,dy);
   if(dist>7){
+    lastShotX=ball.x; lastShotY=ball.y;
     var c=clubs[curClub];
     var cl=Math.min(dist,c.maxDrag);
     var nx=dx/dist, ny=dy/dist;
@@ -929,21 +1119,23 @@ function onWin(){
 
 function loadDay(){
   syncDay();
-  inHole=false; shots=0;
+  inHole=false; shots=0; inWaterHazard=false;
   document.getElementById('hud-shots').textContent='0';
   document.getElementById('win').classList.remove('show');
   buildTerrain();
   ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0;
+  lastShotX=teeX; lastShotY=teeY;
 }
 
 document.getElementById('btn-prev').onclick=function(){ dayOffset--; loadDay(); };
 document.getElementById('btn-next').onclick=function(){ if(dayOffset<0){dayOffset++; loadDay();} };
 
 window.resetGame=function(){
-  inHole=false; shots=0;
+  inHole=false; shots=0; inWaterHazard=false;
   document.getElementById('hud-shots').textContent='0';
   document.getElementById('win').classList.remove('show');
   ball.x=teeX; ball.y=teeY; ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0;
+  lastShotX=teeX; lastShotY=teeY;
 };
 
 // ── Resize: only rescale display, never rebuild terrain ────────────
@@ -956,6 +1148,7 @@ window.addEventListener('resize',function(){
 buildTerrain();
 scaleCanvas();
 ball.x=teeX; ball.y=teeY; ball.vz=0; ball.z=0;
+lastShotX=teeX; lastShotY=teeY;
 requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
 
 })();
