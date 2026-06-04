@@ -35,17 +35,17 @@ html,body{height:100%;overflow:hidden;background:#1a2e1a;-webkit-font-smoothing:
 canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 
 .hud{position:fixed;top:58px;left:50%;transform:translateX(-50%);
-  display:flex;gap:18px;align-items:center;
-  background:rgba(20,38,20,.82);backdrop-filter:blur(6px);
-  border:1px solid rgba(120,180,80,.25);padding:7px 18px;
-  font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  display:flex;gap:22px;align-items:center;
+  background:rgba(20,38,20,.88);backdrop-filter:blur(6px);
+  border:1px solid rgba(120,180,80,.25);padding:10px 24px;
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;
   color:rgba(160,210,100,.7);pointer-events:none;z-index:50;white-space:nowrap}
-.hud .sv{font-size:1.5rem;font-weight:700;color:#ccf73f;font-family:var(--disp);line-height:1;letter-spacing:-.02em}
-.hud .sl{font-size:.5rem;color:rgba(160,210,100,.5)}
-.hud .sep{width:1px;height:26px;background:rgba(120,180,80,.2)}
-.hud .dv{font-size:.58rem;color:rgba(140,180,90,.6)}
-.day-btn{background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:.85rem;
-  color:rgba(160,210,100,.55);padding:0 4px;line-height:1;transition:color .15s;pointer-events:auto}
+.hud .sv{font-size:1.8rem;font-weight:700;color:#ccf73f;font-family:var(--disp);line-height:1;letter-spacing:-.02em}
+.hud .sl{font-size:.58rem;color:rgba(160,210,100,.5)}
+.hud .sep{width:1px;height:30px;background:rgba(120,180,80,.2)}
+.hud .dv{font-size:.66rem;color:rgba(140,180,90,.6)}
+.day-btn{background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:1rem;
+  color:rgba(160,210,100,.55);padding:0 6px;line-height:1;transition:color .15s;pointer-events:auto}
 .day-btn:hover:not(:disabled){color:#ccf73f}
 .day-btn:disabled{opacity:.2;cursor:default}
 #hud-date{cursor:pointer;pointer-events:auto;transition:color .15s}
@@ -96,30 +96,30 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   background:none;transition:background .2s,color .2s}
 .wbtn:hover{background:rgba(100,160,40,.3);color:#ccf73f}
 
-#restart-btn{position:fixed;bottom:18px;right:20px;z-index:50;
-  font-family:var(--mono);font-size:.58rem;letter-spacing:.12em;text-transform:uppercase;
+#restart-btn{position:fixed;top:58px;right:20px;z-index:50;
+  font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
   cursor:pointer;border:1px solid rgba(120,180,60,.35);color:rgba(160,220,90,.7);
-  padding:9px 15px;background:rgba(20,38,20,.72);backdrop-filter:blur(4px);
+  padding:11px 18px;background:rgba(20,38,20,.82);backdrop-filter:blur(4px);
   transition:background .18s,color .18s,border-color .18s}
 #restart-btn:hover{background:rgba(80,140,30,.35);color:#ccf73f;border-color:rgba(160,220,60,.6)}
 
-.info{position:fixed;bottom:58px;left:50%;transform:translateX(-50%);
+.info{position:fixed;bottom:78px;left:50%;transform:translateX(-50%);
   font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
   color:rgba(140,190,80,.5);text-align:center;pointer-events:none;z-index:50;transition:opacity .8s}
 
 /* ── Club selector ── */
-#clubs{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);z-index:50;
+#clubs{position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:50;
   display:flex;gap:0;border:1px solid rgba(120,180,60,.35);overflow:hidden;
-  background:rgba(20,38,20,.82);backdrop-filter:blur(4px)}
+  background:rgba(20,38,20,.88);backdrop-filter:blur(4px)}
 .club-btn{background:none;border:none;cursor:pointer;font-family:var(--mono);
-  font-size:.54rem;letter-spacing:.1em;text-transform:uppercase;
-  color:rgba(160,220,90,.6);padding:8px 14px;transition:background .15s,color .15s;pointer-events:auto;
+  font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(160,220,90,.6);padding:11px 20px;transition:background .15s,color .15s;pointer-events:auto;
   border-right:1px solid rgba(120,180,60,.25);display:flex;flex-direction:column;
-  align-items:center;gap:2px;line-height:1}
+  align-items:center;gap:3px;line-height:1}
 .club-btn:last-child{border-right:none}
 .club-btn:hover{background:rgba(80,140,30,.3);color:#ccf73f}
 .club-btn.active{background:rgba(100,160,40,.35);color:#ccf73f}
-.club-loft{font-size:.38rem;color:rgba(140,200,70,.45);letter-spacing:.04em}
+.club-loft{font-size:.46rem;color:rgba(140,200,70,.45);letter-spacing:.04em}
 .club-btn.active .club-loft{color:rgba(180,240,100,.6)}
 
 /* ── Tutorial overlay ── */
@@ -187,9 +187,10 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 </div>
 
 <div id="clubs">
-  <button class="club-btn" data-club="0">Driver<span class="club-loft">flat &amp; long</span></button>
-  <button class="club-btn active" data-club="1">Iron<span class="club-loft">balanced</span></button>
+  <button class="club-btn active" data-club="0">Driver<span class="club-loft">flat &amp; long</span></button>
+  <button class="club-btn" data-club="1">Iron<span class="club-loft">balanced</span></button>
   <button class="club-btn" data-club="2">Wedge<span class="club-loft">high launch</span></button>
+  <button class="club-btn" data-club="3">Putter<span class="club-loft">tap in</span></button>
 </div>
 
 <div id="tutorial">
@@ -201,6 +202,7 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
     <div class="trow">Driver &mdash; <span>long &amp; flat</span></div>
     <div class="trow">Iron &mdash; <span>balanced, slight launch</span></div>
     <div class="trow">Wedge &mdash; <span>short, high launch into air</span></div>
+    <div class="trow">Putter &mdash; <span>very short, precise tap ins</span></div>
     <div class="tdiv"></div>
     <div class="trow">&#128197; Tap the date to browse past courses</div>
     <div class="tdismiss">Tap anywhere to start</div>
@@ -279,19 +281,20 @@ var heightMap; // Float32Array [0,1]
 
 // ── Physics constants ──────────────────────────────────────────────
 var BALL_R=4, HOLE_R=6, BORDER=36;
-var SLOPE_FORCE=8500, LATERAL_MULT=2.6, FRICTION=1.25, RESTITUTION=0.58, MAX_SPEED=700;
-var STOP_SPD=8, MAX_DRAG=125, SHOOT_SCALE=3.4;
+var SLOPE_FORCE=5500, LATERAL_MULT=2.6, FRICTION=0.90, RESTITUTION=0.58, MAX_SPEED=520;
+var STOP_SPD=6, MAX_DRAG=125, SHOOT_SCALE=3.4;
 var GRAVITY_Z=3, RESTITUTION_Z=0.42, Z_SCALE=40, BOUNCE_THRES=0.5;
 var WIND_AIR=2.0, WIND_GROUND=0.10; // ground wind is heavily damped by friction
 
 // ── Club definitions ───────────────────────────────────────────────
 // loft: vertical velocity (h/s) added per pixel of clamped drag
 var clubs=[
-  {name:'Driver', scale:5.0, maxDrag:145, loft:0.000},
-  {name:'Iron',   scale:3.4, maxDrag:125, loft:0.018},
-  {name:'Wedge',  scale:2.2, maxDrag:90,  loft:0.038},
+  {name:'Driver', scale:3.8, maxDrag:138, loft:0.000},
+  {name:'Iron',   scale:2.5, maxDrag:120, loft:0.019},
+  {name:'Wedge',  scale:1.6, maxDrag:88,  loft:0.038},
+  {name:'Putter', scale:0.8, maxDrag:60,  loft:0.000},
 ];
-var curClub=1;
+var curClub=0;
 
 // ── Game state ─────────────────────────────────────────────────────
 var ball={x:0,y:0,vx:0,vy:0,vz:0,z:0};
@@ -468,14 +471,21 @@ function physics(dt){
     // Landing
     if(ball.z<=0){
       ball.z=0;
+      var _ep=2.5;
+      var _gxl=(getH(ball.x+_ep,ball.y)-getH(ball.x-_ep,ball.y))/(2*_ep);
+      var _gyl=(getH(ball.x,ball.y+_ep)-getH(ball.x,ball.y-_ep))/(2*_ep);
       if(ball.vz<-BOUNCE_THRES){
-        ball.vz=-ball.vz*RESTITUTION_Z;
-        ball.vx*=0.88; ball.vy*=0.88;
+        // Reflect velocity around terrain normal so slope redirects the bounce
+        var _nLen=Math.sqrt(_gxl*_gxl*Z_SCALE*Z_SCALE+_gyl*_gyl*Z_SCALE*Z_SCALE+1);
+        var _nx=-_gxl*Z_SCALE/_nLen, _ny=-_gyl*Z_SCALE/_nLen, _nz=1/_nLen;
+        var _vzPx=ball.vz*Z_SCALE; // convert to px-space for uniform units
+        var _vdn=ball.vx*_nx+ball.vy*_ny+_vzPx*_nz;
+        var _k=(1+RESTITUTION_Z)*_vdn;
+        ball.vx=( ball.vx-_k*_nx)*0.86;
+        ball.vy=( ball.vy-_k*_ny)*0.86;
+        ball.vz=(_vzPx-_k*_nz)*0.86/Z_SCALE;
       } else {
-        // Set vz to terrain-following rate so ground branch doesn't immediately relaunch
-        var _ep=2.5;
-        var _gxl=(getH(ball.x+_ep,ball.y)-getH(ball.x-_ep,ball.y))/(2*_ep);
-        var _gyl=(getH(ball.x,ball.y+_ep)-getH(ball.x,ball.y-_ep))/(2*_ep);
+        // Soft landing: match terrain-following rate to prevent relaunch stutter
         ball.vz=_gxl*ball.vx+_gyl*ball.vy;
       }
     }
@@ -685,8 +695,12 @@ function draw(){
 
   // Shadow and ball — z-aware: shadow stays on ground, ball shifts up and grows
   if(!inHole){
-    var screenUp=ball.z*Z_SCALE;                              // pixels the ball is visually above ground
-    var drawR=BALL_R+ball.z*32;                               // super-exaggerated: tiny on ground, huge in air
+    var screenUp=ball.z*Z_SCALE;
+    var _terrainH=getH(ball.x,ball.y);                        // 0-1 terrain height at ball position
+    // On ground: subtle size from terrain elevation. In air: exaggerated growth.
+    var drawR=ball.z>0.002
+      ? BALL_R+ball.z*32                                      // airborne: super-exaggerated
+      : BALL_R+_terrainH*2.0;                                 // grounded: subtle terrain elevation hint
     var drawBY=ball.y-screenUp;                               // ball's visual Y
 
     // Shadow: ground-pinned, spreads and fades with height
