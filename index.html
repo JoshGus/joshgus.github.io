@@ -90,7 +90,16 @@
   h1 .out{color:transparent;-webkit-text-stroke:1px var(--fg)}
   .lede{max-width:42ch;margin-top:28px;color:var(--dim);font-size:clamp(1rem,1.7vw,1.18rem);font-weight:300;line-height:1.55}
   .lede b{color:var(--fg);font-weight:500}
-  .scroll-cue{margin-top:36px;font-family:var(--mono);font-size:.64rem;letter-spacing:.2em;text-transform:uppercase;color:var(--dimmer)}
+
+  /* ---------- experience block (left panel) ---------- */
+  .exp-block{margin-top:36px;width:100%}
+  .exp-label{font-family:var(--mono);font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dimmer);margin-bottom:14px}
+  .exp-entry{padding:11px 0;border-bottom:1px solid var(--line)}
+  .exp-entry:first-of-type{border-top:1px solid var(--line)}
+  .exp-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+  .exp-role{font-size:.92rem;font-weight:500;color:var(--fg)}
+  .exp-yr{font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;color:var(--dimmer);white-space:nowrap;flex-shrink:0}
+  .exp-org{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:var(--accent-ink);display:block;margin-top:3px}
 
   /* ---------- section scaffolding ---------- */
   section{padding:clamp(60px,10vh,110px) 0;border-bottom:1px solid var(--line)}
@@ -144,6 +153,20 @@
   .game-foot .play{font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink);display:inline-flex;gap:8px;align-items:center;white-space:nowrap}
   .game-foot .play .arr{transition:transform .3s}
   a.game:hover .game-foot .play .arr{transform:translateX(5px)}
+
+  /* ---------- featured showcase ---------- */
+  .sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,22px)}
+  a.sc-card{display:flex;flex-direction:column;text-decoration:none;background:var(--surface);border:1px solid var(--line);overflow:hidden;transition:transform .4s cubic-bezier(.2,.7,.3,1),border-color .4s,box-shadow .4s}
+  a.sc-card:hover{transform:translateY(-6px);border-color:var(--line-strong);box-shadow:0 20px 40px -24px rgba(29,23,18,.35)}
+  .sc-thumb{position:relative;aspect-ratio:16/9;overflow:hidden;display:grid;place-items:center}
+  .sc-body{padding:18px 20px;flex:1;display:flex;flex-direction:column;gap:7px}
+  .sc-body h3{font-family:var(--disp);font-weight:520;font-size:clamp(1.3rem,2vw,1.7rem);letter-spacing:-.02em;line-height:1;font-variation-settings:"opsz" 40;transition:color .3s}
+  a.sc-card:hover .sc-body h3{color:var(--accent-ink)}
+  .sc-body p{color:var(--dim);font-size:.88rem;font-weight:300;flex:1;line-height:1.5}
+  .sc-cta{font-family:var(--mono);font-size:.58rem;letter-spacing:.16em;text-transform:uppercase;color:var(--accent-ink);display:inline-flex;gap:8px;align-items:center;margin-top:6px}
+  .sc-cta .arr{transition:transform .3s}
+  a.sc-card:hover .sc-cta .arr{transform:translateX(5px)}
+  @media(max-width:600px){.sc-grid{grid-template-columns:1fr}}
 
   /* ---------- gallery ---------- */
   .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:clamp(14px,2vw,26px)}
@@ -217,17 +240,16 @@
     html{scrollbar-width:none}
     ::-webkit-scrollbar{display:none}
     #sb{
-      display:flex;flex-direction:column;align-items:center;
-      position:fixed;right:14px;top:50px;bottom:14px;
-      z-index:45;cursor:grab;padding:0 6px;
+      display:block;position:fixed;right:16px;top:64px;bottom:16px;
+      width:1px;z-index:45;background:var(--line);cursor:pointer;
     }
-    #sb:active{cursor:grabbing}
-    .sb-a{
-      font-family:var(--mono);font-size:72px;line-height:82px;
-      color:var(--dim);display:block;
-      transition:color .06s;user-select:none;
+    #sb-thumb{
+      position:absolute;left:50%;transform:translateX(-50%);
+      width:5px;height:5px;border-radius:50%;
+      background:var(--dimmer);margin-top:-2px;
+      transition:background .25s;
     }
-    .sb-a.on{color:var(--accent)}
+    #sb:hover #sb-thumb{background:var(--accent-ink)}
   }
 </style>
 </head>
@@ -258,11 +280,81 @@
       <span class="b out">builds &amp; sees</span>
     </h1>
     <p class="lede">[INTRO] — <b>A computer science student who codes, builds little games, and photographs birds.</b> This is the index of everything I'm working on.</p>
-    <span class="scroll-cue">↓ Scroll</span>
+
+    <div class="exp-block">
+      <div class="exp-label">Experience</div>
+      <div class="exp-entry">
+        <div class="exp-top">
+          <span class="exp-role">[Role] — Intern</span>
+          <span class="exp-yr">2025</span>
+        </div>
+        <span class="exp-org">[Company]</span>
+      </div>
+      <div class="exp-entry">
+        <div class="exp-top">
+          <span class="exp-role">[Role]</span>
+          <span class="exp-yr">2024 –</span>
+        </div>
+        <span class="exp-org">[Company / Institution]</span>
+      </div>
+    </div>
   </aside>
 
   <!-- ================= CONTENT (scrolling right) ================= -->
   <main class="content">
+
+    <!-- ================= SHOWCASE ================= -->
+    <section id="featured" style="padding-top:clamp(48px,8vh,80px)">
+      <div class="sec-head reveal">
+        <span class="idx">Featured</span>
+        <h2>Now live</h2>
+      </div>
+      <div class="sc-grid reveal">
+
+        <a class="sc-card" href="colormap.html">
+          <div class="sc-thumb" style="background:radial-gradient(ellipse at 28% 55%,rgba(231,76,60,.38) 0,transparent 48%),radial-gradient(ellipse at 72% 38%,rgba(46,204,113,.32) 0,transparent 45%),radial-gradient(ellipse at 50% 18%,rgba(52,152,219,.3) 0,transparent 40%),radial-gradient(ellipse at 82% 78%,rgba(243,156,18,.28) 0,transparent 32%),radial-gradient(ellipse at 18% 78%,rgba(155,89,182,.26) 0,transparent 32%),#0e0d0b">
+            <svg viewBox="0 0 200 112" style="width:80%;opacity:.55" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="60" cy="72" r="3" fill="#e74c3c"/><circle cx="44" cy="80" r="2.5" fill="#c0392b"/>
+              <circle cx="78" cy="62" r="2" fill="#e67e22"/><circle cx="90" cy="68" r="3" fill="#f39c12"/>
+              <circle cx="110" cy="44" r="3" fill="#2ecc71"/><circle cx="126" cy="36" r="2.5" fill="#27ae60"/>
+              <circle cx="98" cy="30" r="2" fill="#3498db"/><circle cx="82" cy="22" r="3" fill="#2980b9"/>
+              <circle cx="148" cy="58" r="2.5" fill="#9b59b6"/><circle cx="162" cy="70" r="2" fill="#8e44ad"/>
+              <circle cx="136" cy="78" r="3" fill="#f1c40f"/><circle cx="150" cy="86" r="2" fill="#f39c12"/>
+              <circle cx="56" cy="44" r="2" fill="#e74c3c" opacity=".6"/><circle cx="72" cy="38" r="2.5" fill="#c0392b" opacity=".5"/>
+              <circle cx="118" cy="62" r="2" fill="#1abc9c" opacity=".7"/><circle cx="104" cy="80" r="2" fill="#16a085" opacity=".6"/>
+            </svg>
+          </div>
+          <div class="sc-body">
+            <h3>Color Space</h3>
+            <p>816 photographs plotted in 3D RGB space. Drag to orbit — colors cluster, palettes emerge.</p>
+            <span class="sc-cta">Explore <span class="arr">→</span></span>
+          </div>
+        </a>
+
+        <a class="sc-card" href="games/minigolf.html">
+          <div class="sc-thumb" style="background:linear-gradient(145deg,#1a3a1a,#2d5a22)">
+            <svg viewBox="0 0 140 90" style="width:78%;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <ellipse cx="68" cy="52" rx="50" ry="24" stroke="rgba(120,180,60,.18)" stroke-width="1.5"/>
+              <ellipse cx="68" cy="48" rx="36" ry="17" stroke="rgba(120,180,60,.22)" stroke-width="1.5"/>
+              <ellipse cx="72" cy="44" rx="22" ry="11" stroke="rgba(140,200,70,.28)" stroke-width="1.5"/>
+              <circle cx="20" cy="58" r="4" fill="rgba(255,255,255,.25)"/>
+              <line x1="20" y1="58" x2="108" y2="40" stroke="rgba(255,255,255,.5)" stroke-width="1.5" stroke-dasharray="6,4"/>
+              <polygon points="108,40 100,38 102,46" fill="rgba(255,255,255,.5)"/>
+              <circle cx="20" cy="58" r="5.5" fill="white"/>
+              <circle cx="112" cy="40" r="6" fill="#080808"/>
+              <line x1="112" y1="35" x2="112" y2="20" stroke="rgba(220,220,200,.85)" stroke-width="1.5"/>
+              <polygon points="112,20 126,25 112,30" fill="#ccf73f"/>
+            </svg>
+          </div>
+          <div class="sc-body">
+            <h3>Daily Links</h3>
+            <p>A seeded minigolf course generated fresh each day — same course for everyone, resets at midnight.</p>
+            <span class="sc-cta">Play today's course <span class="arr">→</span></span>
+          </div>
+        </a>
+
+      </div>
+    </section>
 
     <!-- ================= CODE ================= -->
     <section id="code">
@@ -443,53 +535,32 @@
     });
   })();
 
-  // Custom arrow scrollbar
+  // Minimal dot scrollbar
   (function(){
     var sb=document.getElementById('sb');
     if(!sb)return;
-    var LH=82; // must match CSS line-height
-
+    var thumb=null;
     function rebuild(){
-      if(window.innerWidth<=920){sb.innerHTML='';return;}
-      var h=window.innerHeight-50-14;
-      var n=Math.max(8,Math.floor(h/LH));
-      var frag=document.createDocumentFragment();
-      for(var i=0;i<n;i++){
-        var s=document.createElement('span');
-        s.className='sb-a';s.textContent='↓';
-        frag.appendChild(s);
-      }
-      sb.innerHTML='';sb.appendChild(frag);
+      if(window.innerWidth<=920){sb.style.display='none';return;}
+      sb.style.display='block';
+      if(!thumb){thumb=document.createElement('div');thumb.id='sb-thumb';sb.appendChild(thumb);}
       tick();
     }
     function tick(){
-      var a=sb.children;if(!a.length)return;
+      if(!thumb)return;
       var maxSc=document.documentElement.scrollHeight-window.innerHeight;
       var p=maxSc>0?window.scrollY/maxSc:0;
-      var idx=Math.round(p*(a.length-1));
-      for(var i=0;i<a.length;i++)a[i].className=i===idx?'sb-a on':'sb-a';
+      thumb.style.top=Math.round(p*(sb.offsetHeight-5))+'px';
     }
     function scrollToY(clientY){
       var rect=sb.getBoundingClientRect();
       var p=Math.max(0,Math.min(1,(clientY-rect.top)/rect.height));
-      var maxSc=document.documentElement.scrollHeight-window.innerHeight;
-      window.scrollTo({top:p*maxSc,behavior:'instant'});
+      window.scrollTo({top:p*(document.documentElement.scrollHeight-window.innerHeight),behavior:'instant'});
     }
-
     var dragging=false;
-    sb.addEventListener('mousedown',function(e){
-      dragging=true;
-      document.body.style.userSelect='none';
-      scrollToY(e.clientY);
-      e.preventDefault();
-    });
-    document.addEventListener('mousemove',function(e){
-      if(dragging)scrollToY(e.clientY);
-    });
-    document.addEventListener('mouseup',function(){
-      if(dragging){dragging=false;document.body.style.userSelect='';}
-    });
-
+    sb.addEventListener('mousedown',function(e){dragging=true;document.body.style.userSelect='none';scrollToY(e.clientY);e.preventDefault();});
+    document.addEventListener('mousemove',function(e){if(dragging)scrollToY(e.clientY);});
+    document.addEventListener('mouseup',function(){if(dragging){dragging=false;document.body.style.userSelect='';}});
     rebuild();
     window.addEventListener('scroll',tick,{passive:true});
     window.addEventListener('resize',rebuild);
