@@ -351,8 +351,8 @@ function initWind(){
       x:BORDER+pr()*(W-2*BORDER),
       y:BORDER+pr()*(H-2*BORDER),
       spd:0.55+pr()*0.9,
-      alpha:0.55+pr()*0.42,  // high base opacity
-      len:14+pr()*38,        // long streaks
+      alpha:0.28+pr()*0.28,  // moderate opacity
+      len:9+pr()*22,         // moderate streaks
     });
   }
   updateWindHUD();
@@ -945,10 +945,10 @@ function draw(t){
   var _wSpd=Math.hypot(windAx,windAy);
   if(_wSpd>8){
     var _wdx=windAx/_wSpd, _wdy=windAy/_wSpd;
-    var _wAlpha=Math.min(1,_wSpd/70)*0.95; // reach full brightness at lower speeds
+    var _wAlpha=Math.min(1,_wSpd/70)*0.72;
     ctx.save();
     ctx.lineCap='round';
-    ctx.lineWidth=1.4;
+    ctx.lineWidth=1.1;
     for(var _i=0;_i<windParts.length;_i++){
       var _p=windParts[_i];
       var _tl=_p.len*Math.min(1,_wSpd/70);
