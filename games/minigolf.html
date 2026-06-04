@@ -96,6 +96,15 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   background:none;transition:background .2s,color .2s}
 .wbtn:hover{background:rgba(100,160,40,.3);color:#ccf73f}
 
+#wind-hud{position:fixed;top:58px;left:20px;z-index:50;
+  background:rgba(20,38,20,.88);backdrop-filter:blur(6px);
+  border:1px solid rgba(120,180,60,.35);padding:8px 14px;
+  font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(140,190,80,.6);text-align:center;pointer-events:none;min-width:56px}
+#wind-arrow{font-size:1.5rem;line-height:1.1;color:#ccf73f;display:inline-block;
+  transition:transform .6s cubic-bezier(.2,.8,.3,1)}
+#wind-strength{font-size:.48rem;color:rgba(120,170,60,.55);margin-top:2px;letter-spacing:.08em}
+
 #restart-btn{position:fixed;top:58px;right:20px;z-index:50;
   font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
   cursor:pointer;border:1px solid rgba(120,180,60,.35);color:rgba(160,220,90,.7);
@@ -164,6 +173,12 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   <button class="day-btn" id="btn-next" title="Next day" disabled>&#8594;</button>
 </div>
 
+<div id="wind-hud">
+  <div style="font-size:.44rem;letter-spacing:.12em;margin-bottom:3px">Wind</div>
+  <div id="wind-arrow">↑</div>
+  <div id="wind-strength">calm</div>
+</div>
+
 <button id="restart-btn" onclick="resetGame()">↺ Restart</button>
 
 <div id="cal-panel">
@@ -187,9 +202,9 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 </div>
 
 <div id="clubs">
-  <button class="club-btn active" data-club="0">Driver<span class="club-loft">flat &amp; long</span></button>
-  <button class="club-btn" data-club="1">Iron<span class="club-loft">balanced</span></button>
-  <button class="club-btn" data-club="2">Wedge<span class="club-loft">high launch</span></button>
+  <button class="club-btn active" data-club="0">Flat<span class="club-loft">long &amp; low</span></button>
+  <button class="club-btn" data-club="1">Mid<span class="club-loft">balanced</span></button>
+  <button class="club-btn" data-club="2">Lob<span class="club-loft">high launch</span></button>
   <button class="club-btn" data-club="3">Putter<span class="club-loft">tap in</span></button>
 </div>
 
@@ -199,9 +214,9 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
     <div class="tsub">How to play</div>
     <div class="trow">&#8592; Drag back from the ball to aim<br><span>release to shoot &mdash; drag from anywhere</span></div>
     <div class="tdiv"></div>
-    <div class="trow">Driver &mdash; <span>long &amp; flat</span></div>
-    <div class="trow">Iron &mdash; <span>balanced, slight launch</span></div>
-    <div class="trow">Wedge &mdash; <span>short, high launch into air</span></div>
+    <div class="trow">Flat &mdash; <span>long &amp; low, full power</span></div>
+    <div class="trow">Mid &mdash; <span>balanced, slight launch</span></div>
+    <div class="trow">Lob &mdash; <span>short, high arc into air</span></div>
     <div class="trow">Putter &mdash; <span>very short, precise tap ins</span></div>
     <div class="tdiv"></div>
     <div class="trow">&#128197; Tap the date to browse past courses</div>
@@ -284,14 +299,14 @@ var BALL_R=4, HOLE_R=6, BORDER=36;
 var SLOPE_FORCE=7000, LATERAL_MULT=2.6, FRICTION=0.90, RESTITUTION=0.58, MAX_SPEED=520;
 var STOP_SPD=6, MAX_DRAG=125, SHOOT_SCALE=3.4;
 var GRAVITY_Z=3, RESTITUTION_Z=0.42, Z_SCALE=40, BOUNCE_THRES=0.5;
-var WIND_AIR=2.0, WIND_GROUND=0.10; // ground wind is heavily damped by friction
+var WIND_AIR=0.55, WIND_GROUND=0.025; // ground wind is heavily damped by friction
 
 // ── Club definitions ───────────────────────────────────────────────
 // loft: vertical velocity (h/s) added per pixel of clamped drag
 var clubs=[
-  {name:'Driver', scale:3.8, maxDrag:138, loft:0.000},
-  {name:'Iron',   scale:2.5, maxDrag:120, loft:0.019},
-  {name:'Wedge',  scale:1.6, maxDrag:88,  loft:0.038},
+  {name:'Flat',   scale:3.8, maxDrag:138, loft:0.000},
+  {name:'Mid',    scale:2.5, maxDrag:120, loft:0.019},
+  {name:'Lob',    scale:1.6, maxDrag:88,  loft:0.038},
   {name:'Putter', scale:1.2, maxDrag:72,  loft:0.000},
 ];
 var curClub=0;
@@ -331,14 +346,34 @@ function initWind(){
   // Seed particle positions deterministically so they look identical for same day
   var pr=prng(SEED+301);
   windParts=[];
-  for(var i=0;i<90;i++){
+  for(var i=0;i<160;i++){
     windParts.push({
       x:BORDER+pr()*(W-2*BORDER),
       y:BORDER+pr()*(H-2*BORDER),
-      spd:0.55+pr()*0.9,    // speed multiplier
-      alpha:0.28+pr()*0.50, // higher base opacity
-      len:6+pr()*22,        // longer streaks
+      spd:0.55+pr()*0.9,
+      alpha:0.55+pr()*0.42,  // high base opacity
+      len:14+pr()*38,        // long streaks
     });
+  }
+  updateWindHUD();
+}
+
+// ── Wind HUD ───────────────────────────────────────────────────────
+function updateWindHUD(){
+  var wSpd=Math.hypot(windAx,windAy);
+  var arrowEl=document.getElementById('wind-arrow');
+  var strEl=document.getElementById('wind-strength');
+  if(!arrowEl) return;
+  if(wSpd<10){
+    arrowEl.style.opacity='0.25';
+    if(strEl) strEl.textContent='calm';
+  } else {
+    // rotate ↑ glyph to point in wind direction
+    var ang=Math.atan2(windAy,windAx)*180/Math.PI;
+    arrowEl.style.transform='rotate('+(ang+90)+'deg)';
+    arrowEl.style.opacity='0.95';
+    var label=wSpd<60?'light':wSpd<150?'moderate':wSpd<280?'strong':'gale';
+    if(strEl) strEl.textContent=label;
   }
 }
 
@@ -908,15 +943,15 @@ function draw(t){
 
   // Wind particles — drawn before ball so ball renders on top
   var _wSpd=Math.hypot(windAx,windAy);
-  if(_wSpd>12){
+  if(_wSpd>8){
     var _wdx=windAx/_wSpd, _wdy=windAy/_wSpd;
-    var _wAlpha=Math.min(1,_wSpd/200)*0.95;
+    var _wAlpha=Math.min(1,_wSpd/70)*0.95; // reach full brightness at lower speeds
     ctx.save();
     ctx.lineCap='round';
-    ctx.lineWidth=1.1;
+    ctx.lineWidth=1.4;
     for(var _i=0;_i<windParts.length;_i++){
       var _p=windParts[_i];
-      var _tl=_p.len*Math.min(1,_wSpd/200);
+      var _tl=_p.len*Math.min(1,_wSpd/70);
       ctx.globalAlpha=_p.alpha*_wAlpha;
       ctx.strokeStyle='rgba(200,235,155,1)';
       ctx.beginPath();
