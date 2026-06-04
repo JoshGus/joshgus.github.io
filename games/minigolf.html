@@ -691,6 +691,7 @@ function triggerWaterHazard(){
   shots++;
   document.getElementById('hud-shots').textContent=shots;
   ball.x=lastShotX; ball.y=lastShotY; ball.vx=0; ball.vy=0; ball.vz=0; ball.z=0;
+  hasShot=false;
   showHazardMsg('Water +1');
   setTimeout(function(){inWaterHazard=false;},600);
 }
