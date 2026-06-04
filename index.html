@@ -88,6 +88,12 @@
   }
   h1 .b{display:block}
   h1 .out{color:transparent;-webkit-text-stroke:1px var(--fg)}
+  .intro-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
+  .intro-head>div{flex:1;min-width:0}
+  .headshot{width:96px;height:96px;border-radius:50%;object-fit:cover;flex-shrink:0;
+    border:1.5px solid var(--line-strong);
+    box-shadow:0 6px 24px -6px rgba(29,23,18,.15);
+    background:var(--surface);display:block;margin-top:6px}
   .lede{max-width:42ch;margin-top:28px;color:var(--dim);font-size:clamp(1rem,1.7vw,1.18rem);font-weight:300;line-height:1.55}
   .lede b{color:var(--fg);font-weight:500}
 
@@ -245,8 +251,8 @@
     }
     #sb-thumb{
       position:absolute;left:50%;transform:translateX(-50%);
-      width:5px;height:5px;border-radius:50%;
-      background:var(--dimmer);margin-top:-2px;
+      width:9px;height:9px;border-radius:50%;
+      background:var(--accent);margin-top:-4px;
       transition:background .25s;
     }
     #sb:hover #sb-thumb{background:var(--accent-ink)}
@@ -271,31 +277,37 @@
 
   <!-- ================= INTRO (sticky left) ================= -->
   <aside class="intro">
-    <div class="eyebrow">
-      <svg class="spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0l2.2 8.2L22 6l-6 6 6 6-7.8-2.2L12 24l-2.2-8.2L2 18l6-6-6-6 7.8 2.2z"/></svg>
-      <span class="mono">Software · Games · Photography</span>
+    <div class="intro-head">
+      <div>
+        <div class="eyebrow">
+          <svg class="spark" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0l2.2 8.2L22 6l-6 6 6 6-7.8-2.2L12 24l-2.2-8.2L2 18l6-6-6-6 7.8 2.2z"/></svg>
+          <span class="mono">Software · Games · Photography</span>
+        </div>
+        <h1>
+          <span class="b">Joshua Gustaveson</span>
+          <span class="b out">builds &amp; sees</span>
+        </h1>
+      </div>
+      <!-- replace src with your headshot path, e.g. src="img/headshot.jpg" -->
+      <img class="headshot" src="" alt="Joshua Gustaveson">
     </div>
-    <h1>
-      <span class="b">Joshua Gustaveson</span>
-      <span class="b out">builds &amp; sees</span>
-    </h1>
     <p class="lede">[INTRO] — <b>A computer science student who codes, builds little games, and photographs birds.</b> This is the index of everything I'm working on.</p>
 
     <div class="exp-block">
       <div class="exp-label">Experience</div>
       <div class="exp-entry">
         <div class="exp-top">
-          <span class="exp-role">[Role] — Intern</span>
-          <span class="exp-yr">2025</span>
+          <span class="exp-role">IT Technician</span>
+          <span class="exp-yr">May 2025 - Current</span>
         </div>
-        <span class="exp-org">[Company]</span>
+        <span class="exp-org">CAEN</span>
       </div>
       <div class="exp-entry">
         <div class="exp-top">
-          <span class="exp-role">[Role]</span>
-          <span class="exp-yr">2024 –</span>
+          <span class="exp-role">Website & Operations Coordinator</span>
+          <span class="exp-yr">March 2025 - Current</span>
         </div>
-        <span class="exp-org">[Company / Institution]</span>
+        <span class="exp-org">Leinweber Institute for Theoretical Physics</span>
       </div>
     </div>
   </aside>
@@ -326,7 +338,7 @@
           </div>
           <div class="sc-body">
             <h3>Color Space</h3>
-            <p>816 photographs plotted in 3D RGB space. Drag to orbit — colors cluster, palettes emerge.</p>
+            <p>Photographs plotted in 3D RGB space. Check out colors cluster, and navigate in a new way.</p>
             <span class="sc-cta">Explore <span class="arr">→</span></span>
           </div>
         </a>
@@ -348,7 +360,7 @@
           </div>
           <div class="sc-body">
             <h3>Daily Links</h3>
-            <p>A seeded minigolf course generated fresh each day — same course for everyone, resets at midnight.</p>
+            <p>A seeded minigolf course generated fresh each day, resets at midnight.</p>
             <span class="sc-cta">Play today's course <span class="arr">→</span></span>
           </div>
         </a>
