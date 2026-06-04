@@ -490,6 +490,16 @@ function getH(x,y){
 }
 
 // ── Hazard generation ──────────────────────────────────────────────
+function clearWaterAroundPoint(cx,cy,r){
+  for(var dy=-r;dy<=r;dy++){
+    for(var dx=-r;dx<=r;dx++){
+      if(dx*dx+dy*dy>r*r) continue;
+      var px=Math.round(cx+dx),py=Math.round(cy+dy);
+      if(px>=0&&px<W&&py>=0&&py<H) waterMap[py*W+px]=0;
+    }
+  }
+}
+
 function buildHazards(){
   waterMap=new Uint8Array(W*H);
   sandMap=new Uint8Array(W*H);
@@ -519,7 +529,10 @@ function buildHazards(){
       }
       if(Math.hypot(lx-teeX,ly-teeY)<80||Math.hypot(lx-holeX,ly-holeY)<80) continue;
       if(getH(lx,ly)>0.50) continue; // water only in low-lying areas
-      floodFillWater(lx,ly,0.07+hr()*0.06);
+      floodFillWater(lx,ly,0.14+hr()*0.10);
+      // clear water that seeped over tee or hole regardless of where fill started
+      clearWaterAroundPoint(teeX,teeY,72);
+      clearWaterAroundPoint(holeX,holeY,72);
       break;
     }
   }
