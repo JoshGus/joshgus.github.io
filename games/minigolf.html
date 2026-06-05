@@ -536,7 +536,7 @@ function buildHazards(){
       if(Math.hypot(sx-teeX,sy-teeY)<95||Math.hypot(sx-holeX,sy-holeY)<95) continue;
       // Walk downhill to find local minimum (valley)
       var lx=sx,ly=sy;
-      for(var step=0;step<200;step++){
+      for(var step=0;step<120;step++){
         var bx=lx,by=ly,bh=getH(lx,ly);
         var ddxs=[-1,1,0,0],ddys=[0,0,-1,1];
         for(var d=0;d<4;d++){
@@ -549,7 +549,7 @@ function buildHazards(){
       }
       if(Math.hypot(lx-teeX,ly-teeY)<80||Math.hypot(lx-holeX,ly-holeY)<80) continue;
       if(getH(lx,ly)>0.50) continue; // water only in low-lying areas
-      floodFillWater(lx,ly,0.055+hr()*0.045);
+      floodFillWater(lx,ly,0.04+hr()*0.03);
       break;
     }
   }
@@ -588,9 +588,8 @@ function floodFillWater(sx,sy,delta){
   var queue=[]; var head=0;
   var start=sy*W+sx;
   queue.push(start); visited[start]=1;
-  var MAX_FILL=200000;
 
-  while(head<queue.length&&head<MAX_FILL){
+  while(head<queue.length){
     var idx=queue[head++];
     var x=idx%W, y=(idx/W)|0;
     if(getH(x,y)>fillLevel) continue;
