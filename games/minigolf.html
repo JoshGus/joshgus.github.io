@@ -494,16 +494,26 @@ function getH(x,y){
 
 // ── Hazard generation ──────────────────────────────────────────────
 // Returns nearest non-water pixel to (cx,cy), or null if already dry
+function waterNear(cx,cy,pad){
+  for(var dy=-pad;dy<=pad;dy++){
+    for(var dx=-pad;dx<=pad;dx++){
+      var nx=cx+dx,ny=cy+dy;
+      if(nx<0||nx>=W||ny<0||ny>=H) continue;
+      if(waterMap[ny*W+nx]) return true;
+    }
+  }
+  return false;
+}
 function dryPointNear(cx,cy){
   var bxi=Math.round(cx),byi=Math.round(cy);
-  if(!waterMap[byi*W+bxi]) return null;
+  if(!waterNear(bxi,byi,3)) return null; // already has clearance
   for(var r=1;r<300;r++){
     for(var dy=-r;dy<=r;dy++){
       for(var dx=-r;dx<=r;dx++){
         if(Math.abs(dx)!==r&&Math.abs(dy)!==r) continue;
         var nx=bxi+dx,ny=byi+dy;
         if(nx<BORDER+5||nx>=W-BORDER-5||ny<BORDER+5||ny>=H-BORDER-5) continue;
-        if(!waterMap[ny*W+nx]) return {x:nx,y:ny};
+        if(!waterNear(nx,ny,3)) return {x:nx,y:ny};
       }
     }
   }
@@ -526,7 +536,7 @@ function buildHazards(){
       if(Math.hypot(sx-teeX,sy-teeY)<95||Math.hypot(sx-holeX,sy-holeY)<95) continue;
       // Walk downhill to find local minimum (valley)
       var lx=sx,ly=sy;
-      for(var step=0;step<120;step++){
+      for(var step=0;step<200;step++){
         var bx=lx,by=ly,bh=getH(lx,ly);
         var ddxs=[-1,1,0,0],ddys=[0,0,-1,1];
         for(var d=0;d<4;d++){
@@ -539,7 +549,7 @@ function buildHazards(){
       }
       if(Math.hypot(lx-teeX,ly-teeY)<80||Math.hypot(lx-holeX,ly-holeY)<80) continue;
       if(getH(lx,ly)>0.50) continue; // water only in low-lying areas
-      floodFillWater(lx,ly,0.04+hr()*0.03);
+      floodFillWater(lx,ly,0.055+hr()*0.045);
       break;
     }
   }
