@@ -22,13 +22,13 @@ html,body{height:100%;overflow:hidden;background:#1a2e1a;-webkit-font-smoothing:
 .status{position:fixed;top:0;left:0;right:0;z-index:100;display:flex;justify-content:space-between;align-items:center;
   padding:12px clamp(16px,3vw,48px);font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;
   text-transform:uppercase;color:var(--dim);border-bottom:1px solid var(--line);
-  background:rgba(26,46,26,.95);backdrop-filter:blur(8px)}
-.status .sig{font-weight:600;color:#d8e8c8;text-decoration:none}
-.status .sig:hover{color:var(--accent)}
+  background:rgba(247,236,225,.92);backdrop-filter:blur(8px)}
+.status .sig{font-weight:600;color:var(--fg);text-decoration:none}
+.status .sig:hover{color:var(--accent-ink)}
 .status nav{display:flex;gap:16px}
-.status nav a{color:rgba(180,200,160,.7);transition:color .2s;text-decoration:none}
-.status nav a:hover,.status nav a.active{color:var(--accent)}
-#clock{color:rgba(140,160,120,.6)}
+.status nav a{color:var(--dim);transition:color .2s;text-decoration:none}
+.status nav a:hover,.status nav a.active{color:var(--accent-ink)}
+#clock{color:var(--dimmer)}
 @media(max-width:640px){.status nav{display:none}}
 
 .game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;align-items:center;justify-content:center;background:#111a11}

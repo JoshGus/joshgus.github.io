@@ -4,20 +4,22 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hand Tracker — PoC</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg:         #0a0908;
-    --surface:    #111009;
-    --fg:         #ede5da;
-    --dim:        #6e6358;
-    --dimmer:     #3d3730;
+    --bg:         #f7ece1;
+    --surface:    #fdf5ea;
+    --fg:         #1d1712;
+    --dim:        #8c7f70;
+    --dimmer:     #c1b3a3;
     --accent:     #ccf73f;
-    --accent-ink: #8ab020;
-    --line:       rgba(237,229,218,.08);
-    --line-mid:   rgba(237,229,218,.14);
+    --accent-ink: #5e7d0f;
+    --line:       rgba(29,23,18,.14);
+    --line-mid:   rgba(29,23,18,.22);
+    --disp:       "Bricolage Grotesque", sans-serif;
+    --body:       "Hanken Grotesk", system-ui, sans-serif;
     --mono:       "IBM Plex Mono", ui-monospace, monospace;
-    --red:        #e06060;
+    --red:        #b84040;
   }
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -41,15 +43,15 @@
     padding: 10px 18px;
     border-bottom: 1px solid var(--line);
     flex-shrink: 0;
-    background: rgba(10,9,8,.9);
-    backdrop-filter: blur(6px);
+    background: rgba(247,236,225,.92);
+    backdrop-filter: blur(8px);
     z-index: 10;
   }
   #bar .tag {
     font-size: .62rem;
     letter-spacing: .18em;
     text-transform: uppercase;
-    color: var(--accent);
+    color: var(--accent-ink);
   }
   #status-dot {
     width: 7px; height: 7px; border-radius: 50%;
@@ -144,7 +146,7 @@
   }
 
   /* hand count */
-  #hand-count { font-size: 2.8rem; font-weight: 600; color: var(--accent); line-height: 1; }
+  #hand-count { font-size: 2.8rem; font-weight: 600; color: var(--accent-ink); font-family: var(--disp); line-height: 1; }
   #hand-sub   { font-size: .58rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-top: 2px; }
 
   /* fingertip rows */
@@ -159,7 +161,7 @@
   }
   .tip-row:last-child { border-bottom: none; }
   .tip-name { font-size: .65rem; color: var(--dim); }
-  .tip-xy   { font-size: .64rem; color: var(--accent); font-feature-settings: "tnum"; }
+  .tip-xy   { font-size: .64rem; color: var(--accent-ink); font-feature-settings: "tnum"; font-weight: 500; }
   .tip-row.inactive .tip-name,
   .tip-row.inactive .tip-xy { color: var(--dimmer); }
 
