@@ -21,7 +21,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 
 /* games grid */
 .games-wrap{padding:clamp(36px,6vw,72px) clamp(20px,5vw,72px) 80px}
-.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:clamp(18px,2.5vw,32px)}
+.games-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:clamp(18px,2.5vw,32px)}
+@media(max-width:580px){.games-grid{grid-template-columns:1fr}}
 
 /* game card */
 a.game-card{display:flex;flex-direction:column;text-decoration:none;
@@ -120,7 +121,7 @@ if (grid) {
         <div class="card-body">
           <h2>${g.title}</h2>
           <p>${g.descFull}</p>
-          ${g.credit ? `<p style="font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;color:var(--dimmer);margin-top:6px">${g.credit}</p>` : ''}
+          ${g.credit ? `<p style="font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;color:var(--dimmer);margin-top:6px">${g.credit.replace(/<[^>]+>/g,'')}</p>` : ''}
           <div class="card-foot">
             <div class="stack">${stack}</div>
             ${cta}

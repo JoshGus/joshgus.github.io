@@ -646,7 +646,7 @@ if (gamesList) {
         <div class="game-body">
           <h3>${g.title}</h3>
           <p>${g.descFull}</p>
-          ${g.credit ? `<p style="font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;color:var(--dimmer);margin-top:6px">${g.credit}</p>` : ''}
+          ${g.credit ? `<p style="font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;color:var(--dimmer);margin-top:6px">${g.credit.replace(/<[^>]+>/g,'')}</p>` : ''}
           <div class="game-foot"><div class="stack">${stack}</div>${cta}</div>
         </div>
       </a>`);
