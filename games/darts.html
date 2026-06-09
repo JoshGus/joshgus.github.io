@@ -123,7 +123,7 @@ body {
   font-weight: 700;
   letter-spacing: -.03em;
   color: var(--fg);
-  opacity: .28;
+  opacity: 1;
   transition: opacity .3s;
 }
 .sp-score.active { opacity: 1; }
@@ -162,6 +162,61 @@ body {
 .fl-d { color: #3e7e2a; font-size: .75em; font-weight: 600; margin-right: 1px; }
 .fl-t { color: #b03a14; font-size: .75em; font-weight: 600; margin-right: 1px; }
 .fl-pts { display: block; font-family: var(--mono); font-size: .48em; font-weight: 400; opacity: .6; margin-top: 1px; }
+
+/* ── between-turns side panel ── */
+#between-turns-screen {
+  position: absolute;
+  left: 20px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 12px;
+  background: rgba(247,236,225,.96);
+  border-left: 7px solid #ccf73f; /* overridden inline with player color */
+  padding: 20px 26px 20px 17px;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+  min-width: 210px;
+  box-shadow: 0 4px 32px rgba(0,0,0,.18);
+}
+#bt-player-name {
+  font-family: var(--disp);
+  font-size: clamp(1.6rem,4.5vw,2.4rem);
+  font-weight: 800;
+  letter-spacing: -.02em;
+  line-height: 1.1;
+}
+#bt-instruction {
+  font-family: var(--mono);
+  font-size: .55rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+#bt-progress-wrap {
+  width: 100%;
+  height: 8px;
+  background: rgba(29,23,18,.1);
+  border-radius: 4px;
+  overflow: hidden;
+}
+#bt-progress-bar {
+  height: 100%;
+  width: 0%;
+  border-radius: 4px;
+  transition: width .04s linear;
+}
+#bt-countdown {
+  font-family: var(--disp);
+  font-size: clamp(3.5rem,12vw,6rem);
+  font-weight: 900;
+  letter-spacing: -.04em;
+  line-height: 1;
+  width: 100%;
+  text-align: center;
+}
 
 /* ── score ledger ── */
 #score-ledger {
@@ -475,6 +530,14 @@ body {
     <button class="ctrl-btn" id="btn-cancel-ready">Cancel</button>
   </div>
 
+  <!-- Between turns (side panel, board stays visible) -->
+  <div id="between-turns-screen" style="display:none">
+    <div id="bt-player-name">P1's turn</div>
+    <div id="bt-instruction">Open hand to ready up</div>
+    <div id="bt-progress-wrap"><div id="bt-progress-bar"></div></div>
+    <div id="bt-countdown" style="display:none"></div>
+  </div>
+
   <!-- Game over -->
   <div class="overlay" id="gameover-screen" style="display:none">
     <h2 id="winner-text"></h2>
@@ -582,26 +645,31 @@ body {
 
         <div class="cp-presets">
           <span class="cp-preset-lbl">Preset</span>
-          <button class="gp-preset" data-gravity="3" data-speed="200" data-tmin="200" data-playerz="55">Easy</button>
-          <button class="gp-preset active" data-gravity="5" data-speed="150" data-tmin="300" data-playerz="55">Normal</button>
-          <button class="gp-preset" data-gravity="7" data-speed="120" data-tmin="500" data-playerz="55">Sim</button>
+          <button class="gp-preset" data-gravity="3" data-speed="200" data-tmin="200" data-playerz="55" data-maxspeed="10">Easy</button>
+          <button class="gp-preset" data-gravity="5" data-speed="150" data-tmin="300" data-playerz="55" data-maxspeed="10">Normal</button>
+          <button class="gp-preset active" data-gravity="7" data-speed="120" data-tmin="500" data-playerz="55" data-maxspeed="7">Sim</button>
         </div>
 
         <div class="cp-rows">
           <div class="cp-row">
             <span class="cp-lbl">Gravity</span>
-            <input type="range" id="gp-gravity" min="1" max="10" value="5">
-            <span class="cp-val" id="gp-gravity-val">5</span>
+            <input type="range" id="gp-gravity" min="1" max="10" value="7">
+            <span class="cp-val" id="gp-gravity-val">7</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Speed</span>
-            <input type="range" id="gp-speed" min="50" max="300" value="150">
-            <span class="cp-val" id="gp-speed-val">150</span>
+            <input type="range" id="gp-speed" min="50" max="300" value="120">
+            <span class="cp-val" id="gp-speed-val">120</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Max speed</span>
+            <input type="range" id="gp-maxspeed" min="1" max="10" value="7">
+            <span class="cp-val" id="gp-maxspeed-val">7</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Min arc ms</span>
-            <input type="range" id="gp-tmin" min="100" max="700" value="300">
-            <span class="cp-val" id="gp-tmin-val">300</span>
+            <input type="range" id="gp-tmin" min="100" max="700" value="500">
+            <span class="cp-val" id="gp-tmin-val">500</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Throw dist</span>
@@ -976,9 +1044,10 @@ let pinched=false, pinchHoldFrames=0;
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
-let   G_WORLD   = 0.000020; // gravity (board-radii / ms²)
-let   THROW_SPEED = 1.50;   // velocity multiplier applied at launch
-let   T_MIN_MS    = 300;    // minimum flight time (ms) — caps forward speed
+let   G_WORLD        = 0.000028; // gravity — Sim default (7 × 0.000004)
+let   THROW_SPEED    = 1.20;     // velocity multiplier applied at launch
+let   T_MIN_MS       = 500;      // minimum flight time (ms) — caps forward speed
+let   MAX_THROW_SPEED = 0.021;   // max 3D dart speed after scaling (7 × 0.003)
 
 // Virtual camera center — the normalized screen position that maps to
 // world origin (board center). Defaults match current board layout.
@@ -1036,7 +1105,7 @@ function processHandFrame(lm, now) {
 
     if (pd > sPinchOut && pinchHoldFrames > 2) {
       pinched = false;
-      if (now - lastThrow > COOLDOWN && gamePhase !== 'gameover') {
+      if (now - lastThrow > COOLDOWN && gamePhase === 'playing') {
         const tv = calcThrowVec();
         if (tv && (tv.fwdV > 0.3 || tv.canvasSpeed > 1.0)) {
           lastThrow = now;
@@ -1120,6 +1189,9 @@ function registerThrow(throwVec) {
     // Only scale lateral (vwx); preserve vwy so a hard fast throw still arcs.
     const vwzMin = -wz0 / T_MIN_MS;
     if (vwz < vwzMin) { vwx *= vwzMin / vwz; vwz = vwzMin; }
+    // Cap total 3D speed so very fast throws still arc visibly.
+    const v3d = Math.hypot(vwx, vwy, vwz);
+    if (v3d > MAX_THROW_SPEED) { const s = MAX_THROW_SPEED / v3d; vwx*=s; vwy*=s; vwz*=s; }
     // Virtual camera center perspective correction: camera above the board
     // (vcyPx > cy) means a straight forward throw appears to go slightly
     // downward — add upward bias proportional to offset × forward speed.
@@ -1192,12 +1264,74 @@ function doGameThrow(wx0, wy0, wz0, vwx, vwy, vwz) {
 }
 
 function endTurn() {
-  const prev=currPlayer;
-  setTimeout(()=>{ darts=darts.filter(d=>d.player!==prev); }, 900);
-  currPlayer=1-currPlayer; dartsLeft=3;
-  P[0].roundStart=P[0].score; P[0].roundPts=0;
-  P[1].roundStart=P[1].score; P[1].roundPts=0;
+  currPlayer = 1 - currPlayer; dartsLeft = 3;
+  P[0].roundStart = P[0].score; P[0].roundPts = 0;
+  P[1].roundStart = P[1].score; P[1].roundPts = 0;
   updateGameHUD();
+  if (mode === 'game') showBetweenTurns();
+}
+
+let btReadyFrames = 0;
+let btCounting    = false;
+const BT_READY_NEED = 28; // ~1 s at 28 fps
+
+function showBetweenTurns() {
+  gamePhase = 'waiting';
+  btReadyFrames = 0; btCounting = false;
+  const p   = P[currPlayer];
+  const el  = document.getElementById('between-turns-screen');
+  el.style.borderLeftColor = p.col;
+  document.getElementById('bt-player-name').textContent  = `${p.name}'s turn`;
+  document.getElementById('bt-player-name').style.color  = p.col;
+  document.getElementById('bt-instruction').style.display = '';
+  document.getElementById('bt-progress-wrap').style.display = '';
+  document.getElementById('bt-progress-bar').style.width  = '0%';
+  document.getElementById('bt-progress-bar').style.background = p.col;
+  document.getElementById('bt-countdown').style.display   = 'none';
+  el.style.display = 'flex';
+}
+
+function processBetweenTurns(lm) {
+  if (btCounting) return;
+  const fingers = countFingers(lm);
+  if (fingers >= 3) {
+    btReadyFrames = Math.min(btReadyFrames + 1, BT_READY_NEED + 1);
+  } else {
+    btReadyFrames = Math.max(0, btReadyFrames - 2);
+  }
+  document.getElementById('bt-progress-bar').style.width =
+    Math.min(100, btReadyFrames / BT_READY_NEED * 100) + '%';
+  if (btReadyFrames >= BT_READY_NEED) {
+    btCounting = true;
+    // Clear previous player's darts now that the incoming player has seen the board
+    const prev = 1 - currPlayer;
+    darts = darts.filter(d => d.player !== prev);
+    startBetweenCountdown();
+  }
+}
+
+function startBetweenCountdown() {
+  const col = P[currPlayer].col;
+  document.getElementById('bt-instruction').style.display  = 'none';
+  document.getElementById('bt-progress-wrap').style.display = 'none';
+  const countEl = document.getElementById('bt-countdown');
+  countEl.style.display = '';
+  countEl.style.color   = col;
+  let count = 3;
+  countEl.textContent = count;
+  const iv = setInterval(() => {
+    count--;
+    if (count > 0) {
+      countEl.textContent = count;
+    } else {
+      clearInterval(iv);
+      countEl.textContent = 'Go!';
+      setTimeout(() => {
+        document.getElementById('between-turns-screen').style.display = 'none';
+        gamePhase = 'playing';
+      }, 700);
+    }
+  }, 1000);
 }
 
 // ── Flash ─────────────────────────────────────────────────────────────────────
@@ -1464,19 +1598,22 @@ document.getElementById('cam-reset').addEventListener('click', () => {
 });
 
 // ── Gameplay panel ─────────────────────────────────────────────────────────────
-function applyGpValues(gravity, speed, tmin, playerz) {
-  G_WORLD     = gravity * 0.000004;
-  THROW_SPEED = speed   / 100;
-  T_MIN_MS    = tmin;
-  PLAYER_Z    = playerz / 10;
-  document.getElementById('gp-gravity').value  = gravity;
-  document.getElementById('gp-speed').value    = speed;
-  document.getElementById('gp-tmin').value     = tmin;
-  document.getElementById('gp-playerz').value  = playerz;
+function applyGpValues(gravity, speed, tmin, playerz, maxspeed) {
+  G_WORLD          = gravity  * 0.000004;
+  THROW_SPEED      = speed    / 100;
+  T_MIN_MS         = tmin;
+  PLAYER_Z         = playerz  / 10;
+  MAX_THROW_SPEED  = maxspeed * 0.003;
+  document.getElementById('gp-gravity').value   = gravity;
+  document.getElementById('gp-speed').value     = speed;
+  document.getElementById('gp-tmin').value      = tmin;
+  document.getElementById('gp-playerz').value   = playerz;
+  document.getElementById('gp-maxspeed').value  = maxspeed;
   document.getElementById('gp-gravity-val').textContent  = gravity;
   document.getElementById('gp-speed-val').textContent    = speed;
   document.getElementById('gp-tmin-val').textContent     = tmin;
   document.getElementById('gp-playerz-val').textContent  = playerz;
+  document.getElementById('gp-maxspeed-val').textContent = maxspeed;
 }
 function setActiveGpPreset(btn) {
   document.querySelectorAll('.gp-preset').forEach(b => b.classList.remove('active'));
@@ -1490,7 +1627,7 @@ document.getElementById('gp-panel-close').addEventListener('click', () => gpPane
 
 document.querySelectorAll('.gp-preset').forEach(btn => {
   btn.addEventListener('click', () => {
-    applyGpValues(+btn.dataset.gravity, +btn.dataset.speed, +btn.dataset.tmin, +btn.dataset.playerz);
+    applyGpValues(+btn.dataset.gravity, +btn.dataset.speed, +btn.dataset.tmin, +btn.dataset.playerz, +btn.dataset.maxspeed);
     setActiveGpPreset(btn);
   });
 });
@@ -1512,9 +1649,13 @@ document.getElementById('gp-playerz').addEventListener('input', e => {
   PLAYER_Z = e.target.value / 10;
   document.getElementById('gp-playerz-val').textContent = e.target.value;
 });
+document.getElementById('gp-maxspeed').addEventListener('input', e => {
+  MAX_THROW_SPEED = e.target.value * 0.003;
+  document.getElementById('gp-maxspeed-val').textContent = e.target.value;
+});
 document.getElementById('gp-reset').addEventListener('click', () => {
-  applyGpValues(5, 150, 300, 55);
-  setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="5"]'));
+  applyGpValues(7, 120, 500, 55, 7);
+  setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="7"]'));
 });
 
 // ── Click outside to close either panel ───────────────────────────────────────
@@ -1563,6 +1704,7 @@ function loop() {
     const lm = hands[0].landmarks;
     if (!readyVisible) {
       processHandFrame(lm, now);
+      if (gamePhase === 'waiting') processBetweenTurns(lm);
       drawAim();
       drawHandLandmarks(lm, pinched);
       if (pinched) drawDartInHand(lm, dartCol);
