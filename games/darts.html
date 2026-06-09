@@ -40,6 +40,22 @@ body {
 
 #canvas { position: absolute; inset: 0; }
 
+/* ── fps meter ── */
+#fps-meter {
+  position: absolute;
+  top: 8px;
+  right: 10px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: rgba(255,255,255,0.55);
+  background: rgba(0,0,0,0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+  z-index: 15;
+  pointer-events: none;
+  letter-spacing: .04em;
+}
+
 /* ── overlays ── */
 .overlay {
   position: absolute;
@@ -584,6 +600,7 @@ body {
 <div class="game-wrap" id="game-wrap">
   <video id="webcam" autoplay playsinline muted></video>
   <canvas id="canvas"></canvas>
+  <div id="fps-meter">-- fps</div>
 
   <!-- Loading -->
   <div class="overlay" id="loading-screen">
@@ -1819,6 +1836,23 @@ document.addEventListener('keydown', e => {
 let _lastDetectMs = 0, _lastHands = [];
 const DETECT_INTERVAL = 34; // ms → ~29fps, just under camera rate
 
+const fpsMeter = document.getElementById('fps-meter');
+let _fpsFrames = 0, _fpsLast = performance.now();
+let _detectFrames = 0, _detectTotalMs = 0;
+function tickFps() {
+  _fpsFrames++;
+  const now = performance.now();
+  const dt = now - _fpsLast;
+  if (dt >= 500) {
+    const fps = Math.round(_fpsFrames * 1000 / dt);
+    const dps = Math.round(_detectFrames * 1000 / dt);
+    const avgDetect = _detectFrames > 0 ? Math.round(_detectTotalMs / _detectFrames) : 0;
+    fpsMeter.textContent = fps + ' fps · ' + dps + ' det/s · ' + avgDetect + 'ms';
+    _fpsFrames = 0; _detectFrames = 0; _detectTotalMs = 0;
+    _fpsLast = now;
+  }
+}
+
 function loop() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawWall();
@@ -1832,7 +1866,10 @@ function loop() {
   if (webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
       now - _lastDetectMs >= DETECT_INTERVAL) {
     _lastDetectMs = now;
+    const t0 = performance.now();
     const r = landmarker.detectForVideo(webcamEl, now);
+    _detectTotalMs += performance.now() - t0;
+    _detectFrames++;
     _lastHands = (r.landmarks||[]).map((lms,i) => ({
       landmarks: lms,
       handedness: r.handednesses?.[i]?.[0]?.displayName ?? 'Unknown',
@@ -1863,6 +1900,7 @@ function loop() {
 
   if (readyVisible) processReady(hands);
 
+  tickFps();
   requestAnimationFrame(loop);
 }
 
