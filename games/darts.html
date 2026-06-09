@@ -317,21 +317,48 @@ body {
   background: rgba(0,0,0,.82);
   border-top: 1px solid rgba(100,255,120,.25);
   z-index: 9999;
-  pointer-events: none;
+  pointer-events: auto;
   overflow: hidden;
+  display: none;
+  flex-direction: column;
 }
+#dbg-toolbar {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 3px 10px;
+  border-bottom: 1px solid rgba(100,255,120,.18);
+  font-family: monospace;
+  font-size: .58rem;
+  color: rgba(100,255,120,.5);
+  user-select: none;
+}
+#dbg-copy {
+  cursor: pointer;
+  background: rgba(100,255,120,.12);
+  border: 1px solid rgba(100,255,120,.3);
+  color: rgba(100,255,120,.85);
+  font-family: monospace;
+  font-size: .58rem;
+  padding: 1px 8px;
+  border-radius: 3px;
+}
+#dbg-copy:hover { background: rgba(100,255,120,.22); }
+#dbg-copy:active { background: rgba(100,255,120,.35); }
 #dbg-lines {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
+  flex: 1;
   padding: 6px 10px;
   display: flex;
   flex-direction: column-reverse;
   gap: 1px;
-  max-height: 100%;
-  overflow: hidden;
+  overflow-y: auto;
+  overflow-x: auto;
   font-family: monospace;
   font-size: .62rem;
   line-height: 1.45;
+  user-select: text;
+  cursor: text;
 }
 .dbg-line { white-space: pre; }
 .dbg-throw  { color: #8eff8a; }
@@ -773,6 +800,10 @@ body {
 
   <!-- Debug console (toggle with ~) -->
   <div id="dbg-console">
+    <div id="dbg-toolbar">
+      <span>~ debug console</span>
+      <button id="dbg-copy">copy all</button>
+    </div>
     <div id="dbg-lines"></div>
   </div>
 
@@ -1993,9 +2024,17 @@ function dbgLog(type, msg) {
 }
 document.addEventListener('keydown', e => {
   if (e.key === '`' || e.key === '~') {
-    _dbgEl.style.display = _dbgEl.style.display === 'none' ? 'block' : 'none';
+    _dbgEl.style.display = _dbgEl.style.display === 'none' ? 'flex' : 'none';
     return;
   }
+});
+document.getElementById('dbg-copy').addEventListener('click', () => {
+  const text = [..._dbgLines.children].reverse().map(el => el.textContent).join('\n');
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.getElementById('dbg-copy');
+    btn.textContent = 'copied!';
+    setTimeout(() => { btn.textContent = 'copy all'; }, 1200);
+  });
 });
 
 // Space = throw with current aim (fallback when no camera)
