@@ -454,7 +454,7 @@ let camOpacityVal = 0;
 function getBoardLayout() {
   const W = canvas.width, H = canvas.height;
   const size = Math.min(W * .72, H * .78);
-  return { cx: W/2, cy: H/2, R: size * 0.33 };
+  return { cx: W/2, cy: H * 0.40, R: size * 0.26 };
 }
 
 // ── Wall background + board mount shadow ─────────────────────────────────────
@@ -618,55 +618,42 @@ function drawDartInHand(lm, dartCol) {
   ctx.restore();
 }
 
-// ── Throw animations ──────────────────────────────────────────────────────────
+// ── Throw animations (kinematic: x(t)=fx+vx0·t+½ax·t², same for y) ─────────
 let anims = [];
 
-function startThrowAnim(fx, fy, tx, ty, arcH, dartData, onComplete) {
-  anims.push({ fx, fy, tx, ty, arcH, t0:performance.now(), dur:680, dartData, onComplete });
+function startThrowAnim(fx, fy, vx0, vy0, ax, ay, T, dartData, onComplete) {
+  anims.push({ fx, fy, vx0, vy0, ax, ay, T, t0:performance.now(), dartData, onComplete });
 }
 
 function drawAnims() {
   const now = performance.now();
   for (let i = anims.length-1; i >= 0; i--) {
     const a = anims[i];
-    const t  = Math.min(1, (now-a.t0)/a.dur);
-    const et = t*t*(3-2*t);
+    const t_ms = Math.min(a.T, now - a.t0);   // elapsed ms, capped at T
+    const prog = t_ms / a.T;                   // 0 → 1
+
+    // Kinematic position
+    const x = a.fx + a.vx0*t_ms + 0.5*a.ax*t_ms*t_ms;
+    const y = a.fy + a.vy0*t_ms + 0.5*a.ay*t_ms*t_ms;
+
+    // Perspective scale: large near (26px) → small at board (4px)
+    const r = 26 - 22*prog;
 
     const col = a.dartData.player === -1 ? '#ccf73f' : (P[a.dartData.player]?.col ?? '#ccf73f');
-
-    // Fading comet trail — 5 ghost dots behind the main dot
-    for (let j = 5; j >= 1; j--) {
-      const tt  = Math.max(0, t - j * 0.045);
-      const et2 = tt*tt*(3-2*tt);
-      const gx  = a.fx + (a.tx-a.fx)*et2;
-      const gry = a.fy + (a.ty-a.fy)*et2;
-      const gy  = gry - a.arcH*Math.sin(Math.PI*tt);
-      const gr  = Math.max(1, (18 - 15*et2) * 0.45);
-      ctx.globalAlpha = (6-j) * 0.045;
-      ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI*2);
-      ctx.fillStyle = col; ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-
-    // Main dot: 18 px near thrower → 3 px at board (6× size range)
-    const x    = a.fx + (a.tx-a.fx)*et;
-    const rawY = a.fy + (a.ty-a.fy)*et;
-    const y    = rawY - a.arcH * Math.sin(Math.PI*t);
-    const r    = 18 - 15*et;
-
     ctx.save();
-    ctx.shadowBlur  = r * 2.8;
+    ctx.shadowBlur  = r * 2.5;
     ctx.shadowColor = col;
-    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
-    ctx.fillStyle = col; ctx.fill();
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = col;
+    ctx.fill();
     ctx.restore();
 
-    if (t >= 1) {
+    if (prog >= 1) {
       if (a.onComplete) a.onComplete(a.dartData);
       anims.splice(i, 1);
     }
   }
-  ctx.globalAlpha = 1;
 }
 
 // ── Game state ────────────────────────────────────────────────────────────────
@@ -712,7 +699,7 @@ function processHandFrame(lm, now) {
 
   // Palm scale proxy for depth
   const psc = Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
-  handPosHist.push({ normX:rx, normY:ry, palmSc:psc, t:now });
+  handPosHist.push({ normX:rx, normY:ry, canvasX:lastHandX, canvasY:lastHandY, palmSc:psc, t:now });
   if (handPosHist.length > 18) handPosHist.shift();
 
   // Pinch detection (thumb tip ↔ index tip distance)
@@ -721,7 +708,7 @@ function processHandFrame(lm, now) {
   if (!pinched && pd < PINCH_IN) {
     pinched = true;
     pinchHoldFrames = 0;
-    handPosHist = [{ normX:rx, normY:ry, palmSc:psc, t:now }];
+    handPosHist = [{ normX:rx, normY:ry, canvasX:lastHandX, canvasY:lastHandY, palmSc:psc, t:now }];
   } else if (pinched) {
     pinchHoldFrames++;
     if (pd > PINCH_OUT && pinchHoldFrames > 2) {
@@ -729,7 +716,7 @@ function processHandFrame(lm, now) {
       if (now - lastThrow > COOLDOWN && gamePhase !== 'gameover') {
         const tv = calcThrowVec();
         // Require some forward motion OR lateral speed to register throw
-        if (tv && (tv.fwdV > 0.015 || tv.speed2D > 0.4)) {
+        if (tv && (tv.fwdV > 0.012 || tv.canvasSpeed > 1.2)) {
           lastThrow = now;
           registerThrow(tv);
         }
@@ -739,17 +726,21 @@ function processHandFrame(lm, now) {
 }
 
 function calcThrowVec() {
-  const N = handPosHist.length;
-  if (N < 3) return null;
-  const range = handPosHist.slice(-Math.min(5, N));
-  const old = range[0], cur = range[range.length-1];
-  const dt = cur.t - old.t;
+  if (handPosHist.length < 3) return null;
+  // Exactly last 3 points for throw direction
+  const pts = handPosHist.slice(-3);
+  const p1 = pts[0], p3 = pts[2];
+  const dt = p3.t - p1.t;
   if (dt < 8) return null;
+  const canvasVX = (p3.canvasX - p1.canvasX) / dt;   // px/ms
+  const canvasVY = (p3.canvasY - p1.canvasY) / dt;   // px/ms, negative = upward
+  const canvasSpeed = Math.hypot(canvasVX, canvasVY);
   return {
-    normVX:  (cur.normX - old.normX) / dt * 1000,  // normalized/s
-    normVY:  (cur.normY - old.normY) / dt * 1000,
-    fwdV:    (cur.palmSc - old.palmSc) / dt * 1000, // scale/s (>0 = forward)
-    speed2D: Math.hypot(cur.normX-old.normX, cur.normY-old.normY) / dt * 1000,
+    canvasVX, canvasVY, canvasSpeed,
+    normVX:  (p3.normX - p1.normX) / dt * 1000,
+    normVY:  (p3.normY - p1.normY) / dt * 1000,
+    fwdV:    (p3.palmSc - p1.palmSc) / dt * 1000,  // scale/s (>0 = toward camera)
+    speed2D: canvasSpeed,
   };
 }
 
@@ -769,47 +760,67 @@ function countFingers(lm) {
   return n;
 }
 
-// ── Register throw ────────────────────────────────────────────────────────────
-// throwVec: from calcThrowVec(), or null for keyboard/click
-function registerThrow(throwVec, clickPos) {
-  if (gamePhase==='gameover') return;
-  const { cx, cy, R } = getBoardLayout();
+// ── Kinematic throw setup ─────────────────────────────────────────────────────
+// Returns { vx0, vy0, ax, ay, T } for the projectile, given start/end and throw vec.
+// Initial direction comes from the hand's last-3-point velocity; speed determines drop.
+function buildKinematics(fromX, fromY, toX, toY, throwVec) {
+  const dist = Math.hypot(toX - fromX, toY - fromY) || 1;
 
-  let landBX, landBY;
-  if (clickPos) {
-    // Direct click: aim at click with tiny noise
-    landBX = clickPos.bx + (Math.random()-.5)*0.015;
-    landBY = clickPos.by + (Math.random()-.5)*0.015;
+  let vx0, vy0, T;
+  if (throwVec && throwVec.canvasSpeed > 0.5) {
+    const { canvasVX, canvasVY, canvasSpeed, fwdV } = throwVec;
+
+    // Time of flight: forward (depth) velocity determines how fast dart reaches board.
+    // Higher fwdV → shorter T → less total drop. Clamp to sensible range.
+    const fwd = Math.max(0.03, fwdV);
+    T = Math.min(820, Math.max(290, 0.75 / fwd));
+
+    // Initial direction from hand motion (unit vector), magnitude scaled so dart
+    // comfortably reaches the target distance in time T.
+    const dirX = canvasVX / canvasSpeed;
+    const dirY = canvasVY / canvasSpeed;
+    const initSpeed = (dist / T) * 1.25;  // slightly faster than straight-line
+    vx0 = dirX * initSpeed;
+    vy0 = dirY * initSpeed;
   } else {
-    // Start from aim position
-    landBX = aimBX; landBY = aimBY;
-
-    if (throwVec) {
-      // Lateral velocity deviates landing from aim point.
-      // normVX/normVY are in [normalized camera /s]. Map to board-radius units.
-      const DEV = 0.35;
-      landBX += throwVec.normVX * DEV;
-      landBY += throwVec.normVY * DEV;
-    }
-
-    // Aim jitter scatter
-    const j = getJitter();
-    const a = Math.random()*Math.PI*2;
-    landBX += Math.cos(a)*Math.random()*j;
-    landBY += Math.sin(a)*Math.random()*j;
+    // Space-bar fallback: straight arc to aim, 550 ms
+    T   = 550;
+    vx0 = (toX - fromX) / T;
+    // vy0 chosen so gravity gives a mild upward arc
+    vy0 = (toY - fromY) / T - 0.0006 * T;
   }
 
-  const { pts, label } = scoreDart(landBX, landBY);
+  // Constant accelerations that force the dart to land exactly at (toX, toY) at t=T,
+  // while the INITIAL direction follows the hand path.
+  const ax = 2 * (toX - fromX - vx0 * T) / (T * T);
+  const ay = 2 * (toY - fromY - vy0 * T) / (T * T);
 
-  // Hand start position and arc height from throw vector
+  return { vx0, vy0, ax, ay, T };
+}
+
+// ── Register throw ────────────────────────────────────────────────────────────
+function registerThrow(throwVec) {
+  if (gamePhase==='gameover') return;
+  const { cx, cy, R } = getBoardLayout();
   const fromX = lastHandX ?? cx;
-  const fromY = lastHandY ?? cy - R*0.35;
-  const toX = cx + landBX*R;
-  const toY = cy + landBY*R;
+  const fromY = lastHandY ?? cy - R * 0.3;
 
-  // Arc height: derived from upward component of throw velocity (negative normVY = upward)
-  const upward = throwVec ? -throwVec.normVY : 0.08;
-  const arcH = Math.max(16, Math.min(90, upward * R * 0.55));
+  // Landing: aim + throw-direction deviation + jitter
+  let landBX = aimBX, landBY = aimBY;
+  if (throwVec) {
+    const DEV = 0.28;
+    landBX += throwVec.normVX * DEV;
+    landBY += throwVec.normVY * DEV;
+  }
+  const j = getJitter();
+  const ang = Math.random() * Math.PI * 2;
+  landBX += Math.cos(ang) * Math.random() * j;
+  landBY += Math.sin(ang) * Math.random() * j;
+
+  const { pts, label } = scoreDart(landBX, landBY);
+  const toX = cx + landBX * R;
+  const toY = cy + landBY * R;
+  const kin = buildKinematics(fromX, fromY, toX, toY, throwVec);
 
   const player = mode==='practice' ? -1 : currPlayer;
   const dartData = { bx:landBX, by:landBY, pts, label, player };
@@ -818,26 +829,25 @@ function registerThrow(throwVec, clickPos) {
     practiceTotal += pts;
     flash(`${label}${pts?' · +'+pts:''}`, pts?'#1d1712':'#c82000');
     document.getElementById('sp-left-score').textContent = practiceTotal;
-    startThrowAnim(fromX, fromY, toX, toY, arcH, dartData, (d) => {
+    startThrowAnim(fromX, fromY, kin.vx0, kin.vy0, kin.ax, kin.ay, kin.T, dartData, (d) => {
       darts.push(d);
       if (darts.length > 9) darts.shift();
     });
   } else {
-    doGameThrow(dartData, fromX, fromY, toX, toY, arcH);
+    doGameThrow(dartData, fromX, fromY, kin);
   }
 }
 
 // ── Game throw (score first, dart added on anim complete) ────────────────────
-function doGameThrow(dartData, fromX, fromY, toX, toY, arcH) {
+function doGameThrow(dartData, fromX, fromY, kin) {
   const { bx, by, pts, label } = dartData;
   const p = P[currPlayer];
   const newScore = p.score - pts;
 
   if (newScore < 0) {
-    // Bust — animate dart, then revert score and end turn
     flash('Bust!', '#c82000');
     const pc = currPlayer, rs = p.roundStart;
-    startThrowAnim(fromX, fromY, toX, toY, arcH,
+    startThrowAnim(fromX, fromY, kin.vx0, kin.vy0, kin.ax, kin.ay, kin.T,
       { ...dartData, bust:true }, (d) => {
         darts.push(d);
         P[pc].score = rs;
@@ -852,7 +862,7 @@ function doGameThrow(dartData, fromX, fromY, toX, toY, arcH) {
   flash(`${label}${pts?' · '+pts:''}`, '#1d1712');
   updateGameHUD();
 
-  startThrowAnim(fromX, fromY, toX, toY, arcH, dartData, (d) => {
+  startThrowAnim(fromX, fromY, kin.vx0, kin.vy0, kin.ax, kin.ay, kin.T, dartData, (d) => {
     darts.push(d);
     if (won) {
       gamePhase='gameover';
@@ -1007,7 +1017,7 @@ document.getElementById('cam-opacity').addEventListener('input', e => {
   webcamEl.style.opacity = camOpacityVal;
 });
 
-// Space = throw with current aim + mild jitter
+// Space = throw with current aim (fallback when no camera)
 document.addEventListener('keydown', e => {
   if (e.code!=='Space') return;
   e.preventDefault();
@@ -1015,20 +1025,6 @@ document.addEventListener('keydown', e => {
   if (performance.now()-lastThrow < COOLDOWN) return;
   lastThrow = performance.now();
   registerThrow(null);
-});
-
-// Click on board = aim exactly there + throw
-canvas.addEventListener('click', e => {
-  if (performance.now()-lastThrow < COOLDOWN) return;
-  if (gamePhase==='gameover') return;
-  const { cx, cy, R } = getBoardLayout();
-  const rect = canvas.getBoundingClientRect();
-  const bx = (e.clientX-rect.left-cx)/R;
-  const by = (e.clientY-rect.top-cy)/R;
-  aimBX=bx; aimBY=by; aimVisible=true;
-  aimRawHist=[[bx,by]];
-  lastThrow = performance.now();
-  registerThrow(null, { bx, by });
 });
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
