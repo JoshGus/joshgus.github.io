@@ -1242,7 +1242,7 @@ let   MAX_THROW_SPEED = 0.021;   // max 3D dart speed after scaling (7 × 0.003)
 let CAM_VCX = 0.50;   // 0 = left edge, 1 = right edge
 let CAM_VCY = 0.60;   // default = Laptop (camera above screen)
 const PINCH_IN  = 0.055;
-let   PINCH_OUT = 0.061;  // user-adjustable via slider
+let   PINCH_OUT = 0.068;  // user-adjustable via slider
 
 // Throw cooldown
 let lastThrow = 0;
@@ -1822,7 +1822,7 @@ function applyGpValues(gravity, speed, tmin, playerz, maxspeed, pinchsens) {
   T_MIN_MS         = tmin;
   PLAYER_Z         = playerz   / 10;
   MAX_THROW_SPEED  = maxspeed  * 0.003;
-  if (pinchsens != null) PINCH_OUT = 0.057 + (pinchsens - 1) / 8 * 0.016;
+  if (pinchsens != null) PINCH_OUT = 0.062 + (pinchsens - 1) / 8 * 0.022;
   document.getElementById('gp-gravity').value     = gravity;
   document.getElementById('gp-speed').value       = speed;
   document.getElementById('gp-tmin').value        = tmin;
