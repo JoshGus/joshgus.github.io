@@ -919,7 +919,7 @@ let pinched=false, pinchHoldFrames=0;
 // Virtual corridor constants (world units = board radii)
 const PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
-const G_WORLD   = 0.000013; // gravity (board-radii / ms²)
+const G_WORLD   = 0.000020; // gravity (board-radii / ms²)
 
 // Virtual camera center — the normalized screen position that maps to
 // world origin (board center). Defaults match current board layout.
@@ -1229,22 +1229,26 @@ function drawDarts() {
     const px = cx + d.bx * R, py = cy + d.by * R;
     const col = d.player === -1 ? '#ccf73f' : P[d.player].col;
 
-    // Shaft direction: same as velocity at impact (points in direction of travel).
-    // Canvas x = world x; canvas y is inverted world y, so vy_canvas = -ivy.
+    // (px,py) is the tip/point embedded in the board.
+    // Shaft and barrel trail backward (opposite to direction of travel).
     const ivx = d.ivx ?? 0;
     const ivy = d.ivy ?? -1;
     const sd = Math.hypot(ivx, ivy) || 1;
-    const sx =  ivx / sd;   // canvas x = world x
-    const sy = -ivy / sd;   // canvas y inverted
+    // Unit vector pointing backward (away from tip, toward player)
+    const bx2 = -ivx / sd;
+    const by2 =  ivy / sd;   // canvas y inverted: +ivy means up in world = up on screen
 
+    // Shaft from tip extending back
     ctx.beginPath();
-    ctx.moveTo(px + sx * 5,  py + sy * 5);
-    ctx.lineTo(px + sx * 20, py + sy * 20);
+    ctx.moveTo(px,              py);
+    ctx.lineTo(px + bx2 * 18,  py + by2 * 18);
     ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
 
-    ctx.beginPath(); ctx.arc(px + 1.5, py + 1.5, 4.5, 0, Math.PI * 2);
+    // Barrel (ball) sits at the back of the shaft
+    const bpx = px + bx2 * 18, bpy = py + by2 * 18;
+    ctx.beginPath(); ctx.arc(bpx + 1.5, bpy + 1.5, 4.5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+    ctx.beginPath(); ctx.arc(bpx, bpy, 4.5, 0, Math.PI * 2);
     ctx.fillStyle = col; ctx.fill();
     ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1; ctx.stroke();
   }
