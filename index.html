@@ -22,50 +22,21 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
 
 <style>
-  :root{
-    --bg:#f7ece1;          /* peachy cream */
-    --surface:#fdf5ea;     /* warm card white */
-    --fg:#1d1712;          /* warm near-black */
-    --dim:#8c7f70;
-    --dimmer:#c1b3a3;
-    --accent:#ccf73f;      /* bright lime — fills & highlights */
-    --accent-ink:#5e7d0f;  /* deep lime — accent text on light */
-    --line:rgba(29,23,18,.14);
-    --line-strong:rgba(29,23,18,.30);
-    --disp:"Bricolage Grotesque",sans-serif;
-    --body:"Hanken Grotesk",system-ui,sans-serif;
-    --mono:"IBM Plex Mono",ui-monospace,monospace;
-  }
-  *{box-sizing:border-box;margin:0;padding:0}
-  html{scroll-behavior:smooth}
-  ::selection{background:var(--accent);color:var(--fg)}
   body{
     background:var(--bg);color:var(--fg);font-family:var(--body);
     font-size:17px;line-height:1.6;-webkit-font-smoothing:antialiased;
     overflow-x:hidden;position:relative;
   }
-  body::after{ /* grain */
-    content:"";position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.4;
-    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
-  }
-  a{color:inherit}
   .mono{font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase}
 
   /* ---------- status bar ---------- */
-  .status{
-    position:fixed;top:0;left:0;right:0;z-index:40;
-    display:flex;justify-content:space-between;align-items:center;
-    padding:15px clamp(20px,4vw,64px);
-    font-family:var(--mono);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--dim);
-    border-bottom:1px solid var(--line);background:rgba(247,236,225,.82);backdrop-filter:blur(8px);
-  }
+  .status{position:fixed;top:0;left:0;right:0;padding:15px clamp(20px,4vw,64px);background:rgba(247,236,225,.82)}
   .status .live::before{content:"";display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--accent-ink);margin-right:8px;vertical-align:middle;animation:pulse 2.4s infinite}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
-  .status nav{display:flex;gap:22px}
-  .status nav a{text-decoration:none;color:var(--dim);transition:color .25s}
-  .status nav a:hover{color:var(--accent-ink)}
+  .status nav{gap:22px}
   @media(max-width:680px){.status nav{display:none}}
 
   /* ---------- split layout ---------- */
@@ -268,7 +239,7 @@
   }
 </style>
 </head>
-<body>
+<body class="noise">
 
 <div class="status">
   <span class="live">Ann Arbor, MI · Open to work</span>

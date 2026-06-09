@@ -1,0 +1,54 @@
+/* ── shared site styles ─────────────────────────────────────────────── */
+
+:root {
+  --bg:#f7ece1; --surface:#fdf5ea; --fg:#1d1712;
+  --dim:#8c7f70; --dimmer:#c1b3a3;
+  --accent:#ccf73f; --accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14); --line-strong:rgba(29,23,18,.30);
+  --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+
+*,*::before,*::after { box-sizing:border-box; margin:0; padding:0; }
+html { scroll-behavior:smooth; }
+::selection { background:var(--accent); color:var(--fg); }
+a { color:inherit; text-decoration:none; }
+
+/* noise overlay (light pages) */
+body.noise::after {
+  content:""; position:fixed; inset:0; z-index:999; pointer-events:none; opacity:.4;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* ── status bar ─────────────────────────────────────────────────────── */
+.status {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px clamp(18px,3.5vw,56px);
+  font-family:var(--mono); font-size:.65rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--dim); border-bottom:1px solid var(--line);
+  background:rgba(247,236,225,.88); backdrop-filter:blur(8px);
+  position:sticky; top:0; z-index:40;
+}
+.status .sig { font-weight:600; color:var(--fg); }
+.status .sig:hover { color:var(--accent-ink); }
+.status a { color:inherit; transition:color .2s; }
+.status nav { display:flex; gap:18px; }
+.status nav a { color:var(--dim); }
+.status nav a:hover, .status nav a.active { color:var(--accent-ink); }
+#clock { color:var(--dimmer); }
+@media(max-width:640px) { .status nav { display:none; } }
+
+/* dark status variant — add class="status dark" on game pages */
+.status.dark {
+  position:static; flex-shrink:0;
+  color:rgba(255,255,255,.28);
+  border-bottom-color:rgba(255,255,255,.07);
+  background:rgba(8,8,7,.92);
+}
+.status.dark .sig { color:rgba(255,255,255,.6); }
+.status.dark .sig:hover, .status.dark nav a:hover, .status.dark nav a.active { color:var(--accent); }
+.status.dark #clock { color:rgba(255,255,255,.18); }
+
+/* minigolf uses fixed positioning — add class="status fixed-bar" */
+.status.fixed-bar { position:fixed; }

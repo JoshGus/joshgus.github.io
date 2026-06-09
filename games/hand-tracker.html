@@ -5,23 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Hand Tracker — PoC</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
 <style>
   :root {
-    --bg:         #f7ece1;
-    --surface:    #fdf5ea;
-    --fg:         #1d1712;
-    --dim:        #8c7f70;
-    --dimmer:     #c1b3a3;
-    --accent:     #ccf73f;
-    --accent-ink: #5e7d0f;
-    --line:       rgba(29,23,18,.14);
     --line-mid:   rgba(29,23,18,.22);
-    --disp:       "Bricolage Grotesque", sans-serif;
-    --body:       "Hanken Grotesk", system-ui, sans-serif;
-    --mono:       "IBM Plex Mono", ui-monospace, monospace;
     --red:        #b84040;
   }
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
   body {
     background: var(--bg);
@@ -186,6 +175,31 @@
   @media (max-width: 680px) {
     #panel { display: none; }
   }
+
+  /* notes */
+  .notes-section{
+    position:fixed;bottom:0;left:0;right:0;
+    max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.2,.7,.3,1);
+    background:rgba(250,243,234,.97);z-index:50;border-top:none
+  }
+  .notes-section.open{max-height:380px;overflow-y:auto;border-top:1px solid var(--line)}
+  .notes-inner{padding:22px clamp(16px,3vw,56px) 28px;max-width:860px}
+  .notes-inner h2{font-family:var(--disp);font-weight:440;font-size:1.25rem;letter-spacing:-.02em;
+    color:var(--fg);margin-bottom:16px;font-variation-settings:"opsz" 36}
+  .note-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 36px}
+  @media(max-width:600px){.note-grid{grid-template-columns:1fr}}
+  .note-item dt{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--accent-ink);margin-bottom:6px}
+  .note-item dd{font-family:var(--body);font-size:.86rem;line-height:1.65;color:var(--dim)}
+  .note-item code{font-family:var(--mono);font-size:.73rem;color:var(--fg);
+    background:rgba(29,23,18,.06);padding:1px 5px}
+  .notes-toggle{
+    position:fixed;bottom:16px;right:16px;z-index:55;
+    font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
+    padding:5px 10px;border:1px solid var(--line-strong);background:rgba(247,236,225,.92);
+    color:var(--dim);cursor:pointer;transition:all .15s;backdrop-filter:blur(6px)
+  }
+  .notes-toggle:hover{color:var(--accent-ink);border-color:var(--accent-ink)}
 </style>
 </head>
 <body>
@@ -588,6 +602,45 @@ async function main() {
 }
 
 main();
+
+// notes toggle
+document.getElementById('notes-toggle').addEventListener('click', () => {
+  const ns = document.getElementById('notes-section');
+  ns.classList.toggle('open');
+  document.getElementById('notes-toggle').textContent = ns.classList.contains('open') ? 'Hide notes' : 'How it works';
+});
 </script>
+<button class="notes-toggle" id="notes-toggle">How it works</button>
+<div class="notes-section" id="notes-section">
+  <div class="notes-inner">
+    <h2>Implementation notes</h2>
+    <div class="note-grid">
+      <dl class="note-item">
+        <dt>MediaPipe Hands</dt>
+        <dd>Uses Google's <code>@mediapipe/hands</code> model — a TensorFlow Lite graph running entirely in-browser via WebAssembly. No server. The model returns 21 3D landmarks per hand (wrist + 4 joints per finger) at up to 30 fps on typical hardware.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Pipeline</dt>
+        <dd>The webcam feed runs into a <code>&lt;video&gt;</code> element. Each frame, the MediaPipe <code>Hands</code> solution processes the video and calls a result callback with detected landmarks. The callback drives both the canvas overlay renderer and the side panel data display.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Canvas overlay</dt>
+        <dd>A transparent <code>&lt;canvas&gt;</code> is absolutely positioned over the video. The renderer draws landmark dots and connecting bone lines by mapping the normalised 0–1 coordinates to canvas pixels. The video is CSS-mirrored (<code>scaleX(-1)</code>), so the canvas draw calls mirror too.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Coordinate system</dt>
+        <dd>MediaPipe returns <code>x, y</code> normalised to [0, 1] of the video frame, plus a relative <code>z</code> depth (negative = closer). The panel displays x/y directly. Depth is not currently used — it's available as a foundation for gesture-controlled interactions.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Fingertip tracking</dt>
+        <dd>The five fingertip landmarks (indices 4, 8, 12, 16, 20 in the 21-point hand skeleton) are extracted and displayed in the side panel with live coordinate updates. These are the natural attachment points for pointer-based gesture input in future experiments.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Design intent</dt>
+        <dd>This page is a foundation layer — a verified working pipeline from webcam → model → landmarks → display. The next step is attaching game input to landmark positions, replacing mouse/touch with hand gestures for the game pages on this site.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
 </body>
 </html>
