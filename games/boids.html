@@ -192,7 +192,7 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
       </dl>
       <dl class="note-item">
         <dt>Boundary condition</dt>
-        <dd>Toroidal (wrap-around) boundaries rather than bouncing. When a boid exits one side of the world volume it reappears on the opposite side. Bouncing walls cause boids to accumulate in corners (separation forces push them there and reflection reinforces it). Wrapping maintains uniform spatial distribution.</dd>
+        <dd>Soft wall avoidance: within a 90-unit margin of each face, a repulsive force proportional to penetration depth steers boids back toward the center. Force = <code>tf × (overlap / margin)</code>. A hard clamp zeroes the inward velocity component if a boid somehow reaches the wall face — this is the safety net, not the primary mechanism. Produces natural flocking near walls without the flicker of hard reflection.</dd>
       </dl>
       <dl class="note-item">
         <dt>Dynamic count</dt>
@@ -368,6 +368,16 @@ function updateBoid(boid) {
     }
   }
 
+  // wall avoidance: steer away from each face within the margin zone
+  const hw=WX/2, hh=WY/2, hd=WZ/2;
+  const margin = 90, tf = 0.55;
+  if (boid.x >  hw - margin) ax -= tf * (boid.x - ( hw - margin)) / margin;
+  if (boid.x < -hw + margin) ax += tf * (-hw + margin - boid.x)   / margin;
+  if (boid.y >  hh - margin) ay -= tf * (boid.y - ( hh - margin)) / margin;
+  if (boid.y < -hh + margin) ay += tf * (-hh + margin - boid.y)   / margin;
+  if (boid.z >  hd - margin) az -= tf * (boid.z - ( hd - margin)) / margin;
+  if (boid.z < -hd + margin) az += tf * (-hd + margin - boid.z)   / margin;
+
   boid.vx += ax; boid.vy += ay; boid.vz += az;
 
   const spd = Math.sqrt(boid.vx**2 + boid.vy**2 + boid.vz**2);
@@ -381,10 +391,13 @@ function updateBoid(boid) {
 
   boid.x += boid.vx; boid.y += boid.vy; boid.z += boid.vz;
 
-  const hw=WX/2, hh=WY/2, hd=WZ/2;
-  if (boid.x >  hw) boid.x -= WX; if (boid.x < -hw) boid.x += WX;
-  if (boid.y >  hh) boid.y -= WY; if (boid.y < -hh) boid.y += WY;
-  if (boid.z >  hd) boid.z -= WZ; if (boid.z < -hd) boid.z += WZ;
+  // hard clamp: safety net so nothing escapes
+  if (boid.x >  hw) { boid.x =  hw; boid.vx = Math.min(boid.vx, 0); }
+  if (boid.x < -hw) { boid.x = -hw; boid.vx = Math.max(boid.vx, 0); }
+  if (boid.y >  hh) { boid.y =  hh; boid.vy = Math.min(boid.vy, 0); }
+  if (boid.y < -hh) { boid.y = -hh; boid.vy = Math.max(boid.vy, 0); }
+  if (boid.z >  hd) { boid.z =  hd; boid.vz = Math.min(boid.vz, 0); }
+  if (boid.z < -hd) { boid.z = -hd; boid.vz = Math.max(boid.vz, 0); }
 }
 
 // ── bounding box ──────────────────────────────────────────────────────────────
