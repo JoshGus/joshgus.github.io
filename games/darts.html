@@ -1426,7 +1426,12 @@ function calcThrowVec() {
     linReg(ts, win.map(p => (p.wristY + p.fingerY) * 0.5))
   );
 
-  return { vwx, vwy, vwz, fwdV, canvasSpeed };
+  // Debug: compact wz sequence for the regression window (relative timestamps)
+  const t0dbg = win[0].t;
+  const _wzPts = win.map(p => `${(p.t - t0dbg).toFixed(0)}:${(PLAYER_Z * PSC_REF / p.palmSc).toFixed(2)}`).join(' ');
+  const _wyPts = win.map(p => `${(p.t - t0dbg).toFixed(0)}:${(-(p.wristY + p.fingerY) * 0.5 / getBoardLayout().R).toFixed(3)}`).join(' ');
+
+  return { vwx, vwy, vwz, fwdV, canvasSpeed, _wzPts, _wyPts };
 }
 
 function getJitter() {
@@ -1483,6 +1488,8 @@ function registerThrow(throwVec) {
     const camYOffset = (CAM_VCY * canvas.height - boardCy) / boardR;
     vwy += camYOffset * (-vwz) / PLAYER_Z;
     dbgLog('throw', `THROW fwdV=${throwVec.fwdV.toFixed(2)}  raw_vwy=${throwVec.vwy.toFixed(5)}  final_vwy=${vwy.toFixed(5)}  vwz=${vwz.toFixed(5)}  wz0=${wz0.toFixed(2)}  n=${handPosHist.length}`);
+    if (throwVec._wzPts) dbgLog('throw', `  wz(t): ${throwVec._wzPts}`);
+    if (throwVec._wyPts) dbgLog('throw', `  wy(t): ${throwVec._wyPts}`);
   } else {
     // Space-bar: solve ballistic trajectory to aim point in T=950 ms
     const T = 950;
