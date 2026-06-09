@@ -638,7 +638,7 @@ import { GAMES } from './data/games.js';
 
 const scGrid = document.getElementById('sc-grid');
 if (scGrid) {
-  GAMES.filter(g => !g.comingSoon).slice(0, 4).forEach(g => {
+  GAMES.filter(g => !g.comingSoon).slice(0, 3).forEach(g => {
     scGrid.insertAdjacentHTML('beforeend', `
       <a class="sc-card" href="games/${g.href}">
         <div class="sc-thumb" style="background:${g.thumbBg}">${g.thumbSvg}</div>
