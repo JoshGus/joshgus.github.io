@@ -1226,7 +1226,7 @@ let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 
 // Hand tracking & pinch
 let handPosHist = [];   // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc,t}
-let pinched=false, pinchStartMs=0;
+let pinched=false, pinchStartMs=0, pinchOpenFrames=0;
 
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
@@ -1285,21 +1285,28 @@ function processHandFrame(lm, now) {
   const spawnY  = (wristY +    lm[9].y *canvas.height)  * 0.5;
 
   if (!pinched && pd < sPinchIn) {
-    pinched = true; pinchStartMs = now;
+    pinched = true; pinchStartMs = now; pinchOpenFrames = 0;
     handPosHist = [];
 
   } else if (pinched) {
-    handPosHist.push({ wristX, wristY, fingerX, fingerY, spawnX, spawnY, palmSc: psc, t: now });
-    // keep last 600ms of history regardless of detection framerate
-    while (handPosHist.length > 1 && now - handPosHist[0].t > 600) handPosHist.shift();
-
-    if (pd > sPinchOut && now - pinchStartMs >= 50) {
-      pinched = false;
-      if (now - lastThrow > COOLDOWN && gamePhase === 'playing') {
-        const tv = calcThrowVec();
-        if (tv && (tv.fwdV > 0.3 || tv.canvasSpeed > 1.0)) {
-          lastThrow = now;
-          registerThrow(tv);
+    if (pd <= sPinchOut) {
+      // Still gripping — record position and reset open counter.
+      // History is frozen once fingers start separating so the opening
+      // motion doesn't corrupt the regression.
+      pinchOpenFrames = 0;
+      handPosHist.push({ wristX, wristY, fingerX, fingerY, spawnX, spawnY, palmSc: psc, t: now });
+      while (handPosHist.length > 1 && now - handPosHist[0].t > 600) handPosHist.shift();
+    } else {
+      // Fingers separating — require 2 consecutive open frames before committing.
+      pinchOpenFrames++;
+      if (pinchOpenFrames >= 2 && now - pinchStartMs >= 50) {
+        pinched = false; pinchOpenFrames = 0;
+        if (now - lastThrow > COOLDOWN && gamePhase === 'playing') {
+          const tv = calcThrowVec();
+          if (tv && (tv.fwdV > 0.3 || tv.canvasSpeed > 1.0)) {
+            lastThrow = now;
+            registerThrow(tv);
+          }
         }
       }
     }
