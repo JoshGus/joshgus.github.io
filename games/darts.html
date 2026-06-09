@@ -873,6 +873,7 @@ body {
 document.getElementById('loading-msg').textContent = 'Loading hand tracker…';
 
 const _workerSrc = `
+try {
   const { HandLandmarker, FilesetResolver } = await import(
     'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
   );
@@ -904,15 +905,21 @@ const _workerSrc = `
     }));
     self.postMessage({ type: 'landmarks', hands, elapsed });
   };
+} catch (e) {
+  self.postMessage({ type: 'error', message: String(e) });
+}
 `;
 const _mpWorker = new Worker(
   URL.createObjectURL(new Blob([_workerSrc], { type: 'text/javascript' })),
   { type: 'module' }
 );
 const _workerReady = new Promise((res, rej) => {
-  const t = setTimeout(() => rej(new Error('timeout')), 15000);
+  const t = setTimeout(() => rej(new Error('timeout')), 8000);
   _mpWorker.addEventListener('message', function h({ data }) {
-    if (data.type === 'ready') { clearTimeout(t); res(); _mpWorker.removeEventListener('message', h); }
+    clearTimeout(t);
+    _mpWorker.removeEventListener('message', h);
+    if (data.type === 'ready') res();
+    else rej(new Error(data.message || 'worker init failed'));
   });
   _mpWorker.onerror = () => { clearTimeout(t); rej(new Error('worker error')); };
 });
