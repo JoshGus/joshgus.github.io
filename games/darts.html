@@ -405,8 +405,8 @@ body {
 }
 
 /* ── camera settings box ── */
-#cam-box, #gp-box { position: relative; }
-#cam-panel, #gp-panel {
+#cam-box, #gp-box, #perf-box { position: relative; }
+#cam-panel, #gp-panel, #perf-panel {
   display: none;
   position: absolute;
   bottom: calc(100% + 8px);
@@ -418,7 +418,21 @@ body {
   z-index: 30;
   flex-direction: column;
 }
-#cam-panel.open, #gp-panel.open { display: flex; }
+#cam-panel.open, #gp-panel.open, #perf-panel.open { display: flex; }
+.perf-preset {
+  font-family: var(--mono);
+  font-size: .46rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: rgba(29,23,18,.05);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background .12s;
+}
+.perf-preset:hover { background: rgba(29,23,18,.13); }
+.perf-preset.active { background: var(--accent-ink); color: #fff; border-color: var(--accent-ink); }
 .cp-head {
   display: flex;
   align-items: center;
@@ -853,6 +867,33 @@ body {
       </div>
     </div>
 
+    <!-- Performance settings box -->
+    <div id="perf-box">
+      <button class="ctrl-btn" id="perf-box-toggle">Performance</button>
+      <div id="perf-panel">
+        <div class="cp-head">
+          <span class="cp-head-title">Camera Quality</span>
+          <button id="perf-panel-close">×</button>
+        </div>
+        <div class="cp-presets">
+          <span class="cp-preset-lbl">Preset</span>
+          <button class="perf-preset active" data-w="1280" data-h="720"  data-fps="60">Max</button>
+          <button class="perf-preset"        data-w="640"  data-h="480"  data-fps="30">Medium</button>
+          <button class="perf-preset"        data-w="320"  data-h="240"  data-fps="15">Low</button>
+        </div>
+        <div class="cp-rows">
+          <div class="cp-row">
+            <span class="cp-lbl">Resolution</span>
+            <span style="grid-column:2/4; color:var(--dimmer); font-family:var(--mono); font-size:.5rem" id="perf-res-display">1280 × 720</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Frame rate</span>
+            <span style="grid-column:2/4; color:var(--dimmer); font-family:var(--mono); font-size:.5rem" id="perf-fps-display">60 fps</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- Gameplay settings box -->
     <div id="gp-box">
       <button class="ctrl-btn" id="gp-box-toggle">Gameplay</button>
@@ -990,7 +1031,7 @@ const _workerReady = new Promise((res, rej) => {
 // ── Camera ───────────────────────────────────────────────────────────────────
 const webcamEl = document.getElementById('webcam');
 try {
-  const stream = await navigator.mediaDevices.getUserMedia({
+  let _camStream = await navigator.mediaDevices.getUserMedia({
     video: {
       facingMode: 'user',
       width:     { ideal: 1280 },
@@ -998,7 +1039,7 @@ try {
       frameRate: { ideal: 60 },
     },
   });
-  webcamEl.srcObject = stream;
+  webcamEl.srcObject = _camStream;
   await new Promise(res => { webcamEl.onloadeddata = res; });
 } catch {
   document.getElementById('loading-msg').textContent = 'Camera unavailable — click board or Space to throw';
@@ -1435,7 +1476,7 @@ function calcThrowVec() {
   const win = handPosHist.slice(startIdx);
   if (win.length < 3) return null;
   const span = win[win.length - 1].t - win[0].t;
-  if (span < 30) return null;
+  if (span < 80) return null;
 
   const { R } = getBoardLayout();
   const ts = win.map(p => p.t);
@@ -1992,6 +2033,37 @@ document.getElementById('gp-pinchsens').addEventListener('input', e => {
 document.getElementById('gp-reset').addEventListener('click', () => {
   applyGpValues(10, 130, 450, 55, 7, 4);
   setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="10"]'));
+});
+
+// ── Performance panel ─────────────────────────────────────────────────────────
+const perfToggle = document.getElementById('perf-box-toggle');
+const perfPanel  = document.getElementById('perf-panel');
+perfToggle.addEventListener('click', () => perfPanel.classList.toggle('open'));
+document.getElementById('perf-panel-close').addEventListener('click', () => perfPanel.classList.remove('open'));
+
+async function applyPerfPreset(w, h, fps) {
+  if (_camStream) _camStream.getTracks().forEach(t => t.stop());
+  try {
+    _camStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'user', width: { ideal: w }, height: { ideal: h }, frameRate: { ideal: fps } }
+    });
+    webcamEl.srcObject = _camStream;
+    await new Promise(res => { webcamEl.onloadeddata = res; });
+    const track = _camStream.getVideoTracks()[0];
+    const s = track.getSettings();
+    document.getElementById('perf-res-display').textContent = `${s.width ?? w} × ${s.height ?? h}`;
+    document.getElementById('perf-fps-display').textContent = `${Math.round(s.frameRate ?? fps)} fps`;
+  } catch (e) {
+    console.warn('Camera restart failed:', e);
+  }
+}
+
+document.querySelectorAll('.perf-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.perf-preset').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    applyPerfPreset(+btn.dataset.w, +btn.dataset.h, +btn.dataset.fps);
+  });
 });
 
 // ── Tutorial screen ───────────────────────────────────────────────────────────
