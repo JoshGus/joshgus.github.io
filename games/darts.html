@@ -8,7 +8,7 @@
 <link rel="stylesheet" href="../shared.css">
 <style>
 body {
-  background: var(--bg);
+  background: #0f0d0b;
   color: var(--fg);
   font-family: var(--mono);
   font-size: 13px;
@@ -453,8 +453,49 @@ let camOpacityVal = 0;
 
 function getBoardLayout() {
   const W = canvas.width, H = canvas.height;
-  const size = Math.min(W * .76, H * .82);
-  return { cx: W/2, cy: H/2, R: size * 0.40 };
+  const size = Math.min(W * .72, H * .78);
+  return { cx: W/2, cy: H/2, R: size * 0.33 };
+}
+
+// ── Wall background + board mount shadow ─────────────────────────────────────
+function drawWall() {
+  const fade = 1 - camOpacityVal * 0.9;
+  if (fade <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = fade;
+
+  // Painted wall — radial gradient so center is slightly warmer/lighter
+  const { cx, cy } = getBoardLayout();
+  const diag = Math.hypot(canvas.width, canvas.height) * 0.65;
+  const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, diag);
+  g.addColorStop(0, '#2e2824');
+  g.addColorStop(1, '#0e0c0a');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Subtle horizontal grain (painted wall texture)
+  ctx.globalAlpha = fade * 0.025;
+  for (let y = 0; y < canvas.height; y += 4) {
+    ctx.fillStyle = (y >> 2) % 3 === 0 ? '#fff' : '#000';
+    ctx.fillRect(0, y, canvas.width, 2);
+  }
+  ctx.restore();
+}
+
+function drawBoardMount() {
+  const { cx, cy, R } = getBoardLayout();
+  const fade = 1 - camOpacityVal * 0.85;
+  if (fade <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = fade * 0.75;
+  // Soft drop-shadow offset behind board gives mounted-on-wall depth
+  ctx.filter = 'blur(22px)';
+  ctx.beginPath();
+  ctx.arc(cx + 9, cy + 13, R * 1.12, 0, Math.PI * 2);
+  ctx.fillStyle = '#000';
+  ctx.fill();
+  ctx.filter = 'none';
+  ctx.restore();
 }
 
 // ── Draw dartboard (fixed numbers stay inside surround) ───────────────────────
@@ -534,40 +575,7 @@ function scoreDart(bx, by) {
   return                    { pts:50, label:'Bull' };
 }
 
-// ── Dart sprite ───────────────────────────────────────────────────────────────
-// Draws a dart where the tip points in +x direction before rotation.
-// angle = direction dart travels; scale = size multiplier; col = flight color
-function drawDartSprite(x, y, angle, scale, col) {
-  const k = scale;
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle);
-
-  // Barrel
-  ctx.fillStyle = '#8a7a60';
-  ctx.fillRect(-9*k, -2*k, 18*k, 4*k);
-
-  // Steel tip (points in +x = direction of travel)
-  ctx.fillStyle = '#d0d0d0';
-  ctx.beginPath();
-  ctx.moveTo(9*k, -1.5*k);
-  ctx.lineTo(18*k, 0);
-  ctx.lineTo(9*k, 1.5*k);
-  ctx.closePath();
-  ctx.fill();
-
-  // Flights (tail at -x, diamond shape)
-  ctx.fillStyle = col;
-  ctx.beginPath();
-  ctx.moveTo(-9*k,  0);
-  ctx.lineTo(-18*k, -6*k);
-  ctx.lineTo(-12*k,  0);
-  ctx.lineTo(-18*k,  6*k);
-  ctx.closePath();
-  ctx.fill();
-
-  ctx.restore();
-}
+// dart sprite removed — throw animation uses a dot (see drawAnims)
 
 // ── Hand landmarks ────────────────────────────────────────────────────────────
 function drawHandLandmarks(lm, pinchActive) {
@@ -592,13 +600,22 @@ function drawHandLandmarks(lm, pinchActive) {
   }
 }
 
-// ── Dart in hand (shown while pinching) ───────────────────────────────────────
-function drawDartInHand(lm, cx, cy, dartCol) {
+// ── Dart dot in hand (shown while pinching) ───────────────────────────────────
+function drawDartInHand(lm, dartCol) {
   if (anims.length > 0) return;
-  const hx = (1-lm[8].x)*canvas.width;
-  const hy = lm[8].y*canvas.height;
-  const angle = Math.atan2(cy-hy, cx-hx);
-  drawDartSprite(hx, hy, angle, 1.1, dartCol);
+  // Show a bright dot between thumb tip and index tip (the grip point)
+  const W = canvas.width, H = canvas.height;
+  const ix = (1-lm[8].x)*W, iy = lm[8].y*H;
+  const tx = (1-lm[4].x)*W, ty = lm[4].y*H;
+  const px = (ix+tx)/2, py = (iy+ty)/2;
+  ctx.save();
+  ctx.shadowBlur = 18;
+  ctx.shadowColor = dartCol;
+  ctx.beginPath();
+  ctx.arc(px, py, 9, 0, Math.PI*2);
+  ctx.fillStyle = dartCol;
+  ctx.fill();
+  ctx.restore();
 }
 
 // ── Throw animations ──────────────────────────────────────────────────────────
@@ -613,30 +630,43 @@ function drawAnims() {
   for (let i = anims.length-1; i >= 0; i--) {
     const a = anims[i];
     const t  = Math.min(1, (now-a.t0)/a.dur);
-    const et = t*t*(3-2*t); // smoothstep
+    const et = t*t*(3-2*t);
 
+    const col = a.dartData.player === -1 ? '#ccf73f' : (P[a.dartData.player]?.col ?? '#ccf73f');
+
+    // Fading comet trail — 5 ghost dots behind the main dot
+    for (let j = 5; j >= 1; j--) {
+      const tt  = Math.max(0, t - j * 0.045);
+      const et2 = tt*tt*(3-2*tt);
+      const gx  = a.fx + (a.tx-a.fx)*et2;
+      const gry = a.fy + (a.ty-a.fy)*et2;
+      const gy  = gry - a.arcH*Math.sin(Math.PI*tt);
+      const gr  = Math.max(1, (18 - 15*et2) * 0.45);
+      ctx.globalAlpha = (6-j) * 0.045;
+      ctx.beginPath(); ctx.arc(gx, gy, gr, 0, Math.PI*2);
+      ctx.fillStyle = col; ctx.fill();
+    }
+    ctx.globalAlpha = 1;
+
+    // Main dot: 18 px near thrower → 3 px at board (6× size range)
     const x    = a.fx + (a.tx-a.fx)*et;
     const rawY = a.fy + (a.ty-a.fy)*et;
     const y    = rawY - a.arcH * Math.sin(Math.PI*t);
+    const r    = 18 - 15*et;
 
-    // Dart angle = instantaneous tangent of arc path
-    const t2 = Math.min(1, t+0.01);
-    const et2 = t2*t2*(3-2*t2);
-    const nx2 = a.fx + (a.tx-a.fx)*et2;
-    const ny2 = (a.fy + (a.ty-a.fy)*et2) - a.arcH*Math.sin(Math.PI*t2);
-    const angle = Math.atan2(ny2-y, nx2-x);
-
-    // Perspective scale: large near thrower, small at board
-    const k = 1.45 - 1.15*et;
-
-    const col = a.dartData.player === -1 ? '#ccf73f' : (P[a.dartData.player]?.col ?? '#ccf73f');
-    drawDartSprite(x, y, angle, k, col);
+    ctx.save();
+    ctx.shadowBlur  = r * 2.8;
+    ctx.shadowColor = col;
+    ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.restore();
 
     if (t >= 1) {
       if (a.onComplete) a.onComplete(a.dartData);
       anims.splice(i, 1);
     }
   }
+  ctx.globalAlpha = 1;
 }
 
 // ── Game state ────────────────────────────────────────────────────────────────
@@ -1004,6 +1034,8 @@ canvas.addEventListener('click', e => {
 // ── Main loop ─────────────────────────────────────────────────────────────────
 function loop() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawWall();
+  drawBoardMount();
   drawBoard();
   drawDarts();
   drawAnims();
@@ -1028,7 +1060,7 @@ function loop() {
       processHandFrame(lm, now);
       drawAim();
       drawHandLandmarks(lm, pinched);
-      if (pinched) drawDartInHand(lm, cx, cy, dartCol);
+      if (pinched) drawDartInHand(lm, dartCol);
     } else {
       // Still show landmarks on ready screen
       drawHandLandmarks(lm, false);
