@@ -931,7 +931,7 @@ function drawAnims() {
         bx = wx; by = -wy;
         ivx = a.vwx; ivy = a.vwy - G_WORLD * t;
       }
-      if (a.onComplete) a.onComplete({ ...a.dartData, bx, by, ivx, ivy });
+      if (a.onComplete) a.onComplete({ ...a.dartData, bx, by, ivx, ivy, ivz: a.vwz });
       anims.splice(i, 1);
       continue;
     }
@@ -1292,19 +1292,29 @@ function drawDarts() {
     // Shaft and barrel trail backward (opposite to direction of travel).
     const ivx = d.ivx ?? 0;
     const ivy = d.ivy ?? -1;
-    const sd = Math.hypot(ivx, ivy) || 1;
-    // Unit vector pointing backward (away from tip, toward player)
-    const bx2 = -ivx / sd;
-    const by2 =  ivy / sd;   // canvas y inverted: +ivy means up in world = up on screen
+    const ivz = d.ivz ?? -0.005;  // Z velocity at impact (always negative = toward board)
+
+    // 3D speed at impact — used to project shaft length onto the board face.
+    // A dart hitting straight-on (large ivz, small ivx/ivy) shows almost no
+    // shaft from the front; a steep-angle throw shows the full length.
+    const sd2d = Math.hypot(ivx, ivy);
+    const sd3d = Math.hypot(ivx, ivy, ivz) || 0.001;
+    const SHAFT_3D = 22;                        // physical dart shaft length in canvas-px equivalent
+    const shaftLen = SHAFT_3D * (sd2d / sd3d);  // projected apparent length
+
+    // Backward unit vector in canvas XY (opposite to direction of travel)
+    const normXY = sd2d || 0.001;
+    const bx2 = -ivx / normXY;
+    const by2 =  ivy / normXY;   // canvas y inverted
 
     // Shaft from tip extending back
     ctx.beginPath();
-    ctx.moveTo(px,              py);
-    ctx.lineTo(px + bx2 * 18,  py + by2 * 18);
+    ctx.moveTo(px,                  py);
+    ctx.lineTo(px + bx2 * shaftLen, py + by2 * shaftLen);
     ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
 
     // Barrel (ball) sits at the back of the shaft
-    const bpx = px + bx2 * 18, bpy = py + by2 * 18;
+    const bpx = px + bx2 * shaftLen, bpy = py + by2 * shaftLen;
     ctx.beginPath(); ctx.arc(bpx + 1.5, bpy + 1.5, 4.5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fill();
     ctx.beginPath(); ctx.arc(bpx, bpy, 4.5, 0, Math.PI * 2);
