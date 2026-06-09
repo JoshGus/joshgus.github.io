@@ -262,8 +262,8 @@ body {
 }
 
 /* ── camera settings box ── */
-#cam-box { position: relative; }
-#cam-panel {
+#cam-box, #gp-box { position: relative; }
+#cam-panel, #gp-panel {
   display: none;
   position: absolute;
   bottom: calc(100% + 8px);
@@ -275,7 +275,7 @@ body {
   z-index: 30;
   flex-direction: column;
 }
-#cam-panel.open { display: flex; }
+#cam-panel.open, #gp-panel.open { display: flex; }
 .cp-head {
   display: flex;
   align-items: center;
@@ -323,8 +323,20 @@ body {
   cursor: pointer;
   transition: background .12s;
 }
-.cp-preset:hover { background: rgba(29,23,18,.13); }
-.cp-preset.active { background: var(--accent-ink); color: #fff; border-color: var(--accent-ink); }
+.cp-preset:hover, .gp-preset:hover { background: rgba(29,23,18,.13); }
+.cp-preset.active, .gp-preset.active { background: var(--accent-ink); color: #fff; border-color: var(--accent-ink); }
+.gp-preset {
+  font-family: var(--mono);
+  font-size: .46rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: rgba(29,23,18,.05);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background .12s;
+}
 .cp-rows { display: flex; flex-direction: column; }
 .cp-row {
   display: grid;
@@ -524,8 +536,8 @@ body {
 
         <div class="cp-presets">
           <span class="cp-preset-lbl">Preset</span>
-          <button class="cp-preset active" data-vcx="50" data-vcy="40" data-opacity="0" data-pinch="4">Default</button>
-          <button class="cp-preset" data-vcx="50" data-vcy="60" data-opacity="0" data-pinch="4">Laptop</button>
+          <button class="cp-preset" data-vcx="50" data-vcy="40" data-opacity="0" data-pinch="4">Default</button>
+          <button class="cp-preset active" data-vcx="50" data-vcy="60" data-opacity="0" data-pinch="4">Laptop</button>
           <button class="cp-preset" data-vcx="50" data-vcy="75" data-opacity="0" data-pinch="4">High</button>
           <button class="cp-preset" data-vcx="50" data-vcy="40" data-opacity="35" data-pinch="4">See-through</button>
         </div>
@@ -548,13 +560,58 @@ body {
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Cam Y ↑high</span>
-            <input type="range" id="cam-vcy" min="0" max="100" value="40">
-            <span class="cp-val" id="cam-vcy-val">40</span>
+            <input type="range" id="cam-vcy" min="0" max="100" value="60">
+            <span class="cp-val" id="cam-vcy-val">60</span>
           </div>
         </div>
 
         <div class="cp-footer">
           <button class="cp-reset" id="cam-reset">Reset to defaults</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Gameplay settings box -->
+    <div id="gp-box">
+      <button class="ctrl-btn" id="gp-box-toggle">Gameplay</button>
+      <div id="gp-panel">
+        <div class="cp-head">
+          <span class="cp-head-title">Physics</span>
+          <button id="gp-panel-close">×</button>
+        </div>
+
+        <div class="cp-presets">
+          <span class="cp-preset-lbl">Preset</span>
+          <button class="gp-preset" data-gravity="3" data-speed="200" data-tmin="200" data-playerz="55">Easy</button>
+          <button class="gp-preset active" data-gravity="5" data-speed="150" data-tmin="300" data-playerz="55">Normal</button>
+          <button class="gp-preset" data-gravity="7" data-speed="120" data-tmin="500" data-playerz="55">Sim</button>
+        </div>
+
+        <div class="cp-rows">
+          <div class="cp-row">
+            <span class="cp-lbl">Gravity</span>
+            <input type="range" id="gp-gravity" min="1" max="10" value="5">
+            <span class="cp-val" id="gp-gravity-val">5</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Speed</span>
+            <input type="range" id="gp-speed" min="50" max="300" value="150">
+            <span class="cp-val" id="gp-speed-val">150</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Min arc ms</span>
+            <input type="range" id="gp-tmin" min="100" max="700" value="300">
+            <span class="cp-val" id="gp-tmin-val">300</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Throw dist</span>
+            <input type="range" id="gp-playerz" min="20" max="100" value="55">
+            <span class="cp-val" id="gp-playerz-val">55</span>
+          </div>
+        </div>
+
+        <div class="cp-footer">
+          <button class="cp-reset" id="gp-reset">Reset to defaults</button>
         </div>
       </div>
     </div>
@@ -917,16 +974,18 @@ let handPosHist = [];   // {canvasX, canvasY, palmSc, t} per frame
 let pinched=false, pinchHoldFrames=0;
 
 // Virtual corridor constants (world units = board radii)
-const PLAYER_Z  = 5.5;      // virtual depth of player from board face
+let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
-const G_WORLD   = 0.000020; // gravity (board-radii / ms²)
+let   G_WORLD   = 0.000020; // gravity (board-radii / ms²)
+let   THROW_SPEED = 1.50;   // velocity multiplier applied at launch
+let   T_MIN_MS    = 300;    // minimum flight time (ms) — caps forward speed
 
 // Virtual camera center — the normalized screen position that maps to
 // world origin (board center). Defaults match current board layout.
 // Adjust when the camera is above/below or off-centre from the board.
 let CAM_VCX = 0.50;   // 0 = left edge, 1 = right edge
-let CAM_VCY = 0.40;   // 0 = top edge,  1 = bottom edge
-const PINCH_IN = 0.055;
+let CAM_VCY = 0.60;   // default = Laptop (camera above screen)
+const PINCH_IN  = 0.055;
 let   PINCH_OUT = 0.062;  // user-adjustable via slider
 
 // Throw cooldown
@@ -948,15 +1007,18 @@ function processHandFrame(lm, now) {
   aimRawHist.push([bx,by]);
   if (aimRawHist.length>12) aimRawHist.shift();
 
-  // Pinch geometry
+  // Pinch geometry — scale thresholds by palm size so distance doesn't matter
   const pd  = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
   const psc = Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
+  const pscScale   = Math.max(0.3, psc / PSC_REF);  // <1 far, >1 close
+  const sPinchIn   = PINCH_IN  * pscScale;
+  const sPinchOut  = PINCH_OUT * pscScale;
   // Wrist (lm[0]): captures arm-lift arc better than the knuckle.
   // Palm scale still uses the lm[9]–lm[0] span for depth estimation.
   const tx  = 1 - lm[0].x;
   const ty  = lm[0].y;
 
-  if (!pinched && pd < PINCH_IN) {
+  if (!pinched && pd < sPinchIn) {
     pinched = true; pinchHoldFrames = 0;
     handPosHist = [];
     lastHandX = tx * canvas.width;
@@ -972,7 +1034,7 @@ function processHandFrame(lm, now) {
     handPosHist.push({ canvasX: lastHandX, canvasY: lastHandY, palmSc: psc, t: now });
     if (handPosHist.length > 18) handPosHist.shift();
 
-    if (pd > PINCH_OUT && pinchHoldFrames > 2) {
+    if (pd > sPinchOut && pinchHoldFrames > 2) {
       pinched = false;
       if (now - lastThrow > COOLDOWN && gamePhase !== 'gameover') {
         const tv = calcThrowVec();
@@ -1049,17 +1111,14 @@ function registerThrow(throwVec) {
 
   let vwx, vwy, vwz;
   if (throwVec) {
-    // Scale velocity down so flight feels like a real darts throw distance.
-    // Preserves direction; only slows the dart.
-    const SPEED_SCALE = 1.50;
-    vwx = throwVec.vwx * SPEED_SCALE;
-    vwy = throwVec.vwy * SPEED_SCALE;
-    vwz = throwVec.vwz * SPEED_SCALE;
+    vwx = throwVec.vwx * THROW_SPEED;
+    vwy = throwVec.vwy * THROW_SPEED;
+    vwz = throwVec.vwz * THROW_SPEED;
     // Guarantee dart travels toward the board
     if (vwz > -wz0 / 2000) vwz = -wz0 / 1000;
-    // Cap forward speed so dart spends ≥300 ms in the air.
+    // Cap forward speed so dart spends ≥T_MIN_MS in the air.
     // Only scale lateral (vwx); preserve vwy so a hard fast throw still arcs.
-    const vwzMin = -wz0 / 300;
+    const vwzMin = -wz0 / T_MIN_MS;
     if (vwz < vwzMin) { vwx *= vwzMin / vwz; vwz = vwzMin; }
     // Virtual camera center perspective correction: camera above the board
     // (vcyPx > cy) means a straight forward throw appears to go slightly
@@ -1390,8 +1449,70 @@ document.getElementById('cam-vcy').addEventListener('input', e => {
   document.getElementById('cam-vcy-val').textContent = e.target.value;
 });
 document.getElementById('cam-reset').addEventListener('click', () => {
-  applyCamValues(50, 40, 0, 4);
-  setActivePreset(document.querySelector('.cp-preset[data-vcx="50"][data-vcy="40"][data-opacity="0"]'));
+  applyCamValues(50, 60, 0, 4);
+  setActivePreset(document.querySelector('.cp-preset[data-vcy="60"][data-opacity="0"]'));
+});
+
+// ── Gameplay panel ─────────────────────────────────────────────────────────────
+function applyGpValues(gravity, speed, tmin, playerz) {
+  G_WORLD     = gravity * 0.000004;
+  THROW_SPEED = speed   / 100;
+  T_MIN_MS    = tmin;
+  PLAYER_Z    = playerz / 10;
+  document.getElementById('gp-gravity').value  = gravity;
+  document.getElementById('gp-speed').value    = speed;
+  document.getElementById('gp-tmin').value     = tmin;
+  document.getElementById('gp-playerz').value  = playerz;
+  document.getElementById('gp-gravity-val').textContent  = gravity;
+  document.getElementById('gp-speed-val').textContent    = speed;
+  document.getElementById('gp-tmin-val').textContent     = tmin;
+  document.getElementById('gp-playerz-val').textContent  = playerz;
+}
+function setActiveGpPreset(btn) {
+  document.querySelectorAll('.gp-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+const gpToggle = document.getElementById('gp-box-toggle');
+const gpPanel  = document.getElementById('gp-panel');
+gpToggle.addEventListener('click', () => gpPanel.classList.toggle('open'));
+document.getElementById('gp-panel-close').addEventListener('click', () => gpPanel.classList.remove('open'));
+
+document.querySelectorAll('.gp-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyGpValues(+btn.dataset.gravity, +btn.dataset.speed, +btn.dataset.tmin, +btn.dataset.playerz);
+    setActiveGpPreset(btn);
+  });
+});
+
+document.getElementById('gp-gravity').addEventListener('input', e => {
+  G_WORLD = e.target.value * 0.000004;
+  document.getElementById('gp-gravity-val').textContent = e.target.value;
+  setActiveGpPreset(document.createElement('span'));
+});
+document.getElementById('gp-speed').addEventListener('input', e => {
+  THROW_SPEED = e.target.value / 100;
+  document.getElementById('gp-speed-val').textContent = e.target.value;
+});
+document.getElementById('gp-tmin').addEventListener('input', e => {
+  T_MIN_MS = +e.target.value;
+  document.getElementById('gp-tmin-val').textContent = e.target.value;
+});
+document.getElementById('gp-playerz').addEventListener('input', e => {
+  PLAYER_Z = e.target.value / 10;
+  document.getElementById('gp-playerz-val').textContent = e.target.value;
+});
+document.getElementById('gp-reset').addEventListener('click', () => {
+  applyGpValues(5, 150, 300, 55);
+  setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="5"]'));
+});
+
+// ── Click outside to close either panel ───────────────────────────────────────
+document.addEventListener('mousedown', e => {
+  if (camPanel.classList.contains('open') && !document.getElementById('cam-box').contains(e.target))
+    camPanel.classList.remove('open');
+  if (gpPanel.classList.contains('open') && !document.getElementById('gp-box').contains(e.target))
+    gpPanel.classList.remove('open');
 });
 
 // Space = throw with current aim (fallback when no camera)
