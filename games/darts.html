@@ -938,19 +938,27 @@ function drawWall() {
   ctx.restore();
 }
 
+// Offscreen cache for the board-mount shadow blur — recomputed only on resize.
+// ctx.filter:'blur' is the single most expensive canvas op on Windows.
+let _shadowCache = null, _shadowKey = '';
 function drawBoardMount() {
   const { cx, cy, R } = getBoardLayout();
   const fade = 1 - camOpacityVal * 0.85;
   if (fade <= 0) return;
+  const key = `${canvas.width},${canvas.height}`;
+  if (_shadowKey !== key) {
+    _shadowKey  = key;
+    _shadowCache = document.createElement('canvas');
+    _shadowCache.width  = canvas.width;
+    _shadowCache.height = canvas.height;
+    const sc = _shadowCache.getContext('2d');
+    sc.filter = 'blur(22px)';
+    sc.beginPath(); sc.arc(cx + 9, cy + 13, R * 1.12, 0, Math.PI * 2);
+    sc.fillStyle = '#000'; sc.fill();
+  }
   ctx.save();
   ctx.globalAlpha = fade * 0.75;
-  // Soft drop-shadow offset behind board gives mounted-on-wall depth
-  ctx.filter = 'blur(22px)';
-  ctx.beginPath();
-  ctx.arc(cx + 9, cy + 13, R * 1.12, 0, Math.PI * 2);
-  ctx.fillStyle = '#000';
-  ctx.fill();
-  ctx.filter = 'none';
+  ctx.drawImage(_shadowCache, 0, 0);
   ctx.restore();
 }
 
@@ -1801,6 +1809,11 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
+// detectForVideo is synchronous and expensive; camera outputs ~30fps anyway.
+// Throttle detection to 30fps so the render loop stays at 60fps.
+let _lastDetectMs = 0, _lastHands = [];
+const DETECT_INTERVAL = 34; // ms → ~29fps, just under camera rate
+
 function loop() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawWall();
@@ -1811,14 +1824,16 @@ function loop() {
   drawVirtualCenter();
 
   const now = performance.now();
-  let hands = [];
-  if (webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+  if (webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+      now - _lastDetectMs >= DETECT_INTERVAL) {
+    _lastDetectMs = now;
     const r = landmarker.detectForVideo(webcamEl, now);
-    hands = (r.landmarks||[]).map((lms,i) => ({
+    _lastHands = (r.landmarks||[]).map((lms,i) => ({
       landmarks: lms,
       handedness: r.handednesses?.[i]?.[0]?.displayName ?? 'Unknown',
     }));
   }
+  const hands = _lastHands;
 
   const readyVisible = document.getElementById('ready-screen').style.display!=='none';
   const { cx, cy } = getBoardLayout();
