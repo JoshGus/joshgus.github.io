@@ -261,6 +261,104 @@ body {
   cursor: pointer;
 }
 
+/* ── camera settings box ── */
+#cam-box { position: relative; }
+#cam-panel {
+  display: none;
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  width: 230px;
+  background: rgba(247,236,225,.97);
+  border: 1px solid var(--line-strong);
+  backdrop-filter: blur(10px);
+  z-index: 30;
+  flex-direction: column;
+}
+#cam-panel.open { display: flex; }
+.cp-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid var(--line);
+}
+.cp-head-title {
+  font-size: .44rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.cp-head button {
+  background: none; border: none; cursor: pointer;
+  color: var(--dimmer); font-size: .85rem; line-height: 1; padding: 0;
+}
+.cp-head button:hover { color: var(--fg); }
+.cp-presets {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 10px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+.cp-preset-lbl {
+  font-family: var(--mono);
+  font-size: .42rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--dimmer);
+  margin-right: 2px;
+  flex-shrink: 0;
+}
+.cp-preset {
+  font-family: var(--mono);
+  font-size: .46rem;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  padding: 3px 8px;
+  background: rgba(29,23,18,.05);
+  border: 1px solid var(--line);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background .12s;
+}
+.cp-preset:hover { background: rgba(29,23,18,.13); }
+.cp-preset.active { background: var(--accent-ink); color: #fff; border-color: var(--accent-ink); }
+.cp-rows { display: flex; flex-direction: column; }
+.cp-row {
+  display: grid;
+  grid-template-columns: 68px 1fr 26px;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-bottom: 1px solid rgba(29,23,18,.05);
+  font-family: var(--mono);
+  font-size: .5rem;
+}
+.cp-row:last-child { border-bottom: none; }
+.cp-row .cp-lbl { color: var(--dim); }
+.cp-row input[type=range] { accent-color: var(--accent-ink); width: 100%; }
+.cp-row .cp-val { color: var(--dimmer); text-align: right; }
+.cp-footer {
+  padding: 6px 10px 8px;
+  border-top: 1px solid var(--line);
+}
+.cp-reset {
+  width: 100%;
+  font-family: var(--mono);
+  font-size: .46rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px;
+  background: none;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  cursor: pointer;
+  transition: all .12s;
+}
+.cp-reset:hover { color: var(--fg); border-color: var(--fg); }
+
 /* ── notes ── */
 .notes-section {
   position: absolute;
@@ -414,22 +512,52 @@ body {
   <div id="controls">
     <button class="ctrl-btn" id="btn-mode">2-Player Game</button>
     <button class="ctrl-btn" id="btn-reset">Reset</button>
-    <label class="cam-lbl">
-      <span>Cam</span>
-      <input type="range" id="cam-opacity" min="0" max="70" value="0">
-    </label>
-    <label class="cam-lbl">
-      <span>Pinch</span>
-      <input type="range" id="pinch-sens" min="1" max="9" value="4">
-    </label>
-    <label class="cam-lbl">
-      <span>Cam X</span>
-      <input type="range" id="cam-vcx" min="20" max="80" value="50">
-    </label>
-    <label class="cam-lbl">
-      <span>Cam Y</span>
-      <input type="range" id="cam-vcy" min="5" max="75" value="40">
-    </label>
+
+    <!-- Camera settings box -->
+    <div id="cam-box">
+      <button class="ctrl-btn" id="cam-box-toggle">Camera</button>
+      <div id="cam-panel">
+        <div class="cp-head">
+          <span class="cp-head-title">Camera Setup</span>
+          <button id="cam-panel-close">×</button>
+        </div>
+
+        <div class="cp-presets">
+          <span class="cp-preset-lbl">Preset</span>
+          <button class="cp-preset active" data-vcx="50" data-vcy="40" data-opacity="0" data-pinch="4">Default</button>
+          <button class="cp-preset" data-vcx="50" data-vcy="28" data-opacity="0" data-pinch="4">Laptop</button>
+          <button class="cp-preset" data-vcx="50" data-vcy="16" data-opacity="0" data-pinch="4">High</button>
+          <button class="cp-preset" data-vcx="50" data-vcy="40" data-opacity="35" data-pinch="4">See-through</button>
+        </div>
+
+        <div class="cp-rows">
+          <div class="cp-row">
+            <span class="cp-lbl">Opacity</span>
+            <input type="range" id="cam-opacity" min="0" max="70" value="0">
+            <span class="cp-val" id="cam-opacity-val">0</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Pinch sens</span>
+            <input type="range" id="pinch-sens" min="1" max="9" value="4">
+            <span class="cp-val" id="pinch-sens-val">4</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Cam X</span>
+            <input type="range" id="cam-vcx" min="20" max="80" value="50">
+            <span class="cp-val" id="cam-vcx-val">50</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Cam Y</span>
+            <input type="range" id="cam-vcy" min="5" max="75" value="40">
+            <span class="cp-val" id="cam-vcy-val">40</span>
+          </div>
+        </div>
+
+        <div class="cp-footer">
+          <button class="cp-reset" id="cam-reset">Reset to defaults</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <!-- Notes -->
@@ -1201,22 +1329,61 @@ document.getElementById('btn-cancel-ready').addEventListener('click',
   () => document.getElementById('ready-screen').style.display='none');
 document.getElementById('btn-rematch').addEventListener('click', showReadyScreen);
 document.getElementById('btn-to-practice').addEventListener('click', setPractice);
+// ── Camera panel ──────────────────────────────────────────────────────────────
+function applyCamValues(vcx, vcy, opacity, pinch) {
+  document.getElementById('cam-vcx').value    = vcx;
+  document.getElementById('cam-vcy').value    = vcy;
+  document.getElementById('cam-opacity').value = opacity;
+  document.getElementById('pinch-sens').value  = pinch;
+  document.getElementById('cam-vcx-val').textContent    = vcx;
+  document.getElementById('cam-vcy-val').textContent    = vcy;
+  document.getElementById('cam-opacity-val').textContent = opacity;
+  document.getElementById('pinch-sens-val').textContent  = pinch;
+  CAM_VCX = vcx / 100;
+  CAM_VCY = vcy / 100;
+  camOpacityVal = opacity / 100;
+  webcamEl.style.opacity = camOpacityVal;
+  PINCH_OUT = 0.057 + (pinch - 1) / 8 * 0.031;
+}
+
+function setActivePreset(btn) {
+  document.querySelectorAll('.cp-preset').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+
+const camToggle = document.getElementById('cam-box-toggle');
+const camPanel  = document.getElementById('cam-panel');
+camToggle.addEventListener('click', () => camPanel.classList.toggle('open'));
+document.getElementById('cam-panel-close').addEventListener('click', () => camPanel.classList.remove('open'));
+
+document.querySelectorAll('.cp-preset').forEach(btn => {
+  btn.addEventListener('click', () => {
+    applyCamValues(+btn.dataset.vcx, +btn.dataset.vcy, +btn.dataset.opacity, +btn.dataset.pinch);
+    setActivePreset(btn);
+  });
+});
+
 document.getElementById('cam-opacity').addEventListener('input', e => {
   camOpacityVal = e.target.value / 100;
   webcamEl.style.opacity = camOpacityVal;
+  document.getElementById('cam-opacity-val').textContent = e.target.value;
+  setActivePreset(document.createElement('span')); // clear preset highlight on manual adjust
 });
-// Pinch sensitivity: slider 1–9, maps to PINCH_OUT range 0.057–0.088
-// Higher value = less sensitive (fingers must open more to release)
 document.getElementById('pinch-sens').addEventListener('input', e => {
   PINCH_OUT = 0.057 + (e.target.value - 1) / 8 * 0.031;
+  document.getElementById('pinch-sens-val').textContent = e.target.value;
 });
-// Virtual camera center — slide to match where your camera sits relative to the board.
-// Camera above the board → lower Cam Y until throws feel straight.
 document.getElementById('cam-vcx').addEventListener('input', e => {
   CAM_VCX = e.target.value / 100;
+  document.getElementById('cam-vcx-val').textContent = e.target.value;
 });
 document.getElementById('cam-vcy').addEventListener('input', e => {
   CAM_VCY = e.target.value / 100;
+  document.getElementById('cam-vcy-val').textContent = e.target.value;
+});
+document.getElementById('cam-reset').addEventListener('click', () => {
+  applyCamValues(50, 40, 0, 4);
+  setActivePreset(document.querySelector('.cp-preset[data-vcy="40"]'));
 });
 
 // Space = throw with current aim (fallback when no camera)
