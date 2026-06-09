@@ -422,6 +422,14 @@ body {
       <span>Pinch</span>
       <input type="range" id="pinch-sens" min="1" max="9" value="4">
     </label>
+    <label class="cam-lbl">
+      <span>Cam X</span>
+      <input type="range" id="cam-vcx" min="20" max="80" value="50">
+    </label>
+    <label class="cam-lbl">
+      <span>Cam Y</span>
+      <input type="range" id="cam-vcy" min="5" max="75" value="40">
+    </label>
   </div>
 
   <!-- Notes -->
@@ -784,6 +792,12 @@ let pinched=false, pinchHoldFrames=0;
 const PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
 const G_WORLD   = 0.000013; // gravity (board-radii / ms²)
+
+// Virtual camera center — the normalized screen position that maps to
+// world origin (board center). Defaults match current board layout.
+// Adjust when the camera is above/below or off-centre from the board.
+let CAM_VCX = 0.50;   // 0 = left edge, 1 = right edge
+let CAM_VCY = 0.40;   // 0 = top edge,  1 = bottom edge
 const PINCH_IN = 0.055;
 let   PINCH_OUT = 0.062;  // user-adjustable via slider
 
@@ -855,10 +869,13 @@ function calcThrowVec() {
   const dt = p3.t - p1.t;
   if (dt < 8) return null;
 
-  const { cx, cy, R } = getBoardLayout();
+  const { R } = getBoardLayout();
+  // Use the virtual camera center so off-axis cameras map correctly.
+  const vcxPx = CAM_VCX * canvas.width;
+  const vcyPx = CAM_VCY * canvas.height;
   // World position at each sample (board-radii, Y-up)
-  const wx1 = (p1.canvasX - cx) / R,  wy1 = -(p1.canvasY - cy) / R;
-  const wx3 = (p3.canvasX - cx) / R,  wy3 = -(p3.canvasY - cy) / R;
+  const wx1 = (p1.canvasX - vcxPx) / R,  wy1 = -(p1.canvasY - vcyPx) / R;
+  const wx3 = (p3.canvasX - vcxPx) / R,  wy3 = -(p3.canvasY - vcyPx) / R;
   const wz1 = PLAYER_Z * PSC_REF / p1.palmSc;
   const wz3 = PLAYER_Z * PSC_REF / p3.palmSc;
 
@@ -897,8 +914,10 @@ function registerThrow(throwVec) {
 
   // Initial world position from the most recent hand sample
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
-  const wx0 = last ? (last.canvasX - cx) / R : 0;
-  const wy0 = last ? -(last.canvasY - cy) / R : 0.3;
+  const vcxPx = CAM_VCX * canvas.width;
+  const vcyPx = CAM_VCY * canvas.height;
+  const wx0 = last ? (last.canvasX - vcxPx) / R : 0;
+  const wy0 = last ? -(last.canvasY - vcyPx) / R : 0.3;
   const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
 
   let vwx, vwy, vwz;
@@ -1102,6 +1121,19 @@ function drawDarts() {
 // ── Draw aim cursor ───────────────────────────────────────────────────────────
 function drawAim() { /* crosshair removed */ }
 
+// Faint dot showing the virtual camera center (helps with calibration)
+function drawVirtualCenter() {
+  const vx = CAM_VCX * canvas.width, vy = CAM_VCY * canvas.height;
+  ctx.save();
+  ctx.globalAlpha = 0.25;
+  ctx.strokeStyle = '#ccf73f'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(vx-8,vy); ctx.lineTo(vx+8,vy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(vx,vy-8); ctx.lineTo(vx,vy+8); ctx.stroke();
+  ctx.beginPath(); ctx.arc(vx,vy,3,0,Math.PI*2);
+  ctx.fillStyle='#ccf73f'; ctx.fill();
+  ctx.restore();
+}
+
 // ── Ready processing ──────────────────────────────────────────────────────────
 function processReady(hands) {
   let saw1=false, saw2=false;
@@ -1178,6 +1210,14 @@ document.getElementById('cam-opacity').addEventListener('input', e => {
 document.getElementById('pinch-sens').addEventListener('input', e => {
   PINCH_OUT = 0.057 + (e.target.value - 1) / 8 * 0.031;
 });
+// Virtual camera center — slide to match where your camera sits relative to the board.
+// Camera above the board → lower Cam Y until throws feel straight.
+document.getElementById('cam-vcx').addEventListener('input', e => {
+  CAM_VCX = e.target.value / 100;
+});
+document.getElementById('cam-vcy').addEventListener('input', e => {
+  CAM_VCY = e.target.value / 100;
+});
 
 // Space = throw with current aim (fallback when no camera)
 document.addEventListener('keydown', e => {
@@ -1197,6 +1237,7 @@ function loop() {
   drawBoard();
   drawDarts();
   drawAnims();
+  drawVirtualCenter();
 
   const now = performance.now();
   let hands = [];
