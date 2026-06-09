@@ -1,0 +1,475 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>3D Boids — Joshua Gustaveson</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7ece1;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14);
+  --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;display:flex;flex-direction:column}
+
+.status{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
+  padding:10px clamp(16px,3vw,48px);font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(255,255,255,.28);border-bottom:1px solid rgba(255,255,255,.06);
+  background:rgba(6,9,18,.95)}
+.status .sig{font-weight:600;color:rgba(255,255,255,.6)}
+.status .sig:hover,.status a:hover{color:#ccf73f}
+.status a{color:inherit;text-decoration:none;transition:color .2s}
+.status nav{display:flex;gap:18px}
+#clock{color:rgba(255,255,255,.16)}
+@media(max-width:600px){.status nav{display:none}}
+
+.game-wrap{flex:1;position:relative;overflow:hidden}
+#canvas{display:block;width:100%;height:100%}
+
+/* control panel */
+.panel{
+  position:absolute;top:20px;right:18px;
+  width:220px;
+  background:rgba(6,9,18,.88);border:1px solid rgba(255,255,255,.08);
+  padding:16px;backdrop-filter:blur(8px);z-index:10
+}
+.panel-title{font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;
+  color:rgba(255,255,255,.35);margin-bottom:14px;padding-bottom:10px;
+  border-bottom:1px solid rgba(255,255,255,.07)}
+
+.slider-row{margin-bottom:11px}
+.slider-row label{display:flex;justify-content:space-between;align-items:center;
+  font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px}
+.slider-row label span{color:rgba(255,255,255,.55);min-width:28px;text-align:right}
+.slider-row input[type=range]{width:100%;accent-color:#ccf73f;cursor:pointer;display:block}
+
+.panel-sep{height:1px;background:rgba(255,255,255,.07);margin:14px 0}
+.panel-label{font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
+  color:rgba(255,255,255,.3);margin-bottom:8px}
+
+.mode-btns{display:flex;gap:6px}
+.mode-btn{
+  flex:1;font-family:var(--mono);font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 4px;border:1px solid rgba(255,255,255,.1);background:transparent;
+  color:rgba(255,255,255,.3);cursor:pointer;transition:all .15s
+}
+.mode-btn:hover{border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.8)}
+.mode-btn.active{background:#ccf73f;border-color:#ccf73f;color:#000;font-weight:600}
+
+/* info overlay: drag hint */
+.drag-hint{
+  position:absolute;bottom:18px;left:18px;
+  font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2);
+  pointer-events:none
+}
+
+/* notes */
+.notes-section{
+  flex-shrink:0;max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.2,.7,.3,1);
+  background:rgba(4,6,14,.97);border-top:1px solid rgba(255,255,255,.06)
+}
+.notes-section.open{max-height:440px;overflow-y:auto}
+.notes-inner{padding:28px clamp(20px,4vw,72px) 32px;max-width:900px}
+.notes-inner h2{font-family:var(--disp);font-weight:440;font-size:1.4rem;letter-spacing:-.02em;
+  color:rgba(255,255,255,.65);margin-bottom:20px;font-variation-settings:"opsz" 36}
+.note-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px 40px}
+@media(max-width:600px){.note-grid{grid-template-columns:1fr}}
+.note-item dt{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
+  color:#ccf73f;margin-bottom:6px}
+.note-item dd{font-family:var(--body);font-size:.88rem;line-height:1.65;color:rgba(255,255,255,.42)}
+.note-item code{font-family:var(--mono);font-size:.75rem;color:rgba(255,255,255,.58);
+  background:rgba(255,255,255,.06);padding:1px 5px}
+
+.notes-toggle{
+  position:absolute;bottom:18px;right:18px;
+  font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 10px;border:1px solid rgba(255,255,255,.1);background:rgba(6,9,18,.88);
+  color:rgba(255,255,255,.28);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);z-index:10
+}
+.notes-toggle:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.28)}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" style="color:rgba(204,247,63,.5)">Games</a>
+    <a href="../gallery.html">Photography</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="game-wrap">
+  <canvas id="canvas"></canvas>
+
+  <div class="panel">
+    <div class="panel-title">Boid controls</div>
+
+    <div class="slider-row">
+      <label>Count <span id="cnt-v">200</span></label>
+      <input type="range" id="cnt" min="10" max="500" value="200">
+    </div>
+    <div class="slider-row">
+      <label>Speed <span id="spd-v">2.5</span></label>
+      <input type="range" id="spd" min="5" max="80" value="25">
+    </div>
+    <div class="slider-row">
+      <label>Separation <span id="sep-v">1.0</span></label>
+      <input type="range" id="sep" min="0" max="30" value="10">
+    </div>
+    <div class="slider-row">
+      <label>Alignment <span id="ali-v">1.0</span></label>
+      <input type="range" id="ali" min="0" max="30" value="10">
+    </div>
+    <div class="slider-row">
+      <label>Cohesion <span id="coh-v">1.0</span></label>
+      <input type="range" id="coh" min="0" max="30" value="10">
+    </div>
+    <div class="slider-row">
+      <label>Vision <span id="vis-v">60</span></label>
+      <input type="range" id="vis" min="15" max="250" value="60">
+    </div>
+
+    <div class="panel-sep"></div>
+
+    <div class="panel-label">Mouse interaction</div>
+    <div class="mode-btns">
+      <button class="mode-btn active" data-mode="none">Off</button>
+      <button class="mode-btn" data-mode="attract">Attract</button>
+      <button class="mode-btn" data-mode="repel">Repel</button>
+    </div>
+  </div>
+
+  <div class="drag-hint">Drag to rotate &nbsp;·&nbsp; Scroll to zoom</div>
+  <button class="notes-toggle" id="notes-toggle">How it works</button>
+</div>
+
+<div class="notes-section" id="notes">
+  <div class="notes-inner">
+    <h2>Implementation notes</h2>
+    <div class="note-grid">
+      <dl class="note-item">
+        <dt>Three steering rules</dt>
+        <dd><strong>Separation</strong>: push away from any neighbor closer than <code>sepRadius</code>. <strong>Alignment</strong>: nudge velocity toward the average velocity of neighbors within <code>visRadius</code>. <strong>Cohesion</strong>: steer toward the average position of visible neighbors. Each rule produces an acceleration vector; they're summed and applied to velocity each frame.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Complexity</dt>
+        <dd>Neighbor search is O(n²) per frame — every boid checks every other. For n = 500 that's 250,000 distance comparisons per frame. Squared distances are computed first; <code>Math.sqrt</code> is only called when needed for the separation direction vector. A spatial hash grid would reduce this to O(n) but adds significant code for a problem that fits comfortably in O(n²) at this scale.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>3D projection</dt>
+        <dd>Boids live in a fixed world volume (800 × 600 × 800 units). A Y-axis rotation matrix rotates the world each frame: <code>rx = x·cos(θ) − z·sin(θ)</code>. Perspective divide: <code>scale = fov / (depth + fov)</code> where depth is the rotated z. Screen position scales with <code>canvas.width / worldWidth</code> so the flock fills the viewport regardless of window size.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Speed clamping</dt>
+        <dd>After summing all steering accelerations, velocity is clamped to <code>[minSpeed, maxSpeed]</code> by rescaling the vector: <code>v = v / |v| · clampedSpeed</code>. Without a minimum speed, boids can stall when forces cancel out. Without a maximum, separation impulses on close encounters cause boids to fly off-screen.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Trail rendering</dt>
+        <dd>Instead of <code>clearRect</code>, each frame begins with <code>fillStyle = rgba(8,12,22,0.18)</code> over the entire canvas. This leaves a decaying ghost of previous positions — a motion trail with an exponential decay of approximately 0.18 per frame (settling to ~1% of original brightness after ~25 frames at 60fps).</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Depth sort</dt>
+        <dd>Boids are sorted back-to-front by their rotated z coordinate before drawing, so closer boids correctly overlap farther ones. A new sorted array is created each frame via <code>[...boids].sort()</code> — O(n log n). The original array is left in insertion order for the O(n²) physics update, which doesn't require any particular ordering.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Boundary condition</dt>
+        <dd>Toroidal (wrap-around) boundaries rather than bouncing. When a boid exits one side of the world volume it reappears on the opposite side. Bouncing walls cause boids to accumulate in corners (separation forces push them there and reflection reinforces it). Wrapping maintains uniform spatial distribution.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Dynamic count</dt>
+        <dd>The count slider adds or removes boids immediately. Adding creates a new <code>Boid</code> at a random position with a velocity in the current speed range. Removing truncates the array from the end — O(1). No object pooling needed at this scale; GC pressure from creating 300 new objects on a slider drag is negligible.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── world & camera ────────────────────────────────────────────────────────────
+const WX = 800, WY = 600, WZ = 800; // world bounds
+let camAngle = 0, camZoom = 1;
+let dragging = false, dragStartX = 0, dragStartAngle = 0;
+const FOV = 480;
+
+// ── params ────────────────────────────────────────────────────────────────────
+const params = {
+  count:    200,
+  maxSpeed: 2.5,
+  minSpeed: 0.8,
+  sep:      1.0,
+  ali:      1.0,
+  coh:      1.0,
+  visRadius:  60,
+  sepRadius:  25,
+  mouseMode: 'none',
+  mouseForce: 2.5
+};
+
+// ── canvas ────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+let cx, cy;
+
+function resize() {
+  canvas.width  = canvas.offsetWidth  || 800;
+  canvas.height = canvas.offsetHeight || 600;
+  cx = canvas.width  / 2;
+  cy = canvas.height / 2;
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── projection ────────────────────────────────────────────────────────────────
+function project(x, y, z) {
+  const cos = Math.cos(camAngle), sin = Math.sin(camAngle);
+  const rx = x * cos - z * sin;
+  const rz = x * sin + z * cos;
+  const depth = rz + FOV + WZ * 0.5;
+  const p = (depth > 1) ? FOV / depth : 0.01;
+  const s = Math.min(canvas.width / WX, canvas.height / WY) * camZoom;
+  return { sx: cx + rx * p * s, sy: cy + y * p * s, scale: p };
+}
+
+// ── boid ──────────────────────────────────────────────────────────────────────
+class Boid {
+  constructor() {
+    this.x = (Math.random() - .5) * WX;
+    this.y = (Math.random() - .5) * WY;
+    this.z = (Math.random() - .5) * WZ;
+    const spd = params.minSpeed + Math.random() * (params.maxSpeed - params.minSpeed);
+    const th = Math.random() * Math.PI * 2;
+    const ph = Math.acos(2 * Math.random() - 1);
+    this.vx = Math.sin(ph) * Math.cos(th) * spd;
+    this.vy = Math.sin(ph) * Math.sin(th) * spd;
+    this.vz = Math.cos(ph) * spd;
+  }
+}
+
+let boids = Array.from({length: params.count}, () => new Boid());
+
+// ── mouse ─────────────────────────────────────────────────────────────────────
+const mouse = { active: false, wx: 0, wy: 0 };
+
+canvas.addEventListener('mousemove', e => {
+  const rect = canvas.getBoundingClientRect();
+  const sx = e.clientX - rect.left;
+  const sy = e.clientY - rect.top;
+  // invert projection at z=0
+  const s = Math.min(canvas.width / WX, canvas.height / WY) * camZoom;
+  const cos = Math.cos(-camAngle), sin = Math.sin(-camAngle);
+  const p0 = FOV / (FOV + WZ * 0.5); // perspective at z=0
+  const lx = (sx - cx) / (p0 * s);
+  const ly = (sy - cy) / (p0 * s);
+  mouse.wx = lx * cos - 0 * sin; // approximate 3D position
+  mouse.wy = ly;
+  mouse.active = true;
+});
+canvas.addEventListener('mouseleave', () => { mouse.active = false; });
+
+// drag to rotate
+canvas.addEventListener('mousedown', e => {
+  dragging = true;
+  dragStartX = e.clientX;
+  dragStartAngle = camAngle;
+});
+document.addEventListener('mouseup', () => { dragging = false; });
+canvas.addEventListener('mousemove', e => {
+  if (!dragging) return;
+  camAngle = dragStartAngle + (e.clientX - dragStartX) * 0.006;
+});
+
+// scroll to zoom
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  camZoom = Math.max(0.4, Math.min(3, camZoom * (e.deltaY > 0 ? 0.95 : 1.05)));
+}, {passive: false});
+
+// ── physics ───────────────────────────────────────────────────────────────────
+function updateBoid(boid) {
+  let sepX=0, sepY=0, sepZ=0;
+  let aliVX=0, aliVY=0, aliVZ=0, aliN=0;
+  let cohX=0, cohY=0, cohZ=0, cohN=0;
+
+  const sepR2 = params.sepRadius * params.sepRadius;
+  const visR2 = params.visRadius * params.visRadius;
+
+  for (const o of boids) {
+    if (o === boid) continue;
+    const dx = o.x-boid.x, dy = o.y-boid.y, dz = o.z-boid.z;
+    const d2 = dx*dx + dy*dy + dz*dz;
+    if (d2 < sepR2 && d2 > 0) {
+      const d = Math.sqrt(d2);
+      sepX -= dx/d; sepY -= dy/d; sepZ -= dz/d;
+    }
+    if (d2 < visR2) {
+      aliVX+=o.vx; aliVY+=o.vy; aliVZ+=o.vz; aliN++;
+      cohX+=o.x;  cohY+=o.y;  cohZ+=o.z;  cohN++;
+    }
+  }
+
+  let ax = sepX * params.sep  * 0.10;
+  let ay = sepY * params.sep  * 0.10;
+  let az = sepZ * params.sep  * 0.10;
+
+  if (aliN > 0) {
+    ax += (aliVX/aliN - boid.vx) * params.ali * 0.05;
+    ay += (aliVY/aliN - boid.vy) * params.ali * 0.05;
+    az += (aliVZ/aliN - boid.vz) * params.ali * 0.05;
+  }
+  if (cohN > 0) {
+    ax += (cohX/cohN - boid.x) * params.coh * 0.0006;
+    ay += (cohY/cohN - boid.y) * params.coh * 0.0006;
+    az += (cohZ/cohN - boid.z) * params.coh * 0.0006;
+  }
+
+  // mouse force (applied in 3D)
+  if (params.mouseMode !== 'none' && mouse.active) {
+    const dx = mouse.wx - boid.x, dy = mouse.wy - boid.y;
+    const d2 = dx*dx + dy*dy;
+    if (d2 > 1) {
+      const d = Math.sqrt(d2);
+      const f = params.mouseMode === 'attract' ? 0.018 : -0.018;
+      ax += dx/d * f * params.mouseForce;
+      ay += dy/d * f * params.mouseForce;
+    }
+  }
+
+  boid.vx += ax; boid.vy += ay; boid.vz += az;
+
+  // speed clamp
+  const spd = Math.sqrt(boid.vx**2 + boid.vy**2 + boid.vz**2);
+  if (spd > params.maxSpeed) {
+    const s = params.maxSpeed / spd;
+    boid.vx *= s; boid.vy *= s; boid.vz *= s;
+  } else if (spd > 0 && spd < params.minSpeed) {
+    const s = params.minSpeed / spd;
+    boid.vx *= s; boid.vy *= s; boid.vz *= s;
+  }
+
+  boid.x += boid.vx; boid.y += boid.vy; boid.z += boid.vz;
+
+  // wrap
+  const hw=WX/2, hh=WY/2, hd=WZ/2;
+  if (boid.x >  hw) boid.x -= WX; if (boid.x < -hw) boid.x += WX;
+  if (boid.y >  hh) boid.y -= WY; if (boid.y < -hh) boid.y += WY;
+  if (boid.z >  hd) boid.z -= WZ; if (boid.z < -hd) boid.z += WZ;
+}
+
+// ── drawing ───────────────────────────────────────────────────────────────────
+function drawBoid(boid) {
+  const {sx, sy, scale} = project(boid.x, boid.y, boid.z);
+  if (sx < -20 || sx > canvas.width+20 || sy < -20 || sy > canvas.height+20) return;
+
+  // project velocity tip to get heading angle in screen space
+  const p2 = project(boid.x + boid.vx*4, boid.y + boid.vy*4, boid.z + boid.vz*4);
+  const angle = Math.atan2(p2.sy - sy, p2.sx - sx);
+
+  const size = Math.max(2, scale * 8);
+  const alpha = Math.min(1, 0.2 + scale * 0.85);
+
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(angle);
+  ctx.beginPath();
+  ctx.moveTo(size, 0);
+  ctx.lineTo(-size * 0.55, -size * 0.38);
+  ctx.lineTo(-size * 0.55,  size * 0.38);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(208,224,255,${alpha.toFixed(2)})`;
+  ctx.fill();
+  ctx.restore();
+}
+
+// ── main loop ─────────────────────────────────────────────────────────────────
+function loop() {
+  requestAnimationFrame(loop);
+
+  // trail fade instead of clear
+  ctx.fillStyle = 'rgba(8,12,22,0.20)';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // auto-rotate when not dragging
+  if (!dragging) camAngle += 0.0025;
+
+  // update physics
+  for (const b of boids) updateBoid(b);
+
+  // back-to-front depth sort, then draw
+  const cos = Math.cos(camAngle), sin = Math.sin(camAngle);
+  boids.sort((a, b) => {
+    const za = a.x*sin + a.z*cos;
+    const zb = b.x*sin + b.z*cos;
+    return za - zb; // back first
+  });
+  for (const b of boids) drawBoid(b);
+}
+loop();
+
+// ── slider controls ───────────────────────────────────────────────────────────
+function bindSlider(id, valId, get, set) {
+  const el = document.getElementById(id);
+  const vEl = document.getElementById(valId);
+  el.addEventListener('input', () => { set(el.value); vEl.textContent = get(); });
+}
+
+bindSlider('cnt', 'cnt-v',
+  () => params.count,
+  v => {
+    params.count = parseInt(v);
+    while (boids.length < params.count) boids.push(new Boid());
+    if (boids.length > params.count) boids.length = params.count;
+  });
+
+bindSlider('spd', 'spd-v',
+  () => params.maxSpeed.toFixed(1),
+  v => { params.maxSpeed = parseInt(v) / 10; params.minSpeed = params.maxSpeed * 0.3; });
+
+bindSlider('sep', 'sep-v',
+  () => params.sep.toFixed(1),
+  v => { params.sep = parseInt(v) / 10; });
+
+bindSlider('ali', 'ali-v',
+  () => params.ali.toFixed(1),
+  v => { params.ali = parseInt(v) / 10; });
+
+bindSlider('coh', 'coh-v',
+  () => params.coh.toFixed(1),
+  v => { params.coh = parseInt(v) / 10; });
+
+bindSlider('vis', 'vis-v',
+  () => params.visRadius,
+  v => { params.visRadius = parseInt(v); params.sepRadius = params.visRadius * 0.4; });
+
+document.querySelectorAll('.mode-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    params.mouseMode = btn.dataset.mode;
+  });
+});
+
+// ── notes toggle ──────────────────────────────────────────────────────────────
+const notesToggle  = document.getElementById('notes-toggle');
+const notesSection = document.getElementById('notes');
+notesToggle.addEventListener('click', () => {
+  notesSection.classList.toggle('open');
+  notesToggle.textContent = notesSection.classList.contains('open') ? 'Hide notes' : 'How it works';
+});
+
+// ── clock ─────────────────────────────────────────────────────────────────────
+const clk = document.getElementById('clock');
+const tick = () => { clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST'; };
+tick(); setInterval(tick, 30000);
+</script>
+</body>
+</html>

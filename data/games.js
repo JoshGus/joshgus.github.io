@@ -193,9 +193,8 @@ export const GAMES = [
     thumbSvg: PIXEL_SIM_SVG,
     stack: ['Canvas', 'JS'],
     credit: 'Inspired by <a href="https://dan-ball.jp/en/javagame/dust/" target="_blank" rel="noopener">Powder Game</a> and Noita',
-    ctaFull: 'Coming soon',
-    ctaShort: 'Soon',
-    comingSoon: true
+    ctaFull: 'Open sim',
+    ctaShort: 'Open'
   },
   {
     id: 'boids',
@@ -205,9 +204,8 @@ export const GAMES = [
     href: 'boids.html',
     thumbBg: '#080c16',
     thumbSvg: BOIDS_SVG,
-    stack: ['WebGL', 'Three.js'],
-    ctaFull: 'Coming soon',
-    ctaShort: 'Soon',
-    comingSoon: true
+    stack: ['Canvas', 'JS'],
+    ctaFull: 'Open sim',
+    ctaShort: 'Open'
   }
 ];

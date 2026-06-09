@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Pixel Sim — Joshua Gustaveson</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f7ece1;--fg:#1d1712;--dim:#8c7f70;--dimmer:#c1b3a3;
+  --accent:#ccf73f;--accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14);
+  --disp:"Bricolage Grotesque",sans-serif;
+  --body:"Hanken Grotesk",system-ui,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,monospace;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{background:#0b0a09;color:#fff;font-family:var(--mono);overflow:hidden;display:flex;flex-direction:column}
+
+.status{flex-shrink:0;display:flex;justify-content:space-between;align-items:center;
+  padding:10px clamp(16px,3vw,48px);font-family:var(--mono);font-size:.6rem;letter-spacing:.16em;
+  text-transform:uppercase;color:rgba(255,255,255,.3);border-bottom:1px solid rgba(255,255,255,.07);
+  background:rgba(10,9,8,.95)}
+.status .sig{font-weight:600;color:rgba(255,255,255,.65)}
+.status .sig:hover,.status a:hover{color:#ccf73f}
+.status a{color:inherit;text-decoration:none;transition:color .2s}
+.status nav{display:flex;gap:18px}
+#clock{color:rgba(255,255,255,.18)}
+@media(max-width:600px){.status nav{display:none}}
+
+.game-wrap{flex:1;position:relative;overflow:hidden}
+#canvas{display:block;width:100%;height:100%;cursor:crosshair}
+
+/* floating HUD */
+.hud{
+  position:absolute;bottom:18px;left:50%;transform:translateX(-50%);
+  display:flex;align-items:center;gap:10px;flex-wrap:wrap;justify-content:center;
+  background:rgba(8,8,7,.88);border:1px solid rgba(255,255,255,.09);
+  padding:9px 14px;backdrop-filter:blur(8px);z-index:10
+}
+.mat-btn{
+  font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 11px;border:1px solid rgba(255,255,255,.12);background:transparent;
+  color:rgba(255,255,255,.4);cursor:pointer;transition:all .15s;white-space:nowrap
+}
+.mat-btn:hover{border-color:rgba(255,255,255,.35);color:rgba(255,255,255,.8)}
+.mat-btn.active{background:var(--c);border-color:var(--c);color:#000;font-weight:600}
+
+.hud-sep{width:1px;height:24px;background:rgba(255,255,255,.09);flex-shrink:0}
+
+.hud-ctrl{display:flex;align-items:center;gap:7px;font-size:.5rem;letter-spacing:.1em;color:rgba(255,255,255,.3)}
+.hud-ctrl input[type=range]{width:64px;accent-color:#ccf73f;cursor:pointer}
+.hud-ctrl span{min-width:12px}
+
+.hud-btn{
+  font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 10px;border:1px solid rgba(255,255,255,.12);background:transparent;
+  color:rgba(255,255,255,.35);cursor:pointer;transition:all .15s
+}
+.hud-btn:hover{border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.8)}
+.hud-btn.active{border-color:rgba(255,255,255,.5);color:rgba(255,255,255,.9)}
+
+/* implementation notes */
+.notes-section{
+  flex-shrink:0;max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.2,.7,.3,1);
+  background:rgba(5,5,4,.96);border-top:1px solid rgba(255,255,255,.07)
+}
+.notes-section.open{max-height:420px;overflow-y:auto}
+.notes-inner{padding:28px clamp(20px,4vw,72px) 32px;max-width:900px}
+.notes-inner h2{font-family:var(--disp);font-weight:440;font-size:1.4rem;letter-spacing:-.02em;
+  color:rgba(255,255,255,.7);margin-bottom:20px;font-variation-settings:"opsz" 36}
+.note-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px 40px}
+@media(max-width:600px){.note-grid{grid-template-columns:1fr}}
+.note-item dt{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
+  color:#ccf73f;margin-bottom:6px}
+.note-item dd{font-family:var(--body);font-size:.88rem;line-height:1.65;color:rgba(255,255,255,.45)}
+.note-item code{font-family:var(--mono);font-size:.75rem;color:rgba(255,255,255,.6);
+  background:rgba(255,255,255,.06);padding:1px 5px}
+
+.notes-toggle{
+  position:absolute;bottom:18px;right:18px;
+  font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:5px 10px;border:1px solid rgba(255,255,255,.12);background:rgba(8,8,7,.88);
+  color:rgba(255,255,255,.3);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);z-index:10
+}
+.notes-toggle:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.3)}
+</style>
+</head>
+<body>
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" style="color:rgba(204,247,63,.55)">Games</a>
+    <a href="../gallery.html">Photography</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="game-wrap">
+  <canvas id="canvas"></canvas>
+
+  <div class="hud">
+    <button class="mat-btn active" data-mat="1" style="--c:#c8913a">Sand</button>
+    <button class="mat-btn" data-mat="2" style="--c:#3472c8">Water</button>
+    <button class="mat-btn" data-mat="3" style="--c:#e04a12">Fire</button>
+    <button class="mat-btn" data-mat="4" style="--c:#5a5450">Stone</button>
+    <button class="mat-btn" data-mat="5" style="--c:#6b4226">Wood</button>
+    <button class="mat-btn" data-mat="6" style="--c:#dc5a0a">Lava</button>
+    <button class="mat-btn" data-mat="0" style="--c:#444">Erase</button>
+    <div class="hud-sep"></div>
+    <div class="hud-ctrl">
+      Brush
+      <input type="range" id="brush" min="1" max="10" value="3">
+      <span id="brush-val">3</span>
+    </div>
+    <div class="hud-sep"></div>
+    <button class="hud-btn" id="clear-btn">Clear</button>
+    <button class="hud-btn" id="pause-btn">Pause</button>
+  </div>
+
+  <button class="notes-toggle" id="notes-toggle">How it works</button>
+</div>
+
+<div class="notes-section" id="notes">
+  <div class="notes-inner">
+    <h2>Implementation notes</h2>
+    <div class="note-grid">
+      <dl class="note-item">
+        <dt>Grid storage</dt>
+        <dd>Flat <code>Uint8Array(cols × rows)</code> — one byte per cell, row-major layout. A 2D array would be cleaner API but the flat array gives better cache locality during the bottom-to-top sweep and halves the pointer-chasing overhead.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Simulation order</dt>
+        <dd>Cells are processed <strong>bottom-to-top</strong> so a falling grain of sand moves into already-processed space below it — no double-move per frame. Horizontal direction randomizes each frame (left-to-right or right-to-left) to prevent directional bias in spreading materials.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Double-step prevention</dt>
+        <dd>A second <code>Uint8Array</code> called <code>updated</code> tracks which cells moved this frame. Fire rising into an unprocessed cell above gets marked updated immediately, so the sweep won't step it a second time when it reaches that row. O(cols × rows) reset per frame via <code>TypedArray.fill(0)</code>.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Fire lifetime</dt>
+        <dd>Fire uses the <code>meta</code> byte array to store per-cell lifetime (0–180). Each step decrements it; at zero the cell becomes air. Color transitions through white-yellow → orange → red as lifetime falls. Fire spreading to wood uses <code>Math.random() &lt; 0.008</code> per neighbor per frame — slow enough to look natural.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Rendering</dt>
+        <dd><code>ctx.createImageData</code> pre-allocates a <code>Uint8ClampedArray</code> the size of the canvas. Each frame, the entire buffer is written and pushed via <code>putImageData</code> — one GPU upload per frame rather than thousands of <code>fillRect</code> calls. CELL = 4px per cell; the buffer write is O(pixels) = O(cols × rows × 16).</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Color variation</dt>
+        <dd>Material colors use a position hash <code>(c·7 + r·13) &amp; 31</code> for deterministic per-cell texture variation — no RNG call in the hot render loop. Fire flickers by including a global frame counter in the hash, updating color every frame.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Water &amp; lava flow</dt>
+        <dd>Both try to fall first, then spread horizontally up to 4 cells. Lava spreads with a 30% chance per frame (viscosity). Lava touching water solidifies both into stone. The horizontal spread iterates outward until it hits a non-empty cell — effective O(spread_width) per cell per frame.</dd>
+      </dl>
+      <dl class="note-item">
+        <dt>Inspired by</dt>
+        <dd><a href="https://dan-ball.jp/en/javagame/dust/" target="_blank" rel="noopener" style="color:rgba(204,247,63,.7)">Powder Game (dan-ball.jp)</a> and <strong>Noita</strong> — Noita extends this concept to a full game where every pixel is physically simulated. This implementation follows the same cellular-automata approach at a much smaller scale.</dd>
+      </dl>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── constants ────────────────────────────────────────────────────────────────
+const AIR=0, SAND=1, WATER=2, FIRE=3, STONE=4, WOOD=5, LAVA=6;
+const CELL = 4;
+const BG = [11, 10, 9];
+
+// ── canvas & grid ────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d', {willReadFrequently: false});
+let cols, rows, grid, meta, updated, imageData, pixBuf;
+
+function initGrid() {
+  cols = Math.floor(canvas.width / CELL);
+  rows = Math.floor(canvas.height / CELL);
+  grid    = new Uint8Array(cols * rows);
+  meta    = new Uint8Array(cols * rows);
+  updated = new Uint8Array(cols * rows);
+  imageData = ctx.createImageData(canvas.width, canvas.height);
+  pixBuf    = imageData.data;
+  pixBuf.fill(255); // alpha
+  for (let i = 0; i < pixBuf.length; i += 4) {
+    pixBuf[i] = BG[0]; pixBuf[i+1] = BG[1]; pixBuf[i+2] = BG[2];
+  }
+}
+
+function resize() {
+  canvas.width  = canvas.offsetWidth  || 800;
+  canvas.height = canvas.offsetHeight || 600;
+  initGrid();
+}
+window.addEventListener('resize', resize);
+resize();
+
+// ── grid accessors ───────────────────────────────────────────────────────────
+function idx(c, r)      { return r * cols + c; }
+function inB(c, r)      { return c >= 0 && c < cols && r >= 0 && r < rows; }
+function get(c, r)      { return inB(c,r) ? grid[idx(c,r)] : STONE; }
+function isLiq(m)       { return m === WATER || m === LAVA; }
+
+function swap(c1,r1,c2,r2) {
+  const i1=idx(c1,r1), i2=idx(c2,r2);
+  const gt=grid[i1], mt=meta[i1];
+  grid[i1]=grid[i2]; meta[i1]=meta[i2];
+  grid[i2]=gt; meta[i2]=mt;
+  updated[i1]=updated[i2]=1;
+}
+
+// ── material rules ───────────────────────────────────────────────────────────
+function stepSand(c, r) {
+  const d = Math.random() > .5 ? 1 : -1;
+  if (r < rows-1) {
+    const b = get(c, r+1);
+    if (b===AIR || isLiq(b)) { swap(c,r,c,r+1); return; }
+    if ((get(c+d,r+1)===AIR || isLiq(get(c+d,r+1))) && inB(c+d,r+1) && !updated[idx(c+d,r+1)]) {
+      swap(c,r,c+d,r+1); return;
+    }
+    if ((get(c-d,r+1)===AIR || isLiq(get(c-d,r+1))) && inB(c-d,r+1) && !updated[idx(c-d,r+1)]) {
+      swap(c,r,c-d,r+1);
+    }
+  }
+}
+
+function stepWater(c, r) {
+  if (r < rows-1 && get(c,r+1)===AIR) { swap(c,r,c,r+1); return; }
+  const d = Math.random() > .5 ? 1 : -1;
+  for (let s = 1; s <= 4; s++) {
+    const nc = c+d*s;
+    if (!inB(nc,r)) break;
+    if (get(nc,r)===AIR && !updated[idx(nc,r)]) { swap(c,r,nc,r); return; }
+    if (get(nc,r)!==WATER) break;
+  }
+  for (let s = 1; s <= 4; s++) {
+    const nc = c-d*s;
+    if (!inB(nc,r)) break;
+    if (get(nc,r)===AIR && !updated[idx(nc,r)]) { swap(c,r,nc,r); return; }
+    if (get(nc,r)!==WATER) break;
+  }
+}
+
+function stepFire(c, r) {
+  const i = idx(c,r);
+  meta[i]--;
+  if (meta[i] <= 0) { grid[i]=AIR; updated[i]=1; return; }
+  updated[i]=1;
+  const nb = [[0,-1],[1,0],[-1,0],[0,1]];
+  for (const [dc,dr] of nb) {
+    const nm = get(c+dc, r+dr);
+    if (nm===WATER && Math.random() < .12) { grid[i]=AIR; return; }
+    if (nm===WOOD  && Math.random() < .008) {
+      const ni=idx(c+dc,r+dr);
+      grid[ni]=FIRE; meta[ni]=100+Math.random()*80|0; updated[ni]=1;
+    }
+  }
+  if (r > 0 && get(c,r-1)===AIR && Math.random() < .4) {
+    const ni=idx(c,r-1);
+    if (!updated[ni]) {
+      grid[ni]=FIRE; meta[ni]=Math.max(0, meta[i]-8); updated[ni]=1;
+      grid[i]=AIR;
+    }
+  }
+}
+
+function stepLava(c, r) {
+  if (r < rows-1 && get(c,r+1)===AIR) { swap(c,r,c,r+1); return; }
+  if (Math.random() < .3) {
+    const d = Math.random() > .5 ? 1 : -1;
+    if (inB(c+d,r) && get(c+d,r)===AIR && !updated[idx(c+d,r)]) { swap(c,r,c+d,r); return; }
+  }
+  const nb = [[0,-1],[1,0],[-1,0],[0,1]];
+  for (const [dc,dr] of nb) {
+    if (get(c+dc,r+dr)===WATER && Math.random() < .05) {
+      const i=idx(c,r), ni=idx(c+dc,r+dr);
+      grid[i]=STONE; meta[i]=0; updated[i]=1;
+      grid[ni]=STONE; meta[ni]=0; updated[ni]=1;
+      return;
+    }
+  }
+  if (r > 0 && get(c,r-1)===AIR && Math.random() < .04) {
+    const ni=idx(c,r-1);
+    grid[ni]=FIRE; meta[ni]=60+Math.random()*60|0; updated[ni]=1;
+  }
+}
+
+// ── simulation step ──────────────────────────────────────────────────────────
+function step() {
+  updated.fill(0);
+  const dir = Math.random() > .5 ? 1 : -1;
+  for (let r = rows-1; r >= 0; r--) {
+    for (let ci = 0; ci < cols; ci++) {
+      const c = dir > 0 ? ci : cols-1-ci;
+      if (updated[idx(c,r)]) continue;
+      switch (grid[idx(c,r)]) {
+        case SAND:  stepSand(c,r);  break;
+        case WATER: stepWater(c,r); break;
+        case FIRE:  stepFire(c,r);  break;
+        case LAVA:  stepLava(c,r);  break;
+      }
+    }
+  }
+}
+
+// ── color ────────────────────────────────────────────────────────────────────
+let frame = 0;
+function getColor(mat, c, r) {
+  switch (mat) {
+    case SAND: {
+      const n = (c*7+r*13)&31;
+      return [190+n/2|0, 135+n/3|0, 48+n/6|0];
+    }
+    case WATER: {
+      const n = (c*3+r*11)&15;
+      return [28+n/3|0, 82+n*2|0, 188+n/2|0];
+    }
+    case FIRE: {
+      const life = meta[idx(c,r)];
+      const h = (c*17+r*23+frame*3)&7;
+      if (life > 130) return [255, 228+h|0, 55+h*4|0];
+      if (life > 90)  return [255, 130+h*5|0, 15+h|0];
+      if (life > 50)  return [210+h*5|0, 48+h*3|0, 8];
+      return [120+h*6|0, 15+h*2|0, 4];
+    }
+    case STONE: {
+      const n = (c*5+r*7)&7;
+      return [76+n*2|0, 70+n|0, 64+n|0];
+    }
+    case WOOD: {
+      const n = (c*3+r*5)&15;
+      return [98+n|0, 58+n/2|0, 26+n/4|0];
+    }
+    case LAVA: {
+      const n = (c*7+r*3+frame*2)&15;
+      return [218+n|0, 52+n*2|0, 6+n/3|0];
+    }
+    default: return BG;
+  }
+}
+
+// ── render ───────────────────────────────────────────────────────────────────
+function render() {
+  const W = canvas.width, H = canvas.height;
+  for (let r = 0; r < rows; r++) {
+    const baseY = r * CELL;
+    if (baseY + CELL > H) break;
+    for (let c = 0; c < cols; c++) {
+      const baseX = c * CELL;
+      if (baseX + CELL > W) break;
+      const mat = grid[idx(c,r)];
+      const [R, G, B] = mat === AIR ? BG : getColor(mat, c, r);
+      for (let dy = 0; dy < CELL; dy++) {
+        const row = (baseY+dy) * W;
+        for (let dx = 0; dx < CELL; dx++) {
+          const p = (row + baseX + dx) * 4;
+          pixBuf[p]=R; pixBuf[p+1]=G; pixBuf[p+2]=B;
+        }
+      }
+    }
+  }
+  ctx.putImageData(imageData, 0, 0);
+}
+
+// ── painting ─────────────────────────────────────────────────────────────────
+let painting = false;
+let selectedMat = SAND;
+let brushSize = 3;
+
+function paint(clientX, clientY) {
+  const rect = canvas.getBoundingClientRect();
+  const scaleX = canvas.width  / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const mx = Math.floor((clientX - rect.left) * scaleX / CELL);
+  const my = Math.floor((clientY - rect.top)  * scaleY / CELL);
+  const r2 = brushSize * brushSize;
+  for (let dc = -brushSize; dc <= brushSize; dc++) {
+    for (let dr = -brushSize; dr <= brushSize; dr++) {
+      if (dc*dc+dr*dr > r2) continue;
+      const c = mx+dc, r = my+dr;
+      if (!inB(c,r)) continue;
+      const i = idx(c,r);
+      grid[i] = selectedMat;
+      meta[i] = selectedMat === FIRE ? (80+Math.random()*100|0) : 0;
+    }
+  }
+}
+
+canvas.addEventListener('mousedown', e => { painting=true; paint(e.clientX, e.clientY); });
+canvas.addEventListener('mousemove', e => { if (painting) paint(e.clientX, e.clientY); });
+document.addEventListener('mouseup', () => { painting=false; });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); painting=true; paint(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
+canvas.addEventListener('touchmove',  e => { e.preventDefault(); if (painting) paint(e.touches[0].clientX, e.touches[0].clientY); }, {passive:false});
+document.addEventListener('touchend', () => { painting=false; });
+
+// ── UI controls ──────────────────────────────────────────────────────────────
+document.querySelectorAll('.mat-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.mat-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    selectedMat = parseInt(btn.dataset.mat);
+  });
+});
+
+const brushSlider = document.getElementById('brush');
+const brushVal    = document.getElementById('brush-val');
+brushSlider.addEventListener('input', () => {
+  brushSize = parseInt(brushSlider.value);
+  brushVal.textContent = brushSize;
+});
+
+let paused = false;
+const pauseBtn = document.getElementById('pause-btn');
+document.getElementById('clear-btn').addEventListener('click', () => { grid.fill(0); meta.fill(0); });
+pauseBtn.addEventListener('click', () => {
+  paused = !paused;
+  pauseBtn.textContent = paused ? 'Resume' : 'Pause';
+  pauseBtn.classList.toggle('active', paused);
+});
+
+const notesToggle = document.getElementById('notes-toggle');
+const notesSection = document.getElementById('notes');
+notesToggle.addEventListener('click', () => {
+  notesSection.classList.toggle('open');
+  notesToggle.textContent = notesSection.classList.contains('open') ? 'Hide notes' : 'How it works';
+});
+
+const MAT_KEYS = {'1':SAND,'2':WATER,'3':FIRE,'4':STONE,'5':WOOD,'6':LAVA,'0':AIR};
+document.addEventListener('keydown', e => {
+  if (e.key in MAT_KEYS) {
+    selectedMat = MAT_KEYS[e.key];
+    document.querySelectorAll('.mat-btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.mat) === selectedMat);
+    });
+  }
+  if (e.key === ' ') { e.preventDefault(); pauseBtn.click(); }
+  if (e.key.toLowerCase() === 'c') document.getElementById('clear-btn').click();
+});
+
+// ── clock ────────────────────────────────────────────────────────────────────
+const clk = document.getElementById('clock');
+const tick = () => { clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST'; };
+tick(); setInterval(tick, 30000);
+
+// ── main loop ────────────────────────────────────────────────────────────────
+const STEPS_PER_FRAME = 1;
+function loop() {
+  requestAnimationFrame(loop);
+  if (!paused) {
+    for (let s = 0; s < STEPS_PER_FRAME; s++) step();
+  }
+  frame++;
+  render();
+}
+loop();
+</script>
+</body>
+</html>
