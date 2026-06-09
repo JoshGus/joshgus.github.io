@@ -618,41 +618,61 @@ function drawDartInHand(lm, dartCol) {
   ctx.restore();
 }
 
-// ── Throw animations (kinematic: x(t)=fx+vx0·t+½ax·t², same for y) ─────────
+// ── Throw animations — 3D virtual corridor ───────────────────────────────────
+// World coords: X/Y in board-radii (board center = origin, Y-up), Z = depth from board
+// Dart starts at hand's world position and flies freely under gravity until wz <= 0.
 let anims = [];
 
-function startThrowAnim(fx, fy, vx0, vy0, ax, ay, T, dartData, onComplete) {
-  anims.push({ fx, fy, vx0, vy0, ax, ay, T, t0:performance.now(), dartData, onComplete });
+function launchDart(wx0, wy0, wz0, vwx, vwy, vwz, dartData, onComplete) {
+  anims.push({ wx0, wy0, wz0, vwx, vwy, vwz, t0: performance.now(), dartData, onComplete });
 }
 
 function drawAnims() {
   const now = performance.now();
-  for (let i = anims.length-1; i >= 0; i--) {
+  const { cx, cy, R } = getBoardLayout();
+
+  for (let i = anims.length - 1; i >= 0; i--) {
     const a = anims[i];
-    const t_ms = Math.min(a.T, now - a.t0);   // elapsed ms, capped at T
-    const prog = t_ms / a.T;                   // 0 → 1
+    const t = now - a.t0;
 
-    // Kinematic position
-    const x = a.fx + a.vx0*t_ms + 0.5*a.ax*t_ms*t_ms;
-    const y = a.fy + a.vy0*t_ms + 0.5*a.ay*t_ms*t_ms;
+    // 3D position: free flight + gravity in -Y
+    const wx = a.wx0 + a.vwx * t;
+    const wy = a.wy0 + a.vwy * t - 0.5 * G_WORLD * t * t;
+    const wz = a.wz0 + a.vwz * t;
 
-    // Perspective scale: large near (26px) → small at board (4px)
-    const r = 26 - 22*prog;
+    // Dart reached board plane (wz=0) or timed out (3 s)
+    if (wz <= 0 || t > 3000) {
+      let bx, by;
+      if (a.vwz < -0.00005) {
+        // Exact intersection with board plane
+        const tLand = -a.wz0 / a.vwz;
+        bx =   a.wx0 + a.vwx * tLand;
+        by = -(a.wy0 + a.vwy * tLand - 0.5 * G_WORLD * tLand * tLand); // board Y is Y-down
+      } else {
+        bx = wx; by = -wy;
+      }
+      if (a.onComplete) a.onComplete({ ...a.dartData, bx, by });
+      anims.splice(i, 1);
+      continue;
+    }
 
+    // Dot shrinks as dart approaches board: 26 px in hand → 4 px at board face
+    const prog = Math.max(0, Math.min(1, 1 - wz / a.wz0));
+    const r = 26 - 22 * prog;
     const col = a.dartData.player === -1 ? '#ccf73f' : (P[a.dartData.player]?.col ?? '#ccf73f');
+
+    // Project to canvas (orthographic — world X/Y already in board-radius units)
+    const cx2d = cx + wx * R;
+    const cy2d = cy - wy * R;
+
     ctx.save();
     ctx.shadowBlur  = r * 2.5;
     ctx.shadowColor = col;
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI*2);
+    ctx.arc(cx2d, cy2d, r, 0, Math.PI * 2);
     ctx.fillStyle = col;
     ctx.fill();
     ctx.restore();
-
-    if (prog >= 1) {
-      if (a.onComplete) a.onComplete(a.dartData);
-      anims.splice(i, 1);
-    }
   }
 }
 
@@ -670,8 +690,13 @@ let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 
 // Hand tracking & pinch
 let lastHandX=null, lastHandY=null;
-let handPosHist = [];   // {normX, normY, palmSc, t} per frame
+let handPosHist = [];   // {canvasX, canvasY, palmSc, t} per frame
 let pinched=false, pinchHoldFrames=0;
+
+// Virtual corridor constants (world units = board radii)
+const PLAYER_Z  = 5.5;      // virtual depth of player from board face
+const PSC_REF   = 0.13;     // palm scale at natural throw distance
+const G_WORLD   = 0.0000042;// gravity (board-radii / ms²)
 const PINCH_IN=0.055, PINCH_OUT=0.095;
 
 // Throw cooldown
@@ -716,7 +741,7 @@ function processHandFrame(lm, now) {
       if (now - lastThrow > COOLDOWN && gamePhase !== 'gameover') {
         const tv = calcThrowVec();
         // Require some forward motion OR lateral speed to register throw
-        if (tv && (tv.fwdV > 0.012 || tv.canvasSpeed > 1.2)) {
+        if (tv && (tv.fwdV > 0.5 || tv.canvasSpeed > 1.2)) {
           lastThrow = now;
           registerThrow(tv);
         }
@@ -727,21 +752,26 @@ function processHandFrame(lm, now) {
 
 function calcThrowVec() {
   if (handPosHist.length < 3) return null;
-  // Exactly last 3 points for throw direction
   const pts = handPosHist.slice(-3);
   const p1 = pts[0], p3 = pts[2];
   const dt = p3.t - p1.t;
   if (dt < 8) return null;
-  const canvasVX = (p3.canvasX - p1.canvasX) / dt;   // px/ms
-  const canvasVY = (p3.canvasY - p1.canvasY) / dt;   // px/ms, negative = upward
-  const canvasSpeed = Math.hypot(canvasVX, canvasVY);
-  return {
-    canvasVX, canvasVY, canvasSpeed,
-    normVX:  (p3.normX - p1.normX) / dt * 1000,
-    normVY:  (p3.normY - p1.normY) / dt * 1000,
-    fwdV:    (p3.palmSc - p1.palmSc) / dt * 1000,  // scale/s (>0 = toward camera)
-    speed2D: canvasSpeed,
-  };
+
+  const { cx, cy, R } = getBoardLayout();
+  // World position at each sample (board-radii, Y-up)
+  const wx1 = (p1.canvasX - cx) / R,  wy1 = -(p1.canvasY - cy) / R;
+  const wx3 = (p3.canvasX - cx) / R,  wy3 = -(p3.canvasY - cy) / R;
+  const wz1 = PLAYER_Z * PSC_REF / p1.palmSc;
+  const wz3 = PLAYER_Z * PSC_REF / p3.palmSc;
+
+  const vwx = (wx3 - wx1) / dt;   // board-radii / ms
+  const vwy = (wy3 - wy1) / dt;
+  const vwz = (wz3 - wz1) / dt;   // negative = toward board (forward throw)
+
+  const fwdV = -vwz * 1000;       // positive = throwing toward board
+  const canvasSpeed = Math.hypot(p3.canvasX - p1.canvasX, p3.canvasY - p1.canvasY) / dt;
+
+  return { vwx, vwy, vwz, fwdV, canvasSpeed };
 }
 
 function getJitter() {
@@ -760,100 +790,81 @@ function countFingers(lm) {
   return n;
 }
 
-// ── Kinematic throw setup ─────────────────────────────────────────────────────
-// Pure ballistic: only gravity acts (ax=0, ay=G). vx0/vy0 are solved analytically
-// so the parabola lands exactly at (toX,toY) at t=T. No correction acceleration.
-const G = 0.00055; // gravity in px/ms²
-
-function buildKinematics(fromX, fromY, toX, toY, throwVec) {
-  let T;
-  if (throwVec && throwVec.canvasSpeed > 0.5) {
-    // fwdV (palm-scale growth rate) proxies the throw speed toward the board.
-    // Higher fwdV → shorter T → flatter arc (dart arrives sooner, less drop).
-    const fwd = Math.max(0.02, throwVec.fwdV);
-    T = Math.min(1500, Math.max(600, 2.2 / fwd));
-  } else {
-    T = 950; // Space-bar fallback
-  }
-
-  // Ballistic solution: x(T)=toX, y(T)=toY with constant downward G.
-  const vx0 = (toX - fromX) / T;
-  const vy0 = (toY - fromY) / T - 0.5 * G * T; // negative → initial upward launch
-
-  return { vx0, vy0, ax: 0, ay: G, T };
-}
-
 // ── Register throw ────────────────────────────────────────────────────────────
+// Dart gets its actual 3D velocity from the hand; no aim-point correction.
+// Landing is wherever the ballistic arc intersects the board plane (wz=0).
 function registerThrow(throwVec) {
-  if (gamePhase==='gameover') return;
+  if (gamePhase === 'gameover') return;
   const { cx, cy, R } = getBoardLayout();
-  const fromX = lastHandX ?? cx;
-  const fromY = lastHandY ?? cy - R * 0.3;
 
-  // Landing: aim + throw-direction deviation + jitter
-  let landBX = aimBX, landBY = aimBY;
+  // Initial world position from the most recent hand sample
+  const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
+  const wx0 = last ? (last.canvasX - cx) / R : 0;
+  const wy0 = last ? -(last.canvasY - cy) / R : 0.3;
+  const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
+
+  let vwx, vwy, vwz;
   if (throwVec) {
-    const DEV = 0.28;
-    landBX += throwVec.normVX * DEV;
-    landBY += throwVec.normVY * DEV;
+    vwx = throwVec.vwx;
+    vwy = throwVec.vwy;
+    vwz = throwVec.vwz;
+    // Guarantee dart actually travels toward the board
+    if (vwz > -wz0 / 2000) vwz = -wz0 / 1000;
+  } else {
+    // Space-bar: solve ballistic trajectory to aim point in T=950 ms
+    const T = 950;
+    vwz = -wz0 / T;
+    vwx = (aimBX - wx0) / T;
+    vwy = (-aimBY - wy0 + 0.5 * G_WORLD * T * T) / T;
   }
-  const j = getJitter();
-  const ang = Math.random() * Math.PI * 2;
-  landBX += Math.cos(ang) * Math.random() * j;
-  landBY += Math.sin(ang) * Math.random() * j;
 
-  const { pts, label } = scoreDart(landBX, landBY);
-  const toX = cx + landBX * R;
-  const toY = cy + landBY * R;
-  const kin = buildKinematics(fromX, fromY, toX, toY, throwVec);
+  const player = mode === 'practice' ? -1 : currPlayer;
 
-  const player = mode==='practice' ? -1 : currPlayer;
-  const dartData = { bx:landBX, by:landBY, pts, label, player };
-
-  if (mode==='practice') {
-    practiceTotal += pts;
-    flash(`${label}${pts?' · +'+pts:''}`, pts?'#1d1712':'#c82000');
-    document.getElementById('sp-left-score').textContent = practiceTotal;
-    startThrowAnim(fromX, fromY, kin.vx0, kin.vy0, kin.ax, kin.ay, kin.T, dartData, (d) => {
-      darts.push(d);
+  if (mode === 'practice') {
+    launchDart(wx0, wy0, wz0, vwx, vwy, vwz, { player }, (d) => {
+      const { pts, label } = scoreDart(d.bx, d.by);
+      practiceTotal += pts;
+      flash(`${label}${pts ? ' · +' + pts : ''}`, pts ? '#1d1712' : '#c82000');
+      document.getElementById('sp-left-score').textContent = practiceTotal;
+      darts.push({ ...d, pts, label });
       if (darts.length > 9) darts.shift();
     });
   } else {
-    doGameThrow(dartData, fromX, fromY, kin);
+    doGameThrow(wx0, wy0, wz0, vwx, vwy, vwz);
   }
 }
 
-// ── Game throw (score first, dart added on anim complete) ────────────────────
-function doGameThrow(dartData, fromX, fromY, kin) {
-  const { bx, by, pts, label } = dartData;
-  const p = P[currPlayer];
-  const newScore = p.score - pts;
+// ── Game throw — scoring resolves when dart lands ────────────────────────────
+function doGameThrow(wx0, wy0, wz0, vwx, vwy, vwz) {
+  dartsLeft--;
+  const isLast     = dartsLeft <= 0;
+  const myPlayer   = currPlayer;
 
-  if (newScore < 0) {
-    flash('Bust!', '#c82000');
-    const pc = currPlayer, rs = p.roundStart;
-    startThrowAnim(fromX, fromY, kin.vx0, kin.vy0, kin.ax, kin.ay, kin.T,
-      { ...dartData, bust:true }, (d) => {
-        darts.push(d);
-        P[pc].score = rs;
-        updateGameHUD();
-        setTimeout(() => { darts = darts.filter(x => !x.bust); endTurn(); }, 700);
-      });
-    return;
-  }
+  launchDart(wx0, wy0, wz0, vwx, vwy, vwz, { player: myPlayer }, (d) => {
+    const p = P[myPlayer];
+    const { pts, label } = scoreDart(d.bx, d.by);
+    const newScore = p.score - pts;
 
-  p.score = newScore; p.roundPts += pts; dartsLeft--;
-  const isLast = dartsLeft <= 0, won = p.score === 0;
-  flash(`${label}${pts?' · '+pts:''}`, '#1d1712');
-  updateGameHUD();
+    if (newScore < 0) {
+      flash('Bust!', '#c82000');
+      darts.push({ ...d, pts, label, bust: true });
+      p.score = p.roundStart;
+      updateGameHUD();
+      setTimeout(() => { darts = darts.filter(x => !x.bust); endTurn(); }, 700);
+      return;
+    }
 
-  startThrowAnim(fromX, fromY, kin.vx0, kin.vy0, kin.ax, kin.ay, kin.T, dartData, (d) => {
-    darts.push(d);
+    p.score = newScore; p.roundPts += pts;
+    const won = p.score === 0;
+    flash(`${label}${pts ? ' · ' + pts : ''}`, '#1d1712');
+    updateGameHUD();
+    darts.push({ ...d, pts, label });
+
     if (won) {
-      gamePhase='gameover';
-      setTimeout(()=>{
+      gamePhase = 'gameover';
+      setTimeout(() => {
         document.getElementById('winner-text').textContent = `${p.name} wins!`;
-        document.getElementById('gameover-screen').style.display='flex';
+        document.getElementById('gameover-screen').style.display = 'flex';
       }, 350);
     } else if (isLast) {
       endTurn();
