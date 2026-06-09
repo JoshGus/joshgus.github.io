@@ -1040,12 +1040,11 @@ function registerThrow(throwVec) {
   if (gamePhase === 'gameover') return;
   const { cx, cy, R } = getBoardLayout();
 
-  // Initial world position from the most recent hand sample
+  // Initial world position: always relative to the board center (cx, cy)
+  // so the dart spawns exactly where the hand appears on screen.
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
-  const vcxPx = CAM_VCX * canvas.width;
-  const vcyPx = CAM_VCY * canvas.height;
-  const wx0 = last ? (last.canvasX - vcxPx) / R : 0;
-  const wy0 = last ? -(last.canvasY - vcyPx) / R : 0.3;
+  const wx0 = last ? (last.canvasX - cx) / R : 0;
+  const wy0 = last ? -(last.canvasY - cy) / R : 0.3;
   const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
 
   let vwx, vwy, vwz;
