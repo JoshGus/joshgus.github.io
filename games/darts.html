@@ -676,7 +676,7 @@ const PINCH_IN=0.055, PINCH_OUT=0.095;
 
 // Throw cooldown
 let lastThrow = 0;
-const COOLDOWN = 1100;
+const COOLDOWN = 1700;
 
 // Ready & flash
 let rp1F=0, rp2F=0;
@@ -771,9 +771,9 @@ function buildKinematics(fromX, fromY, toX, toY, throwVec) {
     const { canvasVX, canvasVY, canvasSpeed, fwdV } = throwVec;
 
     // Time of flight: forward (depth) velocity determines how fast dart reaches board.
-    // Higher fwdV → shorter T → less total drop. Clamp to sensible range.
-    const fwd = Math.max(0.03, fwdV);
-    T = Math.min(820, Math.max(290, 0.75 / fwd));
+    // Higher fwdV → shorter T → less total drop. Extended range simulates real throw distance.
+    const fwd = Math.max(0.02, fwdV);
+    T = Math.min(1500, Math.max(600, 2.2 / fwd));
 
     // Initial direction from hand motion (unit vector), magnitude scaled so dart
     // comfortably reaches the target distance in time T.
@@ -784,7 +784,7 @@ function buildKinematics(fromX, fromY, toX, toY, throwVec) {
     vy0 = dirY * initSpeed;
   } else {
     // Space-bar fallback: straight arc to aim, 550 ms
-    T   = 550;
+    T   = 950;
     vx0 = (toX - fromX) / T;
     // vy0 chosen so gravity gives a mild upward arc
     vy0 = (toY - fromY) / T - 0.0006 * T;
