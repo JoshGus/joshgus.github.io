@@ -749,19 +749,19 @@ body {
           <span class="cp-preset-lbl">Preset</span>
           <button class="gp-preset" data-gravity="3" data-speed="200" data-tmin="200" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Easy</button>
           <button class="gp-preset" data-gravity="5" data-speed="150" data-tmin="300" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Normal</button>
-          <button class="gp-preset active" data-gravity="6" data-speed="150" data-tmin="280" data-playerz="55" data-maxspeed="7" data-pinchsens="4">Sim</button>
+          <button class="gp-preset active" data-gravity="10" data-speed="130" data-tmin="450" data-playerz="55" data-maxspeed="7" data-pinchsens="4">Sim</button>
         </div>
 
         <div class="cp-rows">
           <div class="cp-row">
             <span class="cp-lbl">Gravity</span>
-            <input type="range" id="gp-gravity" min="1" max="10" value="6">
-            <span class="cp-val" id="gp-gravity-val">6</span>
+            <input type="range" id="gp-gravity" min="1" max="10" value="10">
+            <span class="cp-val" id="gp-gravity-val">10</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Speed</span>
-            <input type="range" id="gp-speed" min="50" max="300" value="150">
-            <span class="cp-val" id="gp-speed-val">150</span>
+            <input type="range" id="gp-speed" min="50" max="300" value="130">
+            <span class="cp-val" id="gp-speed-val">130</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Max speed</span>
@@ -770,8 +770,8 @@ body {
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Min arc ms</span>
-            <input type="range" id="gp-tmin" min="100" max="700" value="280">
-            <span class="cp-val" id="gp-tmin-val">280</span>
+            <input type="range" id="gp-tmin" min="100" max="700" value="450">
+            <span class="cp-val" id="gp-tmin-val">450</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Throw dist</span>
@@ -1153,9 +1153,9 @@ let pinched=false, pinchHoldFrames=0;
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
-let   G_WORLD        = 0.000024; // gravity — Sim default (6 × 0.000004)
-let   THROW_SPEED    = 1.50;     // velocity multiplier applied at launch
-let   T_MIN_MS       = 280;      // minimum flight time (ms) — caps forward speed
+let   G_WORLD        = 0.000040; // gravity — Sim default (10 × 0.000004)
+let   THROW_SPEED    = 1.30;     // velocity multiplier applied at launch
+let   T_MIN_MS       = 450;      // minimum flight time (ms) — caps forward speed
 let   MAX_THROW_SPEED = 0.021;   // max 3D dart speed after scaling (7 × 0.003)
 
 // Virtual camera center — the normalized screen position that maps to
@@ -1757,8 +1757,8 @@ document.getElementById('gp-pinchsens').addEventListener('input', e => {
   document.getElementById('gp-pinchsens-val').textContent = e.target.value;
 });
 document.getElementById('gp-reset').addEventListener('click', () => {
-  applyGpValues(6, 150, 280, 55, 7, 4);
-  setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="6"]'));
+  applyGpValues(10, 130, 450, 55, 7, 4);
+  setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="10"]'));
 });
 
 // ── Tutorial screen ───────────────────────────────────────────────────────────
