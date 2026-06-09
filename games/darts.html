@@ -308,6 +308,35 @@ body {
 .sl-row.miss-row { color: rgba(155,50,25,.72); }
 .sl-row.bust-row { color: rgba(155,50,25,.85); font-style: italic; }
 
+/* ── debug console ── */
+#dbg-console {
+  display: none;
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 38vh;
+  background: rgba(0,0,0,.82);
+  border-top: 1px solid rgba(100,255,120,.25);
+  z-index: 9999;
+  pointer-events: none;
+  overflow: hidden;
+}
+#dbg-lines {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  padding: 6px 10px;
+  display: flex;
+  flex-direction: column-reverse;
+  gap: 1px;
+  max-height: 100%;
+  overflow: hidden;
+  font-family: monospace;
+  font-size: .62rem;
+  line-height: 1.45;
+}
+.dbg-line { white-space: pre; }
+.dbg-throw  { color: #8eff8a; }
+.dbg-oops   { color: #ff8a5a; }
+
 /* ── controls ── */
 #controls {
   position: absolute;
@@ -741,6 +770,11 @@ body {
 
   <!-- Throw flash -->
   <div id="throw-flash"></div>
+
+  <!-- Debug console (toggle with ~) -->
+  <div id="dbg-console">
+    <div id="dbg-lines"></div>
+  </div>
 
   <!-- Controls -->
   <div id="controls">
@@ -1192,12 +1226,7 @@ function drawAnims() {
 
     // Floor hit: dart fell below play area before reaching the board
     if (wy < -2.5 && wz > 0) {
-      console.log('[OOPS floor hit]', {
-        vwz: a.vwz.toFixed(6), vwy: a.vwy.toFixed(6), vwx: a.vwx.toFixed(6),
-        fwdV: (-a.vwz * 1000).toFixed(2),
-        wz0: a.wz0.toFixed(3), tFlight: t.toFixed(0) + 'ms',
-        wy_at_hit: wy.toFixed(3)
-      });
+      dbgLog('oops', `OOPS  fwdV=${(-a.vwz*1000).toFixed(2)}  vwz=${a.vwz.toFixed(5)}  vwy=${a.vwy.toFixed(5)}  vwx=${a.vwx.toFixed(5)}  wz0=${a.wz0.toFixed(2)}  t=${t.toFixed(0)}ms  wy=${wy.toFixed(2)}`);
       if (a.onComplete) a.onComplete({ ...a.dartData, floorHit: true, bx: 0, by: 99 });
       anims.splice(i, 1);
       continue;
@@ -1453,13 +1482,7 @@ function registerThrow(throwVec) {
     const { cy: boardCy, R: boardR } = getBoardLayout();
     const camYOffset = (CAM_VCY * canvas.height - boardCy) / boardR;
     vwy += camYOffset * (-vwz) / PLAYER_Z;
-    console.log('[throw launched]', {
-      raw_fwdV: throwVec.fwdV.toFixed(2),
-      raw_vwz: throwVec.vwz.toFixed(6),
-      raw_vwy: throwVec.vwy.toFixed(6),
-      final_vwz: vwz.toFixed(6), final_vwy: vwy.toFixed(6), final_vwx: vwx.toFixed(6),
-      wz0: wz0.toFixed(3), samples: handPosHist.length
-    });
+    dbgLog('throw', `THROW fwdV=${throwVec.fwdV.toFixed(2)}  raw_vwy=${throwVec.vwy.toFixed(5)}  final_vwy=${vwy.toFixed(5)}  vwz=${vwz.toFixed(5)}  wz0=${wz0.toFixed(2)}  n=${handPosHist.length}`);
   } else {
     // Space-bar: solve ballistic trajectory to aim point in T=950 ms
     const T = 950;
@@ -1948,6 +1971,24 @@ document.addEventListener('mousedown', e => {
     camPanel.classList.remove('open');
   if (gpPanel.classList.contains('open') && !document.getElementById('gp-box').contains(e.target))
     gpPanel.classList.remove('open');
+});
+
+// ── Debug console ────────────────────────────────────────────────────────────
+const _dbgEl = document.getElementById('dbg-console');
+const _dbgLines = document.getElementById('dbg-lines');
+const DBG_MAX = 120;
+function dbgLog(type, msg) {
+  const d = document.createElement('div');
+  d.className = `dbg-line dbg-${type}`;
+  d.textContent = msg;
+  _dbgLines.prepend(d);
+  while (_dbgLines.children.length > DBG_MAX) _dbgLines.lastChild.remove();
+}
+document.addEventListener('keydown', e => {
+  if (e.key === '`' || e.key === '~') {
+    _dbgEl.style.display = _dbgEl.style.display === 'none' ? 'block' : 'none';
+    return;
+  }
 });
 
 // Space = throw with current aim (fallback when no camera)
