@@ -1051,15 +1051,15 @@ function registerThrow(throwVec) {
   if (throwVec) {
     // Scale velocity down so flight feels like a real darts throw distance.
     // Preserves direction; only slows the dart.
-    const SPEED_SCALE = 0.70;
+    const SPEED_SCALE = 1.50;
     vwx = throwVec.vwx * SPEED_SCALE;
     vwy = throwVec.vwy * SPEED_SCALE;
     vwz = throwVec.vwz * SPEED_SCALE;
     // Guarantee dart travels toward the board
     if (vwz > -wz0 / 2000) vwz = -wz0 / 1000;
-    // Cap forward speed so dart spends ≥450 ms in the air (was 750 — too slow).
+    // Cap forward speed so dart spends ≥300 ms in the air.
     // Only scale lateral (vwx); preserve vwy so a hard fast throw still arcs.
-    const vwzMin = -wz0 / 450;
+    const vwzMin = -wz0 / 300;
     if (vwz < vwzMin) { vwx *= vwzMin / vwz; vwz = vwzMin; }
     // Virtual camera center perspective correction: camera above the board
     // (vcyPx > cy) means a straight forward throw appears to go slightly
