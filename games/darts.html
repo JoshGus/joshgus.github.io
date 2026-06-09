@@ -1306,41 +1306,56 @@ function processHandFrame(lm, now) {
   }
 }
 
+// Least-squares linear regression: returns slope (dy/dt) for a set of (t, v) pairs.
+// Timestamps are mean-centred first to avoid floating-point loss on large t values.
+function linReg(ts, vs) {
+  const n = ts.length;
+  if (n < 2) return 0;
+  let mt = 0;
+  for (let i = 0; i < n; i++) mt += ts[i];
+  mt /= n;
+  let num = 0, den = 0;
+  for (let i = 0; i < n; i++) {
+    const dt = ts[i] - mt;
+    num += dt * vs[i];
+    den += dt * dt;
+  }
+  return den < 1e-9 ? 0 : num / den;
+}
+
 function calcThrowVec() {
   if (handPosHist.length < 2) return null;
-  const p3 = handPosHist[handPosHist.length - 1];
-  // use the newest point that is at least 80ms older than p3 (or oldest available)
-  let p1 = handPosHist[0];
-  for (let i = handPosHist.length - 2; i >= 0; i--) {
-    if (p3.t - handPosHist[i].t >= 80) { p1 = handPosHist[i]; break; }
+  const last = handPosHist[handPosHist.length - 1];
+
+  // collect all samples within 80ms of the latest
+  const win = [];
+  for (let i = handPosHist.length - 1; i >= 0; i--) {
+    if (last.t - handPosHist[i].t > 80) break;
+    win.unshift(handPosHist[i]);
   }
-  const dt = p3.t - p1.t;
-  if (dt < 8) return null;
+  if (win.length < 2) return null;
+  const span = win[win.length - 1].t - win[0].t;
+  if (span < 8) return null;
 
   const { R } = getBoardLayout();
+  const ts = win.map(p => p.t);
 
-  // Depth from palm-scale change (wrist span — unaffected by finger state)
-  const wz1 = PLAYER_Z * PSC_REF / p1.palmSc;
-  const wz3 = PLAYER_Z * PSC_REF / p3.palmSc;
-  const vwz = (wz3 - wz1) / dt;   // negative = toward board
+  // Linear regression slope for each signal → velocity (units per ms)
+  const vwz = linReg(ts, win.map(p => PLAYER_Z * PSC_REF / p.palmSc));
 
-  // Wrist velocity — arm motion (primary forward driver)
-  const wvwx = (p3.wristX - p1.wristX) / (R * dt);
-  const wvwy = -(p3.wristY - p1.wristY) / (R * dt);
+  const wvwx =  linReg(ts, win.map(p =>  p.wristX))  / R;
+  const wvwy =  linReg(ts, win.map(p => -p.wristY))  / R;
+  const fvwx =  linReg(ts, win.map(p =>  p.fingerX)) / R;
+  const fvwy =  linReg(ts, win.map(p => -p.fingerY)) / R;
 
-  // Finger velocity — flick contribution at release
-  const fvwx = (p3.fingerX - p1.fingerX) / (R * dt);
-  const fvwy = -(p3.fingerY - p1.fingerY) / (R * dt);
-
-  // Combined: equal weight; arm gives direction, fingers add snap
   const vwx = (wvwx + fvwx) * 0.5;
   const vwy = (wvwy + fvwy) * 0.5;
 
   const fwdV = -vwz * 1000;
   const canvasSpeed = Math.hypot(
-    (p3.wristX + p3.fingerX - p1.wristX - p1.fingerX) * 0.5,
-    (p3.wristY + p3.fingerY - p1.wristY - p1.fingerY) * 0.5
-  ) / dt;
+    linReg(ts, win.map(p => (p.wristX + p.fingerX) * 0.5)),
+    linReg(ts, win.map(p => (p.wristY + p.fingerY) * 0.5))
+  );
 
   return { vwx, vwy, vwz, fwdV, canvasSpeed };
 }
