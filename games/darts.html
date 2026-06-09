@@ -1195,10 +1195,16 @@ function processHandFrame(lm, now) {
   const sPinchIn  = PINCH_IN  * pscScale;
   const sPinchOut = PINCH_OUT * pscScale;
 
-  // Wrist (lm[0]) — closest point to the arm's rotation centre, gives the
-  // cleanest forward velocity with no hand-tilt contamination from the knuckle.
-  const wristX = (1-lm[0].x) * canvas.width;
-  const wristY =    lm[0].y  * canvas.height;
+  // Three tracked points (all computed every frame while pinched):
+  //   spawnX/Y  — wrist + middle knuckle midpoint: stable hand-center for dart origin
+  //   wristX/Y  — pure wrist: arm velocity component
+  //   fingerX/Y — thumb+index midpoint: finger-flick velocity component
+  const wristX  = (1-lm[0].x) * canvas.width;
+  const wristY  =    lm[0].y  * canvas.height;
+  const fingerX = ((1-lm[4].x) + (1-lm[8].x)) * 0.5 * canvas.width;
+  const fingerY = (   lm[4].y  +    lm[8].y)   * 0.5 * canvas.height;
+  const spawnX  = (wristX + (1-lm[9].x)*canvas.width)  * 0.5;
+  const spawnY  = (wristY +    lm[9].y *canvas.height)  * 0.5;
 
   if (!pinched && pd < sPinchIn) {
     pinched = true; pinchHoldFrames = 0;
@@ -1206,7 +1212,7 @@ function processHandFrame(lm, now) {
 
   } else if (pinched) {
     pinchHoldFrames++;
-    handPosHist.push({ canvasX: wristX, canvasY: wristY, palmSc: psc, t: now });
+    handPosHist.push({ wristX, wristY, fingerX, fingerY, spawnX, spawnY, palmSc: psc, t: now });
     if (handPosHist.length > 18) handPosHist.shift();
 
     if (pd > sPinchOut && pinchHoldFrames > 2) {
@@ -1230,21 +1236,29 @@ function calcThrowVec() {
   if (dt < 8) return null;
 
   const { R } = getBoardLayout();
-  // Use the virtual camera center so off-axis cameras map correctly.
-  const vcxPx = CAM_VCX * canvas.width;
-  const vcyPx = CAM_VCY * canvas.height;
-  // World position at each sample (board-radii, Y-up)
-  const wx1 = (p1.canvasX - vcxPx) / R,  wy1 = -(p1.canvasY - vcyPx) / R;
-  const wx3 = (p3.canvasX - vcxPx) / R,  wy3 = -(p3.canvasY - vcyPx) / R;
+
+  // Depth from palm-scale change (wrist span — unaffected by finger state)
   const wz1 = PLAYER_Z * PSC_REF / p1.palmSc;
   const wz3 = PLAYER_Z * PSC_REF / p3.palmSc;
+  const vwz = (wz3 - wz1) / dt;   // negative = toward board
 
-  const vwx = (wx3 - wx1) / dt;   // board-radii / ms
-  const vwy = (wy3 - wy1) / dt;
-  const vwz = (wz3 - wz1) / dt;   // negative = toward board (forward throw)
+  // Wrist velocity — arm motion (primary forward driver)
+  const wvwx = (p3.wristX - p1.wristX) / (R * dt);
+  const wvwy = -(p3.wristY - p1.wristY) / (R * dt);
 
-  const fwdV = -vwz * 1000;       // positive = throwing toward board
-  const canvasSpeed = Math.hypot(p3.canvasX - p1.canvasX, p3.canvasY - p1.canvasY) / dt;
+  // Finger velocity — flick contribution at release
+  const fvwx = (p3.fingerX - p1.fingerX) / (R * dt);
+  const fvwy = -(p3.fingerY - p1.fingerY) / (R * dt);
+
+  // Combined: equal weight; arm gives direction, fingers add snap
+  const vwx = (wvwx + fvwx) * 0.5;
+  const vwy = (wvwy + fvwy) * 0.5;
+
+  const fwdV = -vwz * 1000;
+  const canvasSpeed = Math.hypot(
+    (p3.wristX + p3.fingerX - p1.wristX - p1.fingerX) * 0.5,
+    (p3.wristY + p3.fingerY - p1.wristY - p1.fingerY) * 0.5
+  ) / dt;
 
   return { vwx, vwy, vwz, fwdV, canvasSpeed };
 }
@@ -1272,10 +1286,9 @@ function registerThrow(throwVec) {
   if (gamePhase === 'gameover') return;
   const { cx, cy, R } = getBoardLayout();
 
-  // Spawn and velocity both use the wrist+knuckle anchor recorded in handPosHist.
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
-  const wx0 = last ? (last.canvasX - cx) / R : 0;
-  const wy0 = last ? -(last.canvasY - cy) / R : 0.3;
+  const wx0 = last ? (last.spawnX - cx) / R : 0;
+  const wy0 = last ? -(last.spawnY - cy) / R : 0.3;
   const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
 
   let vwx, vwy, vwz;
