@@ -158,7 +158,7 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 </head>
 <body>
 
-<div class="status dark fixed-bar">
+<div class="status fixed-bar">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
   <nav>
     <a href="../code.html">Code</a>
@@ -1331,10 +1331,6 @@ ball.x=teeX; ball.y=teeY; ball.vz=0; ball.z=0;
 lastShotX=teeX; lastShotY=teeY;
 requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
 
-// notes
-var nt=document.getElementById('notes-toggle'),ns=document.getElementById('notes-section');
-if(nt&&ns){nt.addEventListener('click',function(){ns.classList.toggle('open');nt.textContent=ns.classList.contains('open')?'Hide notes':'How it works';});}
-
 })();
 </script>
 <button class="notes-toggle" id="notes-toggle">How it works</button>
@@ -1369,5 +1365,9 @@ if(nt&&ns){nt.addEventListener('click',function(){ns.classList.toggle('open');nt
     </div>
   </div>
 </div>
+<script>
+var nt=document.getElementById('notes-toggle'),ns=document.getElementById('notes-section');
+if(nt&&ns){nt.addEventListener('click',function(){ns.classList.toggle('open');nt.textContent=ns.classList.contains('open')?'Hide notes':'How it works';});}
+</script>
 </body>
 </html>
