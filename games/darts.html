@@ -727,16 +727,18 @@ function drawAnims() {
 
     // Dart reached board plane (wz=0) or timed out (3 s)
     if (wz <= 0 || t > 3000) {
-      let bx, by;
+      let bx, by, ivx = 0, ivy = -1; // ivy default = falling
       if (a.vwz < -0.00005) {
-        // Exact intersection with board plane
         const tLand = -a.wz0 / a.vwz;
-        bx =   a.wx0 + a.vwx * tLand;
-        by = -(a.wy0 + a.vwy * tLand - 0.5 * G_WORLD * tLand * tLand); // board Y is Y-down
+        bx  =  a.wx0 + a.vwx * tLand;
+        by  = -(a.wy0 + a.vwy * tLand - 0.5 * G_WORLD * tLand * tLand);
+        ivx = a.vwx;                          // horizontal world-velocity at impact
+        ivy = a.vwy - G_WORLD * tLand;        // vertical world-velocity at impact (gravity included)
       } else {
         bx = wx; by = -wy;
+        ivx = a.vwx; ivy = a.vwy - G_WORLD * t;
       }
-      if (a.onComplete) a.onComplete({ ...a.dartData, bx, by });
+      if (a.onComplete) a.onComplete({ ...a.dartData, bx, by, ivx, ivy });
       anims.splice(i, 1);
       continue;
     }
@@ -1065,22 +1067,29 @@ function updateGameHUD() {
 function drawDarts() {
   const { cx, cy, R } = getBoardLayout();
   for (const d of darts) {
-    const px=cx+d.bx*R, py=cy+d.by*R;
-    const col = d.player===-1 ? '#ccf73f' : P[d.player].col;
-    // Shaft line toward board center
-    const dx=cx-px, dy=cy-py, dd=Math.hypot(dx,dy);
-    if (dd>0) {
-      const nx=dx/dd, ny=dy/dd;
-      ctx.beginPath();
-      ctx.moveTo(px+nx*4, py+ny*4);
-      ctx.lineTo(px+nx*14, py+ny*14);
-      ctx.strokeStyle='rgba(100,80,60,.5)'; ctx.lineWidth=1; ctx.stroke();
-    }
-    ctx.beginPath(); ctx.arc(px+1.5,py+1.5,4.5,0,Math.PI*2);
-    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fill();
-    ctx.beginPath(); ctx.arc(px,py,4.5,0,Math.PI*2);
-    ctx.fillStyle=col; ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,.45)'; ctx.lineWidth=1; ctx.stroke();
+    const px = cx + d.bx * R, py = cy + d.by * R;
+    const col = d.player === -1 ? '#ccf73f' : P[d.player].col;
+
+    // Shaft direction: opposite to velocity at impact.
+    // Canvas x maps to world x; canvas y is inverted world y.
+    // Shaft trails behind tip → direction = (-ivx, +ivy) in world, then normalize.
+    const ivx = d.ivx ?? 0;
+    const ivy = d.ivy ?? -1; // default: falling dart if no velocity stored
+    const sd = Math.hypot(ivx, ivy) || 1;
+    // Shaft in canvas space: -ivx right, ivy up (canvas Y inverted)
+    const sx = -ivx / sd;
+    const sy =  ivy / sd;  // positive ivy (was moving up) → shaft points down on canvas
+
+    ctx.beginPath();
+    ctx.moveTo(px + sx * 5,  py + sy * 5);
+    ctx.lineTo(px + sx * 17, py + sy * 17);
+    ctx.strokeStyle = 'rgba(100,80,60,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.beginPath(); ctx.arc(px + 1.5, py + 1.5, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fill();
+    ctx.beginPath(); ctx.arc(px, py, 4.5, 0, Math.PI * 2);
+    ctx.fillStyle = col; ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,.45)'; ctx.lineWidth = 1; ctx.stroke();
   }
 }
 
