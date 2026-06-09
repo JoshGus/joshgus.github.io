@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>Code &mdash; Field Notes</title>
+<title>Code &mdash; Joshua Gustaveson</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -84,7 +84,7 @@ a{color:inherit;text-decoration:none}
 <body>
 
 <div class="status">
-  <a href="index.html" class="sig">[NAME]</a>
+  <a href="index.html" class="sig">Joshua Gustaveson</a>
   <nav>
     <a href="code.html" class="active">Code</a>
     <a href="games/index.html">Games</a>
@@ -97,7 +97,7 @@ a{color:inherit;text-decoration:none}
 <div class="page-header">
   <span class="ph-idx">01 / Code</span>
   <h1>Selected <em>builds</em></h1>
-  <p>Systems programming, machine learning, and things that run close to the metal. Each project here taught me something concrete about how computers actually work.</p>
+  <p>Systems, ML, full-stack, and mobile. Most started as coursework or side projects and grew from there. Click any row to expand.</p>
 </div>
 
 <div class="projects" id="projects"></div>
@@ -106,69 +106,69 @@ a{color:inherit;text-decoration:none}
 const PROJECTS = [
   {
     num: '001',
-    title: 'Multi-Object Tracking Pipeline',
-    subtitle: 'Computer Vision &middot; C++',
-    tags: ['C++', 'YOLO', 'DeepSort', 'ByteTrack', 'ML'],
-    desc: 'Real-time multi-object tracking system combining <strong>YOLO detection</strong> with two association algorithms: DeepSort (appearance + motion) and ByteTrack (IoU-only, high-FPS). Designed as a controlled experiment to isolate the contribution of appearance embeddings to tracking accuracy. MeMOT's transformer component was deliberately reduced to hold architecture complexity constant.',
-    role: 'Lead — architecture, tracking module, evaluation pipeline',
-    stack: 'C++17, OpenCV, ONNXRuntime, CUDA',
-    year: '2024',
-    links: [{ label: 'GitHub', href: '#' }],
+    title: 'Operating Systems Projects',
+    subtitle: 'Systems Programming · C++',
+    tags: ['C++', 'Concurrency', 'Threading', 'Networking', 'OS'],
+    desc: 'Two systems projects from EECS 482. <strong>Thread library:</strong> user-level cooperative scheduler with mutexes and condition variables, supporting multi-processor synchronization via context switching. <strong>Network file server:</strong> multi-threaded server using hand-over-hand locking to enforce disk consistency under concurrent client requests, no deadlocks, no TOCTOU races.',
+    role: 'Solo — EECS 482 Operating Systems, University of Michigan',
+    stack: 'C++17, POSIX threads, TCP sockets',
+    year: '2026',
+    links: [],
   },
   {
     num: '002',
-    title: 'ML Post-Classifier',
-    subtitle: 'Machine Learning &middot; C++',
-    tags: ['C++', 'Classification', 'Feature Engineering'],
-    desc: 'Lightweight post-processing classifier that reranks raw detector outputs using handcrafted spatial and temporal features. Built to sit in front of any bounding-box detector with minimal latency overhead — the goal was accuracy lift with near-zero inference cost.',
+    title: 'Client-Side Web Application',
+    subtitle: 'Full-Stack · React · Flask',
+    tags: ['React', 'JavaScript', 'Python', 'Flask', 'REST API', 'Cypress'],
+    desc: 'Full-stack platform with a <strong>React frontend</strong> and a Flask REST API. Async fetch keeps all interactions reload-free. Client-side state managed with React Hooks throughout. Feature coverage validated with Cypress end-to-end tests.',
     role: 'Solo project',
-    stack: 'C++17, scikit-learn (prototype), custom inference',
-    year: '2024',
-    links: [{ label: 'GitHub', href: '#' }],
+    stack: 'React, JavaScript, Python, Flask, Cypress',
+    year: '2026',
+    links: [],
   },
   {
     num: '003',
-    title: 'Network File Server',
-    subtitle: 'Systems Programming &middot; C++',
-    tags: ['C++', 'Concurrency', 'Networking', 'OS'],
-    desc: 'A fully concurrent network file server supporting <strong>create, read, write, and delete</strong> over a custom RPC protocol. The tricky part: hand-over-hand locking for safe concurrent tree traversal (no TOCTOU races, no deadlocks from improper lock handoff). Built in a four-person team as the capstone for EECS 482 Operating Systems.',
-    role: 'Team of 4 — focused on concurrency model and lock protocol',
-    stack: 'C++17, Boost.Thread, TCP sockets',
-    year: '2024',
+    title: 'Multi-Object Tracking Benchmark',
+    subtitle: 'Computer Vision · Python',
+    tags: ['Python', 'YOLO', 'DeepSORT', 'ByteTrack', 'MeMOT', 'OC-SORT', 'StrongSORT'],
+    desc: 'Systematic benchmark of five tracking algorithms — <strong>DeepSORT, ByteTrack, MeMOT, OC-SORT, and StrongSORT</strong> — evaluated against a shared custom-trained YOLO model on real robotics data. Designed to isolate the contribution of appearance embeddings versus IoU-only association under real-world conditions.',
+    role: 'Team project — Michigan Task-Based Robotics Project Team',
+    stack: 'Python, PyTorch, OpenCV, ONNXRuntime',
+    year: '2025',
     links: [],
   },
   {
     num: '004',
-    title: 'MapReduce Framework',
-    subtitle: 'Distributed Systems &middot; C++',
-    tags: ['C++', 'Threads', 'MapReduce', 'IPC'],
-    desc: 'A multithreaded MapReduce implementation with a thread pool, work-stealing queue, and automatic reducer grouping by key. Supports pluggable map and reduce functions via shared libraries. Focuses on correctness under high concurrency and correct handling of partial failures.',
-    role: 'Solo project — EECS 482 coursework',
-    stack: 'C++17, POSIX threads, shared memory',
+    title: 'AI Mental Health App',
+    subtitle: 'Mobile · Swift · C++',
+    tags: ['Swift', 'C++', 'OpenAI API', 'iOS', 'Scrum'],
+    desc: 'iOS mental health support app built in Swift with a Scrum workflow. <strong>Migrated AI from OpenAI API to a locally-hosted model</strong> to reduce cost, cut latency, and keep user data private on-device. Ran user acceptance testing with iterative stakeholder feedback cycles before launch.',
+    role: 'Lead developer — team of 4',
+    stack: 'Swift, C++, OpenAI API, local LLM inference',
     year: '2024',
     links: [],
   },
   {
     num: '005',
-    title: 'Paged Virtual Memory Simulator',
-    subtitle: 'Operating Systems &middot; C++',
-    tags: ['C++', 'Virtual Memory', 'OS', 'Paging'],
-    desc: 'Simulates a paged virtual memory system with a <strong>clock-algorithm eviction policy</strong>, copy-on-write fork semantics, and demand paging. Supports multiple processes sharing a physical memory pool. Built to deeply understand what happens below the malloc line.',
-    role: 'Solo project — EECS 482 coursework',
-    stack: 'C++17, custom MMU simulation',
+    title: 'Naive Bayes Post Classifier',
+    subtitle: 'Machine Learning · C++',
+    tags: ['C++', 'ML', 'Naive Bayes', 'NLP'],
+    desc: 'Naive Bayes classifier built from scratch in C++ to categorize Piazza forum posts by topic. Implements <strong>variant keyword identification</strong> to handle misspellings and morphological variants without a preprocessing library.',
+    role: 'Solo — EECS 280 coursework, University of Michigan',
+    stack: 'C++17',
     year: '2024',
     links: [],
   },
   {
     num: '006',
-    title: 'This Portfolio',
-    subtitle: 'Web &middot; Python &middot; ML',
-    tags: ['HTML/CSS/JS', 'Three.js', 'Python', 'CLIP', 'UMAP', 'Cloudinary'],
-    desc: 'Static site with a Python ML pipeline. <strong>process.py</strong> handles Cloudinary upload, CLIP embedding extraction, KMeans dominant-color extraction, and UMAP 3D projection for the color-space map. The Three.js colormap plots each photo as a point in 3D space, clustered by color composition.',
-    role: 'Solo',
-    stack: 'Vanilla JS, Three.js r128, Python, scikit-learn, umap-learn, Cloudinary',
-    year: '2025',
-    links: [{ label: 'GitHub', href: '#' }, { label: 'Color map', href: 'colormap.html' }],
+    title: 'Dubai Basketball League Site',
+    subtitle: 'Web · PHP · MySQL',
+    tags: ['PHP', 'MySQL', 'HTML', 'CSS', 'JavaScript'],
+    desc: 'Dynamic stats site for the Dubai varsity basketball league, tracking <strong>200+ player profiles</strong> and reaching 500+ monthly viewers. Full CRUD backend in PHP and MySQL with JavaScript-driven filtering on the frontend. Engaged prospective corporate sponsors through stakeholder meetings.',
+    role: 'Solo developer',
+    stack: 'HTML, CSS, JavaScript, PHP, MySQL',
+    year: '2020–2023',
+    links: [],
   },
 ];
 
