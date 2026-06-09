@@ -1413,6 +1413,11 @@ function registerThrow(throwVec) {
     // Cap total 3D speed so very fast throws still arc visibly.
     const v3d = Math.hypot(vwx, vwy, vwz);
     if (v3d > MAX_THROW_SPEED) { const s = MAX_THROW_SPEED / v3d; vwx*=s; vwy*=s; vwz*=s; }
+    // Clamp lateral angle: dart can't deviate more than 2× forward per unit forward.
+    // Prevents noisy regression from sending the dart 10+ board-radii off-screen.
+    const maxLat = Math.abs(vwz) * 2.0;
+    if (Math.abs(vwx) > maxLat) vwx = Math.sign(vwx) * maxLat;
+    if (Math.abs(vwy) > maxLat) vwy = Math.sign(vwy) * maxLat;
     // Virtual camera center perspective correction: camera above the board
     // (vcyPx > cy) means a straight forward throw appears to go slightly
     // downward — add upward bias proportional to offset × forward speed.
