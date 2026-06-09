@@ -1,6 +1,7 @@
-// Single source of truth for game card data.
-// href values are filenames relative to the games/ directory.
-// Pages prepend their own base path when rendering links.
+// Single source of truth for all featured card data.
+// type: 'game' — lives in games/ dir; href is relative to games/
+// type: 'tool' — lives at root; href is relative to root
+// Pages use the type to build the correct link.
 
 const GOLF_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
   <ellipse cx="74" cy="56" rx="64" ry="40" stroke="rgba(120,185,65,.09)" stroke-width=".8"/>
@@ -158,9 +159,34 @@ const BOIDS_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;h
   <polygon points="2.5,0 -1.2,-1 -1.2,1" fill="rgba(162,190,255,.26)" transform="translate(90,90) rotate(42)"/>
 </svg>`;
 
-export const GAMES = [
+const COLORMAP_SVG = `<svg viewBox="0 0 200 112" style="width:80%;opacity:.55" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="60" cy="72" r="3" fill="#e74c3c"/><circle cx="44" cy="80" r="2.5" fill="#c0392b"/>
+  <circle cx="78" cy="62" r="2" fill="#e67e22"/><circle cx="90" cy="68" r="3" fill="#f39c12"/>
+  <circle cx="110" cy="44" r="3" fill="#2ecc71"/><circle cx="126" cy="36" r="2.5" fill="#27ae60"/>
+  <circle cx="98" cy="30" r="2" fill="#3498db"/><circle cx="82" cy="22" r="3" fill="#2980b9"/>
+  <circle cx="148" cy="58" r="2.5" fill="#9b59b6"/><circle cx="162" cy="70" r="2" fill="#8e44ad"/>
+  <circle cx="136" cy="78" r="3" fill="#f1c40f"/><circle cx="150" cy="86" r="2" fill="#f39c12"/>
+  <circle cx="56" cy="44" r="2" fill="#e74c3c" opacity=".6"/><circle cx="72" cy="38" r="2.5" fill="#c0392b" opacity=".5"/>
+  <circle cx="118" cy="62" r="2" fill="#1abc9c" opacity=".7"/><circle cx="104" cy="80" r="2" fill="#16a085" opacity=".6"/>
+</svg>`;
+
+export const CARDS = [
+  {
+    id: 'colormap',
+    type: 'tool',
+    title: 'Color Space',
+    descShort: 'Photographs plotted in 3D RGB color space.',
+    descFull: 'Your photo library plotted in RGB color space. Each dot is a dominant color — see how colors cluster by subject, season, and light.',
+    href: 'colormap.html',
+    thumbBg: 'radial-gradient(ellipse at 28% 55%,rgba(231,76,60,.38) 0,transparent 48%),radial-gradient(ellipse at 72% 38%,rgba(46,204,113,.32) 0,transparent 45%),radial-gradient(ellipse at 50% 18%,rgba(52,152,219,.3) 0,transparent 40%),radial-gradient(ellipse at 82% 78%,rgba(243,156,18,.28) 0,transparent 32%),radial-gradient(ellipse at 18% 78%,rgba(155,89,182,.26) 0,transparent 32%),#0e0d0b',
+    thumbSvg: COLORMAP_SVG,
+    stack: ['WebGL', 'JS'],
+    ctaFull: 'Explore',
+    ctaShort: 'Explore'
+  },
   {
     id: 'minigolf',
+    type: 'game',
     title: 'Daily Links',
     descShort: 'A seeded minigolf course generated fresh each day. Resets at midnight.',
     descFull: 'A seeded minigolf course generated fresh each day. Perlin-noise terrain, realistic slopes, drag-to-shoot. Same course for everyone.',
@@ -173,6 +199,7 @@ export const GAMES = [
   },
   {
     id: 'hand-tracker',
+    type: 'game',
     title: 'Hand Tracker',
     descShort: 'Webcam hand detection.',
     descFull: 'Webcam hand detection. 21 landmarks per hand tracked in real time. Foundation for gesture-controlled games.',
@@ -185,6 +212,7 @@ export const GAMES = [
   },
   {
     id: 'pixel-sim',
+    type: 'game',
     title: 'Pixel Sim',
     descShort: 'Every pixel is a simulated object with its own material properties.',
     descFull: 'A falling-sand style simulation where every pixel is a discrete physical object. Sand falls, water flows, fire spreads. Materials interact in emergent ways.',
@@ -198,6 +226,7 @@ export const GAMES = [
   },
   {
     id: 'boids',
+    type: 'game',
     title: '3D Boids',
     descShort: 'Emergent flocking behavior in three dimensions.',
     descFull: 'Three-dimensional boid simulation. Thousands of agents following three simple rules produce complex, lifelike swarm patterns.',
@@ -209,3 +238,5 @@ export const GAMES = [
     ctaShort: 'Open'
   }
 ];
+
+export const GAMES = CARDS.filter(c => c.type === 'game');

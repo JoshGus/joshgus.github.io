@@ -104,11 +104,11 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
   } catch(e){}
 </script>
 <script type="module">
-import { GAMES } from '../data/games.js';
+import { CARDS } from '../data/games.js';
 
 const grid = document.getElementById('games-grid');
 if (grid) {
-  GAMES.forEach(g => {
+  CARDS.filter(g => g.type === 'game').forEach(g => {
     const stack = g.stack.map(s => `<b>${s}</b>`).join('');
     const cs = g.comingSoon ? ' coming-soon' : '';
     const cta = g.comingSoon
