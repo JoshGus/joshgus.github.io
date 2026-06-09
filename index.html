@@ -101,12 +101,19 @@
   /* ---------- experience block (left panel) ---------- */
   .exp-block{margin-top:36px;width:100%}
   .exp-label{font-family:var(--mono);font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dimmer);margin-bottom:14px}
-  .exp-entry{padding:11px 0;border-bottom:1px solid var(--line)}
+  .exp-entry{padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
   .exp-entry:first-of-type{border-top:1px solid var(--line)}
   .exp-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
-  .exp-role{font-size:.92rem;font-weight:500;color:var(--fg)}
+  .exp-role{font-size:.92rem;font-weight:500;color:var(--fg);display:flex;align-items:center;gap:7px}
+  .exp-chev{font-size:.52rem;color:var(--dimmer);transition:transform .3s cubic-bezier(.2,.7,.3,1),color .25s;display:inline-block}
+  .exp-entry.open .exp-chev{transform:rotate(90deg);color:var(--accent-ink)}
   .exp-yr{font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;color:var(--dimmer);white-space:nowrap;flex-shrink:0}
   .exp-org{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:var(--accent-ink);display:block;margin-top:3px}
+  .exp-bullets{max-height:0;overflow:hidden;transition:max-height .4s cubic-bezier(.2,.7,.3,1)}
+  .exp-entry.open .exp-bullets{max-height:220px}
+  .exp-bullets ul{margin:9px 0 4px;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
+  .exp-bullets li{font-size:.78rem;color:var(--dim);font-weight:300;line-height:1.5;padding-left:13px;position:relative}
+  .exp-bullets li::before{content:"·";position:absolute;left:0;color:var(--dimmer)}
 
   /* ---------- section scaffolding ---------- */
   section{padding:clamp(60px,10vh,110px) 0;border-bottom:1px solid var(--line)}
@@ -298,17 +305,31 @@
       <div class="exp-label">Experience</div>
       <div class="exp-entry">
         <div class="exp-top">
-          <span class="exp-role">IT Technician</span>
-          <span class="exp-yr">May 2025 - Current</span>
+          <span class="exp-role">IT Technician <span class="exp-chev">&#9656;</span></span>
+          <span class="exp-yr">May 2025 – Current</span>
         </div>
-        <span class="exp-org">CAEN</span>
+        <span class="exp-org">CAEN · University of Michigan</span>
+        <div class="exp-bullets">
+          <ul>
+            <li>Maintained instructional tech across 70+ classrooms including AV systems, control panels, and desktop stations</li>
+            <li>Managed TeamDynamix tickets and scheduled tasks to minimize downtime for instructional spaces</li>
+            <li>Collaborated with CAEN engineers to deploy equipment and troubleshoot hardware/software failures</li>
+          </ul>
+        </div>
       </div>
       <div class="exp-entry">
         <div class="exp-top">
-          <span class="exp-role">Web &amp; Operations Coordinator</span>
-          <span class="exp-yr">Mar 2025 - Current</span>
+          <span class="exp-role">Web &amp; Operations Coordinator <span class="exp-chev">&#9656;</span></span>
+          <span class="exp-yr">Mar 2025 – Current</span>
         </div>
         <span class="exp-org">Leinweber Institute for Theoretical Physics</span>
+        <div class="exp-bullets">
+          <ul>
+            <li>Maintained institute websites, keeping event listings, research pages, and faculty profiles current</li>
+            <li>Organized communications and logistics for lectures, conferences, and workshops</li>
+            <li>Performed administrative operations including calendar management, procurement, and documentation</li>
+          </ul>
+        </div>
       </div>
     </div>
   </aside>
@@ -494,6 +515,18 @@
         btn.setAttribute('aria-expanded','true');
         lbl.textContent='Collapse';
       }
+    });
+  })();
+
+  // Experience accordion
+  (function(){
+    var entries = document.querySelectorAll('.exp-entry');
+    entries.forEach(function(entry){
+      entry.addEventListener('click', function(){
+        var isOpen = entry.classList.contains('open');
+        entries.forEach(function(e){ e.classList.remove('open'); });
+        if(!isOpen) entry.classList.add('open');
+      });
     });
   })();
 
