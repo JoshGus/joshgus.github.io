@@ -868,23 +868,51 @@ body {
 <script type="module">
 'use strict';
 
-// ── MediaPipe ────────────────────────────────────────────────────────────────
-const { HandLandmarker, FilesetResolver } = await import(
-  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+// ── MediaPipe Worker ──────────────────────────────────────────────────────────
+// Run detectForVideo off the main thread so 100ms WASM calls don't stall render.
+document.getElementById('loading-msg').textContent = 'Loading hand tracker…';
+
+const _workerSrc = `
+  const { HandLandmarker, FilesetResolver } = await import(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+  );
+  const vision = await FilesetResolver.forVisionTasks(
+    'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+  );
+  const landmarker = await HandLandmarker.createFromOptions(vision, {
+    baseOptions: {
+      modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+      delegate: 'CPU',
+    },
+    numHands: 2,
+    runningMode: 'VIDEO',
+    minHandDetectionConfidence: 0.5,
+    minHandPresenceConfidence: 0.5,
+    minTrackingConfidence: 0.5,
+  });
+  self.postMessage({ type: 'ready' });
+  self.onmessage = ({ data }) => {
+    if (data.type !== 'frame') return;
+    const { bitmap, t } = data;
+    const t0 = performance.now();
+    const r = landmarker.detectForVideo(bitmap, t);
+    const elapsed = performance.now() - t0;
+    bitmap.close();
+    const hands = (r.landmarks || []).map((lms, i) => ({
+      landmarks: lms,
+      handedness: r.handednesses?.[i]?.[0]?.displayName ?? 'Unknown',
+    }));
+    self.postMessage({ type: 'landmarks', hands, elapsed });
+  };
+`;
+const _mpWorker = new Worker(
+  URL.createObjectURL(new Blob([_workerSrc], { type: 'text/javascript' })),
+  { type: 'module' }
 );
-const vision = await FilesetResolver.forVisionTasks(
-  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
-);
-const landmarker = await HandLandmarker.createFromOptions(vision, {
-  baseOptions: {
-    modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-    delegate: 'GPU',
-  },
-  numHands: 2,
-  runningMode: 'VIDEO',
-  minHandDetectionConfidence: 0.5,
-  minHandPresenceConfidence: 0.5,
-  minTrackingConfidence: 0.5,
+const _workerReady = new Promise(res => {
+  _mpWorker.addEventListener('message', function h({ data }) {
+    if (data.type === 'ready') { res(); _mpWorker.removeEventListener('message', h); }
+  });
 });
 
 // ── Camera ───────────────────────────────────────────────────────────────────
@@ -903,6 +931,8 @@ try {
 } catch {
   document.getElementById('loading-msg').textContent = 'Camera unavailable — click board or Space to throw';
 }
+// Worker and camera init happen in parallel; both must be ready before play.
+await _workerReady;
 document.getElementById('loading-screen').style.display = 'none';
 
 // ── Canvas ───────────────────────────────────────────────────────────────────
@@ -1831,10 +1861,18 @@ document.addEventListener('keydown', e => {
 });
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
-// detectForVideo is synchronous and expensive; camera outputs ~30fps anyway.
-// Throttle detection to 30fps so the render loop stays at 60fps.
-let _lastDetectMs = 0, _lastHands = [];
-const DETECT_INTERVAL = 34; // ms → ~29fps, just under camera rate
+// detectForVideo runs in _mpWorker — never blocks the render thread.
+// One frame in-flight at a time; we send the next only after the worker replies.
+let _lastDetectMs = 0, _lastHands = [], _detectInFlight = false;
+const DETECT_INTERVAL = 34;
+
+_mpWorker.onmessage = ({ data }) => {
+  if (data.type !== 'landmarks') return;
+  _lastHands = data.hands;
+  _detectInFlight = false;
+  _detectFrames++;
+  _detectTotalMs += data.elapsed;
+};
 
 const fpsMeter = document.getElementById('fps-meter');
 let _fpsFrames = 0, _fpsLast = performance.now();
@@ -1863,17 +1901,15 @@ function loop() {
   drawVirtualCenter();
 
   const now = performance.now();
-  if (webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
+  if (!_detectInFlight &&
+      webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
       now - _lastDetectMs >= DETECT_INTERVAL) {
     _lastDetectMs = now;
-    const t0 = performance.now();
-    const r = landmarker.detectForVideo(webcamEl, now);
-    _detectTotalMs += performance.now() - t0;
-    _detectFrames++;
-    _lastHands = (r.landmarks||[]).map((lms,i) => ({
-      landmarks: lms,
-      handedness: r.handednesses?.[i]?.[0]?.displayName ?? 'Unknown',
-    }));
+    _detectInFlight = true;
+    const t = now;
+    createImageBitmap(webcamEl).then(bitmap => {
+      _mpWorker.postMessage({ type: 'frame', bitmap, t }, [bitmap]);
+    }).catch(() => { _detectInFlight = false; });
   }
   const hands = _lastHands;
 
