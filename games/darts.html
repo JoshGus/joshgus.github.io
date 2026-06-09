@@ -761,41 +761,26 @@ function countFingers(lm) {
 }
 
 // ── Kinematic throw setup ─────────────────────────────────────────────────────
-// Returns { vx0, vy0, ax, ay, T } for the projectile, given start/end and throw vec.
-// Initial direction comes from the hand's last-3-point velocity; speed determines drop.
+// Pure ballistic: only gravity acts (ax=0, ay=G). vx0/vy0 are solved analytically
+// so the parabola lands exactly at (toX,toY) at t=T. No correction acceleration.
+const G = 0.00055; // gravity in px/ms²
+
 function buildKinematics(fromX, fromY, toX, toY, throwVec) {
-  const dist = Math.hypot(toX - fromX, toY - fromY) || 1;
-
-  let vx0, vy0, T;
+  let T;
   if (throwVec && throwVec.canvasSpeed > 0.5) {
-    const { canvasVX, canvasVY, canvasSpeed, fwdV } = throwVec;
-
-    // Time of flight: forward (depth) velocity determines how fast dart reaches board.
-    // Higher fwdV → shorter T → less total drop. Extended range simulates real throw distance.
-    const fwd = Math.max(0.02, fwdV);
+    // fwdV (palm-scale growth rate) proxies the throw speed toward the board.
+    // Higher fwdV → shorter T → flatter arc (dart arrives sooner, less drop).
+    const fwd = Math.max(0.02, throwVec.fwdV);
     T = Math.min(1500, Math.max(600, 2.2 / fwd));
-
-    // Initial direction from hand motion (unit vector), magnitude scaled so dart
-    // comfortably reaches the target distance in time T.
-    const dirX = canvasVX / canvasSpeed;
-    const dirY = canvasVY / canvasSpeed;
-    const initSpeed = (dist / T) * 1.25;  // slightly faster than straight-line
-    vx0 = dirX * initSpeed;
-    vy0 = dirY * initSpeed;
   } else {
-    // Space-bar fallback: straight arc to aim, 550 ms
-    T   = 950;
-    vx0 = (toX - fromX) / T;
-    // vy0 chosen so gravity gives a mild upward arc
-    vy0 = (toY - fromY) / T - 0.0006 * T;
+    T = 950; // Space-bar fallback
   }
 
-  // Constant accelerations that force the dart to land exactly at (toX, toY) at t=T,
-  // while the INITIAL direction follows the hand path.
-  const ax = 2 * (toX - fromX - vx0 * T) / (T * T);
-  const ay = 2 * (toY - fromY - vy0 * T) / (T * T);
+  // Ballistic solution: x(T)=toX, y(T)=toY with constant downward G.
+  const vx0 = (toX - fromX) / T;
+  const vy0 = (toY - fromY) / T - 0.5 * G * T; // negative → initial upward launch
 
-  return { vx0, vy0, ax, ay, T };
+  return { vx0, vy0, ax: 0, ay: G, T };
 }
 
 // ── Register throw ────────────────────────────────────────────────────────────
