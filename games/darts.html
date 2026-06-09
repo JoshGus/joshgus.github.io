@@ -1332,14 +1332,18 @@ function linReg(ts, vs) {
 
 function calcThrowVec() {
   if (handPosHist.length < 2) return null;
-  const last = handPosHist[handPosHist.length - 1];
+  const tEnd = handPosHist[handPosHist.length - 1].t;
 
-  // collect all samples within 80ms of the latest
-  const win = [];
-  for (let i = handPosHist.length - 1; i >= 0; i--) {
-    if (last.t - handPosHist[i].t > 80) break;
-    win.unshift(handPosHist[i]);
+  // Find the pullback peak: the earliest highest-wz point in the last 300ms.
+  // Everything after it is the forward throw phase; before it is pullback.
+  let startIdx = 0, maxWz = -Infinity;
+  for (let i = 0; i < handPosHist.length; i++) {
+    if (tEnd - handPosHist[i].t > 300) continue;
+    const wz = PLAYER_Z * PSC_REF / handPosHist[i].palmSc;
+    if (wz > maxWz) { maxWz = wz; startIdx = i; }
   }
+
+  const win = handPosHist.slice(startIdx);
   if (win.length < 2) return null;
   const span = win[win.length - 1].t - win[0].t;
   if (span < 8) return null;
