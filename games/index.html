@@ -136,15 +136,19 @@ const grid = document.getElementById('games-grid');
 if (grid) {
   GAMES.forEach(g => {
     const stack = g.stack.map(s => `<b>${s}</b>`).join('');
+    const cs = g.comingSoon ? ' coming-soon' : '';
+    const cta = g.comingSoon
+      ? `<span class="soon-label">${g.ctaShort}</span>`
+      : `<span class="play-label">${g.ctaShort} <span class="arr">&#x2192;</span></span>`;
     grid.insertAdjacentHTML('beforeend', `
-      <a class="game-card" href="${g.href}">
+      <a class="game-card${cs}" href="${g.comingSoon ? '#' : g.href}">
         <div class="card-thumb" style="background:${g.thumbBg};min-height:160px">${g.thumbSvg}</div>
         <div class="card-body">
           <h2>${g.title}</h2>
           <p>${g.descFull}</p>
           <div class="card-foot">
             <div class="stack">${stack}</div>
-            <span class="play-label">${g.ctaShort} <span class="arr">&#x2192;</span></span>
+            ${cta}
           </div>
         </div>
       </a>`);

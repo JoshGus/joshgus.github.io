@@ -59,6 +59,105 @@ const HAND_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;he
   <circle cx="55" cy="102" r="7" fill="#ccf73f" opacity=".10"/>
 </svg>`;
 
+const PIXEL_SIM_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="82" cy="16" r="26" fill="rgba(220,60,10,.10)"/>
+  <rect x="75" y="8" width="8" height="8" fill="#e04a12" rx="1"/>
+  <rect x="85" y="8" width="8" height="8" fill="#ef5e18" rx="1"/>
+  <rect x="80" y="17" width="8" height="8" fill="#f08020" rx="1"/>
+  <rect x="70" y="17" width="8" height="8" fill="#e03a10" rx="1"/>
+  <rect x="90" y="17" width="8" height="8" fill="#e84e14" rx="1"/>
+  <rect x="10" y="60" width="8" height="8" fill="#c8913a" rx="1"/>
+  <rect x="19" y="60" width="8" height="8" fill="#d09a44" rx="1"/>
+  <rect x="28" y="60" width="8" height="8" fill="#c2893a" rx="1"/>
+  <rect x="37" y="60" width="8" height="8" fill="#b88030" rx="1"/>
+  <rect x="10" y="69" width="8" height="8" fill="#d09a44" rx="1"/>
+  <rect x="19" y="69" width="8" height="8" fill="#c8913a" rx="1"/>
+  <rect x="28" y="69" width="8" height="8" fill="#d09a44" rx="1"/>
+  <rect x="37" y="69" width="8" height="8" fill="#c2893a" rx="1"/>
+  <rect x="46" y="69" width="8" height="8" fill="#b88030" rx="1"/>
+  <rect x="19" y="78" width="8" height="8" fill="#c8913a" rx="1"/>
+  <rect x="28" y="78" width="8" height="8" fill="#d09a44" rx="1"/>
+  <rect x="37" y="78" width="8" height="8" fill="#c2893a" rx="1"/>
+  <rect x="46" y="78" width="8" height="8" fill="#c8913a" rx="1"/>
+  <rect x="28" y="87" width="8" height="8" fill="#b88030" rx="1"/>
+  <rect x="37" y="87" width="8" height="8" fill="#c2893a" rx="1"/>
+  <rect x="105" y="60" width="8" height="8" fill="rgba(46,108,198,.88)" rx="1"/>
+  <rect x="114" y="60" width="8" height="8" fill="rgba(50,115,205,.85)" rx="1"/>
+  <rect x="100" y="69" width="8" height="8" fill="rgba(44,102,192,.88)" rx="1"/>
+  <rect x="109" y="69" width="8" height="8" fill="rgba(50,115,205,.88)" rx="1"/>
+  <rect x="118" y="69" width="8" height="8" fill="rgba(46,108,200,.85)" rx="1"/>
+  <rect x="127" y="69" width="8" height="8" fill="rgba(42,98,188,.82)" rx="1"/>
+  <rect x="105" y="78" width="8" height="8" fill="rgba(50,112,202,.88)" rx="1"/>
+  <rect x="114" y="78" width="8" height="8" fill="rgba(46,108,198,.88)" rx="1"/>
+  <rect x="123" y="78" width="8" height="8" fill="rgba(50,115,205,.85)" rx="1"/>
+  <rect x="132" y="78" width="8" height="8" fill="rgba(44,102,192,.82)" rx="1"/>
+  <rect x="110" y="87" width="8" height="8" fill="rgba(50,115,205,.85)" rx="1"/>
+  <rect x="119" y="87" width="8" height="8" fill="rgba(46,108,200,.82)" rx="1"/>
+  <rect x="128" y="87" width="8" height="8" fill="rgba(42,98,188,.80)" rx="1"/>
+  <rect x="10" y="96" width="8" height="8" fill="rgba(88,82,76,.85)" rx="1"/>
+  <rect x="19" y="96" width="8" height="8" fill="rgba(82,76,70,.85)" rx="1"/>
+  <rect x="28" y="96" width="8" height="8" fill="rgba(90,84,78,.85)" rx="1"/>
+  <rect x="37" y="96" width="8" height="8" fill="rgba(84,78,72,.85)" rx="1"/>
+  <rect x="46" y="96" width="8" height="8" fill="rgba(88,82,76,.85)" rx="1"/>
+  <rect x="55" y="96" width="8" height="8" fill="rgba(82,76,70,.85)" rx="1"/>
+  <rect x="64" y="96" width="8" height="8" fill="rgba(90,84,78,.85)" rx="1"/>
+  <rect x="73" y="96" width="8" height="8" fill="rgba(86,80,74,.85)" rx="1"/>
+  <rect x="82" y="96" width="8" height="8" fill="rgba(82,76,70,.85)" rx="1"/>
+  <rect x="91" y="96" width="8" height="8" fill="rgba(90,84,78,.85)" rx="1"/>
+  <rect x="100" y="96" width="8" height="8" fill="rgba(86,80,74,.85)" rx="1"/>
+  <rect x="109" y="96" width="8" height="8" fill="rgba(82,76,70,.85)" rx="1"/>
+  <rect x="118" y="96" width="8" height="8" fill="rgba(90,84,78,.85)" rx="1"/>
+  <rect x="127" y="96" width="8" height="8" fill="rgba(86,80,74,.85)" rx="1"/>
+  <rect x="136" y="96" width="8" height="8" fill="rgba(82,76,70,.85)" rx="1"/>
+  <rect x="145" y="96" width="8" height="8" fill="rgba(90,84,78,.85)" rx="1"/>
+  <rect x="154" y="96" width="8" height="8" fill="rgba(86,80,74,.85)" rx="1"/>
+  <rect x="163" y="96" width="8" height="8" fill="rgba(82,76,70,.85)" rx="1"/>
+  <rect x="172" y="96" width="8" height="8" fill="rgba(90,84,78,.85)" rx="1"/>
+  <rect x="10" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="19" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="28" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="37" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="46" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="55" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="64" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="73" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="82" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="91" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="100" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="109" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="118" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="127" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="136" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="145" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="154" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+  <rect x="163" y="105" width="8" height="8" fill="rgba(80,74,70,.85)" rx="1"/>
+  <rect x="172" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
+</svg>`;
+
+const BOIDS_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <polygon points="9,0 -4,-3.5 -4,3.5" fill="rgba(220,230,255,.88)" transform="translate(120,35) rotate(40)"/>
+  <polygon points="9,0 -4,-3.5 -4,3.5" fill="rgba(215,228,255,.86)" transform="translate(132,28) rotate(38)"/>
+  <polygon points="8,0 -3.5,-3 -3.5,3" fill="rgba(218,228,255,.84)" transform="translate(144,40) rotate(42)"/>
+  <polygon points="6,0 -3,-2.5 -3,2.5" fill="rgba(205,218,255,.72)" transform="translate(110,25) rotate(36)"/>
+  <polygon points="6,0 -3,-2.5 -3,2.5" fill="rgba(210,222,255,.70)" transform="translate(150,22) rotate(44)"/>
+  <polygon points="6,0 -3,-2.5 -3,2.5" fill="rgba(205,218,255,.68)" transform="translate(160,35) rotate(40)"/>
+  <polygon points="6,0 -3,-2.5 -3,2.5" fill="rgba(200,215,255,.62)" transform="translate(60,50) rotate(38)"/>
+  <polygon points="5,0 -2.5,-2 -2.5,2" fill="rgba(195,212,255,.58)" transform="translate(72,42) rotate(42)"/>
+  <polygon points="5,0 -2.5,-2 -2.5,2" fill="rgba(198,214,255,.55)" transform="translate(80,55) rotate(45)"/>
+  <polygon points="4,0 -2,-1.5 -2,1.5" fill="rgba(185,205,255,.48)" transform="translate(48,60) rotate(35)"/>
+  <polygon points="4,0 -2,-1.5 -2,1.5" fill="rgba(188,208,255,.46)" transform="translate(90,65) rotate(40)"/>
+  <polygon points="3,0 -1.5,-1.2 -1.5,1.2" fill="rgba(175,198,255,.38)" transform="translate(30,30) rotate(50)"/>
+  <polygon points="3,0 -1.5,-1.2 -1.5,1.2" fill="rgba(170,195,255,.36)" transform="translate(170,60) rotate(30)"/>
+  <polygon points="3,0 -1.5,-1.2 -1.5,1.2" fill="rgba(172,196,255,.35)" transform="translate(20,70) rotate(42)"/>
+  <polygon points="3,0 -1.5,-1.2 -1.5,1.2" fill="rgba(175,198,255,.34)" transform="translate(180,25) rotate(38)"/>
+  <polygon points="3,0 -1.5,-1.2 -1.5,1.2" fill="rgba(170,195,255,.36)" transform="translate(100,15) rotate(40)"/>
+  <polygon points="3,0 -1.5,-1.2 -1.5,1.2" fill="rgba(168,193,255,.32)" transform="translate(45,80) rotate(35)"/>
+  <polygon points="3,0 -1.5,-1.2 -1.5,1.2" fill="rgba(172,196,255,.30)" transform="translate(155,75) rotate(44)"/>
+  <polygon points="2.5,0 -1.2,-1 -1.2,1" fill="rgba(160,188,255,.26)" transform="translate(15,45) rotate(48)"/>
+  <polygon points="2.5,0 -1.2,-1 -1.2,1" fill="rgba(160,188,255,.24)" transform="translate(185,85) rotate(36)"/>
+  <polygon points="2.5,0 -1.2,-1 -1.2,1" fill="rgba(162,190,255,.26)" transform="translate(90,90) rotate(42)"/>
+</svg>`;
+
 export const GAMES = [
   {
     id: 'minigolf',
@@ -83,5 +182,31 @@ export const GAMES = [
     stack: ['MediaPipe', 'WebGL'],
     ctaFull: 'Open',
     ctaShort: 'Open'
+  },
+  {
+    id: 'pixel-sim',
+    title: 'Pixel Sim',
+    descShort: 'Every pixel is a simulated object with its own material properties.',
+    descFull: 'A falling-sand style simulation where every pixel is a discrete physical object. Sand falls, water flows, fire spreads. Materials interact in emergent ways.',
+    href: 'pixel-sim.html',
+    thumbBg: '#0b0a09',
+    thumbSvg: PIXEL_SIM_SVG,
+    stack: ['Canvas', 'JS'],
+    ctaFull: 'Coming soon',
+    ctaShort: 'Soon',
+    comingSoon: true
+  },
+  {
+    id: 'boids',
+    title: '3D Boids',
+    descShort: 'Emergent flocking behavior in three dimensions.',
+    descFull: 'Three-dimensional boid simulation. Thousands of agents following three simple rules produce complex, lifelike swarm patterns.',
+    href: 'boids.html',
+    thumbBg: '#080c16',
+    thumbSvg: BOIDS_SVG,
+    stack: ['WebGL', 'Three.js'],
+    ctaFull: 'Coming soon',
+    ctaShort: 'Soon',
+    comingSoon: true
   }
 ];
