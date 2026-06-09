@@ -735,14 +735,12 @@ function processHandFrame(lm, now) {
   } else if (pinched) {
     pinchHoldFrames++;
 
-    // Record palm position until fingers start to separate — the MCP joint
-    // stays still as fingers open, so this naturally stops early enough.
-    if (pd < PINCH_OUT * 0.9) {
-      lastHandX = tx * canvas.width;
-      lastHandY = ty * canvas.height;
-      handPosHist.push({ canvasX: lastHandX, canvasY: lastHandY, palmSc: psc, t: now });
-      if (handPosHist.length > 18) handPosHist.shift();
-    }
+    // lm[9] (MCP) doesn't drift with finger separation, so record every
+    // pinched frame — no early cutoff needed.
+    lastHandX = tx * canvas.width;
+    lastHandY = ty * canvas.height;
+    handPosHist.push({ canvasX: lastHandX, canvasY: lastHandY, palmSc: psc, t: now });
+    if (handPosHist.length > 18) handPosHist.shift();
 
     if (pd > PINCH_OUT && pinchHoldFrames > 2) {
       pinched = false;
