@@ -903,9 +903,12 @@ function registerThrow(throwVec) {
 
   let vwx, vwy, vwz;
   if (throwVec) {
-    vwx = throwVec.vwx;
-    vwy = throwVec.vwy;
-    vwz = throwVec.vwz;
+    // Scale velocity down so flight feels like a real darts throw distance.
+    // Preserves direction; only slows the dart.
+    const SPEED_SCALE = 0.30;
+    vwx = throwVec.vwx * SPEED_SCALE;
+    vwy = throwVec.vwy * SPEED_SCALE;
+    vwz = throwVec.vwz * SPEED_SCALE;
     // Guarantee dart actually travels toward the board
     if (vwz > -wz0 / 2000) vwz = -wz0 / 1000;
   } else {
