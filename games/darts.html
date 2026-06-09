@@ -1147,9 +1147,7 @@ let practiceTotal = 0, darts = [];
 let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 
 // Hand tracking & pinch
-let lastHandX=null, lastHandY=null;
-let lastPinchCanvasX=null, lastPinchCanvasY=null; // thumb-tip spawn point
-let handPosHist = [];   // {canvasX, canvasY, palmSc, t} per frame
+let handPosHist = [];   // {canvasX, canvasY, palmSc, t} — wrist+knuckle anchor
 let pinched=false, pinchHoldFrames=0;
 
 // Virtual corridor constants (world units = board radii)
@@ -1187,35 +1185,29 @@ function processHandFrame(lm, now) {
   aimRawHist.push([bx,by]);
   if (aimRawHist.length>12) aimRawHist.shift();
 
-  // Pinch geometry — scale thresholds by palm size so distance doesn't matter
-  const pd  = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
-  const psc = Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
-  const pscScale   = Math.max(0.3, psc / PSC_REF);  // <1 far, >1 close
-  const sPinchIn   = PINCH_IN  * pscScale;
-  const sPinchOut  = PINCH_OUT * pscScale;
-  // Wrist (lm[0]): captures arm-lift arc better than the knuckle.
-  // Palm scale still uses the lm[9]–lm[0] span for depth estimation.
-  const tx  = 1 - lm[0].x;
-  const ty  = lm[0].y;
+  // Palm scale: wrist→middle-knuckle span drives both depth and pinch scaling.
+  const psc     = Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
+  const pscScale = Math.max(0.3, psc / PSC_REF);
 
-  // Track pinch midpoint (thumb + index tips) — used as dart spawn origin
-  const pmx = ((1-lm[4].x) + (1-lm[8].x)) * 0.5 * canvas.width;
-  const pmy = (lm[4].y   +  lm[8].y)   * 0.5 * canvas.height;
+  // Pinch gesture — thumb/index distance only: indicates hold and release.
+  // NOT used for position; fingers opening at release would corrupt velocity.
+  const pd       = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
+  const sPinchIn  = PINCH_IN  * pscScale;
+  const sPinchOut = PINCH_OUT * pscScale;
+
+  // Stable hand anchor: midpoint of wrist (lm[0]) and middle MCP (lm[9]).
+  // Unaffected by finger spread — tracks pure arm/wrist movement.
+  const anchorX = ((1-lm[0].x) + (1-lm[9].x)) * 0.5 * canvas.width;
+  const anchorY = (lm[0].y     +  lm[9].y)     * 0.5 * canvas.height;
 
   if (!pinched && pd < sPinchIn) {
     pinched = true; pinchHoldFrames = 0;
     handPosHist = [];
-    lastHandX = tx * canvas.width;
-    lastHandY = ty * canvas.height;
-    lastPinchCanvasX = pmx; lastPinchCanvasY = pmy;
 
   } else if (pinched) {
     pinchHoldFrames++;
-    lastPinchCanvasX = pmx; lastPinchCanvasY = pmy;
-
-    // Record the pinch midpoint for velocity (same point the dart will spawn from).
-    // Palm scale (psc) still uses wrist→knuckle span for depth estimation.
-    handPosHist.push({ canvasX: pmx, canvasY: pmy, palmSc: psc, t: now });
+    // Record anchor each pinched frame: velocity = arm movement, not finger noise.
+    handPosHist.push({ canvasX: anchorX, canvasY: anchorY, palmSc: psc, t: now });
     if (handPosHist.length > 18) handPosHist.shift();
 
     if (pd > sPinchOut && pinchHoldFrames > 2) {
@@ -1228,11 +1220,6 @@ function processHandFrame(lm, now) {
         }
       }
     }
-
-  } else {
-    // Not pinched — keep lastHandX/Y on index tip as fallback launch origin
-    lastHandX = rx * canvas.width;
-    lastHandY = ry * canvas.height;
   }
 }
 
@@ -1286,8 +1273,7 @@ function registerThrow(throwVec) {
   if (gamePhase === 'gameover') return;
   const { cx, cy, R } = getBoardLayout();
 
-  // Spawn and velocity both measured from the pinch midpoint (handPosHist now
-  // records pmx/pmy, so last entry is the release position).
+  // Spawn and velocity both use the wrist+knuckle anchor recorded in handPosHist.
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
   const wx0 = last ? (last.canvasX - cx) / R : 0;
   const wy0 = last ? -(last.canvasY - cy) / R : 0.3;
