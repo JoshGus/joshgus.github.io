@@ -562,6 +562,20 @@ body {
   transition: opacity .15s;
 }
 .tut-start:hover { opacity: .82; }
+.tut-perf-note {
+  background: rgba(200,30,30,.10);
+  border-left: 3px solid #c81e1e;
+  padding: 9px 14px;
+  border-radius: 3px;
+  font-family: var(--body);
+  font-size: .8rem;
+  line-height: 1.6;
+  color: #c81e1e;
+  max-width: 480px;
+  text-align: left;
+}
+.tut-perf-note strong { font-weight: 700; }
+.tut-perf-note a { color: #c81e1e; }
 
 /* ── tutorial button (bottom left) ── */
 #btn-tutorial {
@@ -657,6 +671,11 @@ body {
           <div class="tut-card-title">Two-Player Game</div>
           <p>Click <strong>2-Player Game</strong> and both players ready up: P1 holds <strong>1 finger</strong>, P2 holds <strong>2 fingers</strong> for one second each. Between turns, the incoming player holds an <strong>open hand</strong> to start their countdown.</p>
         </div>
+      </div>
+      <div class="tut-perf-note">
+        <strong>Windows / slow performance?</strong> Enable Chrome hardware acceleration:
+        <em>Settings → System → Use hardware acceleration when available</em>, then relaunch.
+        Verify at <a href="chrome://gpu" target="_blank">chrome://gpu</a> — WebGL should say <em>Hardware accelerated</em>.
       </div>
       <button class="tut-start" id="btn-tut-start">Start Playing</button>
     </div>
@@ -1206,8 +1225,8 @@ let practiceTotal = 0, darts = [];
 let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 
 // Hand tracking & pinch
-let handPosHist = [];   // {canvasX, canvasY, palmSc, t} — wrist+knuckle anchor
-let pinched=false, pinchHoldFrames=0;
+let handPosHist = [];   // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc,t}
+let pinched=false, pinchStartMs=0;
 
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
@@ -1223,15 +1242,15 @@ let   MAX_THROW_SPEED = 0.021;   // max 3D dart speed after scaling (7 × 0.003)
 let CAM_VCX = 0.50;   // 0 = left edge, 1 = right edge
 let CAM_VCY = 0.60;   // default = Laptop (camera above screen)
 const PINCH_IN  = 0.055;
-let   PINCH_OUT = 0.062;  // user-adjustable via slider
+let   PINCH_OUT = 0.061;  // user-adjustable via slider
 
 // Throw cooldown
 let lastThrow = 0;
 const COOLDOWN = 1700;
 
 // Ready & flash
-let rp1F=0, rp2F=0;
-const READY_NEED=28;
+let rp1Ms=0, rp2Ms=0, _lastReadyT=0;
+const READY_NEED_MS=1000;
 let flashTid=null;
 
 // ── Hand frame processing ─────────────────────────────────────────────────────
@@ -1266,15 +1285,15 @@ function processHandFrame(lm, now) {
   const spawnY  = (wristY +    lm[9].y *canvas.height)  * 0.5;
 
   if (!pinched && pd < sPinchIn) {
-    pinched = true; pinchHoldFrames = 0;
+    pinched = true; pinchStartMs = now;
     handPosHist = [];
 
   } else if (pinched) {
-    pinchHoldFrames++;
     handPosHist.push({ wristX, wristY, fingerX, fingerY, spawnX, spawnY, palmSc: psc, t: now });
-    if (handPosHist.length > 18) handPosHist.shift();
+    // keep last 600ms of history regardless of detection framerate
+    while (handPosHist.length > 1 && now - handPosHist[0].t > 600) handPosHist.shift();
 
-    if (pd > sPinchOut && pinchHoldFrames > 2) {
+    if (pd > sPinchOut && now - pinchStartMs >= 50) {
       pinched = false;
       if (now - lastThrow > COOLDOWN && gamePhase === 'playing') {
         const tv = calcThrowVec();
@@ -1288,9 +1307,13 @@ function processHandFrame(lm, now) {
 }
 
 function calcThrowVec() {
-  if (handPosHist.length < 3) return null;
-  const pts = handPosHist.slice(-3);
-  const p1 = pts[0], p3 = pts[2];
+  if (handPosHist.length < 2) return null;
+  const p3 = handPosHist[handPosHist.length - 1];
+  // use the newest point that is at least 80ms older than p3 (or oldest available)
+  let p1 = handPosHist[0];
+  for (let i = handPosHist.length - 2; i >= 0; i--) {
+    if (p3.t - handPosHist[i].t >= 80) { p1 = handPosHist[i]; break; }
+  }
   const dt = p3.t - p1.t;
   if (dt < 8) return null;
 
@@ -1346,8 +1369,8 @@ function registerThrow(throwVec) {
   const { cx, cy, R } = getBoardLayout();
 
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
-  const wx0 = last ? (last.spawnX - cx) / R : 0;
-  const wy0 = last ? -(last.spawnY - cy) / R : 0.3;
+  const wx0 = last ? (last.fingerX - cx) / R : 0;
+  const wy0 = last ? -(last.fingerY - cy) / R : 0.3;
   const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
 
   let vwx, vwy, vwz;
@@ -1443,13 +1466,13 @@ function endTurn() {
   if (mode === 'game') showBetweenTurns();
 }
 
-let btReadyFrames = 0;
-let btCounting    = false;
-const BT_READY_NEED = 28; // ~1 s at 28 fps
+let btReadyMs = 0, _lastBtT = 0;
+let btCounting = false;
+const BT_READY_NEED_MS = 1000;
 
 function showBetweenTurns() {
   gamePhase = 'waiting';
-  btReadyFrames = 0; btCounting = false;
+  btReadyMs = 0; _lastBtT = 0; btCounting = false;
   const p   = P[currPlayer];
   const el  = document.getElementById('between-turns-screen');
   el.style.borderLeftColor = p.col;
@@ -1463,17 +1486,19 @@ function showBetweenTurns() {
   el.style.display = 'flex';
 }
 
-function processBetweenTurns(lm) {
+function processBetweenTurns(lm, now) {
   if (btCounting) return;
+  const dt = _lastBtT > 0 ? now - _lastBtT : 0;
+  _lastBtT = now;
   const fingers = countFingers(lm);
   if (fingers >= 3) {
-    btReadyFrames = Math.min(btReadyFrames + 1, BT_READY_NEED + 1);
+    btReadyMs = Math.min(btReadyMs + dt, BT_READY_NEED_MS + 16);
   } else {
-    btReadyFrames = Math.max(0, btReadyFrames - 2);
+    btReadyMs = Math.max(0, btReadyMs - dt * 2);
   }
   document.getElementById('bt-progress-bar').style.width =
-    Math.min(100, btReadyFrames / BT_READY_NEED * 100) + '%';
-  if (btReadyFrames >= BT_READY_NEED) {
+    Math.min(100, btReadyMs / BT_READY_NEED_MS * 100) + '%';
+  if (btReadyMs >= BT_READY_NEED_MS) {
     btCounting = true;
     // Clear previous player's darts now that the incoming player has seen the board
     const prev = 1 - currPlayer;
@@ -1646,20 +1671,22 @@ function drawVirtualCenter() {
 }
 
 // ── Ready processing ──────────────────────────────────────────────────────────
-function processReady(hands) {
+function processReady(hands, now) {
+  const dt = _lastReadyT > 0 ? now - _lastReadyT : 0;
+  _lastReadyT = now;
   let saw1=false, saw2=false;
   for (const { landmarks:lm } of hands) {
     const n = countFingers(lm);
     if (n===1) saw1=true;
     if (n===2) saw2=true;
   }
-  if (saw1) rp1F=Math.min(READY_NEED,rp1F+1); else rp1F=Math.max(0,rp1F-2);
-  if (saw2) rp2F=Math.min(READY_NEED,rp2F+1); else rp2F=Math.max(0,rp2F-2);
-  document.getElementById('rp1-bar').style.width=(rp1F/READY_NEED*100)+'%';
-  document.getElementById('rp2-bar').style.width=(rp2F/READY_NEED*100)+'%';
-  document.getElementById('rp1-num').classList.toggle('on',rp1F>0);
-  document.getElementById('rp2-num').classList.toggle('on',rp2F>0);
-  if (rp1F>=READY_NEED && rp2F>=READY_NEED) startGame();
+  if (saw1) rp1Ms=Math.min(READY_NEED_MS,rp1Ms+dt); else rp1Ms=Math.max(0,rp1Ms-dt*2);
+  if (saw2) rp2Ms=Math.min(READY_NEED_MS,rp2Ms+dt); else rp2Ms=Math.max(0,rp2Ms-dt*2);
+  document.getElementById('rp1-bar').style.width=(rp1Ms/READY_NEED_MS*100)+'%';
+  document.getElementById('rp2-bar').style.width=(rp2Ms/READY_NEED_MS*100)+'%';
+  document.getElementById('rp1-num').classList.toggle('on',rp1Ms>0);
+  document.getElementById('rp2-num').classList.toggle('on',rp2Ms>0);
+  if (rp1Ms>=READY_NEED_MS && rp2Ms>=READY_NEED_MS) startGame();
 }
 
 // ── Mode control ──────────────────────────────────────────────────────────────
@@ -1681,7 +1708,7 @@ function setPractice() {
 function showReadyScreen() {
   document.getElementById('gameover-screen').style.display='none';
   document.getElementById('ready-screen').style.display='flex';
-  rp1F=0; rp2F=0;
+  rp1Ms=0; rp2Ms=0; _lastReadyT=0;
   document.getElementById('rp1-bar').style.width='0%';
   document.getElementById('rp2-bar').style.width='0%';
   document.getElementById('rp1-num').classList.remove('on');
@@ -1769,7 +1796,7 @@ function applyGpValues(gravity, speed, tmin, playerz, maxspeed, pinchsens) {
   T_MIN_MS         = tmin;
   PLAYER_Z         = playerz   / 10;
   MAX_THROW_SPEED  = maxspeed  * 0.003;
-  if (pinchsens != null) PINCH_OUT = 0.057 + (pinchsens - 1) / 8 * 0.031;
+  if (pinchsens != null) PINCH_OUT = 0.057 + (pinchsens - 1) / 8 * 0.016;
   document.getElementById('gp-gravity').value     = gravity;
   document.getElementById('gp-speed').value       = speed;
   document.getElementById('gp-tmin').value        = tmin;
@@ -1824,7 +1851,7 @@ document.getElementById('gp-maxspeed').addEventListener('input', e => {
   document.getElementById('gp-maxspeed-val').textContent = e.target.value;
 });
 document.getElementById('gp-pinchsens').addEventListener('input', e => {
-  PINCH_OUT = 0.057 + (e.target.value - 1) / 8 * 0.031;
+  PINCH_OUT = 0.057 + (e.target.value - 1) / 8 * 0.016;
   document.getElementById('gp-pinchsens-val').textContent = e.target.value;
 });
 document.getElementById('gp-reset').addEventListener('click', () => {
@@ -1862,12 +1889,12 @@ document.addEventListener('keydown', e => {
 // ── Main loop ─────────────────────────────────────────────────────────────────
 // detectForVideo runs in _mpWorker — never blocks the render thread.
 // One frame in-flight at a time; we send the next only after the worker replies.
-let _lastDetectMs = 0, _lastHands = [], _detectInFlight = false;
-const DETECT_INTERVAL = 34;
+let _lastHands = [], _detectInFlight = false, _newDetection = false;
 
 _mpWorker.onmessage = ({ data }) => {
   if (data.type !== 'landmarks') return;
   _lastHands = data.hands;
+  _newDetection = true;
   _detectInFlight = false;
   _detectFrames++;
   _detectTotalMs += data.elapsed;
@@ -1900,10 +1927,7 @@ function loop() {
   drawVirtualCenter();
 
   const now = performance.now();
-  if (!_detectInFlight &&
-      webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA &&
-      now - _lastDetectMs >= DETECT_INTERVAL) {
-    _lastDetectMs = now;
+  if (!_detectInFlight && webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
     _detectInFlight = true;
     if (_workerOk) {
       const t = now;
@@ -1916,6 +1940,7 @@ function loop() {
       _detectTotalMs += performance.now() - t0;
       _detectFrames++;
       _detectInFlight = false;
+      _newDetection = true;
       _lastHands = (r.landmarks||[]).map((lms,i) => ({
         landmarks: lms,
         handedness: r.handednesses?.[i]?.[0]?.displayName ?? 'Unknown',
@@ -1925,6 +1950,8 @@ function loop() {
     }
   }
   const hands = _lastHands;
+  const isNew = _newDetection;
+  if (isNew) _newDetection = false;
 
   const readyVisible = document.getElementById('ready-screen').style.display!=='none';
   const { cx, cy } = getBoardLayout();
@@ -1932,14 +1959,15 @@ function loop() {
 
   if (hands.length > 0) {
     const lm = hands[0].landmarks;
-    if (!readyVisible) {
+    if (isNew && !readyVisible) {
       processHandFrame(lm, now);
-      if (gamePhase === 'waiting') processBetweenTurns(lm);
+      if (gamePhase === 'waiting') processBetweenTurns(lm, now);
+    }
+    if (!readyVisible) {
       drawAim();
       drawHandLandmarks(lm, pinched);
       if (pinched) drawDartInHand(lm, dartCol);
     } else {
-      // Still show landmarks on ready screen
       drawHandLandmarks(lm, false);
     }
   } else {
@@ -1947,7 +1975,7 @@ function loop() {
     pinched = false;
   }
 
-  if (readyVisible) processReady(hands);
+  if (readyVisible && isNew) processReady(hands, now);
 
   tickFps();
   requestAnimationFrame(loop);
