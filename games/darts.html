@@ -422,8 +422,8 @@ try {
   });
   webcamEl.srcObject = stream;
   await new Promise(res => { webcamEl.onloadeddata = res; });
-} catch (err) {
-  document.getElementById('loading-msg').textContent = 'Camera unavailable — click board to play';
+} catch {
+  document.getElementById('loading-msg').textContent = 'Camera unavailable — click board or Space to throw';
 }
 document.getElementById('loading-screen').style.display = 'none';
 
@@ -432,139 +432,295 @@ const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 function resizeCanvas() {
   const w = document.getElementById('game-wrap');
-  canvas.width  = w.offsetWidth;
-  canvas.height = w.offsetHeight;
+  canvas.width = w.offsetWidth; canvas.height = w.offsetHeight;
 }
 resizeCanvas();
 new ResizeObserver(resizeCanvas).observe(document.getElementById('game-wrap'));
 
-// ── Dartboard constants ──────────────────────────────────────────────────────
+// ── Constants ────────────────────────────────────────────────────────────────
 const SEGS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
 const BR = { BULL:.037, OUTERB:.093, TRI_IN:.582, TRI_OUT:.629, DBL_IN:.953 };
+const CONNECTIONS = [
+  [0,1],[1,2],[2,3],[3,4],
+  [0,5],[5,6],[6,7],[7,8],
+  [0,9],[9,10],[10,11],[11,12],
+  [0,13],[13,14],[14,15],[15,16],
+  [0,17],[17,18],[18,19],[19,20],
+  [5,9],[9,13],[13,17],[0,17],
+];
+
+let camOpacityVal = 0;
 
 function getBoardLayout() {
   const W = canvas.width, H = canvas.height;
-  const size = Math.min(W * .78, H * .84);
-  return { cx: W/2, cy: H/2, R: size * 0.44 };
+  const size = Math.min(W * .76, H * .82);
+  return { cx: W/2, cy: H/2, R: size * 0.40 };
 }
 
-// ── Draw dartboard ───────────────────────────────────────────────────────────
+// ── Draw dartboard (fixed numbers stay inside surround) ───────────────────────
 function drawBoard() {
   const { cx, cy, R } = getBoardLayout();
   const SLICE = Math.PI*2/20, BASE = -Math.PI/2 - SLICE/2;
-  const rb  = R*BR.BULL,   rob = R*BR.OUTERB;
+  const rb = R*BR.BULL, rob = R*BR.OUTERB;
   const rti = R*BR.TRI_IN, rto = R*BR.TRI_OUT;
   const rdi = R*BR.DBL_IN, rdo = R;
 
-  // Surround
-  ctx.beginPath(); ctx.arc(cx,cy,rdo*1.09,0,Math.PI*2);
+  ctx.save();
+  ctx.globalAlpha = 1 - camOpacityVal * 0.52;
+
+  ctx.beginPath(); ctx.arc(cx,cy,rdo*1.14,0,Math.PI*2);
   ctx.fillStyle='#111'; ctx.fill();
 
-  // Single areas (full wedges)
   for (let i=0;i<20;i++) {
     const a1=BASE+i*SLICE, a2=a1+SLICE;
     ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,rdo,a1,a2); ctx.closePath();
-    ctx.fillStyle = i%2===0 ? '#1c1c1c' : '#dccfaf';
-    ctx.fill();
+    ctx.fillStyle = i%2===0 ? '#1c1c1c' : '#dccfaf'; ctx.fill();
   }
-  // Treble rings
   for (let i=0;i<20;i++) {
     const a1=BASE+i*SLICE, a2=a1+SLICE;
     ctx.beginPath(); ctx.arc(cx,cy,rto,a1,a2); ctx.arc(cx,cy,rti,a2,a1,true); ctx.closePath();
     ctx.fillStyle = i%2===0 ? '#c82000' : '#0f7020'; ctx.fill();
   }
-  // Double rings
   for (let i=0;i<20;i++) {
     const a1=BASE+i*SLICE, a2=a1+SLICE;
     ctx.beginPath(); ctx.arc(cx,cy,rdo,a1,a2); ctx.arc(cx,cy,rdi,a2,a1,true); ctx.closePath();
     ctx.fillStyle = i%2===0 ? '#c82000' : '#0f7020'; ctx.fill();
   }
-  // Wires
-  const wc = 'rgba(80,60,40,.85)';
+  const wc='rgba(80,60,40,.85)';
   ctx.strokeStyle=wc; ctx.lineWidth=1.2;
   for (let i=0;i<20;i++) {
     const a=BASE+i*SLICE;
     ctx.beginPath();
-    ctx.moveTo(cx+rob*Math.cos(a), cy+rob*Math.sin(a));
-    ctx.lineTo(cx+rdo*Math.cos(a), cy+rdo*Math.sin(a));
+    ctx.moveTo(cx+rob*Math.cos(a),cy+rob*Math.sin(a));
+    ctx.lineTo(cx+rdo*Math.cos(a),cy+rdo*Math.sin(a));
     ctx.stroke();
   }
   for (const r of [rob,rti,rto,rdi,rdo]) {
     ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
     ctx.strokeStyle=wc; ctx.lineWidth=1.5; ctx.stroke();
   }
-  // Outer bull
   ctx.beginPath(); ctx.arc(cx,cy,rob,0,Math.PI*2);
-  ctx.fillStyle='#0f7020'; ctx.fill();
-  ctx.strokeStyle=wc; ctx.lineWidth=1.5; ctx.stroke();
-  // Inner bull
+  ctx.fillStyle='#0f7020'; ctx.fill(); ctx.strokeStyle=wc; ctx.lineWidth=1.5; ctx.stroke();
   ctx.beginPath(); ctx.arc(cx,cy,rb,0,Math.PI*2);
   ctx.fillStyle='#c82000'; ctx.fill(); ctx.stroke();
-  // Numbers
-  const nR=rdo*1.075, fz=Math.max(9,Math.round(R*.082));
-  ctx.font=`bold ${fz}px sans-serif`;
+
+  // Numbers — kept inside the surround by reduced radius + font
+  const nR = rdo*1.065, fz = Math.max(8, Math.round(R*.068));
+  ctx.font = `bold ${fz}px sans-serif`;
   ctx.textAlign='center'; ctx.textBaseline='middle';
   ctx.fillStyle='#e8dcc8';
   for (let i=0;i<20;i++) {
     const a=BASE+(i+.5)*SLICE;
     ctx.fillText(SEGS[i], cx+nR*Math.cos(a), cy+nR*Math.sin(a));
   }
+  ctx.restore();
 }
 
-// ── Scoring ──────────────────────────────────────────────────────────────────
+// ── Scoring ───────────────────────────────────────────────────────────────────
 function getSegment(bx, by) {
   const SLICE=Math.PI*2/20, HALF=Math.PI/20;
   let a = Math.atan2(bx, -by);
   if (a < -HALF) a += Math.PI*2;
   return SEGS[Math.floor((a+HALF)/SLICE) % 20];
 }
-
 function scoreDart(bx, by) {
   const r = Math.hypot(bx,by);
-  if (r > 1.0)        return { pts:0,     label:'Miss' };
-  if (r > BR.DBL_IN)  { const s=getSegment(bx,by); return { pts:s*2, label:`D${s}` }; }
-  if (r > BR.TRI_OUT) { const s=getSegment(bx,by); return { pts:s,   label:`${s}`  }; }
-  if (r > BR.TRI_IN)  { const s=getSegment(bx,by); return { pts:s*3, label:`T${s}` }; }
-  if (r > BR.OUTERB)  { const s=getSegment(bx,by); return { pts:s,   label:`${s}`  }; }
-  if (r > BR.BULL)    return { pts:25, label:'25'  };
-  return                     { pts:50, label:'Bull' };
+  if (r > 1.0)       return { pts:0,    label:'Miss' };
+  if (r > BR.DBL_IN) { const s=getSegment(bx,by); return { pts:s*2, label:`D${s}` }; }
+  if (r > BR.TRI_OUT){ const s=getSegment(bx,by); return { pts:s,   label:`${s}`  }; }
+  if (r > BR.TRI_IN) { const s=getSegment(bx,by); return { pts:s*3, label:`T${s}` }; }
+  if (r > BR.OUTERB) { const s=getSegment(bx,by); return { pts:s,   label:`${s}`  }; }
+  if (r > BR.BULL)   return { pts:25, label:'25'  };
+  return                    { pts:50, label:'Bull' };
 }
 
-// ── Game state ───────────────────────────────────────────────────────────────
-let mode = 'practice';    // 'practice' | 'game'
-let gamePhase = 'playing'; // 'playing' | 'gameover'
-let currPlayer = 0;
-let dartsLeft  = 3;
+// ── Dart sprite ───────────────────────────────────────────────────────────────
+// Draws a dart where the tip points in +x direction before rotation.
+// angle = direction dart travels; scale = size multiplier; col = flight color
+function drawDartSprite(x, y, angle, scale, col) {
+  const k = scale;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle);
+
+  // Barrel
+  ctx.fillStyle = '#8a7a60';
+  ctx.fillRect(-9*k, -2*k, 18*k, 4*k);
+
+  // Steel tip (points in +x = direction of travel)
+  ctx.fillStyle = '#d0d0d0';
+  ctx.beginPath();
+  ctx.moveTo(9*k, -1.5*k);
+  ctx.lineTo(18*k, 0);
+  ctx.lineTo(9*k, 1.5*k);
+  ctx.closePath();
+  ctx.fill();
+
+  // Flights (tail at -x, diamond shape)
+  ctx.fillStyle = col;
+  ctx.beginPath();
+  ctx.moveTo(-9*k,  0);
+  ctx.lineTo(-18*k, -6*k);
+  ctx.lineTo(-12*k,  0);
+  ctx.lineTo(-18*k,  6*k);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.restore();
+}
+
+// ── Hand landmarks ────────────────────────────────────────────────────────────
+function drawHandLandmarks(lm, pinchActive) {
+  const W = canvas.width, H = canvas.height;
+  const pts = lm.map(p => ({ x:(1-p.x)*W, y:p.y*H }));
+
+  ctx.lineWidth = 1.5;
+  for (const [a,b] of CONNECTIONS) {
+    ctx.beginPath();
+    ctx.moveTo(pts[a].x, pts[a].y);
+    ctx.lineTo(pts[b].x, pts[b].y);
+    ctx.strokeStyle = 'rgba(204,247,63,.28)';
+    ctx.stroke();
+  }
+  for (let i=0; i<21; i++) {
+    const isTip = [4,8,12,16,20].includes(i);
+    const isPinchTip = (i===4 || i===8) && pinchActive;
+    ctx.beginPath();
+    ctx.arc(pts[i].x, pts[i].y, isTip ? 4 : 2.5, 0, Math.PI*2);
+    ctx.fillStyle = isPinchTip ? 'rgba(255,200,60,.9)' : 'rgba(204,247,63,.55)';
+    ctx.fill();
+  }
+}
+
+// ── Dart in hand (shown while pinching) ───────────────────────────────────────
+function drawDartInHand(lm, cx, cy, dartCol) {
+  if (anims.length > 0) return;
+  const hx = (1-lm[8].x)*canvas.width;
+  const hy = lm[8].y*canvas.height;
+  const angle = Math.atan2(cy-hy, cx-hx);
+  drawDartSprite(hx, hy, angle, 1.1, dartCol);
+}
+
+// ── Throw animations ──────────────────────────────────────────────────────────
+let anims = [];
+
+function startThrowAnim(fx, fy, tx, ty, arcH, dartData, onComplete) {
+  anims.push({ fx, fy, tx, ty, arcH, t0:performance.now(), dur:680, dartData, onComplete });
+}
+
+function drawAnims() {
+  const now = performance.now();
+  for (let i = anims.length-1; i >= 0; i--) {
+    const a = anims[i];
+    const t  = Math.min(1, (now-a.t0)/a.dur);
+    const et = t*t*(3-2*t); // smoothstep
+
+    const x    = a.fx + (a.tx-a.fx)*et;
+    const rawY = a.fy + (a.ty-a.fy)*et;
+    const y    = rawY - a.arcH * Math.sin(Math.PI*t);
+
+    // Dart angle = instantaneous tangent of arc path
+    const t2 = Math.min(1, t+0.01);
+    const et2 = t2*t2*(3-2*t2);
+    const nx2 = a.fx + (a.tx-a.fx)*et2;
+    const ny2 = (a.fy + (a.ty-a.fy)*et2) - a.arcH*Math.sin(Math.PI*t2);
+    const angle = Math.atan2(ny2-y, nx2-x);
+
+    // Perspective scale: large near thrower, small at board
+    const k = 1.45 - 1.15*et;
+
+    const col = a.dartData.player === -1 ? '#ccf73f' : (P[a.dartData.player]?.col ?? '#ccf73f');
+    drawDartSprite(x, y, angle, k, col);
+
+    if (t >= 1) {
+      if (a.onComplete) a.onComplete(a.dartData);
+      anims.splice(i, 1);
+    }
+  }
+}
+
+// ── Game state ────────────────────────────────────────────────────────────────
+let mode = 'practice', gamePhase = 'playing';
+let currPlayer = 0, dartsLeft = 3;
 const P = [
   { score:301, roundStart:301, roundPts:0, name:'P1', col:'#ccf73f' },
   { score:301, roundStart:301, roundPts:0, name:'P2', col:'#3fc8f7' },
 ];
-let practiceTotal = 0;
-let darts = [];
+let practiceTotal = 0, darts = [];
 
 // Aim
-let aimBX=0, aimBY=0, aimVisible=false;
-let aimRawHist = [];
+let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 
-// Throw detection
-let palmHist=[], lastThrow=0;
-const GROW_THRESH=0.22, GROW_FRAMES=7, COOLDOWN=1200;
+// Hand tracking & pinch
+let lastHandX=null, lastHandY=null;
+let handPosHist = [];   // {normX, normY, palmSc, t} per frame
+let pinched=false, pinchHoldFrames=0;
+const PINCH_IN=0.055, PINCH_OUT=0.095;
 
-// Ready
+// Throw cooldown
+let lastThrow = 0;
+const COOLDOWN = 1100;
+
+// Ready & flash
 let rp1F=0, rp2F=0;
 const READY_NEED=28;
-
-// Flash
 let flashTid=null;
 
-// ── Aim helpers ───────────────────────────────────────────────────────────────
-function updateAim(lm) {
+// ── Hand frame processing ─────────────────────────────────────────────────────
+function processHandFrame(lm, now) {
+  // Aim from index fingertip
   const rx = 1-lm[8].x, ry = lm[8].y;
   const bx = (rx-.5)/.22, by = (ry-.5)/.22;
   aimBX += (bx-aimBX)*.2; aimBY += (by-aimBY)*.2;
   aimVisible = true;
   aimRawHist.push([bx,by]);
   if (aimRawHist.length>12) aimRawHist.shift();
+
+  // Hand canvas position (mirrored)
+  lastHandX = rx * canvas.width;
+  lastHandY = ry * canvas.height;
+
+  // Palm scale proxy for depth
+  const psc = Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
+  handPosHist.push({ normX:rx, normY:ry, palmSc:psc, t:now });
+  if (handPosHist.length > 18) handPosHist.shift();
+
+  // Pinch detection (thumb tip ↔ index tip distance)
+  const pd = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
+
+  if (!pinched && pd < PINCH_IN) {
+    pinched = true;
+    pinchHoldFrames = 0;
+    handPosHist = [{ normX:rx, normY:ry, palmSc:psc, t:now }];
+  } else if (pinched) {
+    pinchHoldFrames++;
+    if (pd > PINCH_OUT && pinchHoldFrames > 2) {
+      pinched = false;
+      if (now - lastThrow > COOLDOWN && gamePhase !== 'gameover') {
+        const tv = calcThrowVec();
+        // Require some forward motion OR lateral speed to register throw
+        if (tv && (tv.fwdV > 0.015 || tv.speed2D > 0.4)) {
+          lastThrow = now;
+          registerThrow(tv);
+        }
+      }
+    }
+  }
+}
+
+function calcThrowVec() {
+  const N = handPosHist.length;
+  if (N < 3) return null;
+  const range = handPosHist.slice(-Math.min(5, N));
+  const old = range[0], cur = range[range.length-1];
+  const dt = cur.t - old.t;
+  if (dt < 8) return null;
+  return {
+    normVX:  (cur.normX - old.normX) / dt * 1000,  // normalized/s
+    normVY:  (cur.normY - old.normY) / dt * 1000,
+    fwdV:    (cur.palmSc - old.palmSc) / dt * 1000, // scale/s (>0 = forward)
+    speed2D: Math.hypot(cur.normX-old.normX, cur.normY-old.normY) / dt * 1000,
+  };
 }
 
 function getJitter() {
@@ -576,25 +732,6 @@ function getJitter() {
   return Math.min(.3, Math.sqrt(v)*2.5);
 }
 
-function palmScale(lm) {
-  return Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
-}
-
-function checkThrow(lm, now) {
-  if (now-lastThrow < COOLDOWN) return;
-  if (gamePhase==='gameover') return;
-  const sc = palmScale(lm);
-  palmHist.push({t:now,sc});
-  if (palmHist.length > GROW_FRAMES+2) palmHist.shift();
-  if (palmHist.length < GROW_FRAMES) return;
-  const old = palmHist[palmHist.length-GROW_FRAMES];
-  const growth = (sc-old.sc)/old.sc;
-  if (growth > GROW_THRESH && (now-old.t)<380) {
-    lastThrow=now;
-    registerThrow();
-  }
-}
-
 function countFingers(lm) {
   let n=0;
   for (const [t,d] of [[8,7],[12,11],[16,15],[20,19]])
@@ -603,61 +740,106 @@ function countFingers(lm) {
 }
 
 // ── Register throw ────────────────────────────────────────────────────────────
-function registerThrow(overrideBX, overrideBY) {
+// throwVec: from calcThrowVec(), or null for keyboard/click
+function registerThrow(throwVec, clickPos) {
   if (gamePhase==='gameover') return;
-  const j = getJitter();
-  const a = Math.random()*Math.PI*2, m = Math.random()*j;
-  const bx = (overrideBX !== undefined ? overrideBX : aimBX) + Math.cos(a)*m;
-  const by = (overrideBY !== undefined ? overrideBY : aimBY) + Math.sin(a)*m;
-  const { pts, label } = scoreDart(bx, by);
+  const { cx, cy, R } = getBoardLayout();
+
+  let landBX, landBY;
+  if (clickPos) {
+    // Direct click: aim at click with tiny noise
+    landBX = clickPos.bx + (Math.random()-.5)*0.015;
+    landBY = clickPos.by + (Math.random()-.5)*0.015;
+  } else {
+    // Start from aim position
+    landBX = aimBX; landBY = aimBY;
+
+    if (throwVec) {
+      // Lateral velocity deviates landing from aim point.
+      // normVX/normVY are in [normalized camera /s]. Map to board-radius units.
+      const DEV = 0.35;
+      landBX += throwVec.normVX * DEV;
+      landBY += throwVec.normVY * DEV;
+    }
+
+    // Aim jitter scatter
+    const j = getJitter();
+    const a = Math.random()*Math.PI*2;
+    landBX += Math.cos(a)*Math.random()*j;
+    landBY += Math.sin(a)*Math.random()*j;
+  }
+
+  const { pts, label } = scoreDart(landBX, landBY);
+
+  // Hand start position and arc height from throw vector
+  const fromX = lastHandX ?? cx;
+  const fromY = lastHandY ?? cy - R*0.35;
+  const toX = cx + landBX*R;
+  const toY = cy + landBY*R;
+
+  // Arc height: derived from upward component of throw velocity (negative normVY = upward)
+  const upward = throwVec ? -throwVec.normVY : 0.08;
+  const arcH = Math.max(16, Math.min(90, upward * R * 0.55));
+
+  const player = mode==='practice' ? -1 : currPlayer;
+  const dartData = { bx:landBX, by:landBY, pts, label, player };
 
   if (mode==='practice') {
     practiceTotal += pts;
-    darts.push({ bx, by, pts, label, player:-1 });
-    if (darts.length>9) darts.shift();
     flash(`${label}${pts?' · +'+pts:''}`, pts?'#1d1712':'#c82000');
     document.getElementById('sp-left-score').textContent = practiceTotal;
+    startThrowAnim(fromX, fromY, toX, toY, arcH, dartData, (d) => {
+      darts.push(d);
+      if (darts.length > 9) darts.shift();
+    });
   } else {
-    throwGame(bx, by, pts, label);
+    doGameThrow(dartData, fromX, fromY, toX, toY, arcH);
   }
 }
 
-// ── Game throw ────────────────────────────────────────────────────────────────
-function throwGame(bx, by, pts, label) {
+// ── Game throw (score first, dart added on anim complete) ────────────────────
+function doGameThrow(dartData, fromX, fromY, toX, toY, arcH) {
+  const { bx, by, pts, label } = dartData;
   const p = P[currPlayer];
   const newScore = p.score - pts;
 
   if (newScore < 0) {
+    // Bust — animate dart, then revert score and end turn
     flash('Bust!', '#c82000');
-    darts = darts.filter(d => d.player !== currPlayer);
-    p.score = p.roundStart;
-    endTurn();
+    const pc = currPlayer, rs = p.roundStart;
+    startThrowAnim(fromX, fromY, toX, toY, arcH,
+      { ...dartData, bust:true }, (d) => {
+        darts.push(d);
+        P[pc].score = rs;
+        updateGameHUD();
+        setTimeout(() => { darts = darts.filter(x => !x.bust); endTurn(); }, 700);
+      });
     return;
   }
 
-  p.score = newScore;
-  p.roundPts += pts;
-  dartsLeft--;
-  darts.push({ bx, by, pts, label, player:currPlayer });
+  p.score = newScore; p.roundPts += pts; dartsLeft--;
+  const isLast = dartsLeft <= 0, won = p.score === 0;
   flash(`${label}${pts?' · '+pts:''}`, '#1d1712');
   updateGameHUD();
 
-  if (p.score===0) {
-    gamePhase='gameover';
-    setTimeout(()=>{
-      document.getElementById('winner-text').textContent = `${p.name} wins!`;
-      document.getElementById('gameover-screen').style.display='flex';
-    }, 700);
-    return;
-  }
-  if (dartsLeft<=0) endTurn();
+  startThrowAnim(fromX, fromY, toX, toY, arcH, dartData, (d) => {
+    darts.push(d);
+    if (won) {
+      gamePhase='gameover';
+      setTimeout(()=>{
+        document.getElementById('winner-text').textContent = `${p.name} wins!`;
+        document.getElementById('gameover-screen').style.display='flex';
+      }, 350);
+    } else if (isLast) {
+      endTurn();
+    }
+  });
 }
 
 function endTurn() {
   const prev=currPlayer;
   setTimeout(()=>{ darts=darts.filter(d=>d.player!==prev); }, 900);
-  currPlayer=1-currPlayer;
-  dartsLeft=3;
+  currPlayer=1-currPlayer; dartsLeft=3;
   P[0].roundStart=P[0].score; P[0].roundPts=0;
   P[1].roundStart=P[1].score; P[1].roundPts=0;
   updateGameHUD();
@@ -676,56 +858,51 @@ function flash(msg, col='#1d1712') {
 function updateGameHUD() {
   document.getElementById('sp-left-score').textContent  = P[0].score;
   document.getElementById('sp-right-score').textContent = P[1].score;
-  const thrownNow = 3-dartsLeft;
-  const dartStr = (n) => '● '.repeat(n).trim() + (n<3?' '+'○ '.repeat(3-n).trim():'');
-  document.getElementById('sp-left-darts').textContent  = currPlayer===0 ? dartStr(thrownNow) : '';
-  document.getElementById('sp-right-darts').textContent = currPlayer===1 ? dartStr(thrownNow) : '';
+  const n = 3-dartsLeft;
+  const dartStr = k => '● '.repeat(k).trim() + (k<3?' '+'○ '.repeat(3-k).trim():'');
+  document.getElementById('sp-left-darts').textContent  = currPlayer===0 ? dartStr(n) : '';
+  document.getElementById('sp-right-darts').textContent = currPlayer===1 ? dartStr(n) : '';
   document.getElementById('sp-left-score').classList.toggle('active',  currPlayer===0);
   document.getElementById('sp-right-score').classList.toggle('active', currPlayer===1);
   document.getElementById('sp-left-turn').classList.toggle('show',  currPlayer===0);
   document.getElementById('sp-right-turn').classList.toggle('show', currPlayer===1);
 }
 
-// ── Draw darts ────────────────────────────────────────────────────────────────
+// ── Draw darts on board ───────────────────────────────────────────────────────
 function drawDarts() {
   const { cx, cy, R } = getBoardLayout();
   for (const d of darts) {
     const px=cx+d.bx*R, py=cy+d.by*R;
     const col = d.player===-1 ? '#ccf73f' : P[d.player].col;
-    // Shaft toward center
+    // Shaft line toward board center
     const dx=cx-px, dy=cy-py, dd=Math.hypot(dx,dy);
     if (dd>0) {
       const nx=dx/dd, ny=dy/dd;
       ctx.beginPath();
-      ctx.moveTo(px+nx*5, py+ny*5);
-      ctx.lineTo(px+nx*15, py+ny*15);
-      ctx.strokeStyle='rgba(100,80,60,.5)'; ctx.lineWidth=1;
-      ctx.stroke();
+      ctx.moveTo(px+nx*4, py+ny*4);
+      ctx.lineTo(px+nx*14, py+ny*14);
+      ctx.strokeStyle='rgba(100,80,60,.5)'; ctx.lineWidth=1; ctx.stroke();
     }
-    // Shadow
     ctx.beginPath(); ctx.arc(px+1.5,py+1.5,4.5,0,Math.PI*2);
-    ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fill();
-    // Dart head
+    ctx.fillStyle='rgba(0,0,0,.2)'; ctx.fill();
     ctx.beginPath(); ctx.arc(px,py,4.5,0,Math.PI*2);
     ctx.fillStyle=col; ctx.fill();
-    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1; ctx.stroke();
+    ctx.strokeStyle='rgba(255,255,255,.45)'; ctx.lineWidth=1; ctx.stroke();
   }
 }
 
 // ── Draw aim cursor ───────────────────────────────────────────────────────────
 function drawAim() {
-  if (!aimVisible) return;
+  if (!aimVisible || anims.length>0) return;
   const { cx, cy, R } = getBoardLayout();
   const px=cx+aimBX*R, py=cy+aimBY*R;
   const jPx=Math.max(5, Math.min(34, getJitter()*R));
 
   ctx.beginPath(); ctx.arc(px,py,jPx,0,Math.PI*2);
-  ctx.strokeStyle='rgba(204,247,63,.4)'; ctx.lineWidth=1; ctx.stroke();
-
-  ctx.strokeStyle='rgba(204,247,63,.85)'; ctx.lineWidth=1.5;
+  ctx.strokeStyle='rgba(204,247,63,.38)'; ctx.lineWidth=1; ctx.stroke();
+  ctx.strokeStyle='rgba(204,247,63,.8)'; ctx.lineWidth=1.5;
   ctx.beginPath(); ctx.moveTo(px-10,py); ctx.lineTo(px+10,py); ctx.stroke();
   ctx.beginPath(); ctx.moveTo(px,py-10); ctx.lineTo(px,py+10); ctx.stroke();
-
   ctx.beginPath(); ctx.arc(px,py,3,0,Math.PI*2);
   ctx.fillStyle='#ccf73f'; ctx.fill();
 }
@@ -740,19 +917,17 @@ function processReady(hands) {
   }
   if (saw1) rp1F=Math.min(READY_NEED,rp1F+1); else rp1F=Math.max(0,rp1F-2);
   if (saw2) rp2F=Math.min(READY_NEED,rp2F+1); else rp2F=Math.max(0,rp2F-2);
-
   document.getElementById('rp1-bar').style.width=(rp1F/READY_NEED*100)+'%';
   document.getElementById('rp2-bar').style.width=(rp2F/READY_NEED*100)+'%';
   document.getElementById('rp1-num').classList.toggle('on',rp1F>0);
   document.getElementById('rp2-num').classList.toggle('on',rp2F>0);
-
   if (rp1F>=READY_NEED && rp2F>=READY_NEED) startGame();
 }
 
 // ── Mode control ──────────────────────────────────────────────────────────────
 function setPractice() {
-  mode='practice'; gamePhase='playing';
-  darts=[]; practiceTotal=0; aimVisible=false;
+  mode='practice'; gamePhase='playing'; darts=[]; anims=[];
+  practiceTotal=0; aimVisible=false; pinched=false;
   document.getElementById('gameover-screen').style.display='none';
   document.getElementById('ready-screen').style.display='none';
   document.getElementById('sp-left-name').textContent='Practice';
@@ -764,7 +939,6 @@ function setPractice() {
   document.getElementById('btn-mode').textContent='2-Player Game';
   document.getElementById('btn-reset').style.display='';
 }
-
 function showReadyScreen() {
   document.getElementById('gameover-screen').style.display='none';
   document.getElementById('ready-screen').style.display='flex';
@@ -774,11 +948,10 @@ function showReadyScreen() {
   document.getElementById('rp1-num').classList.remove('on');
   document.getElementById('rp2-num').classList.remove('on');
 }
-
 function startGame() {
   document.getElementById('ready-screen').style.display='none';
-  mode='game'; gamePhase='playing';
-  darts=[]; currPlayer=0; dartsLeft=3;
+  mode='game'; gamePhase='playing'; darts=[]; anims=[];
+  currPlayer=0; dartsLeft=3; pinched=false;
   P[0].score=301; P[0].roundStart=301; P[0].roundPts=0;
   P[1].score=301; P[1].roundStart=301; P[1].roundPts=0;
   document.getElementById('sp-left-name').textContent='P1';
@@ -789,44 +962,43 @@ function startGame() {
 }
 
 // ── Events ────────────────────────────────────────────────────────────────────
-document.getElementById('btn-mode').addEventListener('click', () => {
-  if (mode==='practice') showReadyScreen(); else setPractice();
-});
+document.getElementById('btn-mode').addEventListener('click',
+  () => mode==='practice' ? showReadyScreen() : setPractice());
 document.getElementById('btn-reset').addEventListener('click', () => {
-  darts=[]; practiceTotal=0;
+  darts=[]; anims=[]; practiceTotal=0;
   document.getElementById('sp-left-score').textContent='0';
 });
-document.getElementById('btn-cancel-ready').addEventListener('click', () => {
-  document.getElementById('ready-screen').style.display='none';
-});
+document.getElementById('btn-cancel-ready').addEventListener('click',
+  () => document.getElementById('ready-screen').style.display='none');
 document.getElementById('btn-rematch').addEventListener('click', showReadyScreen);
 document.getElementById('btn-to-practice').addEventListener('click', setPractice);
 document.getElementById('cam-opacity').addEventListener('input', e => {
-  webcamEl.style.opacity = e.target.value/100;
+  camOpacityVal = e.target.value / 100;
+  webcamEl.style.opacity = camOpacityVal;
 });
 
-// Space = throw
+// Space = throw with current aim + mild jitter
 document.addEventListener('keydown', e => {
   if (e.code!=='Space') return;
   e.preventDefault();
   if (!aimVisible) return;
   if (performance.now()-lastThrow < COOLDOWN) return;
-  lastThrow=performance.now();
-  registerThrow();
+  lastThrow = performance.now();
+  registerThrow(null);
 });
 
-// Click on board = aim + throw
+// Click on board = aim exactly there + throw
 canvas.addEventListener('click', e => {
   if (performance.now()-lastThrow < COOLDOWN) return;
   if (gamePhase==='gameover') return;
   const { cx, cy, R } = getBoardLayout();
-  const rect=canvas.getBoundingClientRect();
-  const bx=(e.clientX-rect.left-cx)/R;
-  const by=(e.clientY-rect.top-cy)/R;
+  const rect = canvas.getBoundingClientRect();
+  const bx = (e.clientX-rect.left-cx)/R;
+  const by = (e.clientY-rect.top-cy)/R;
   aimBX=bx; aimBY=by; aimVisible=true;
   aimRawHist=[[bx,by]];
-  lastThrow=performance.now();
-  registerThrow(bx, by);
+  lastThrow = performance.now();
+  registerThrow(null, { bx, by });
 });
 
 // ── Main loop ─────────────────────────────────────────────────────────────────
@@ -834,26 +1006,36 @@ function loop() {
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawBoard();
   drawDarts();
+  drawAnims();
 
   const now = performance.now();
   let hands = [];
   if (webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
     const r = landmarker.detectForVideo(webcamEl, now);
-    hands = (r.landmarks||[]).map((lms,i)=>({
+    hands = (r.landmarks||[]).map((lms,i) => ({
       landmarks: lms,
       handedness: r.handednesses?.[i]?.[0]?.displayName ?? 'Unknown',
     }));
   }
 
   const readyVisible = document.getElementById('ready-screen').style.display!=='none';
+  const { cx, cy } = getBoardLayout();
+  const dartCol = mode==='practice' ? '#ccf73f' : P[currPlayer].col;
 
-  if (hands.length>0) {
+  if (hands.length > 0) {
     const lm = hands[0].landmarks;
-    updateAim(lm);
-    if (!readyVisible) checkThrow(lm, now);
-    drawAim();
+    if (!readyVisible) {
+      processHandFrame(lm, now);
+      drawAim();
+      drawHandLandmarks(lm, pinched);
+      if (pinched) drawDartInHand(lm, cx, cy, dartCol);
+    } else {
+      // Still show landmarks on ready screen
+      drawHandLandmarks(lm, false);
+    }
   } else {
-    aimVisible=false;
+    aimVisible = false;
+    pinched = false;
   }
 
   if (readyVisible) processReady(hands);
