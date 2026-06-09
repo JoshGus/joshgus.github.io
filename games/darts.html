@@ -951,10 +951,10 @@ function processHandFrame(lm, now) {
   // Pinch geometry
   const pd  = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
   const psc = Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
-  // Middle-finger MCP (lm[9]): stable palm-center landmark unaffected by
-  // finger extension — use this for throw velocity, not the fingertips.
-  const tx  = 1 - lm[9].x;
-  const ty  = lm[9].y;
+  // Wrist (lm[0]): captures arm-lift arc better than the knuckle.
+  // Palm scale still uses the lm[9]–lm[0] span for depth estimation.
+  const tx  = 1 - lm[0].x;
+  const ty  = lm[0].y;
 
   if (!pinched && pd < PINCH_IN) {
     pinched = true; pinchHoldFrames = 0;
@@ -1057,11 +1057,16 @@ function registerThrow(throwVec) {
     vwz = throwVec.vwz * SPEED_SCALE;
     // Guarantee dart travels toward the board
     if (vwz > -wz0 / 2000) vwz = -wz0 / 1000;
-    // Cap forward speed so dart always spends ≥750 ms in the air.
-    // With G_WORLD=0.000013 that's ~3.6 board-radii of drop, forcing
-    // the player to aim upward to land on the board.
-    const vwzMin = -wz0 / 750;
-    if (vwz < vwzMin) { vwx *= vwzMin/vwz; vwy *= vwzMin/vwz; vwz = vwzMin; }
+    // Cap forward speed so dart spends ≥450 ms in the air (was 750 — too slow).
+    // Only scale lateral (vwx); preserve vwy so a hard fast throw still arcs.
+    const vwzMin = -wz0 / 450;
+    if (vwz < vwzMin) { vwx *= vwzMin / vwz; vwz = vwzMin; }
+    // Virtual camera center perspective correction: camera above the board
+    // (vcyPx > cy) means a straight forward throw appears to go slightly
+    // downward — add upward bias proportional to offset × forward speed.
+    const { cy: boardCy, R: boardR } = getBoardLayout();
+    const camYOffset = (CAM_VCY * canvas.height - boardCy) / boardR;
+    vwy += camYOffset * (-vwz) / PLAYER_Z;
   } else {
     // Space-bar: solve ballistic trajectory to aim point in T=950 ms
     const T = 950;
