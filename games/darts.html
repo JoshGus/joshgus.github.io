@@ -905,12 +905,17 @@ function registerThrow(throwVec) {
   if (throwVec) {
     // Scale velocity down so flight feels like a real darts throw distance.
     // Preserves direction; only slows the dart.
-    const SPEED_SCALE = 0.30;
+    const SPEED_SCALE = 0.35;
     vwx = throwVec.vwx * SPEED_SCALE;
     vwy = throwVec.vwy * SPEED_SCALE;
     vwz = throwVec.vwz * SPEED_SCALE;
-    // Guarantee dart actually travels toward the board
+    // Guarantee dart travels toward the board
     if (vwz > -wz0 / 2000) vwz = -wz0 / 1000;
+    // Cap forward speed so dart always spends ≥750 ms in the air.
+    // With G_WORLD=0.000013 that's ~3.6 board-radii of drop, forcing
+    // the player to aim upward to land on the board.
+    const vwzMin = -wz0 / 750;
+    if (vwz < vwzMin) { vwx *= vwzMin/vwz; vwy *= vwzMin/vwz; vwz = vwzMin; }
   } else {
     // Space-bar: solve ballistic trajectory to aim point in T=950 ms
     const T = 950;
@@ -1073,20 +1078,18 @@ function drawDarts() {
     const px = cx + d.bx * R, py = cy + d.by * R;
     const col = d.player === -1 ? '#ccf73f' : P[d.player].col;
 
-    // Shaft direction: opposite to velocity at impact.
-    // Canvas x maps to world x; canvas y is inverted world y.
-    // Shaft trails behind tip → direction = (-ivx, +ivy) in world, then normalize.
+    // Shaft direction: same as velocity at impact (points in direction of travel).
+    // Canvas x = world x; canvas y is inverted world y, so vy_canvas = -ivy.
     const ivx = d.ivx ?? 0;
-    const ivy = d.ivy ?? -1; // default: falling dart if no velocity stored
+    const ivy = d.ivy ?? -1;
     const sd = Math.hypot(ivx, ivy) || 1;
-    // Shaft in canvas space: -ivx right, ivy up (canvas Y inverted)
-    const sx = -ivx / sd;
-    const sy =  ivy / sd;  // positive ivy (was moving up) → shaft points down on canvas
+    const sx =  ivx / sd;   // canvas x = world x
+    const sy = -ivy / sd;   // canvas y inverted
 
     ctx.beginPath();
     ctx.moveTo(px + sx * 5,  py + sy * 5);
-    ctx.lineTo(px + sx * 17, py + sy * 17);
-    ctx.strokeStyle = 'rgba(100,80,60,.5)'; ctx.lineWidth = 1.5; ctx.stroke();
+    ctx.lineTo(px + sx * 20, py + sy * 20);
+    ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.stroke();
 
     ctx.beginPath(); ctx.arc(px + 1.5, py + 1.5, 4.5, 0, Math.PI * 2);
     ctx.fillStyle = 'rgba(0,0,0,.2)'; ctx.fill();
@@ -1097,20 +1100,7 @@ function drawDarts() {
 }
 
 // ── Draw aim cursor ───────────────────────────────────────────────────────────
-function drawAim() {
-  if (!aimVisible || anims.length>0) return;
-  const { cx, cy, R } = getBoardLayout();
-  const px=cx+aimBX*R, py=cy+aimBY*R;
-  const jPx=Math.max(5, Math.min(34, getJitter()*R));
-
-  ctx.beginPath(); ctx.arc(px,py,jPx,0,Math.PI*2);
-  ctx.strokeStyle='rgba(204,247,63,.38)'; ctx.lineWidth=1; ctx.stroke();
-  ctx.strokeStyle='rgba(204,247,63,.8)'; ctx.lineWidth=1.5;
-  ctx.beginPath(); ctx.moveTo(px-10,py); ctx.lineTo(px+10,py); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(px,py-10); ctx.lineTo(px,py+10); ctx.stroke();
-  ctx.beginPath(); ctx.arc(px,py,3,0,Math.PI*2);
-  ctx.fillStyle='#ccf73f'; ctx.fill();
-}
+function drawAim() { /* crosshair removed */ }
 
 // ── Ready processing ──────────────────────────────────────────────────────────
 function processReady(hands) {
