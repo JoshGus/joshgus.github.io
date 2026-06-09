@@ -240,22 +240,30 @@ body {
   right: 14px;
   top: 50%;
   transform: translateY(-50%);
-  max-height: 72vh;
-  overflow-y: auto;
+  height: 72vh;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
   width: 128px;
   background: rgba(212, 184, 146, 0.93);
   border: 1px solid rgba(165, 128, 85, 0.55);
   pointer-events: none;
   z-index: 10;
   font-family: var(--mono);
-  scrollbar-width: none;
-  font-size: 0;   /* suppress inline-block gap */
+  font-size: 0;
 }
-#score-ledger::-webkit-scrollbar { display: none; }
-.sl-player { padding: 7px 9px 6px; font-size: 0; }
+.sl-player {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  padding: 7px 9px 6px;
+  font-size: 0;
+}
 .sl-player + .sl-player { border-top: 1px solid rgba(165,128,85,.4); }
 .sl-head {
   display: flex;
+  flex-shrink: 0;
   justify-content: space-between;
   align-items: baseline;
   padding-bottom: 4px;
@@ -275,7 +283,15 @@ body {
   letter-spacing: -.02em;
   color: rgba(38,22,8,.9);
 }
-.sl-shots { display: flex; flex-direction: column; }
+.sl-shots {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.sl-shots::-webkit-scrollbar { display: none; }
 .sl-row {
   display: flex;
   justify-content: space-between;
@@ -1621,7 +1637,7 @@ function renderLedger() {
       const right = (isMiss || isBust) ? '' : `<span class="sl-right">${s.runningVal}</span>`;
       return `<div class="${cls}"><span>${fmtLedgerLabel(s.label)}</span>${right}</div>`;
     }).join('');
-    document.getElementById('score-ledger').scrollTop = 999999;
+    shotsEl.scrollTop = 999999;
   }
 }
 
