@@ -486,6 +486,86 @@ body {
   z-index: 25;
 }
 .notes-toggle:hover { color: var(--fg); border-color: var(--fg); }
+
+/* ── tutorial overlay ── */
+#tutorial-screen {
+  overflow-y: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+}
+.tut-inner {
+  padding: 40px clamp(20px,6vw,80px) 48px;
+  width: 100%;
+  max-width: 780px;
+  margin: 0 auto;
+}
+.tut-title {
+  font-family: var(--disp);
+  font-size: clamp(1.8rem,5vw,2.8rem);
+  font-weight: 800;
+  letter-spacing: -.03em;
+  color: var(--fg);
+  margin-bottom: 5px;
+}
+.tut-subtitle {
+  font-family: var(--mono);
+  font-size: .52rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 32px;
+}
+.tut-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 22px 36px;
+  margin-bottom: 32px;
+}
+@media(max-width:520px){ .tut-grid { grid-template-columns: 1fr; } }
+.tut-card { border-left: 3px solid var(--accent-ink); padding-left: 13px; }
+.tut-card-title {
+  font-family: var(--mono);
+  font-size: .48rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  margin-bottom: 6px;
+}
+.tut-card p { font-family: var(--body); font-size: .85rem; line-height: 1.65; color: var(--dim); margin: 0; }
+.tut-card strong { color: var(--fg); }
+.tut-start {
+  font-family: var(--mono);
+  font-size: .56rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 10px 30px;
+  background: var(--accent-ink);
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: opacity .15s;
+}
+.tut-start:hover { opacity: .82; }
+
+/* ── tutorial button (bottom left) ── */
+#btn-tutorial {
+  position: absolute;
+  bottom: 16px;
+  left: 16px;
+  z-index: 10;
+  font-family: var(--mono);
+  font-size: .5rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border: 1px solid var(--line-strong);
+  background: rgba(247,236,225,.88);
+  color: var(--dim);
+  cursor: pointer;
+  transition: all .15s;
+  backdrop-filter: blur(8px);
+}
+#btn-tutorial:hover { color: var(--fg); border-color: var(--fg); }
 </style>
 </head>
 <body class="noise">
@@ -536,6 +616,33 @@ body {
     <div id="bt-instruction">Open hand to ready up</div>
     <div id="bt-progress-wrap"><div id="bt-progress-bar"></div></div>
     <div id="bt-countdown" style="display:none"></div>
+  </div>
+
+  <!-- Tutorial / welcome screen (shown on first load) -->
+  <div class="overlay" id="tutorial-screen">
+    <div class="tut-inner">
+      <div class="tut-title">Hand-Tracking Darts</div>
+      <div class="tut-subtitle">MediaPipe · fully in-browser · no hardware needed</div>
+      <div class="tut-grid">
+        <div class="tut-card">
+          <div class="tut-card-title">Camera Setup</div>
+          <p>Position your webcam so it faces you from the front. Click <strong>Camera</strong> and choose a preset — <strong>Laptop</strong> for a screen-top webcam, <strong>High</strong> if it's mounted well above. Adjust <em>Cam Y</em> until throws land where you aim.</p>
+        </div>
+        <div class="tut-card">
+          <div class="tut-card-title">Throwing</div>
+          <p><strong>Pinch</strong> your thumb and index finger together to grip the dart. Then <strong>throw forward</strong> with a natural arm motion and release the pinch. Throw slightly upward to arc onto the board — flat throws land low.</p>
+        </div>
+        <div class="tut-card">
+          <div class="tut-card-title">Physics</div>
+          <p>Open <strong>Gameplay</strong> to tune gravity, throw speed, and distance. <em>Sim</em> is the balanced default. <em>Easy</em> makes the dart more forgiving. <strong>Pinch sens</strong> adjusts how tightly you need to pinch — increase it if throws aren't registering.</p>
+        </div>
+        <div class="tut-card">
+          <div class="tut-card-title">Two-Player Game</div>
+          <p>Click <strong>2-Player Game</strong> and both players ready up: P1 holds <strong>1 finger</strong>, P2 holds <strong>2 fingers</strong> for one second each. Between turns, the incoming player holds an <strong>open hand</strong> to start their countdown.</p>
+        </div>
+      </div>
+      <button class="tut-start" id="btn-tut-start">Start Playing</button>
+    </div>
   </div>
 
   <!-- Game over -->
@@ -612,11 +719,6 @@ body {
             <span class="cp-val" id="cam-opacity-val">0</span>
           </div>
           <div class="cp-row">
-            <span class="cp-lbl">Pinch sens</span>
-            <input type="range" id="pinch-sens" min="1" max="9" value="4">
-            <span class="cp-val" id="pinch-sens-val">4</span>
-          </div>
-          <div class="cp-row">
             <span class="cp-lbl">Cam X</span>
             <input type="range" id="cam-vcx" min="0" max="100" value="50">
             <span class="cp-val" id="cam-vcx-val">50</span>
@@ -645,21 +747,21 @@ body {
 
         <div class="cp-presets">
           <span class="cp-preset-lbl">Preset</span>
-          <button class="gp-preset" data-gravity="3" data-speed="200" data-tmin="200" data-playerz="55" data-maxspeed="10">Easy</button>
-          <button class="gp-preset" data-gravity="5" data-speed="150" data-tmin="300" data-playerz="55" data-maxspeed="10">Normal</button>
-          <button class="gp-preset active" data-gravity="7" data-speed="120" data-tmin="500" data-playerz="55" data-maxspeed="7">Sim</button>
+          <button class="gp-preset" data-gravity="3" data-speed="200" data-tmin="200" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Easy</button>
+          <button class="gp-preset" data-gravity="5" data-speed="150" data-tmin="300" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Normal</button>
+          <button class="gp-preset active" data-gravity="6" data-speed="150" data-tmin="280" data-playerz="55" data-maxspeed="7" data-pinchsens="4">Sim</button>
         </div>
 
         <div class="cp-rows">
           <div class="cp-row">
             <span class="cp-lbl">Gravity</span>
-            <input type="range" id="gp-gravity" min="1" max="10" value="7">
-            <span class="cp-val" id="gp-gravity-val">7</span>
+            <input type="range" id="gp-gravity" min="1" max="10" value="6">
+            <span class="cp-val" id="gp-gravity-val">6</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Speed</span>
-            <input type="range" id="gp-speed" min="50" max="300" value="120">
-            <span class="cp-val" id="gp-speed-val">120</span>
+            <input type="range" id="gp-speed" min="50" max="300" value="150">
+            <span class="cp-val" id="gp-speed-val">150</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Max speed</span>
@@ -668,13 +770,18 @@ body {
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Min arc ms</span>
-            <input type="range" id="gp-tmin" min="100" max="700" value="500">
-            <span class="cp-val" id="gp-tmin-val">500</span>
+            <input type="range" id="gp-tmin" min="100" max="700" value="280">
+            <span class="cp-val" id="gp-tmin-val">280</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Throw dist</span>
             <input type="range" id="gp-playerz" min="20" max="100" value="55">
             <span class="cp-val" id="gp-playerz-val">55</span>
+          </div>
+          <div class="cp-row">
+            <span class="cp-lbl">Pinch sens</span>
+            <input type="range" id="gp-pinchsens" min="1" max="9" value="4">
+            <span class="cp-val" id="gp-pinchsens-val">4</span>
           </div>
         </div>
 
@@ -684,6 +791,9 @@ body {
       </div>
     </div>
   </div>
+
+  <!-- Tutorial button (bottom left) -->
+  <button id="btn-tutorial">Tutorial</button>
 
   <!-- Notes -->
   <button class="notes-toggle" id="notes-toggle">How it works</button>
@@ -1038,15 +1148,16 @@ let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 
 // Hand tracking & pinch
 let lastHandX=null, lastHandY=null;
+let lastPinchCanvasX=null, lastPinchCanvasY=null; // thumb-tip spawn point
 let handPosHist = [];   // {canvasX, canvasY, palmSc, t} per frame
 let pinched=false, pinchHoldFrames=0;
 
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
-let   G_WORLD        = 0.000028; // gravity — Sim default (7 × 0.000004)
-let   THROW_SPEED    = 1.20;     // velocity multiplier applied at launch
-let   T_MIN_MS       = 500;      // minimum flight time (ms) — caps forward speed
+let   G_WORLD        = 0.000024; // gravity — Sim default (6 × 0.000004)
+let   THROW_SPEED    = 1.50;     // velocity multiplier applied at launch
+let   T_MIN_MS       = 280;      // minimum flight time (ms) — caps forward speed
 let   MAX_THROW_SPEED = 0.021;   // max 3D dart speed after scaling (7 × 0.003)
 
 // Virtual camera center — the normalized screen position that maps to
@@ -1087,14 +1198,20 @@ function processHandFrame(lm, now) {
   const tx  = 1 - lm[0].x;
   const ty  = lm[0].y;
 
+  // Track pinch midpoint (thumb + index tips) — used as dart spawn origin
+  const pmx = ((1-lm[4].x) + (1-lm[8].x)) * 0.5 * canvas.width;
+  const pmy = (lm[4].y   +  lm[8].y)   * 0.5 * canvas.height;
+
   if (!pinched && pd < sPinchIn) {
     pinched = true; pinchHoldFrames = 0;
     handPosHist = [];
     lastHandX = tx * canvas.width;
     lastHandY = ty * canvas.height;
+    lastPinchCanvasX = pmx; lastPinchCanvasY = pmy;
 
   } else if (pinched) {
     pinchHoldFrames++;
+    lastPinchCanvasX = pmx; lastPinchCanvasY = pmy;
 
     // lm[9] (MCP) doesn't drift with finger separation, so record every
     // pinched frame — no early cutoff needed.
@@ -1171,11 +1288,13 @@ function registerThrow(throwVec) {
   if (gamePhase === 'gameover') return;
   const { cx, cy, R } = getBoardLayout();
 
-  // Initial world position: always relative to the board center (cx, cy)
-  // so the dart spawns exactly where the hand appears on screen.
+  // Spawn at the pinch midpoint (where the dart is actually held), but
+  // use wrist history (handPosHist) for palm scale / depth estimation.
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
-  const wx0 = last ? (last.canvasX - cx) / R : 0;
-  const wy0 = last ? -(last.canvasY - cy) / R : 0.3;
+  const spawnX = lastPinchCanvasX ?? last?.canvasX ?? cx;
+  const spawnY = lastPinchCanvasY ?? last?.canvasY ?? cy;
+  const wx0 = (spawnX - cx) / R;
+  const wy0 = -(spawnY - cy) / R;
   const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
 
   let vwx, vwy, vwz;
@@ -1541,20 +1660,17 @@ document.getElementById('btn-cancel-ready').addEventListener('click',
 document.getElementById('btn-rematch').addEventListener('click', showReadyScreen);
 document.getElementById('btn-to-practice').addEventListener('click', setPractice);
 // ── Camera panel ──────────────────────────────────────────────────────────────
-function applyCamValues(vcx, vcy, opacity, pinch) {
+function applyCamValues(vcx, vcy, opacity) {
   document.getElementById('cam-vcx').value    = vcx;
   document.getElementById('cam-vcy').value    = vcy;
   document.getElementById('cam-opacity').value = opacity;
-  document.getElementById('pinch-sens').value  = pinch;
   document.getElementById('cam-vcx-val').textContent    = vcx;
   document.getElementById('cam-vcy-val').textContent    = vcy;
   document.getElementById('cam-opacity-val').textContent = opacity;
-  document.getElementById('pinch-sens-val').textContent  = pinch;
   CAM_VCX = vcx / 100;
   CAM_VCY = vcy / 100;
   camOpacityVal = opacity / 100;
   webcamEl.style.opacity = camOpacityVal;
-  PINCH_OUT = 0.057 + (pinch - 1) / 8 * 0.031;
 }
 
 function setActivePreset(btn) {
@@ -1569,7 +1685,7 @@ document.getElementById('cam-panel-close').addEventListener('click', () => camPa
 
 document.querySelectorAll('.cp-preset').forEach(btn => {
   btn.addEventListener('click', () => {
-    applyCamValues(+btn.dataset.vcx, +btn.dataset.vcy, +btn.dataset.opacity, +btn.dataset.pinch);
+    applyCamValues(+btn.dataset.vcx, +btn.dataset.vcy, +btn.dataset.opacity);
     setActivePreset(btn);
   });
 });
@@ -1580,10 +1696,6 @@ document.getElementById('cam-opacity').addEventListener('input', e => {
   document.getElementById('cam-opacity-val').textContent = e.target.value;
   setActivePreset(document.createElement('span')); // clear preset highlight on manual adjust
 });
-document.getElementById('pinch-sens').addEventListener('input', e => {
-  PINCH_OUT = 0.057 + (e.target.value - 1) / 8 * 0.031;
-  document.getElementById('pinch-sens-val').textContent = e.target.value;
-});
 document.getElementById('cam-vcx').addEventListener('input', e => {
   CAM_VCX = e.target.value / 100;
   document.getElementById('cam-vcx-val').textContent = e.target.value;
@@ -1593,22 +1705,27 @@ document.getElementById('cam-vcy').addEventListener('input', e => {
   document.getElementById('cam-vcy-val').textContent = e.target.value;
 });
 document.getElementById('cam-reset').addEventListener('click', () => {
-  applyCamValues(50, 60, 0, 4);
+  applyCamValues(50, 60, 0);
   setActivePreset(document.querySelector('.cp-preset[data-vcy="60"][data-opacity="0"]'));
 });
 
 // ── Gameplay panel ─────────────────────────────────────────────────────────────
-function applyGpValues(gravity, speed, tmin, playerz, maxspeed) {
-  G_WORLD          = gravity  * 0.000004;
-  THROW_SPEED      = speed    / 100;
+function applyGpValues(gravity, speed, tmin, playerz, maxspeed, pinchsens) {
+  G_WORLD          = gravity   * 0.000004;
+  THROW_SPEED      = speed     / 100;
   T_MIN_MS         = tmin;
-  PLAYER_Z         = playerz  / 10;
-  MAX_THROW_SPEED  = maxspeed * 0.003;
-  document.getElementById('gp-gravity').value   = gravity;
-  document.getElementById('gp-speed').value     = speed;
-  document.getElementById('gp-tmin').value      = tmin;
-  document.getElementById('gp-playerz').value   = playerz;
-  document.getElementById('gp-maxspeed').value  = maxspeed;
+  PLAYER_Z         = playerz   / 10;
+  MAX_THROW_SPEED  = maxspeed  * 0.003;
+  if (pinchsens != null) PINCH_OUT = 0.057 + (pinchsens - 1) / 8 * 0.031;
+  document.getElementById('gp-gravity').value     = gravity;
+  document.getElementById('gp-speed').value       = speed;
+  document.getElementById('gp-tmin').value        = tmin;
+  document.getElementById('gp-playerz').value     = playerz;
+  document.getElementById('gp-maxspeed').value    = maxspeed;
+  if (pinchsens != null) {
+    document.getElementById('gp-pinchsens').value         = pinchsens;
+    document.getElementById('gp-pinchsens-val').textContent = pinchsens;
+  }
   document.getElementById('gp-gravity-val').textContent  = gravity;
   document.getElementById('gp-speed-val').textContent    = speed;
   document.getElementById('gp-tmin-val').textContent     = tmin;
@@ -1627,7 +1744,7 @@ document.getElementById('gp-panel-close').addEventListener('click', () => gpPane
 
 document.querySelectorAll('.gp-preset').forEach(btn => {
   btn.addEventListener('click', () => {
-    applyGpValues(+btn.dataset.gravity, +btn.dataset.speed, +btn.dataset.tmin, +btn.dataset.playerz, +btn.dataset.maxspeed);
+    applyGpValues(+btn.dataset.gravity, +btn.dataset.speed, +btn.dataset.tmin, +btn.dataset.playerz, +btn.dataset.maxspeed, +btn.dataset.pinchsens);
     setActiveGpPreset(btn);
   });
 });
@@ -1653,9 +1770,22 @@ document.getElementById('gp-maxspeed').addEventListener('input', e => {
   MAX_THROW_SPEED = e.target.value * 0.003;
   document.getElementById('gp-maxspeed-val').textContent = e.target.value;
 });
+document.getElementById('gp-pinchsens').addEventListener('input', e => {
+  PINCH_OUT = 0.057 + (e.target.value - 1) / 8 * 0.031;
+  document.getElementById('gp-pinchsens-val').textContent = e.target.value;
+});
 document.getElementById('gp-reset').addEventListener('click', () => {
-  applyGpValues(7, 120, 500, 55, 7);
-  setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="7"]'));
+  applyGpValues(6, 150, 280, 55, 7, 4);
+  setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="6"]'));
+});
+
+// ── Tutorial screen ───────────────────────────────────────────────────────────
+const tutScreen = document.getElementById('tutorial-screen');
+document.getElementById('btn-tut-start').addEventListener('click', () => {
+  tutScreen.style.display = 'none';
+});
+document.getElementById('btn-tutorial').addEventListener('click', () => {
+  tutScreen.style.display = 'flex';
 });
 
 // ── Click outside to close either panel ───────────────────────────────────────
