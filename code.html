@@ -177,27 +177,27 @@ function render() {
   PROJECTS.forEach((p, i) => {
     const section = document.createElement('div');
     section.className = 'project';
-    section.innerHTML = \`
-      <div class="project-head" data-idx="\${i}">
-        <span class="proj-num">\${p.num}</span>
+    section.innerHTML = `
+      <div class="project-head" data-idx="${i}">
+        <span class="proj-num">${p.num}</span>
         <div>
-          <div class="proj-title">\${p.title}</div>
-          <div class="proj-subtitle">\${p.subtitle}</div>
-          <div class="proj-tags">\${p.tags.map(t => '<span class="tag">'+t+'</span>').join('')}</div>
+          <div class="proj-title">${p.title}</div>
+          <div class="proj-subtitle">${p.subtitle}</div>
+          <div class="proj-tags">${p.tags.map(t => '<span class="tag">'+t+'</span>').join('')}</div>
         </div>
         <span class="proj-arrow">&#9656;</span>
       </div>
       <div class="project-body">
         <div class="project-detail">
-          <p class="detail-desc">\${p.desc}</p>
+          <p class="detail-desc">${p.desc}</p>
           <dl class="detail-meta">
-            <dt>Role</dt><dd>\${p.role}</dd>
-            <dt>Stack</dt><dd>\${p.stack}</dd>
-            <dt>Year</dt><dd>\${p.year}</dd>
-            \${p.links.length ? '<dt>Links</dt><dd><div class="detail-links">'+p.links.map(l=>'<a href="'+l.href+'" class="dlink" target="_blank">'+l.label+'</a>').join('')+'</div></dd>' : ''}
+            <dt>Role</dt><dd>${p.role}</dd>
+            <dt>Stack</dt><dd>${p.stack}</dd>
+            <dt>Year</dt><dd>${p.year}</dd>
+            ${p.links.length ? '<dt>Links</dt><dd><div class="detail-links">'+p.links.map(l=>'<a href="'+l.href+'" class="dlink" target="_blank">'+l.label+'</a>').join('')+'</div></dd>' : ''}
           </dl>
         </div>
-      </div>\`;
+      </div>`;
     section.querySelector('.project-head').addEventListener('click', () => {
       section.classList.toggle('open');
     });
