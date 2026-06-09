@@ -1174,6 +1174,13 @@ function drawAnims() {
     const wy = a.wy0 + a.vwy * t - 0.5 * G_WORLD * t * t;
     const wz = a.wz0 + a.vwz * t;
 
+    // Floor hit: dart fell below play area before reaching the board
+    if (wy < -2.5 && wz > 0) {
+      if (a.onComplete) a.onComplete({ ...a.dartData, floorHit: true, bx: 0, by: 99 });
+      anims.splice(i, 1);
+      continue;
+    }
+
     // Dart reached board plane (wz=0) or timed out (3 s)
     if (wz <= 0 || t > 3000) {
       let bx, by, ivx = 0, ivy = -1; // ivy default = falling
@@ -1303,7 +1310,7 @@ function processHandFrame(lm, now) {
         pinched = false; pinchOpenFrames = 0;
         if (now - lastThrow > COOLDOWN && gamePhase === 'playing') {
           const tv = calcThrowVec();
-          if (tv && (tv.fwdV > 0.3 || tv.canvasSpeed > 1.0)) {
+          if (tv && tv.fwdV > 0.3) {
             lastThrow = now;
             registerThrow(tv);
           }
@@ -1344,9 +1351,9 @@ function calcThrowVec() {
   }
 
   const win = handPosHist.slice(startIdx);
-  if (win.length < 2) return null;
+  if (win.length < 3) return null;
   const span = win[win.length - 1].t - win[0].t;
-  if (span < 8) return null;
+  if (span < 30) return null;
 
   const { R } = getBoardLayout();
   const ts = win.map(p => p.t);
@@ -1436,6 +1443,7 @@ function registerThrow(throwVec) {
 
   if (mode === 'practice') {
     launchDart(wx0, wy0, wz0, vwx, vwy, vwz, { player }, (d) => {
+      if (d.floorHit) { flash('Oops!', 0, '#c82000'); return; }
       const { pts, label } = scoreDart(d.bx, d.by);
       practiceTotal += pts;
       flash(label, pts, pts ? '#1d1712' : '#c82000');
@@ -1456,6 +1464,12 @@ function doGameThrow(wx0, wy0, wz0, vwx, vwy, vwz) {
   const myPlayer   = currPlayer;
 
   launchDart(wx0, wy0, wz0, vwx, vwy, vwz, { player: myPlayer }, (d) => {
+    if (d.floorHit) {
+      dartsLeft = Math.min(3, dartsLeft + 1);
+      updateGameHUD();
+      flash('Oops!', 0, '#c82000');
+      return;
+    }
     const p = P[myPlayer];
     const { pts, label } = scoreDart(d.bx, d.by);
     const newScore = p.score - pts;
