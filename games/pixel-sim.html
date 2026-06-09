@@ -63,12 +63,13 @@ body{background:#0b0a09;color:#fff;font-family:var(--mono);overflow:hidden;displ
 .hud-btn:hover{border-color:rgba(255,255,255,.4);color:rgba(255,255,255,.8)}
 .hud-btn.active{border-color:rgba(255,255,255,.5);color:rgba(255,255,255,.9)}
 
-/* implementation notes */
+/* implementation notes — overlay inside game-wrap */
 .notes-section{
-  flex-shrink:0;max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.2,.7,.3,1);
-  background:rgba(5,5,4,.96);border-top:1px solid rgba(255,255,255,.07)
+  position:absolute;bottom:0;left:0;right:0;
+  max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.2,.7,.3,1);
+  background:rgba(5,5,4,.96);z-index:20
 }
-.notes-section.open{max-height:420px;overflow-y:auto}
+.notes-section.open{max-height:420px;overflow-y:auto;border-top:1px solid rgba(255,255,255,.07)}
 .notes-inner{padding:28px clamp(20px,4vw,72px) 32px;max-width:900px}
 .notes-inner h2{font-family:var(--disp);font-weight:440;font-size:1.4rem;letter-spacing:-.02em;
   color:rgba(255,255,255,.7);margin-bottom:20px;font-variation-settings:"opsz" 36}
@@ -84,7 +85,7 @@ body{background:#0b0a09;color:#fff;font-family:var(--mono);overflow:hidden;displ
   position:absolute;bottom:18px;right:18px;
   font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
   padding:5px 10px;border:1px solid rgba(255,255,255,.12);background:rgba(8,8,7,.88);
-  color:rgba(255,255,255,.3);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);z-index:10
+  color:rgba(255,255,255,.3);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);z-index:25
 }
 .notes-toggle:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.3)}
 </style>
@@ -124,9 +125,8 @@ body{background:#0b0a09;color:#fff;font-family:var(--mono);overflow:hidden;displ
   </div>
 
   <button class="notes-toggle" id="notes-toggle">How it works</button>
-</div>
 
-<div class="notes-section" id="notes">
+  <div class="notes-section" id="notes">
   <div class="notes-inner">
     <h2>Implementation notes</h2>
     <div class="note-grid">
@@ -164,6 +164,7 @@ body{background:#0b0a09;color:#fff;font-family:var(--mono);overflow:hidden;displ
       </dl>
     </div>
   </div>
+</div>
 </div>
 
 <script>
