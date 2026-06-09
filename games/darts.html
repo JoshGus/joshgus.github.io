@@ -1213,11 +1213,9 @@ function processHandFrame(lm, now) {
     pinchHoldFrames++;
     lastPinchCanvasX = pmx; lastPinchCanvasY = pmy;
 
-    // lm[9] (MCP) doesn't drift with finger separation, so record every
-    // pinched frame — no early cutoff needed.
-    lastHandX = tx * canvas.width;
-    lastHandY = ty * canvas.height;
-    handPosHist.push({ canvasX: lastHandX, canvasY: lastHandY, palmSc: psc, t: now });
+    // Record the pinch midpoint for velocity (same point the dart will spawn from).
+    // Palm scale (psc) still uses wrist→knuckle span for depth estimation.
+    handPosHist.push({ canvasX: pmx, canvasY: pmy, palmSc: psc, t: now });
     if (handPosHist.length > 18) handPosHist.shift();
 
     if (pd > sPinchOut && pinchHoldFrames > 2) {
@@ -1288,13 +1286,11 @@ function registerThrow(throwVec) {
   if (gamePhase === 'gameover') return;
   const { cx, cy, R } = getBoardLayout();
 
-  // Spawn at the pinch midpoint (where the dart is actually held), but
-  // use wrist history (handPosHist) for palm scale / depth estimation.
+  // Spawn and velocity both measured from the pinch midpoint (handPosHist now
+  // records pmx/pmy, so last entry is the release position).
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
-  const spawnX = lastPinchCanvasX ?? last?.canvasX ?? cx;
-  const spawnY = lastPinchCanvasY ?? last?.canvasY ?? cy;
-  const wx0 = (spawnX - cx) / R;
-  const wy0 = -(spawnY - cy) / R;
+  const wx0 = last ? (last.canvasX - cx) / R : 0;
+  const wy0 = last ? -(last.canvasY - cy) / R : 0.3;
   const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
 
   let vwx, vwy, vwz;
