@@ -142,21 +142,84 @@ body {
 /* ── throw flash ── */
 #throw-flash {
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, calc(-50% - 40px));
+  left: 16px;
+  top: 108px;
   font-family: var(--disp);
-  font-size: clamp(1.6rem,4.5vw,2.8rem);
-  font-weight: 800;
+  font-size: clamp(.95rem,2.6vw,1.5rem);
+  font-weight: 700;
   pointer-events: none;
   opacity: 0;
-  transition: opacity .12s;
+  transition: opacity .14s;
   z-index: 15;
-  text-align: center;
   white-space: nowrap;
-  text-shadow: 0 1px 8px rgba(247,236,225,.6);
+  line-height: 1.25;
+  background: rgba(247,236,225,.9);
+  border-left: 3px solid currentColor;
+  padding: 5px 12px 5px 9px;
+  backdrop-filter: blur(4px);
 }
 #throw-flash.show { opacity: 1; }
+.fl-d { color: #3e7e2a; font-size: .75em; font-weight: 600; margin-right: 1px; }
+.fl-t { color: #b03a14; font-size: .75em; font-weight: 600; margin-right: 1px; }
+.fl-pts { display: block; font-family: var(--mono); font-size: .48em; font-weight: 400; opacity: .6; margin-top: 1px; }
+
+/* ── score ledger ── */
+#score-ledger {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  max-height: 72vh;
+  overflow-y: auto;
+  width: 128px;
+  background: rgba(212, 184, 146, 0.93);
+  border: 1px solid rgba(165, 128, 85, 0.55);
+  pointer-events: none;
+  z-index: 10;
+  font-family: var(--mono);
+  scrollbar-width: none;
+  font-size: 0;   /* suppress inline-block gap */
+}
+#score-ledger::-webkit-scrollbar { display: none; }
+.sl-player { padding: 7px 9px 6px; font-size: 0; }
+.sl-player + .sl-player { border-top: 1px solid rgba(165,128,85,.4); }
+.sl-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding-bottom: 4px;
+  margin-bottom: 3px;
+  border-bottom: 1px solid rgba(165,128,85,.35);
+}
+.sl-pname {
+  font-size: .44rem;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+  color: rgba(90,60,28,.65);
+}
+.sl-total {
+  font-family: var(--disp);
+  font-size: .98rem;
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: rgba(38,22,8,.9);
+}
+.sl-shots { display: flex; flex-direction: column; }
+.sl-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: .52rem;
+  color: rgba(65,42,18,.82);
+  padding: 1.5px 0;
+  border-bottom: 1px solid rgba(165,128,85,.13);
+}
+.sl-row:last-child { border-bottom: none; }
+.sl-row .sl-d { color: #3e7e2a; }
+.sl-row .sl-t { color: #b03a14; }
+.sl-row .sl-right { opacity: .5; font-size: .48rem; }
+.sl-row.miss-row { color: rgba(155,50,25,.72); }
+.sl-row.bust-row { color: rgba(155,50,25,.85); font-style: italic; }
 
 /* ── controls ── */
 #controls {
@@ -326,6 +389,24 @@ body {
     <div class="sp-darts" id="sp-right-darts"></div>
   </div>
 
+  <!-- Score ledger -->
+  <div id="score-ledger">
+    <div class="sl-player" id="sl-p1-panel">
+      <div class="sl-head">
+        <span class="sl-pname" id="sl-p1-pname">Practice</span>
+        <span class="sl-total" id="sl-p1-total">0</span>
+      </div>
+      <div class="sl-shots" id="sl-p1-shots"></div>
+    </div>
+    <div class="sl-player" id="sl-p2-panel" style="display:none">
+      <div class="sl-head">
+        <span class="sl-pname" id="sl-p2-pname">P2</span>
+        <span class="sl-total" id="sl-p2-total">301</span>
+      </div>
+      <div class="sl-shots" id="sl-p2-shots"></div>
+    </div>
+  </div>
+
   <!-- Throw flash -->
   <div id="throw-flash"></div>
 
@@ -336,6 +417,10 @@ body {
     <label class="cam-lbl">
       <span>Cam</span>
       <input type="range" id="cam-opacity" min="0" max="70" value="0">
+    </label>
+    <label class="cam-lbl">
+      <span>Pinch</span>
+      <input type="range" id="pinch-sens" min="1" max="9" value="4">
     </label>
   </div>
 
@@ -697,7 +782,8 @@ let pinched=false, pinchHoldFrames=0;
 const PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
 const G_WORLD   = 0.000013; // gravity (board-radii / ms²)
-const PINCH_IN=0.055, PINCH_OUT=0.075;
+const PINCH_IN = 0.055;
+let   PINCH_OUT = 0.062;  // user-adjustable via slider
 
 // Throw cooldown
 let lastThrow = 0;
@@ -746,7 +832,7 @@ function processHandFrame(lm, now) {
       pinched = false;
       if (now - lastThrow > COOLDOWN && gamePhase !== 'gameover') {
         const tv = calcThrowVec();
-        if (tv && (tv.fwdV > 0.5 || tv.canvasSpeed > 1.2)) {
+        if (tv && (tv.fwdV > 0.3 || tv.canvasSpeed > 1.0)) {
           lastThrow = now;
           registerThrow(tv);
         }
@@ -834,8 +920,9 @@ function registerThrow(throwVec) {
     launchDart(wx0, wy0, wz0, vwx, vwy, vwz, { player }, (d) => {
       const { pts, label } = scoreDart(d.bx, d.by);
       practiceTotal += pts;
-      flash(`${label}${pts ? ' · +' + pts : ''}`, pts ? '#1d1712' : '#c82000');
+      flash(label, pts, pts ? '#1d1712' : '#c82000');
       document.getElementById('sp-left-score').textContent = practiceTotal;
+      addShotToLedger(-1, label, pts, practiceTotal);
       darts.push({ ...d, pts, label });
       if (darts.length > 9) darts.shift();
     });
@@ -856,9 +943,10 @@ function doGameThrow(wx0, wy0, wz0, vwx, vwy, vwz) {
     const newScore = p.score - pts;
 
     if (newScore < 0) {
-      flash('Bust!', '#c82000');
+      flash('Bust!', 0, '#c82000');
       darts.push({ ...d, pts, label, bust: true });
       p.score = p.roundStart;
+      addShotToLedger(myPlayer, 'Bust', 0, p.roundStart);
       updateGameHUD();
       setTimeout(() => { darts = darts.filter(x => !x.bust); endTurn(); }, 700);
       return;
@@ -866,7 +954,8 @@ function doGameThrow(wx0, wy0, wz0, vwx, vwy, vwz) {
 
     p.score = newScore; p.roundPts += pts;
     const won = p.score === 0;
-    flash(`${label}${pts ? ' · ' + pts : ''}`, '#1d1712');
+    flash(label, pts, '#1d1712');
+    addShotToLedger(myPlayer, label, pts, newScore);
     updateGameHUD();
     darts.push({ ...d, pts, label });
 
@@ -892,12 +981,70 @@ function endTurn() {
 }
 
 // ── Flash ─────────────────────────────────────────────────────────────────────
-function flash(msg, col='#1d1712') {
-  const el=document.getElementById('throw-flash');
-  el.textContent=msg; el.style.color=col;
+function fmtLabel(label) {
+  if (label.startsWith('D')) return `<span class="fl-d">D</span>${label.slice(1)}`;
+  if (label.startsWith('T')) return `<span class="fl-t">T</span>${label.slice(1)}`;
+  return label;
+}
+function flash(label, pts, col='#1d1712') {
+  const el = document.getElementById('throw-flash');
+  let html = fmtLabel(label);
+  if (pts > 0) html += `<span class="fl-pts">+${pts}</span>`;
+  el.innerHTML = html;
+  el.style.color = col;
   el.classList.add('show');
   clearTimeout(flashTid);
-  flashTid=setTimeout(()=>el.classList.remove('show'),1400);
+  flashTid = setTimeout(() => el.classList.remove('show'), 1400);
+}
+
+// ── Score ledger ──────────────────────────────────────────────────────────────
+let shotHistory = [];
+
+function fmtLedgerLabel(label) {
+  if (label.startsWith('D')) return `<span class="sl-d">D</span>${label.slice(1)}`;
+  if (label.startsWith('T')) return `<span class="sl-t">T</span>${label.slice(1)}`;
+  return label;
+}
+
+function addShotToLedger(playerIdx, label, pts, runningVal) {
+  shotHistory.push({ playerIdx, label, pts, runningVal });
+  renderLedger();
+}
+
+function renderLedger() {
+  const slots = mode === 'game' ? [[0,'sl-p1'],[1,'sl-p2']] : [[-1,'sl-p1']];
+  for (const [pid, prefix] of slots) {
+    const shots = shotHistory.filter(s => s.playerIdx === pid);
+    const shotsEl = document.getElementById(`${prefix}-shots`);
+    const totalEl = document.getElementById(`${prefix}-total`);
+    if (!shotsEl) continue;
+    if (shots.length) totalEl.textContent = shots[shots.length-1].runningVal;
+    shotsEl.innerHTML = shots.map(s => {
+      const isMiss = s.label === 'Miss', isBust = s.label === 'Bust';
+      const cls = `sl-row${isMiss?' miss-row':''}${isBust?' bust-row':''}`;
+      const right = (isMiss || isBust) ? '' : `<span class="sl-right">${s.runningVal}</span>`;
+      return `<div class="${cls}"><span>${fmtLedgerLabel(s.label)}</span>${right}</div>`;
+    }).join('');
+    document.getElementById('score-ledger').scrollTop = 999999;
+  }
+}
+
+function clearLedger() {
+  shotHistory = [];
+  ['sl-p1','sl-p2'].forEach(p => {
+    const el = document.getElementById(`${p}-shots`);
+    if (el) el.innerHTML = '';
+  });
+  document.getElementById('sl-p1-total').textContent = mode === 'game' ? '301' : '0';
+  document.getElementById('sl-p2-total').textContent = '301';
+}
+
+function setupLedgerForMode() {
+  const isGame = mode === 'game';
+  document.getElementById('sl-p2-panel').style.display = isGame ? '' : 'none';
+  document.getElementById('sl-p1-pname').textContent   = isGame ? 'P1' : 'Practice';
+  document.getElementById('sl-p1-total').textContent   = isGame ? '301' : '0';
+  document.getElementById('sl-p2-total').textContent   = '301';
 }
 
 // ── HUD ───────────────────────────────────────────────────────────────────────
@@ -974,6 +1121,7 @@ function processReady(hands) {
 function setPractice() {
   mode='practice'; gamePhase='playing'; darts=[]; anims=[];
   practiceTotal=0; aimVisible=false; pinched=false;
+  setupLedgerForMode(); clearLedger();
   document.getElementById('gameover-screen').style.display='none';
   document.getElementById('ready-screen').style.display='none';
   document.getElementById('sp-left-name').textContent='Practice';
@@ -998,6 +1146,7 @@ function startGame() {
   document.getElementById('ready-screen').style.display='none';
   mode='game'; gamePhase='playing'; darts=[]; anims=[];
   currPlayer=0; dartsLeft=3; pinched=false;
+  setupLedgerForMode(); clearLedger();
   P[0].score=301; P[0].roundStart=301; P[0].roundPts=0;
   P[1].score=301; P[1].roundStart=301; P[1].roundPts=0;
   document.getElementById('sp-left-name').textContent='P1';
@@ -1021,6 +1170,11 @@ document.getElementById('btn-to-practice').addEventListener('click', setPractice
 document.getElementById('cam-opacity').addEventListener('input', e => {
   camOpacityVal = e.target.value / 100;
   webcamEl.style.opacity = camOpacityVal;
+});
+// Pinch sensitivity: slider 1–9, maps to PINCH_OUT range 0.057–0.088
+// Higher value = less sensitive (fingers must open more to release)
+document.getElementById('pinch-sens').addEventListener('input', e => {
+  PINCH_OUT = 0.057 + (e.target.value - 1) / 8 * 0.031;
 });
 
 // Space = throw with current aim (fallback when no camera)
