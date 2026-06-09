@@ -924,7 +924,7 @@ function registerThrow(throwVec) {
   if (throwVec) {
     // Scale velocity down so flight feels like a real darts throw distance.
     // Preserves direction; only slows the dart.
-    const SPEED_SCALE = 0.35;
+    const SPEED_SCALE = 0.70;
     vwx = throwVec.vwx * SPEED_SCALE;
     vwy = throwVec.vwy * SPEED_SCALE;
     vwz = throwVec.vwz * SPEED_SCALE;
