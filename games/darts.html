@@ -710,7 +710,7 @@ let flashTid=null;
 
 // ── Hand frame processing ─────────────────────────────────────────────────────
 function processHandFrame(lm, now) {
-  // Aim from index fingertip
+  // Aim cursor tracks index fingertip (display only, not throw origin)
   const rx = 1-lm[8].x, ry = lm[8].y;
   const bx = (rx-.5)/.22, by = (ry-.5)/.22;
   aimBX += (bx-aimBX)*.2; aimBY += (by-aimBY)*.2;
@@ -718,35 +718,47 @@ function processHandFrame(lm, now) {
   aimRawHist.push([bx,by]);
   if (aimRawHist.length>12) aimRawHist.shift();
 
-  // Hand canvas position (mirrored)
-  lastHandX = rx * canvas.width;
-  lastHandY = ry * canvas.height;
-
-  // Palm scale proxy for depth
+  // Pinch geometry
+  const pd  = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
+  // Midpoint between thumb tip (4) and index tip (8), mirrored X
+  const mx  = 1 - (lm[4].x + lm[8].x) * 0.5;
+  const my  = (lm[4].y + lm[8].y) * 0.5;
   const psc = Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
-  handPosHist.push({ normX:rx, normY:ry, canvasX:lastHandX, canvasY:lastHandY, palmSc:psc, t:now });
-  if (handPosHist.length > 18) handPosHist.shift();
-
-  // Pinch detection (thumb tip ↔ index tip distance)
-  const pd = Math.hypot(lm[4].x-lm[8].x, lm[4].y-lm[8].y);
 
   if (!pinched && pd < PINCH_IN) {
-    pinched = true;
-    pinchHoldFrames = 0;
-    handPosHist = [{ normX:rx, normY:ry, canvasX:lastHandX, canvasY:lastHandY, palmSc:psc, t:now }];
+    // Pinch just closed — clear history and start tracking the midpoint
+    pinched = true; pinchHoldFrames = 0;
+    handPosHist = [];
+    lastHandX = mx * canvas.width;
+    lastHandY = my * canvas.height;
+
   } else if (pinched) {
     pinchHoldFrames++;
+
+    // Record midpoint position only while fingers are still close together.
+    // Stop before the finger-split contaminates the velocity sample.
+    if (pd < PINCH_OUT * 0.82) {
+      lastHandX = mx * canvas.width;
+      lastHandY = my * canvas.height;
+      handPosHist.push({ canvasX: lastHandX, canvasY: lastHandY, palmSc: psc, t: now });
+      if (handPosHist.length > 18) handPosHist.shift();
+    }
+
     if (pd > PINCH_OUT && pinchHoldFrames > 2) {
       pinched = false;
       if (now - lastThrow > COOLDOWN && gamePhase !== 'gameover') {
         const tv = calcThrowVec();
-        // Require some forward motion OR lateral speed to register throw
         if (tv && (tv.fwdV > 0.5 || tv.canvasSpeed > 1.2)) {
           lastThrow = now;
           registerThrow(tv);
         }
       }
     }
+
+  } else {
+    // Not pinched — keep lastHandX/Y on index tip as fallback launch origin
+    lastHandX = rx * canvas.width;
+    lastHandY = ry * canvas.height;
   }
 }
 
