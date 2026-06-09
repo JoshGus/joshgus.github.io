@@ -159,6 +159,22 @@ const BOIDS_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;h
   <polygon points="2.5,0 -1.2,-1 -1.2,1" fill="rgba(162,190,255,.26)" transform="translate(90,90) rotate(42)"/>
 </svg>`;
 
+const DARTS_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" xmlns="http://www.w3.org/2000/svg">
+  <circle cx="100" cy="60" r="54" fill="#181818"/>
+  <circle cx="100" cy="60" r="51" fill="#c9b990"/>
+  <circle cx="100" cy="60" r="46" fill="#181818"/>
+  <circle cx="100" cy="60" r="29" fill="#c9b990"/>
+  <circle cx="100" cy="60" r="24" fill="#181818"/>
+  <circle cx="100" cy="60" r="50" fill="none" stroke="#c82000" stroke-width="2"/>
+  <circle cx="100" cy="60" r="29" fill="none" stroke="#0f7020" stroke-width="2.5"/>
+  <circle cx="100" cy="60" r="10" fill="#0f7020"/>
+  <circle cx="100" cy="60" r="4.5" fill="#c82000"/>
+  <line x1="100" y1="4" x2="100" y2="12" stroke="#aaa" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="100" cy="12" r="3.5" fill="#ccf73f"/>
+  <line x1="137" y1="27" x2="131" y2="35" stroke="#aaa" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="131" cy="35" r="3" fill="#ccf73f" opacity=".65"/>
+</svg>`;
+
 const COLORMAP_SVG = `<svg viewBox="0 0 200 112" style="width:80%;opacity:.55" fill="none" xmlns="http://www.w3.org/2000/svg">
   <circle cx="60" cy="72" r="3" fill="#e74c3c"/><circle cx="44" cy="80" r="2.5" fill="#c0392b"/>
   <circle cx="78" cy="62" r="2" fill="#e67e22"/><circle cx="90" cy="68" r="3" fill="#f39c12"/>
@@ -236,6 +252,19 @@ export const CARDS = [
     stack: ['Canvas', 'JS'],
     ctaFull: 'Open sim',
     ctaShort: 'Open'
+  },
+  {
+    id: 'darts',
+    type: 'game',
+    title: 'Darts',
+    descShort: 'Throw darts with your hand tracked through the webcam.',
+    descFull: 'Camera-tracked darts. Aim with your index finger, throw by lunging toward the camera. Practice solo or play local 2-player 301.',
+    href: 'darts.html',
+    thumbBg: '#121210',
+    thumbSvg: DARTS_SVG,
+    stack: ['MediaPipe', 'Canvas', 'JS'],
+    ctaFull: 'Play',
+    ctaShort: 'Play'
   }
 ];
 

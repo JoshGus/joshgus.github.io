@@ -1,0 +1,875 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Darts — Joshua Gustaveson</title>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+body {
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 13px;
+  display: flex;
+  flex-direction: column;
+  height: 100dvh;
+  overflow: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+.game-wrap {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+#webcam {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scaleX(-1);
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+#canvas { position: absolute; inset: 0; }
+
+/* ── overlays ── */
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  background: rgba(247,236,225,.96);
+  backdrop-filter: blur(4px);
+  z-index: 20;
+  font-family: var(--mono);
+}
+.overlay h2 {
+  font-family: var(--disp);
+  font-size: clamp(1.4rem,4vw,2.2rem);
+  font-weight: 700;
+  letter-spacing: -.02em;
+  color: var(--fg);
+  margin: 0;
+}
+.overlay .sub {
+  font-size: .58rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+/* ── ready screen ── */
+.ready-players {
+  display: flex;
+  gap: clamp(28px,6vw,72px);
+  align-items: center;
+}
+.ready-p { text-align: center; }
+.ready-num {
+  font-family: var(--disp);
+  font-size: clamp(2.8rem,7vw,4.5rem);
+  font-weight: 800;
+  color: var(--dimmer);
+  transition: color .3s, transform .3s;
+  line-height: 1;
+}
+.ready-num.on { color: var(--accent-ink); transform: scale(1.1); }
+.ready-lbl {
+  font-size: .55rem;
+  letter-spacing: .11em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-top: 5px;
+}
+.ready-progress {
+  width: 52px;
+  height: 3px;
+  background: var(--line);
+  margin: 6px auto 0;
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ready-bar {
+  height: 100%;
+  background: var(--accent-ink);
+  width: 0%;
+  transition: width .05s linear;
+}
+
+/* ── score panels ── */
+.score-panel {
+  position: absolute;
+  top: 14px;
+  font-family: var(--disp);
+  pointer-events: none;
+  transition: opacity .3s;
+}
+#sp-left  { left: 16px; }
+#sp-right { right: 16px; text-align: right; }
+.sp-name  { font-size: .5rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.sp-score {
+  font-size: clamp(1.4rem,3.5vw,2.2rem);
+  font-weight: 700;
+  letter-spacing: -.03em;
+  color: var(--fg);
+  opacity: .28;
+  transition: opacity .3s;
+}
+.sp-score.active { opacity: 1; }
+.sp-turn {
+  font-family: var(--mono);
+  font-size: .5rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  opacity: 0;
+  transition: opacity .3s;
+}
+.sp-turn.show { opacity: 1; }
+.sp-darts { font-size: .6rem; color: var(--dimmer); letter-spacing: .06em; margin-top: 2px; }
+
+/* ── throw flash ── */
+#throw-flash {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, calc(-50% - 40px));
+  font-family: var(--disp);
+  font-size: clamp(1.6rem,4.5vw,2.8rem);
+  font-weight: 800;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .12s;
+  z-index: 15;
+  text-align: center;
+  white-space: nowrap;
+  text-shadow: 0 1px 8px rgba(247,236,225,.6);
+}
+#throw-flash.show { opacity: 1; }
+
+/* ── controls ── */
+#controls {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  z-index: 10;
+}
+.ctrl-btn {
+  font-family: var(--mono);
+  font-size: .55rem;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  background: rgba(247,236,225,.88);
+  border: 1px solid var(--line-strong);
+  color: var(--fg);
+  cursor: pointer;
+  transition: background .15s, border-color .15s;
+  backdrop-filter: blur(6px);
+}
+.ctrl-btn:hover { background: var(--accent); border-color: var(--accent-ink); }
+.cam-lbl {
+  font-size: .55rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--dim);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+.cam-lbl input[type=range] {
+  width: 54px;
+  accent-color: var(--accent-ink);
+  cursor: pointer;
+}
+
+/* ── notes ── */
+.notes-section {
+  position: absolute;
+  bottom: 0; left: 0; right: 0;
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height .5s cubic-bezier(.2,.7,.3,1);
+  background: rgba(247,236,225,.98);
+  z-index: 22;
+}
+.notes-section.open {
+  max-height: 440px;
+  overflow-y: auto;
+  border-top: 1px solid var(--line);
+}
+.notes-inner { padding: 28px clamp(20px,4vw,72px) 32px; max-width: 900px; }
+.notes-inner h2 {
+  font-family: var(--disp);
+  font-weight: 440;
+  font-size: 1.4rem;
+  letter-spacing: -.02em;
+  color: var(--fg);
+  margin-bottom: 20px;
+  font-variation-settings: "opsz" 36;
+}
+.note-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 40px; }
+@media(max-width:600px){ .note-grid { grid-template-columns: 1fr; } }
+.note-item dt {
+  font-family: var(--mono);
+  font-size: .58rem;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: var(--accent-ink);
+  margin-bottom: 6px;
+}
+.note-item dd { font-family: var(--body); font-size: .88rem; line-height: 1.65; color: var(--dim); }
+.note-item code {
+  font-family: var(--mono);
+  font-size: .75rem;
+  color: var(--fg);
+  background: rgba(29,23,18,.06);
+  padding: 1px 5px;
+}
+.notes-toggle {
+  position: absolute;
+  bottom: 18px; right: 18px;
+  font-family: var(--mono);
+  font-size: .5rem;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  padding: 5px 10px;
+  border: 1px solid var(--line-strong);
+  background: rgba(247,236,225,.88);
+  color: var(--dim);
+  cursor: pointer;
+  transition: all .15s;
+  backdrop-filter: blur(8px);
+  z-index: 25;
+}
+.notes-toggle:hover { color: var(--fg); border-color: var(--fg); }
+</style>
+</head>
+<body class="noise">
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+    <a href="../colormap.html">Color Space</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="game-wrap" id="game-wrap">
+  <video id="webcam" autoplay playsinline muted></video>
+  <canvas id="canvas"></canvas>
+
+  <!-- Loading -->
+  <div class="overlay" id="loading-screen">
+    <div class="sub" id="loading-msg">Initializing camera…</div>
+  </div>
+
+  <!-- Ready (2-player) -->
+  <div class="overlay" id="ready-screen" style="display:none">
+    <h2>Ready up</h2>
+    <div class="ready-players">
+      <div class="ready-p">
+        <div class="ready-num" id="rp1-num">1</div>
+        <div class="ready-lbl">P1 · hold 1 finger</div>
+        <div class="ready-progress"><div class="ready-bar" id="rp1-bar"></div></div>
+      </div>
+      <div class="sub">vs</div>
+      <div class="ready-p">
+        <div class="ready-num" id="rp2-num">2</div>
+        <div class="ready-lbl">P2 · hold 2 fingers</div>
+        <div class="ready-progress"><div class="ready-bar" id="rp2-bar"></div></div>
+      </div>
+    </div>
+    <div class="sub">Hold steady for 1 second · 301 game</div>
+    <button class="ctrl-btn" id="btn-cancel-ready">Cancel</button>
+  </div>
+
+  <!-- Game over -->
+  <div class="overlay" id="gameover-screen" style="display:none">
+    <h2 id="winner-text"></h2>
+    <div class="sub">301 · game over</div>
+    <div style="display:flex;gap:8px;margin-top:4px">
+      <button class="ctrl-btn" id="btn-rematch">Rematch</button>
+      <button class="ctrl-btn" id="btn-to-practice">Practice</button>
+    </div>
+  </div>
+
+  <!-- Score panels -->
+  <div class="score-panel" id="sp-left">
+    <div class="sp-name" id="sp-left-name">Practice</div>
+    <div class="sp-score active" id="sp-left-score">0</div>
+    <div class="sp-turn" id="sp-left-turn">Your turn</div>
+    <div class="sp-darts" id="sp-left-darts"></div>
+  </div>
+  <div class="score-panel" id="sp-right" style="display:none">
+    <div class="sp-name">P2</div>
+    <div class="sp-score" id="sp-right-score">301</div>
+    <div class="sp-turn" id="sp-right-turn">Your turn</div>
+    <div class="sp-darts" id="sp-right-darts"></div>
+  </div>
+
+  <!-- Throw flash -->
+  <div id="throw-flash"></div>
+
+  <!-- Controls -->
+  <div id="controls">
+    <button class="ctrl-btn" id="btn-mode">2-Player Game</button>
+    <button class="ctrl-btn" id="btn-reset">Reset</button>
+    <label class="cam-lbl">
+      <span>Cam</span>
+      <input type="range" id="cam-opacity" min="0" max="70" value="0">
+    </label>
+  </div>
+
+  <!-- Notes -->
+  <button class="notes-toggle" id="notes-toggle">How it works</button>
+  <div class="notes-section" id="notes-section">
+    <div class="notes-inner">
+      <h2>Implementation notes</h2>
+      <div class="note-grid">
+        <dl class="note-item">
+          <dt>Hand detection</dt>
+          <dd>Uses Google's <code>@mediapipe/tasks-vision</code> HandLandmarker running fully in-browser via WebAssembly. Returns 21 3D landmarks per hand at up to 30 fps with no server.</dd>
+        </dl>
+        <dl class="note-item">
+          <dt>Aiming</dt>
+          <dd>Index fingertip (landmark 8) maps to the dartboard. Camera feed and landmarks are mirrored so movement feels natural. Coordinates are smoothed with exponential averaging (factor 0.2) to prevent raw jitter from showing on the crosshair.</dd>
+        </dl>
+        <dl class="note-item">
+          <dt>Throw detection</dt>
+          <dd>Palm scale — 2D distance from wrist (landmark 0) to middle knuckle (landmark 9) — is tracked per frame. A >22% increase over 7 frames indicates the hand is moving rapidly toward the camera, triggering a throw. 1.2s cooldown prevents doubles.</dd>
+        </dl>
+        <dl class="note-item">
+          <dt>Accuracy scatter</dt>
+          <dd>Aim position variance over the last 12 frames is measured before each throw. The landing offset is a random vector scaled by that variance. Steadier aiming = tighter grouping. Click the board or press Space as an alternative.</dd>
+        </dl>
+        <dl class="note-item">
+          <dt>Depth as stability</dt>
+          <dd>The aim circle radius reflects current jitter magnitude. Closer hands tend to produce more stable landmark readings (larger palm in frame → more pixels per landmark), so the depth-to-accuracy correlation is an emergent property of the model, not an explicit calculation.</dd>
+        </dl>
+        <dl class="note-item">
+          <dt>2-player ready</dt>
+          <dd>Before a game, each player holds up fingers: 1 finger confirms P1, 2 fingers confirms P2. Requires a 1-second hold to prevent accidental triggers. Both players can stand in frame simultaneously.</dd>
+        </dl>
+        <dl class="note-item">
+          <dt>301 scoring</dt>
+          <dd>Each player starts at 301. Darts subtract from the running total. Going below zero is a Bust — the round score is forfeited and the score resets to what it was at the start of the turn. First player to reach exactly 0 wins.</dd>
+        </dl>
+        <dl class="note-item">
+          <dt>Webcam overlay</dt>
+          <dd>The raw webcam feed is layered behind the game canvas with CSS <code>scaleX(-1)</code> mirroring. The opacity slider fades it in to help players check their hand position relative to the aiming cursor.</dd>
+        </dl>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  function tick(){
+    var d=new Date(),h=d.getHours(),m=d.getMinutes();
+    document.getElementById('clock').textContent=(h%12||12)+':'+(m<10?'0':'')+m+(h<12?' AM':' PM')+' EST';
+  }
+  tick(); setInterval(tick,10000);
+})();
+</script>
+
+<script type="module">
+'use strict';
+
+// ── MediaPipe ────────────────────────────────────────────────────────────────
+const { HandLandmarker, FilesetResolver } = await import(
+  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/vision_bundle.mjs'
+);
+const vision = await FilesetResolver.forVisionTasks(
+  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm'
+);
+const landmarker = await HandLandmarker.createFromOptions(vision, {
+  baseOptions: {
+    modelAssetPath: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
+    delegate: 'GPU',
+  },
+  numHands: 2,
+  runningMode: 'VIDEO',
+  minHandDetectionConfidence: 0.5,
+  minHandPresenceConfidence: 0.5,
+  minTrackingConfidence: 0.5,
+});
+
+// ── Camera ───────────────────────────────────────────────────────────────────
+const webcamEl = document.getElementById('webcam');
+try {
+  const stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+  });
+  webcamEl.srcObject = stream;
+  await new Promise(res => { webcamEl.onloadeddata = res; });
+} catch (err) {
+  document.getElementById('loading-msg').textContent = 'Camera unavailable — click board to play';
+}
+document.getElementById('loading-screen').style.display = 'none';
+
+// ── Canvas ───────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx    = canvas.getContext('2d');
+function resizeCanvas() {
+  const w = document.getElementById('game-wrap');
+  canvas.width  = w.offsetWidth;
+  canvas.height = w.offsetHeight;
+}
+resizeCanvas();
+new ResizeObserver(resizeCanvas).observe(document.getElementById('game-wrap'));
+
+// ── Dartboard constants ──────────────────────────────────────────────────────
+const SEGS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
+const BR = { BULL:.037, OUTERB:.093, TRI_IN:.582, TRI_OUT:.629, DBL_IN:.953 };
+
+function getBoardLayout() {
+  const W = canvas.width, H = canvas.height;
+  const size = Math.min(W * .78, H * .84);
+  return { cx: W/2, cy: H/2, R: size * 0.44 };
+}
+
+// ── Draw dartboard ───────────────────────────────────────────────────────────
+function drawBoard() {
+  const { cx, cy, R } = getBoardLayout();
+  const SLICE = Math.PI*2/20, BASE = -Math.PI/2 - SLICE/2;
+  const rb  = R*BR.BULL,   rob = R*BR.OUTERB;
+  const rti = R*BR.TRI_IN, rto = R*BR.TRI_OUT;
+  const rdi = R*BR.DBL_IN, rdo = R;
+
+  // Surround
+  ctx.beginPath(); ctx.arc(cx,cy,rdo*1.09,0,Math.PI*2);
+  ctx.fillStyle='#111'; ctx.fill();
+
+  // Single areas (full wedges)
+  for (let i=0;i<20;i++) {
+    const a1=BASE+i*SLICE, a2=a1+SLICE;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.arc(cx,cy,rdo,a1,a2); ctx.closePath();
+    ctx.fillStyle = i%2===0 ? '#1c1c1c' : '#dccfaf';
+    ctx.fill();
+  }
+  // Treble rings
+  for (let i=0;i<20;i++) {
+    const a1=BASE+i*SLICE, a2=a1+SLICE;
+    ctx.beginPath(); ctx.arc(cx,cy,rto,a1,a2); ctx.arc(cx,cy,rti,a2,a1,true); ctx.closePath();
+    ctx.fillStyle = i%2===0 ? '#c82000' : '#0f7020'; ctx.fill();
+  }
+  // Double rings
+  for (let i=0;i<20;i++) {
+    const a1=BASE+i*SLICE, a2=a1+SLICE;
+    ctx.beginPath(); ctx.arc(cx,cy,rdo,a1,a2); ctx.arc(cx,cy,rdi,a2,a1,true); ctx.closePath();
+    ctx.fillStyle = i%2===0 ? '#c82000' : '#0f7020'; ctx.fill();
+  }
+  // Wires
+  const wc = 'rgba(80,60,40,.85)';
+  ctx.strokeStyle=wc; ctx.lineWidth=1.2;
+  for (let i=0;i<20;i++) {
+    const a=BASE+i*SLICE;
+    ctx.beginPath();
+    ctx.moveTo(cx+rob*Math.cos(a), cy+rob*Math.sin(a));
+    ctx.lineTo(cx+rdo*Math.cos(a), cy+rdo*Math.sin(a));
+    ctx.stroke();
+  }
+  for (const r of [rob,rti,rto,rdi,rdo]) {
+    ctx.beginPath(); ctx.arc(cx,cy,r,0,Math.PI*2);
+    ctx.strokeStyle=wc; ctx.lineWidth=1.5; ctx.stroke();
+  }
+  // Outer bull
+  ctx.beginPath(); ctx.arc(cx,cy,rob,0,Math.PI*2);
+  ctx.fillStyle='#0f7020'; ctx.fill();
+  ctx.strokeStyle=wc; ctx.lineWidth=1.5; ctx.stroke();
+  // Inner bull
+  ctx.beginPath(); ctx.arc(cx,cy,rb,0,Math.PI*2);
+  ctx.fillStyle='#c82000'; ctx.fill(); ctx.stroke();
+  // Numbers
+  const nR=rdo*1.075, fz=Math.max(9,Math.round(R*.082));
+  ctx.font=`bold ${fz}px sans-serif`;
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillStyle='#e8dcc8';
+  for (let i=0;i<20;i++) {
+    const a=BASE+(i+.5)*SLICE;
+    ctx.fillText(SEGS[i], cx+nR*Math.cos(a), cy+nR*Math.sin(a));
+  }
+}
+
+// ── Scoring ──────────────────────────────────────────────────────────────────
+function getSegment(bx, by) {
+  const SLICE=Math.PI*2/20, HALF=Math.PI/20;
+  let a = Math.atan2(bx, -by);
+  if (a < -HALF) a += Math.PI*2;
+  return SEGS[Math.floor((a+HALF)/SLICE) % 20];
+}
+
+function scoreDart(bx, by) {
+  const r = Math.hypot(bx,by);
+  if (r > 1.0)        return { pts:0,     label:'Miss' };
+  if (r > BR.DBL_IN)  { const s=getSegment(bx,by); return { pts:s*2, label:`D${s}` }; }
+  if (r > BR.TRI_OUT) { const s=getSegment(bx,by); return { pts:s,   label:`${s}`  }; }
+  if (r > BR.TRI_IN)  { const s=getSegment(bx,by); return { pts:s*3, label:`T${s}` }; }
+  if (r > BR.OUTERB)  { const s=getSegment(bx,by); return { pts:s,   label:`${s}`  }; }
+  if (r > BR.BULL)    return { pts:25, label:'25'  };
+  return                     { pts:50, label:'Bull' };
+}
+
+// ── Game state ───────────────────────────────────────────────────────────────
+let mode = 'practice';    // 'practice' | 'game'
+let gamePhase = 'playing'; // 'playing' | 'gameover'
+let currPlayer = 0;
+let dartsLeft  = 3;
+const P = [
+  { score:301, roundStart:301, roundPts:0, name:'P1', col:'#ccf73f' },
+  { score:301, roundStart:301, roundPts:0, name:'P2', col:'#3fc8f7' },
+];
+let practiceTotal = 0;
+let darts = [];
+
+// Aim
+let aimBX=0, aimBY=0, aimVisible=false;
+let aimRawHist = [];
+
+// Throw detection
+let palmHist=[], lastThrow=0;
+const GROW_THRESH=0.22, GROW_FRAMES=7, COOLDOWN=1200;
+
+// Ready
+let rp1F=0, rp2F=0;
+const READY_NEED=28;
+
+// Flash
+let flashTid=null;
+
+// ── Aim helpers ───────────────────────────────────────────────────────────────
+function updateAim(lm) {
+  const rx = 1-lm[8].x, ry = lm[8].y;
+  const bx = (rx-.5)/.22, by = (ry-.5)/.22;
+  aimBX += (bx-aimBX)*.2; aimBY += (by-aimBY)*.2;
+  aimVisible = true;
+  aimRawHist.push([bx,by]);
+  if (aimRawHist.length>12) aimRawHist.shift();
+}
+
+function getJitter() {
+  if (aimRawHist.length<5) return .12;
+  const n=aimRawHist.length;
+  const mx=aimRawHist.reduce((s,p)=>s+p[0],0)/n;
+  const my=aimRawHist.reduce((s,p)=>s+p[1],0)/n;
+  const v=aimRawHist.reduce((s,p)=>s+(p[0]-mx)**2+(p[1]-my)**2,0)/n;
+  return Math.min(.3, Math.sqrt(v)*2.5);
+}
+
+function palmScale(lm) {
+  return Math.hypot(lm[9].x-lm[0].x, lm[9].y-lm[0].y);
+}
+
+function checkThrow(lm, now) {
+  if (now-lastThrow < COOLDOWN) return;
+  if (gamePhase==='gameover') return;
+  const sc = palmScale(lm);
+  palmHist.push({t:now,sc});
+  if (palmHist.length > GROW_FRAMES+2) palmHist.shift();
+  if (palmHist.length < GROW_FRAMES) return;
+  const old = palmHist[palmHist.length-GROW_FRAMES];
+  const growth = (sc-old.sc)/old.sc;
+  if (growth > GROW_THRESH && (now-old.t)<380) {
+    lastThrow=now;
+    registerThrow();
+  }
+}
+
+function countFingers(lm) {
+  let n=0;
+  for (const [t,d] of [[8,7],[12,11],[16,15],[20,19]])
+    if (lm[t].y < lm[d].y) n++;
+  return n;
+}
+
+// ── Register throw ────────────────────────────────────────────────────────────
+function registerThrow(overrideBX, overrideBY) {
+  if (gamePhase==='gameover') return;
+  const j = getJitter();
+  const a = Math.random()*Math.PI*2, m = Math.random()*j;
+  const bx = (overrideBX !== undefined ? overrideBX : aimBX) + Math.cos(a)*m;
+  const by = (overrideBY !== undefined ? overrideBY : aimBY) + Math.sin(a)*m;
+  const { pts, label } = scoreDart(bx, by);
+
+  if (mode==='practice') {
+    practiceTotal += pts;
+    darts.push({ bx, by, pts, label, player:-1 });
+    if (darts.length>9) darts.shift();
+    flash(`${label}${pts?' · +'+pts:''}`, pts?'#1d1712':'#c82000');
+    document.getElementById('sp-left-score').textContent = practiceTotal;
+  } else {
+    throwGame(bx, by, pts, label);
+  }
+}
+
+// ── Game throw ────────────────────────────────────────────────────────────────
+function throwGame(bx, by, pts, label) {
+  const p = P[currPlayer];
+  const newScore = p.score - pts;
+
+  if (newScore < 0) {
+    flash('Bust!', '#c82000');
+    darts = darts.filter(d => d.player !== currPlayer);
+    p.score = p.roundStart;
+    endTurn();
+    return;
+  }
+
+  p.score = newScore;
+  p.roundPts += pts;
+  dartsLeft--;
+  darts.push({ bx, by, pts, label, player:currPlayer });
+  flash(`${label}${pts?' · '+pts:''}`, '#1d1712');
+  updateGameHUD();
+
+  if (p.score===0) {
+    gamePhase='gameover';
+    setTimeout(()=>{
+      document.getElementById('winner-text').textContent = `${p.name} wins!`;
+      document.getElementById('gameover-screen').style.display='flex';
+    }, 700);
+    return;
+  }
+  if (dartsLeft<=0) endTurn();
+}
+
+function endTurn() {
+  const prev=currPlayer;
+  setTimeout(()=>{ darts=darts.filter(d=>d.player!==prev); }, 900);
+  currPlayer=1-currPlayer;
+  dartsLeft=3;
+  P[0].roundStart=P[0].score; P[0].roundPts=0;
+  P[1].roundStart=P[1].score; P[1].roundPts=0;
+  updateGameHUD();
+}
+
+// ── Flash ─────────────────────────────────────────────────────────────────────
+function flash(msg, col='#1d1712') {
+  const el=document.getElementById('throw-flash');
+  el.textContent=msg; el.style.color=col;
+  el.classList.add('show');
+  clearTimeout(flashTid);
+  flashTid=setTimeout(()=>el.classList.remove('show'),1400);
+}
+
+// ── HUD ───────────────────────────────────────────────────────────────────────
+function updateGameHUD() {
+  document.getElementById('sp-left-score').textContent  = P[0].score;
+  document.getElementById('sp-right-score').textContent = P[1].score;
+  const thrownNow = 3-dartsLeft;
+  const dartStr = (n) => '● '.repeat(n).trim() + (n<3?' '+'○ '.repeat(3-n).trim():'');
+  document.getElementById('sp-left-darts').textContent  = currPlayer===0 ? dartStr(thrownNow) : '';
+  document.getElementById('sp-right-darts').textContent = currPlayer===1 ? dartStr(thrownNow) : '';
+  document.getElementById('sp-left-score').classList.toggle('active',  currPlayer===0);
+  document.getElementById('sp-right-score').classList.toggle('active', currPlayer===1);
+  document.getElementById('sp-left-turn').classList.toggle('show',  currPlayer===0);
+  document.getElementById('sp-right-turn').classList.toggle('show', currPlayer===1);
+}
+
+// ── Draw darts ────────────────────────────────────────────────────────────────
+function drawDarts() {
+  const { cx, cy, R } = getBoardLayout();
+  for (const d of darts) {
+    const px=cx+d.bx*R, py=cy+d.by*R;
+    const col = d.player===-1 ? '#ccf73f' : P[d.player].col;
+    // Shaft toward center
+    const dx=cx-px, dy=cy-py, dd=Math.hypot(dx,dy);
+    if (dd>0) {
+      const nx=dx/dd, ny=dy/dd;
+      ctx.beginPath();
+      ctx.moveTo(px+nx*5, py+ny*5);
+      ctx.lineTo(px+nx*15, py+ny*15);
+      ctx.strokeStyle='rgba(100,80,60,.5)'; ctx.lineWidth=1;
+      ctx.stroke();
+    }
+    // Shadow
+    ctx.beginPath(); ctx.arc(px+1.5,py+1.5,4.5,0,Math.PI*2);
+    ctx.fillStyle='rgba(0,0,0,.22)'; ctx.fill();
+    // Dart head
+    ctx.beginPath(); ctx.arc(px,py,4.5,0,Math.PI*2);
+    ctx.fillStyle=col; ctx.fill();
+    ctx.strokeStyle='rgba(255,255,255,.5)'; ctx.lineWidth=1; ctx.stroke();
+  }
+}
+
+// ── Draw aim cursor ───────────────────────────────────────────────────────────
+function drawAim() {
+  if (!aimVisible) return;
+  const { cx, cy, R } = getBoardLayout();
+  const px=cx+aimBX*R, py=cy+aimBY*R;
+  const jPx=Math.max(5, Math.min(34, getJitter()*R));
+
+  ctx.beginPath(); ctx.arc(px,py,jPx,0,Math.PI*2);
+  ctx.strokeStyle='rgba(204,247,63,.4)'; ctx.lineWidth=1; ctx.stroke();
+
+  ctx.strokeStyle='rgba(204,247,63,.85)'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(px-10,py); ctx.lineTo(px+10,py); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(px,py-10); ctx.lineTo(px,py+10); ctx.stroke();
+
+  ctx.beginPath(); ctx.arc(px,py,3,0,Math.PI*2);
+  ctx.fillStyle='#ccf73f'; ctx.fill();
+}
+
+// ── Ready processing ──────────────────────────────────────────────────────────
+function processReady(hands) {
+  let saw1=false, saw2=false;
+  for (const { landmarks:lm } of hands) {
+    const n = countFingers(lm);
+    if (n===1) saw1=true;
+    if (n===2) saw2=true;
+  }
+  if (saw1) rp1F=Math.min(READY_NEED,rp1F+1); else rp1F=Math.max(0,rp1F-2);
+  if (saw2) rp2F=Math.min(READY_NEED,rp2F+1); else rp2F=Math.max(0,rp2F-2);
+
+  document.getElementById('rp1-bar').style.width=(rp1F/READY_NEED*100)+'%';
+  document.getElementById('rp2-bar').style.width=(rp2F/READY_NEED*100)+'%';
+  document.getElementById('rp1-num').classList.toggle('on',rp1F>0);
+  document.getElementById('rp2-num').classList.toggle('on',rp2F>0);
+
+  if (rp1F>=READY_NEED && rp2F>=READY_NEED) startGame();
+}
+
+// ── Mode control ──────────────────────────────────────────────────────────────
+function setPractice() {
+  mode='practice'; gamePhase='playing';
+  darts=[]; practiceTotal=0; aimVisible=false;
+  document.getElementById('gameover-screen').style.display='none';
+  document.getElementById('ready-screen').style.display='none';
+  document.getElementById('sp-left-name').textContent='Practice';
+  document.getElementById('sp-left-score').textContent='0';
+  document.getElementById('sp-left-score').classList.add('active');
+  document.getElementById('sp-left-darts').textContent='';
+  document.getElementById('sp-left-turn').classList.remove('show');
+  document.getElementById('sp-right').style.display='none';
+  document.getElementById('btn-mode').textContent='2-Player Game';
+  document.getElementById('btn-reset').style.display='';
+}
+
+function showReadyScreen() {
+  document.getElementById('gameover-screen').style.display='none';
+  document.getElementById('ready-screen').style.display='flex';
+  rp1F=0; rp2F=0;
+  document.getElementById('rp1-bar').style.width='0%';
+  document.getElementById('rp2-bar').style.width='0%';
+  document.getElementById('rp1-num').classList.remove('on');
+  document.getElementById('rp2-num').classList.remove('on');
+}
+
+function startGame() {
+  document.getElementById('ready-screen').style.display='none';
+  mode='game'; gamePhase='playing';
+  darts=[]; currPlayer=0; dartsLeft=3;
+  P[0].score=301; P[0].roundStart=301; P[0].roundPts=0;
+  P[1].score=301; P[1].roundStart=301; P[1].roundPts=0;
+  document.getElementById('sp-left-name').textContent='P1';
+  document.getElementById('sp-right').style.display='';
+  document.getElementById('btn-reset').style.display='none';
+  document.getElementById('btn-mode').textContent='Practice Mode';
+  updateGameHUD();
+}
+
+// ── Events ────────────────────────────────────────────────────────────────────
+document.getElementById('btn-mode').addEventListener('click', () => {
+  if (mode==='practice') showReadyScreen(); else setPractice();
+});
+document.getElementById('btn-reset').addEventListener('click', () => {
+  darts=[]; practiceTotal=0;
+  document.getElementById('sp-left-score').textContent='0';
+});
+document.getElementById('btn-cancel-ready').addEventListener('click', () => {
+  document.getElementById('ready-screen').style.display='none';
+});
+document.getElementById('btn-rematch').addEventListener('click', showReadyScreen);
+document.getElementById('btn-to-practice').addEventListener('click', setPractice);
+document.getElementById('cam-opacity').addEventListener('input', e => {
+  webcamEl.style.opacity = e.target.value/100;
+});
+
+// Space = throw
+document.addEventListener('keydown', e => {
+  if (e.code!=='Space') return;
+  e.preventDefault();
+  if (!aimVisible) return;
+  if (performance.now()-lastThrow < COOLDOWN) return;
+  lastThrow=performance.now();
+  registerThrow();
+});
+
+// Click on board = aim + throw
+canvas.addEventListener('click', e => {
+  if (performance.now()-lastThrow < COOLDOWN) return;
+  if (gamePhase==='gameover') return;
+  const { cx, cy, R } = getBoardLayout();
+  const rect=canvas.getBoundingClientRect();
+  const bx=(e.clientX-rect.left-cx)/R;
+  const by=(e.clientY-rect.top-cy)/R;
+  aimBX=bx; aimBY=by; aimVisible=true;
+  aimRawHist=[[bx,by]];
+  lastThrow=performance.now();
+  registerThrow(bx, by);
+});
+
+// ── Main loop ─────────────────────────────────────────────────────────────────
+function loop() {
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  drawBoard();
+  drawDarts();
+
+  const now = performance.now();
+  let hands = [];
+  if (webcamEl.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
+    const r = landmarker.detectForVideo(webcamEl, now);
+    hands = (r.landmarks||[]).map((lms,i)=>({
+      landmarks: lms,
+      handedness: r.handednesses?.[i]?.[0]?.displayName ?? 'Unknown',
+    }));
+  }
+
+  const readyVisible = document.getElementById('ready-screen').style.display!=='none';
+
+  if (hands.length>0) {
+    const lm = hands[0].landmarks;
+    updateAim(lm);
+    if (!readyVisible) checkThrow(lm, now);
+    drawAim();
+  } else {
+    aimVisible=false;
+  }
+
+  if (readyVisible) processReady(hands);
+
+  requestAnimationFrame(loop);
+}
+
+loop();
+</script>
+
+<script>
+var nt=document.getElementById('notes-toggle'), ns=document.getElementById('notes-section');
+nt.addEventListener('click',function(){
+  ns.classList.toggle('open');
+  nt.textContent=ns.classList.contains('open')?'Hide notes':'How it works';
+});
+</script>
+</body>
+</html>
