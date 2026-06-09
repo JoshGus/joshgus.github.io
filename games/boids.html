@@ -148,9 +148,17 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
       <button class="mode-btn" data-mode="attract">Attract</button>
       <button class="mode-btn" data-mode="repel">Repel</button>
     </div>
+
+    <div class="panel-sep"></div>
+
+    <div class="panel-label">Camera</div>
+    <div class="mode-btns">
+      <button class="mode-btn" id="auto-rotate-btn">Auto rotate</button>
+      <button class="mode-btn" id="reset-cam-btn">Reset view</button>
+    </div>
   </div>
 
-  <div class="drag-hint">Drag to rotate &nbsp;·&nbsp; Scroll to zoom</div>
+  <div class="drag-hint" id="drag-hint">Drag — orbit &nbsp;·&nbsp; Scroll — zoom</div>
   <button class="notes-toggle" id="notes-toggle">How it works</button>
 </div>
 
@@ -175,8 +183,8 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
         <dd>After summing all steering accelerations, velocity is clamped to <code>[minSpeed, maxSpeed]</code> by rescaling the vector: <code>v = v / |v| · clampedSpeed</code>. Without a minimum speed, boids can stall when forces cancel out. Without a maximum, separation impulses on close encounters cause boids to fly off-screen.</dd>
       </dl>
       <dl class="note-item">
-        <dt>Trail rendering</dt>
-        <dd>Instead of <code>clearRect</code>, each frame begins with <code>fillStyle = rgba(8,12,22,0.18)</code> over the entire canvas. This leaves a decaying ghost of previous positions — a motion trail with an exponential decay of approximately 0.18 per frame (settling to ~1% of original brightness after ~25 frames at 60fps).</dd>
+        <dt>Clear strategy</dt>
+        <dd>The canvas is hard-cleared each frame with a solid background fill. A motion trail (semi-transparent fill) was tried but creates artifacts during camera orbit — the smear is in screen space, so rotating the view leaves ghost streaks that don't correspond to any spatial position. Clean clear + bounding box gives better spatial orientation instead.</dd>
       </dl>
       <dl class="note-item">
         <dt>Depth sort</dt>
@@ -195,49 +203,63 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
 </div>
 
 <script>
-// ── world & camera ────────────────────────────────────────────────────────────
-const WX = 800, WY = 600, WZ = 800; // world bounds
-let camAngle = 0, camZoom = 1;
-let dragging = false, dragStartX = 0, dragStartAngle = 0;
+// ── world ─────────────────────────────────────────────────────────────────────
+const WX = 800, WY = 600, WZ = 800;
 const FOV = 480;
+
+// ── camera (spherical orbital) ────────────────────────────────────────────────
+const cam = { theta: 0.4, phi: 0.25, zoom: 1, autoRotate: false };
+const DEFAULT_CAM = { theta: 0.4, phi: 0.25, zoom: 1 };
+
+const drag = { active: false, x0: 0, y0: 0, theta0: 0, phi0: 0 };
 
 // ── params ────────────────────────────────────────────────────────────────────
 const params = {
-  count:    200,
-  maxSpeed: 2.5,
-  minSpeed: 0.8,
-  sep:      1.0,
-  ali:      1.0,
-  coh:      1.0,
-  visRadius:  60,
-  sepRadius:  25,
-  mouseMode: 'none',
-  mouseForce: 2.5
+  count: 200, maxSpeed: 2.5, minSpeed: 0.8,
+  sep: 1.0, ali: 1.0, coh: 1.0,
+  visRadius: 60, sepRadius: 25,
+  mouseMode: 'none', mouseForce: 2.5
 };
 
 // ── canvas ────────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
-let cx, cy;
+let cx, cy, scaleS;
 
 function resize() {
   canvas.width  = canvas.offsetWidth  || 800;
   canvas.height = canvas.offsetHeight || 600;
   cx = canvas.width  / 2;
   cy = canvas.height / 2;
+  scaleS = Math.min(canvas.width / WX, canvas.height / WY);
 }
 window.addEventListener('resize', resize);
 resize();
 
-// ── projection ────────────────────────────────────────────────────────────────
+// ── projection (Y-rotation then X-rotation) ───────────────────────────────────
 function project(x, y, z) {
-  const cos = Math.cos(camAngle), sin = Math.sin(camAngle);
-  const rx = x * cos - z * sin;
-  const rz = x * sin + z * cos;
+  // Y-axis rotation by theta (horizontal orbit)
+  const ct = Math.cos(cam.theta), st = Math.sin(cam.theta);
+  const rx  = x * ct - z * st;
+  const rz0 = x * st + z * ct;
+
+  // X-axis rotation by phi (vertical orbit)
+  const cp = Math.cos(cam.phi), sp = Math.sin(cam.phi);
+  const ry  =  y * cp - rz0 * sp;
+  const rz  =  y * sp + rz0 * cp;
+
   const depth = rz + FOV + WZ * 0.5;
-  const p = (depth > 1) ? FOV / depth : 0.01;
-  const s = Math.min(canvas.width / WX, canvas.height / WY) * camZoom;
-  return { sx: cx + rx * p * s, sy: cy + y * p * s, scale: p };
+  const p = depth > 1 ? FOV / depth : 0.01;
+  const s = scaleS * cam.zoom;
+  return { sx: cx + rx * p * s, sy: cy + ry * p * s, scale: p };
+}
+
+// Compute rotated depth only (for depth-sort)
+function depthOf(b) {
+  const ct = Math.cos(cam.theta), st = Math.sin(cam.theta);
+  const rz0 = b.x * st + b.z * ct;
+  const cp = Math.cos(cam.phi), sp = Math.sin(cam.phi);
+  return b.y * sp + rz0 * cp;
 }
 
 // ── boid ──────────────────────────────────────────────────────────────────────
@@ -257,41 +279,38 @@ class Boid {
 
 let boids = Array.from({length: params.count}, () => new Boid());
 
-// ── mouse ─────────────────────────────────────────────────────────────────────
-const mouse = { active: false, wx: 0, wy: 0 };
+// ── mouse (screen-space position for force) ───────────────────────────────────
+const mouse = { active: false, sx: 0, sy: 0 };
 
 canvas.addEventListener('mousemove', e => {
-  const rect = canvas.getBoundingClientRect();
-  const sx = e.clientX - rect.left;
-  const sy = e.clientY - rect.top;
-  // invert projection at z=0
-  const s = Math.min(canvas.width / WX, canvas.height / WY) * camZoom;
-  const cos = Math.cos(-camAngle), sin = Math.sin(-camAngle);
-  const p0 = FOV / (FOV + WZ * 0.5); // perspective at z=0
-  const lx = (sx - cx) / (p0 * s);
-  const ly = (sy - cy) / (p0 * s);
-  mouse.wx = lx * cos - 0 * sin; // approximate 3D position
-  mouse.wy = ly;
+  const r = canvas.getBoundingClientRect();
+  mouse.sx = e.clientX - r.left;
+  mouse.sy = e.clientY - r.top;
   mouse.active = true;
+
+  if (drag.active) {
+    const dx = e.clientX - drag.x0;
+    const dy = e.clientY - drag.y0;
+    cam.theta = drag.theta0 + dx * 0.007;
+    cam.phi   = Math.max(-1.4, Math.min(1.4, drag.phi0 + dy * 0.006));
+  }
 });
 canvas.addEventListener('mouseleave', () => { mouse.active = false; });
 
-// drag to rotate
 canvas.addEventListener('mousedown', e => {
-  dragging = true;
-  dragStartX = e.clientX;
-  dragStartAngle = camAngle;
+  drag.active = true;
+  drag.x0 = e.clientX; drag.y0 = e.clientY;
+  drag.theta0 = cam.theta; drag.phi0 = cam.phi;
+  canvas.style.cursor = 'grabbing';
 });
-document.addEventListener('mouseup', () => { dragging = false; });
-canvas.addEventListener('mousemove', e => {
-  if (!dragging) return;
-  camAngle = dragStartAngle + (e.clientX - dragStartX) * 0.006;
+document.addEventListener('mouseup', () => {
+  drag.active = false;
+  canvas.style.cursor = 'default';
 });
 
-// scroll to zoom
 canvas.addEventListener('wheel', e => {
   e.preventDefault();
-  camZoom = Math.max(0.4, Math.min(3, camZoom * (e.deltaY > 0 ? 0.95 : 1.05)));
+  cam.zoom = Math.max(0.3, Math.min(3.5, cam.zoom * (e.deltaY > 0 ? 0.95 : 1.053)));
 }, {passive: false});
 
 // ── physics ───────────────────────────────────────────────────────────────────
@@ -305,7 +324,7 @@ function updateBoid(boid) {
 
   for (const o of boids) {
     if (o === boid) continue;
-    const dx = o.x-boid.x, dy = o.y-boid.y, dz = o.z-boid.z;
+    const dx=o.x-boid.x, dy=o.y-boid.y, dz=o.z-boid.z;
     const d2 = dx*dx + dy*dy + dz*dz;
     if (d2 < sepR2 && d2 > 0) {
       const d = Math.sqrt(d2);
@@ -313,13 +332,13 @@ function updateBoid(boid) {
     }
     if (d2 < visR2) {
       aliVX+=o.vx; aliVY+=o.vy; aliVZ+=o.vz; aliN++;
-      cohX+=o.x;  cohY+=o.y;  cohZ+=o.z;  cohN++;
+      cohX+=o.x;   cohY+=o.y;   cohZ+=o.z;   cohN++;
     }
   }
 
-  let ax = sepX * params.sep  * 0.10;
-  let ay = sepY * params.sep  * 0.10;
-  let az = sepZ * params.sep  * 0.10;
+  let ax = sepX * params.sep * 0.10;
+  let ay = sepY * params.sep * 0.10;
+  let az = sepZ * params.sep * 0.10;
 
   if (aliN > 0) {
     ax += (aliVX/aliN - boid.vx) * params.ali * 0.05;
@@ -332,21 +351,25 @@ function updateBoid(boid) {
     az += (cohZ/cohN - boid.z) * params.coh * 0.0006;
   }
 
-  // mouse force (applied in 3D)
+  // mouse force: apply in screen-space direction back-projected to world space
   if (params.mouseMode !== 'none' && mouse.active) {
-    const dx = mouse.wx - boid.x, dy = mouse.wy - boid.y;
-    const d2 = dx*dx + dy*dy;
-    if (d2 > 1) {
-      const d = Math.sqrt(d2);
-      const f = params.mouseMode === 'attract' ? 0.018 : -0.018;
-      ax += dx/d * f * params.mouseForce;
-      ay += dy/d * f * params.mouseForce;
+    const {sx: bsx, sy: bsy} = project(boid.x, boid.y, boid.z);
+    const sdx = mouse.sx - bsx, sdy = mouse.sy - bsy;
+    const sd = Math.sqrt(sdx*sdx + sdy*sdy);
+    if (sd > 1) {
+      const nx = sdx/sd, ny = sdy/sd;
+      const f = (params.mouseMode === 'attract' ? 1 : -1) * 0.04 * params.mouseForce;
+      // back-rotate screen direction to approximate world direction
+      const ct = Math.cos(-cam.theta), st = Math.sin(-cam.theta);
+      const cp = Math.cos(-cam.phi);
+      ax += nx * ct * f;
+      ay += ny * cp * f;
+      az += nx * st * f;
     }
   }
 
   boid.vx += ax; boid.vy += ay; boid.vz += az;
 
-  // speed clamp
   const spd = Math.sqrt(boid.vx**2 + boid.vy**2 + boid.vz**2);
   if (spd > params.maxSpeed) {
     const s = params.maxSpeed / spd;
@@ -358,24 +381,55 @@ function updateBoid(boid) {
 
   boid.x += boid.vx; boid.y += boid.vy; boid.z += boid.vz;
 
-  // wrap
   const hw=WX/2, hh=WY/2, hd=WZ/2;
   if (boid.x >  hw) boid.x -= WX; if (boid.x < -hw) boid.x += WX;
   if (boid.y >  hh) boid.y -= WY; if (boid.y < -hh) boid.y += WY;
   if (boid.z >  hd) boid.z -= WZ; if (boid.z < -hd) boid.z += WZ;
 }
 
-// ── drawing ───────────────────────────────────────────────────────────────────
+// ── bounding box ──────────────────────────────────────────────────────────────
+function drawBox() {
+  const hw=WX/2, hh=WY/2, hd=WZ/2;
+  const V = [
+    [-hw,-hh,-hd],[hw,-hh,-hd],[hw,hh,-hd],[-hw,hh,-hd],
+    [-hw,-hh, hd],[hw,-hh, hd],[hw,hh, hd],[-hw,hh, hd]
+  ];
+  const E = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]];
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(180,205,255,0.13)';
+  ctx.lineWidth = 0.8;
+  ctx.setLineDash([3, 6]);
+  ctx.beginPath();
+  for (const [a, b] of E) {
+    const pa = project(...V[a]);
+    const pb = project(...V[b]);
+    ctx.moveTo(pa.sx, pa.sy);
+    ctx.lineTo(pb.sx, pb.sy);
+  }
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // small dot at each corner
+  ctx.fillStyle = 'rgba(180,205,255,0.22)';
+  for (const v of V) {
+    const {sx, sy} = project(...v);
+    ctx.beginPath();
+    ctx.arc(sx, sy, 1.5, 0, Math.PI*2);
+    ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ── boid drawing ──────────────────────────────────────────────────────────────
 function drawBoid(boid) {
   const {sx, sy, scale} = project(boid.x, boid.y, boid.z);
   if (sx < -20 || sx > canvas.width+20 || sy < -20 || sy > canvas.height+20) return;
 
-  // project velocity tip to get heading angle in screen space
   const p2 = project(boid.x + boid.vx*4, boid.y + boid.vy*4, boid.z + boid.vz*4);
   const angle = Math.atan2(p2.sy - sy, p2.sx - sx);
-
-  const size = Math.max(2, scale * 8);
-  const alpha = Math.min(1, 0.2 + scale * 0.85);
+  const size  = Math.max(2, scale * 8);
+  const alpha = Math.min(1, 0.18 + scale * 0.88);
 
   ctx.save();
   ctx.translate(sx, sy);
@@ -394,23 +448,17 @@ function drawBoid(boid) {
 function loop() {
   requestAnimationFrame(loop);
 
-  // trail fade instead of clear
-  ctx.fillStyle = 'rgba(8,12,22,0.20)';
+  ctx.fillStyle = '#080c16';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // auto-rotate when not dragging
-  if (!dragging) camAngle += 0.0025;
+  if (cam.autoRotate && !drag.active) cam.theta += 0.004;
 
-  // update physics
+  drawBox();
+
   for (const b of boids) updateBoid(b);
 
-  // back-to-front depth sort, then draw
-  const cos = Math.cos(camAngle), sin = Math.sin(camAngle);
-  boids.sort((a, b) => {
-    const za = a.x*sin + a.z*cos;
-    const zb = b.x*sin + b.z*cos;
-    return za - zb; // back first
-  });
+  // depth sort: back-to-front using full rotated z
+  boids.sort((a, b) => depthOf(a) - depthOf(b));
   for (const b of boids) drawBoid(b);
 }
 loop();
@@ -422,40 +470,41 @@ function bindSlider(id, valId, get, set) {
   el.addEventListener('input', () => { set(el.value); vEl.textContent = get(); });
 }
 
-bindSlider('cnt', 'cnt-v',
-  () => params.count,
-  v => {
-    params.count = parseInt(v);
-    while (boids.length < params.count) boids.push(new Boid());
-    if (boids.length > params.count) boids.length = params.count;
-  });
+bindSlider('cnt', 'cnt-v', () => params.count, v => {
+  params.count = parseInt(v);
+  while (boids.length < params.count) boids.push(new Boid());
+  if (boids.length > params.count) boids.length = params.count;
+});
+bindSlider('spd', 'spd-v', () => params.maxSpeed.toFixed(1), v => {
+  params.maxSpeed = parseInt(v) / 10; params.minSpeed = params.maxSpeed * 0.3;
+});
+bindSlider('sep', 'sep-v', () => params.sep.toFixed(1), v => { params.sep = parseInt(v)/10; });
+bindSlider('ali', 'ali-v', () => params.ali.toFixed(1), v => { params.ali = parseInt(v)/10; });
+bindSlider('coh', 'coh-v', () => params.coh.toFixed(1), v => { params.coh = parseInt(v)/10; });
+bindSlider('vis', 'vis-v', () => params.visRadius, v => {
+  params.visRadius = parseInt(v); params.sepRadius = params.visRadius * 0.4;
+});
 
-bindSlider('spd', 'spd-v',
-  () => params.maxSpeed.toFixed(1),
-  v => { params.maxSpeed = parseInt(v) / 10; params.minSpeed = params.maxSpeed * 0.3; });
-
-bindSlider('sep', 'sep-v',
-  () => params.sep.toFixed(1),
-  v => { params.sep = parseInt(v) / 10; });
-
-bindSlider('ali', 'ali-v',
-  () => params.ali.toFixed(1),
-  v => { params.ali = parseInt(v) / 10; });
-
-bindSlider('coh', 'coh-v',
-  () => params.coh.toFixed(1),
-  v => { params.coh = parseInt(v) / 10; });
-
-bindSlider('vis', 'vis-v',
-  () => params.visRadius,
-  v => { params.visRadius = parseInt(v); params.sepRadius = params.visRadius * 0.4; });
-
-document.querySelectorAll('.mode-btn').forEach(btn => {
+document.querySelectorAll('.mode-btn[data-mode]').forEach(btn => {
   btn.addEventListener('click', () => {
-    document.querySelectorAll('.mode-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.mode-btn[data-mode]').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
     params.mouseMode = btn.dataset.mode;
   });
+});
+
+const autoRotateBtn = document.getElementById('auto-rotate-btn');
+autoRotateBtn.addEventListener('click', () => {
+  cam.autoRotate = !cam.autoRotate;
+  autoRotateBtn.classList.toggle('active', cam.autoRotate);
+});
+
+document.getElementById('reset-cam-btn').addEventListener('click', () => {
+  cam.theta = DEFAULT_CAM.theta;
+  cam.phi   = DEFAULT_CAM.phi;
+  cam.zoom  = DEFAULT_CAM.zoom;
+  cam.autoRotate = false;
+  autoRotateBtn.classList.remove('active');
 });
 
 // ── notes toggle ──────────────────────────────────────────────────────────────
