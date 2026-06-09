@@ -192,6 +192,7 @@ export const GAMES = [
     thumbBg: '#0b0a09',
     thumbSvg: PIXEL_SIM_SVG,
     stack: ['Canvas', 'JS'],
+    credit: 'Inspired by <a href="https://dan-ball.jp/en/javagame/dust/" target="_blank" rel="noopener">Powder Game</a> and Noita',
     ctaFull: 'Coming soon',
     ctaShort: 'Soon',
     comingSoon: true

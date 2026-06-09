@@ -146,6 +146,7 @@ if (grid) {
         <div class="card-body">
           <h2>${g.title}</h2>
           <p>${g.descFull}</p>
+          ${g.credit ? `<p style="font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;color:var(--dimmer);margin-top:6px">${g.credit}</p>` : ''}
           <div class="card-foot">
             <div class="stack">${stack}</div>
             ${cta}
