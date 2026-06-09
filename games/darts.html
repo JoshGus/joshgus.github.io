@@ -525,8 +525,8 @@ body {
         <div class="cp-presets">
           <span class="cp-preset-lbl">Preset</span>
           <button class="cp-preset active" data-vcx="50" data-vcy="40" data-opacity="0" data-pinch="4">Default</button>
-          <button class="cp-preset" data-vcx="50" data-vcy="28" data-opacity="0" data-pinch="4">Laptop</button>
-          <button class="cp-preset" data-vcx="50" data-vcy="16" data-opacity="0" data-pinch="4">High</button>
+          <button class="cp-preset" data-vcx="50" data-vcy="60" data-opacity="0" data-pinch="4">Laptop</button>
+          <button class="cp-preset" data-vcx="50" data-vcy="75" data-opacity="0" data-pinch="4">High</button>
           <button class="cp-preset" data-vcx="50" data-vcy="40" data-opacity="35" data-pinch="4">See-through</button>
         </div>
 
@@ -543,12 +543,12 @@ body {
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Cam X</span>
-            <input type="range" id="cam-vcx" min="20" max="80" value="50">
+            <input type="range" id="cam-vcx" min="0" max="100" value="50">
             <span class="cp-val" id="cam-vcx-val">50</span>
           </div>
           <div class="cp-row">
-            <span class="cp-lbl">Cam Y</span>
-            <input type="range" id="cam-vcy" min="5" max="75" value="40">
+            <span class="cp-lbl">Cam Y ↑high</span>
+            <input type="range" id="cam-vcy" min="0" max="100" value="40">
             <span class="cp-val" id="cam-vcy-val">40</span>
           </div>
         </div>
@@ -1378,12 +1378,12 @@ document.getElementById('cam-vcx').addEventListener('input', e => {
   document.getElementById('cam-vcx-val').textContent = e.target.value;
 });
 document.getElementById('cam-vcy').addEventListener('input', e => {
-  CAM_VCY = e.target.value / 100;
+  CAM_VCY = Math.max(0.01, e.target.value / 100);
   document.getElementById('cam-vcy-val').textContent = e.target.value;
 });
 document.getElementById('cam-reset').addEventListener('click', () => {
   applyCamValues(50, 40, 0, 4);
-  setActivePreset(document.querySelector('.cp-preset[data-vcy="40"]'));
+  setActivePreset(document.querySelector('.cp-preset[data-vcx="50"][data-vcy="40"][data-opacity="0"]'));
 });
 
 // Space = throw with current aim (fallback when no camera)
