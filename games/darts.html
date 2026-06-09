@@ -1192,6 +1192,12 @@ function drawAnims() {
 
     // Floor hit: dart fell below play area before reaching the board
     if (wy < -2.5 && wz > 0) {
+      console.log('[OOPS floor hit]', {
+        vwz: a.vwz.toFixed(6), vwy: a.vwy.toFixed(6), vwx: a.vwx.toFixed(6),
+        fwdV: (-a.vwz * 1000).toFixed(2),
+        wz0: a.wz0.toFixed(3), tFlight: t.toFixed(0) + 'ms',
+        wy_at_hit: wy.toFixed(3)
+      });
       if (a.onComplete) a.onComplete({ ...a.dartData, floorHit: true, bx: 0, by: 99 });
       anims.splice(i, 1);
       continue;
@@ -1447,6 +1453,13 @@ function registerThrow(throwVec) {
     const { cy: boardCy, R: boardR } = getBoardLayout();
     const camYOffset = (CAM_VCY * canvas.height - boardCy) / boardR;
     vwy += camYOffset * (-vwz) / PLAYER_Z;
+    console.log('[throw launched]', {
+      raw_fwdV: throwVec.fwdV.toFixed(2),
+      raw_vwz: throwVec.vwz.toFixed(6),
+      raw_vwy: throwVec.vwy.toFixed(6),
+      final_vwz: vwz.toFixed(6), final_vwy: vwy.toFixed(6), final_vwx: vwx.toFixed(6),
+      wz0: wz0.toFixed(3), samples: handPosHist.length
+    });
   } else {
     // Space-bar: solve ballistic trajectory to aim point in T=950 ms
     const T = 950;
