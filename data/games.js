@@ -214,17 +214,17 @@ export const CARDS = [
     ctaShort: 'Play'
   },
   {
-    id: 'hand-tracker',
+    id: 'darts',
     type: 'game',
-    title: 'Hand Tracker',
-    descShort: 'Webcam hand detection.',
-    descFull: 'Webcam hand detection. 21 landmarks per hand tracked in real time. Foundation for gesture-controlled games.',
-    href: 'hand-tracker.html',
-    thumbBg: '#0a0908',
-    thumbSvg: HAND_SVG,
-    stack: ['MediaPipe', 'WebGL'],
-    ctaFull: 'Open',
-    ctaShort: 'Open'
+    title: 'Darts',
+    descShort: 'Throw darts with your hand tracked through the webcam.',
+    descFull: 'Camera-tracked darts. Aim with your index finger, throw by lunging toward the camera. Practice solo or play local 2-player 301.',
+    href: 'darts.html',
+    thumbBg: '#121210',
+    thumbSvg: DARTS_SVG,
+    stack: ['MediaPipe', 'Canvas', 'JS'],
+    ctaFull: 'Play',
+    ctaShort: 'Play'
   },
   {
     id: 'pixel-sim',
@@ -254,17 +254,17 @@ export const CARDS = [
     ctaShort: 'Open'
   },
   {
-    id: 'darts',
+    id: 'hand-tracker',
     type: 'game',
-    title: 'Darts',
-    descShort: 'Throw darts with your hand tracked through the webcam.',
-    descFull: 'Camera-tracked darts. Aim with your index finger, throw by lunging toward the camera. Practice solo or play local 2-player 301.',
-    href: 'darts.html',
-    thumbBg: '#121210',
-    thumbSvg: DARTS_SVG,
-    stack: ['MediaPipe', 'Canvas', 'JS'],
-    ctaFull: 'Play',
-    ctaShort: 'Play'
+    title: 'Hand Tracker',
+    descShort: 'Webcam hand detection.',
+    descFull: 'Webcam hand detection. 21 landmarks per hand tracked in real time. Foundation for gesture-controlled games.',
+    href: 'hand-tracker.html',
+    thumbBg: '#0a0908',
+    thumbSvg: HAND_SVG,
+    stack: ['MediaPipe', 'WebGL'],
+    ctaFull: 'Open',
+    ctaShort: 'Open'
   }
 ];
 
