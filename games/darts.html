@@ -133,9 +133,9 @@ body {
 }
 #sp-left  { left: 16px; }
 #sp-right { right: 16px; text-align: right; }
-.sp-name  { font-size: .5rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+.sp-name  { font-size: .72rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
 .sp-score {
-  font-size: clamp(1.4rem,3.5vw,2.2rem);
+  font-size: clamp(3rem,8vw,5rem);
   font-weight: 700;
   letter-spacing: -.03em;
   color: var(--fg);
@@ -145,7 +145,7 @@ body {
 .sp-score.active { opacity: 1; }
 .sp-turn {
   font-family: var(--mono);
-  font-size: .5rem;
+  font-size: .72rem;
   letter-spacing: .1em;
   text-transform: uppercase;
   color: var(--accent-ink);
@@ -153,7 +153,7 @@ body {
   transition: opacity .3s;
 }
 .sp-turn.show { opacity: 1; }
-.sp-darts { font-size: .6rem; color: var(--dimmer); letter-spacing: .06em; margin-top: 2px; }
+.sp-darts { font-size: .8rem; color: var(--dimmer); letter-spacing: .06em; margin-top: 2px; }
 
 /* ── throw flash ── */
 #throw-flash {
@@ -244,7 +244,7 @@ body {
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  width: 128px;
+  width: 160px;
   background: rgba(212, 184, 146, 0.93);
   border: 1px solid rgba(165, 128, 85, 0.55);
   pointer-events: none;
@@ -271,14 +271,14 @@ body {
   border-bottom: 1px solid rgba(165,128,85,.35);
 }
 .sl-pname {
-  font-size: .44rem;
+  font-size: .62rem;
   letter-spacing: .15em;
   text-transform: uppercase;
   color: rgba(90,60,28,.65);
 }
 .sl-total {
   font-family: var(--disp);
-  font-size: .98rem;
+  font-size: 1.5rem;
   font-weight: 700;
   letter-spacing: -.02em;
   color: rgba(38,22,8,.9);
@@ -296,7 +296,7 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
-  font-size: .52rem;
+  font-size: .7rem;
   color: rgba(65,42,18,.82);
   padding: 1.5px 0;
   border-bottom: 1px solid rgba(165,128,85,.13);
@@ -304,7 +304,7 @@ body {
 .sl-row:last-child { border-bottom: none; }
 .sl-row .sl-d { color: #3e7e2a; }
 .sl-row .sl-t { color: #b03a14; }
-.sl-row .sl-right { opacity: .5; font-size: .48rem; }
+.sl-row .sl-right { opacity: .5; font-size: .65rem; }
 .sl-row.miss-row { color: rgba(155,50,25,.72); }
 .sl-row.bust-row { color: rgba(155,50,25,.85); font-style: italic; }
 
