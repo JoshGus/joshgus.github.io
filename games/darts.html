@@ -161,7 +161,7 @@ body {
   left: 16px;
   top: 108px;
   font-family: var(--disp);
-  font-size: clamp(2rem,5vw,3.2rem);
+  font-size: clamp(5.6rem,14vw,9rem);
   font-weight: 700;
   pointer-events: none;
   opacity: 0;
@@ -1433,7 +1433,7 @@ let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 
 // Hand tracking & pinch
 let handPosHist = [];   // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc,t}
-let pinched=false, pinchStartMs=0, pinchOpenFrames=0;
+let pinched=false, pinchStartMs=0, pinchOpenFrames=0, lastThrowMs=0;
 
 // EMA smoothing applied to raw landmark coordinates before they enter handPosHist.
 // Knocks down frame-to-frame jitter without meaningfully lagging real throw motion.
@@ -1534,6 +1534,8 @@ function processHandFrame(lm, now) {
         pinched = false; pinchOpenFrames = 0;
         if (gamePhase !== 'playing') {
           dbgLog('throw', `SKIP phase=${gamePhase}`);
+        } else if (now - lastThrowMs < 100) {
+          dbgLog('throw', `SKIP cooldown ${(now-lastThrowMs).toFixed(0)}ms`);
         } else {
           const tv = calcThrowVec();
           if (!tv) {
@@ -1628,6 +1630,7 @@ function countFingers(lm) {
 // Landing is wherever the ballistic arc intersects the board plane (wz=0).
 function registerThrow(throwVec) {
   if (gamePhase === 'gameover') return;
+  lastThrowMs = performance.now();
   const { cx, cy, R } = getBoardLayout();
 
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
