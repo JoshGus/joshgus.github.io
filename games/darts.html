@@ -553,23 +553,54 @@ body {
   margin-bottom: 20px;
   font-variation-settings: "opsz" 36;
 }
-.note-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px 40px; }
-@media(max-width:600px){ .note-grid { grid-template-columns: 1fr; } }
-.note-item dt {
-  font-family: var(--mono);
-  font-size: .58rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--accent-ink);
-  margin-bottom: 6px;
+.devlog { display: flex; flex-direction: column; gap: 0; }
+.devlog-entry {
+  display: grid;
+  grid-template-columns: 68px 1fr;
+  gap: 0 20px;
+  padding: 18px 0;
+  border-bottom: 1px solid var(--line);
 }
-.note-item dd { font-family: var(--body); font-size: .88rem; line-height: 1.65; color: var(--dim); }
-.note-item code {
+.devlog-entry:last-child { border-bottom: none; }
+.devlog-tag {
   font-family: var(--mono);
-  font-size: .75rem;
+  font-size: .5rem;
+  letter-spacing: .13em;
+  text-transform: uppercase;
+  padding: 3px 6px;
+  border-radius: 3px;
+  display: inline-block;
+  align-self: start;
+  margin-top: 2px;
+  white-space: nowrap;
+}
+.devlog-tag.bug   { background: #fde8e4; color: #b03020; }
+.devlog-tag.fix   { background: #e4f0e8; color: #2a6e3f; }
+.devlog-tag.feat  { background: #e8edf8; color: #2b4899; }
+.devlog-tag.disc  { background: #f4f0e0; color: #7a6010; }
+.devlog-body h3 {
+  font-family: var(--disp);
+  font-size: .95rem;
+  font-weight: 500;
   color: var(--fg);
-  background: rgba(29,23,18,.06);
+  margin: 0 0 6px;
+  letter-spacing: -.01em;
+}
+.devlog-body p {
+  font-family: var(--body);
+  font-size: .84rem;
+  line-height: 1.7;
+  color: var(--dim);
+  margin: 0 0 6px;
+}
+.devlog-body p:last-child { margin-bottom: 0; }
+.devlog-body code {
+  font-family: var(--mono);
+  font-size: .76rem;
+  color: var(--fg);
+  background: rgba(29,23,18,.07);
   padding: 1px 5px;
+  border-radius: 2px;
 }
 .notes-toggle {
   position: absolute;
@@ -957,40 +988,86 @@ body {
   <button class="notes-toggle" id="notes-toggle">How it works</button>
   <div class="notes-section" id="notes-section">
     <div class="notes-inner">
-      <h2>Implementation notes</h2>
-      <div class="note-grid">
-        <dl class="note-item">
-          <dt>Hand detection</dt>
-          <dd>Uses Google's <code>@mediapipe/tasks-vision</code> HandLandmarker running fully in-browser via WebAssembly. Returns 21 3D landmarks per hand at up to 30 fps with no server.</dd>
-        </dl>
-        <dl class="note-item">
-          <dt>Aiming</dt>
-          <dd>Index fingertip (landmark 8) maps to the dartboard. Camera feed and landmarks are mirrored so movement feels natural. Coordinates are smoothed with exponential averaging (factor 0.2) to prevent raw jitter from showing on the crosshair.</dd>
-        </dl>
-        <dl class="note-item">
-          <dt>Throw detection</dt>
-          <dd>Palm scale — 2D distance from wrist (landmark 0) to middle knuckle (landmark 9) — is tracked per frame. A >22% increase over 7 frames indicates the hand is moving rapidly toward the camera, triggering a throw. 1.2s cooldown prevents doubles.</dd>
-        </dl>
-        <dl class="note-item">
-          <dt>Accuracy scatter</dt>
-          <dd>Aim position variance over the last 12 frames is measured before each throw. The landing offset is a random vector scaled by that variance. Steadier aiming = tighter grouping. Click the board or press Space as an alternative.</dd>
-        </dl>
-        <dl class="note-item">
-          <dt>Depth as stability</dt>
-          <dd>The aim circle radius reflects current jitter magnitude. Closer hands tend to produce more stable landmark readings (larger palm in frame → more pixels per landmark), so the depth-to-accuracy correlation is an emergent property of the model, not an explicit calculation.</dd>
-        </dl>
-        <dl class="note-item">
-          <dt>2-player ready</dt>
-          <dd>Before a game, each player holds up fingers: 1 finger confirms P1, 2 fingers confirms P2. Requires a 1-second hold to prevent accidental triggers. Both players can stand in frame simultaneously.</dd>
-        </dl>
-        <dl class="note-item">
-          <dt>301 scoring</dt>
-          <dd>Each player starts at 301. Darts subtract from the running total. Going below zero is a Bust — the round score is forfeited and the score resets to what it was at the start of the turn. First player to reach exactly 0 wins.</dd>
-        </dl>
-        <dl class="note-item">
-          <dt>Webcam overlay</dt>
-          <dd>The raw webcam feed is layered behind the game canvas with CSS <code>scaleX(-1)</code> mirroring. The opacity slider fades it in to help players check their hand position relative to the aiming cursor.</dd>
-        </dl>
+      <h2>Dev notes</h2>
+      <div class="devlog">
+
+        <div class="devlog-entry">
+          <span class="devlog-tag feat">foundation</span>
+          <div class="devlog-body">
+            <h3>The premise: fully in-browser, no server</h3>
+            <p>Google's <code>@mediapipe/tasks-vision</code> HandLandmarker runs in WebAssembly, GPU-accelerated, returning 21 landmarks per hand at up to 60 fps with zero backend. The MediaPipe inference runs in a dedicated Web Worker so the 10–15ms WASM calls don't stall the render loop.</p>
+            <p>The first version was conceptually simple: palm scale (wrist → middle knuckle distance in 2D) grows when your hand moves toward the camera. A sudden scale increase triggered a throw, and landing position was just where the index fingertip was pointing plus random scatter weighted by how jittery your aim had been over the last 12 frames. Steadier hand = tighter grouping.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag bug">bug</span>
+          <div class="devlog-body">
+            <h3>Darts vanishing with no score and no miss</h3>
+            <p>When I replaced aim-scatter with real throw physics — capturing regression velocity from hand history and launching a ballistic arc — darts started silently disappearing. No score, no miss flash, just gone. Turned out noisy wrist/fingertip regression was producing enormous lateral velocity (<code>vwx</code> or <code>vwy</code>) while the forward velocity was capped at its minimum. The dart exits the side of the screen before frame 2.</p>
+            <p>Fix: clamp lateral velocity to at most 2× the forward component at all times. A dart physically cannot deviate sideways faster than it's traveling forward.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag bug">bug</span>
+          <div class="devlog-body">
+            <h3>Sideways swipes triggering throws</h3>
+            <p>The original throw gate used <code>canvasSpeed > 1.0</code> as a fallback — if the hand moved fast in any direction, throw. A quick lateral swipe across the board would launch a dart. Removed that fallback entirely; only forward velocity (<code>fwdV > 0.3</code>) qualifies, and the forward window (from pullback peak to release) must span at least 50ms to give the regression enough data.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag feat">feature</span>
+          <div class="devlog-body">
+            <h3>Floor hits: Oops!</h3>
+            <p>With lateral issues fixed, a new pattern emerged: throws that felt right but whose arc crashed into the floor before reaching the board. Added a floor check in the physics tick — if <code>wy &lt; −2.5</code> while the dart is still in flight, it's a floor hit. In game mode the dart is returned to your hand and "Oops!" flashes on screen. Doesn't count as a throw.</p>
+            <p>Also added a <code>~</code> debug console at this point. Every THROW, OOPS, and SKIP event logs raw velocity data so I could see exactly what was happening with each release.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag disc">discovery</span>
+          <div class="devlog-body">
+            <h3>Camera resolution was degrading depth accuracy</h3>
+            <p>The camera stream was defaulting to 640×480 @30fps — the original code had hard <code>max</code> caps. MediaPipe is designed for full 720p+ input; fewer pixels per palm landmark means a noisier palm-scale reading, and palm scale is what all depth estimation (and therefore throw physics) depends on. Removed the caps, now requests 1280×720 @60fps as the ideal. Added a Performance panel with Max/Medium/Low presets for weaker hardware.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag disc">discovery</span>
+          <div class="devlog-body">
+            <h3>The vertical arc problem: regression vwy is structurally too small</h3>
+            <p>Even after all the above, most throws would arc briefly then hit the floor. The debug console revealed the issue: the player's hand spawns at <code>wy0 ≈ −2.8 to −3.2</code> board-radii (far below the board center in camera space), and gravity adds another ~4 board-radii of downward pull over the ~450ms flight. The vertical velocity needed to reach board center is around <code>0.015 board-radii/ms</code>.</p>
+            <p>The regression was giving <code>0.002–0.006</code> — roughly 4–7× too small. The reason is fundamental: a dart throw is mostly a depth change, not a vertical one. The wrist moves maybe 0.3px/ms upward in camera space during a throw. That divided by board radius is tiny. No amount of tuning the speed multiplier would fix this without also sending horizontal throws into orbit.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag fix">fix</span>
+          <div class="devlog-body">
+            <h3>Analytic vertical arc</h3>
+            <p>Decoupled vertical physics from the regression entirely. After all forward/lateral velocity caps are applied, compute the flight time (<code>tLand = −wz0 / vwz</code>), then analytically solve for the <code>vwy</code> that lands the dart at board center: <code>vwyCtr = (−wy0 + ½·G·tLand²) / tLand</code>. The player's regression <code>vwy</code> feeds only a <code>tanh</code>-saturated aim offset of ±1.5 board-radii around that center — steep upward throw aims high, flat or downward throw aims low.</p>
+            <p>This also meant removing <code>vwy</code> from the 3D speed cap and lateral clamp, since those would immediately crush the analytically computed value back down.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag fix">fix</span>
+          <div class="devlog-body">
+            <h3>EMA smoothing on landmark coordinates</h3>
+            <p>Throw-to-throw variance was still noisy — individual frames of wrist/fingertip data jitter by a few pixels, which skews regression slopes. Applied exponential moving average (α = 0.4, ~42ms time-constant at 60fps) to all tracked coordinates before they enter the position history. The EMA state runs continuously so it's already settled at the current hand position the moment a new pinch starts. Spawn depth (<code>wz0</code>) uses the median of the last 5 frames instead of a single sample, eliminating single-frame palmSc spikes from distorting the flight time.</p>
+          </div>
+        </div>
+
+        <div class="devlog-entry">
+          <span class="devlog-tag fix">fix</span>
+          <div class="devlog-body">
+            <h3>Lower board was unreachable</h3>
+            <p>The aim gesture is centered on <code>VWY_NEUTRAL</code> — the <code>raw_vwy</code> value that maps to "aim at center." It was initially set to <code>0.002</code>, but real throw data showed typical values of <code>0.002–0.004</code>, meaning the gesture offset was almost always positive and darts always landed above center. Raised to <code>0.003</code>: typical slight-upward throw now hits center, flatter throws land in the lower half, steeper throws go high.</p>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
