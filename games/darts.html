@@ -1534,7 +1534,7 @@ function processHandFrame(lm, now) {
         pinched = false; pinchOpenFrames = 0;
         if (gamePhase !== 'playing') {
           dbgLog('throw', `SKIP phase=${gamePhase}`);
-        } else if (now - lastThrowMs < 100) {
+        } else if (now - lastThrowMs < 150) {
           dbgLog('throw', `SKIP cooldown ${(now-lastThrowMs).toFixed(0)}ms`);
         } else {
           const tv = calcThrowVec();
@@ -2224,9 +2224,10 @@ document.getElementById('dbg-copy').addEventListener('click', () => {
 
 // Space = throw with current aim (fallback when no camera)
 document.addEventListener('keydown', e => {
-  if (e.code!=='Space') return;
+  if (e.code!=='Space' || e.repeat) return;
   e.preventDefault();
   if (!aimVisible) return;
+  if (performance.now() - lastThrowMs < 100) return;
   registerThrow(null);
 });
 
