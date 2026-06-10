@@ -1465,8 +1465,6 @@ const PINCH_IN  = 0.055;
 let   PINCH_OUT = 0.059;  // user-adjustable via slider (lower = easier release)
 
 // Throw cooldown
-let lastThrow = 0;
-const COOLDOWN = 1700;
 
 // Ready & flash
 let rp1Ms=0, rp2Ms=0, _lastReadyT=0;
@@ -1534,18 +1532,15 @@ function processHandFrame(lm, now) {
       pinchOpenFrames++;
       if (pinchOpenFrames >= 1 && now - pinchStartMs >= 50) {
         pinched = false; pinchOpenFrames = 0;
-        if (now - lastThrow <= COOLDOWN) {
-          dbgLog('throw', `SKIP cooldown ${((COOLDOWN-(now-lastThrow))/1000).toFixed(1)}s remaining`);
-        } else if (gamePhase !== 'playing') {
+        if (gamePhase !== 'playing') {
           dbgLog('throw', `SKIP phase=${gamePhase}`);
         } else {
           const tv = calcThrowVec();
           if (!tv) {
             dbgLog('throw', `SKIP no-vec  n=${handPosHist.length}`);
-          } else if (tv.fwdV <= 0.3) {
-            dbgLog('throw', `SKIP fwdV=${tv.fwdV.toFixed(2)} too low  raw_vwy=${tv.vwy.toFixed(5)}`);
+          } else if (tv.fwdV <= 0.3 && tv.vwy * 1000 <= 2.0) {
+            dbgLog('throw', `SKIP fwdV=${tv.fwdV.toFixed(2)} vwySpd=${(tv.vwy*1000).toFixed(2)} both too low`);
           } else {
-            lastThrow = now;
             registerThrow(tv);
           }
         }
@@ -2229,8 +2224,6 @@ document.addEventListener('keydown', e => {
   if (e.code!=='Space') return;
   e.preventDefault();
   if (!aimVisible) return;
-  if (performance.now()-lastThrow < COOLDOWN) return;
-  lastThrow = performance.now();
   registerThrow(null);
 });
 
