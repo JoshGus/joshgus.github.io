@@ -936,9 +936,9 @@ body {
 
         <div class="cp-presets">
           <span class="cp-preset-lbl">Preset</span>
-          <button class="gp-preset" data-gravity="3" data-speed="300" data-tmin="200" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Easy</button>
-          <button class="gp-preset" data-gravity="5" data-speed="270" data-tmin="300" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Normal</button>
-          <button class="gp-preset active" data-gravity="10" data-speed="250" data-tmin="450" data-playerz="55" data-maxspeed="7" data-pinchsens="4">Sim</button>
+          <button class="gp-preset" data-gravity="3" data-speed="300" data-tmin="200" data-playerz="55" data-maxspeed="10" data-pinchsens="2">Easy</button>
+          <button class="gp-preset" data-gravity="5" data-speed="270" data-tmin="300" data-playerz="55" data-maxspeed="10" data-pinchsens="2">Normal</button>
+          <button class="gp-preset active" data-gravity="10" data-speed="250" data-tmin="450" data-playerz="55" data-maxspeed="7" data-pinchsens="2">Sim</button>
         </div>
 
         <div class="cp-rows">
@@ -969,7 +969,7 @@ body {
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Pinch sens</span>
-            <input type="range" id="gp-pinchsens" min="1" max="9" value="4">
+            <input type="range" id="gp-pinchsens" min="1" max="9" value="2">
             <span class="cp-val" id="gp-pinchsens-val">4</span>
           </div>
         </div>
@@ -1442,7 +1442,13 @@ const SM_ALPHA = 0.4;
 let _sm = null; // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc}
 // Typical upward wrist drift during a throw (board-radii/ms, pre-THROW_SPEED).
 // A throw at this raw_vwy aims at board center; flatter throws land lower.
-const VWY_NEUTRAL = 0.003;
+// VWY_NEUTRAL is auto-calibrated from actual throw data. The initial value
+// is used for the first few throws, then replaced by the rolling median of
+// the last 12 raw_vwy values. This way the aim is always centered on *this
+// player's* natural arm motion rather than a hard-coded constant.
+const VWY_NEUTRAL_INIT = 0.003;
+let _vwyNeutral = VWY_NEUTRAL_INIT;
+let _vwyCalibBuf = [];
 
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
@@ -1458,7 +1464,7 @@ let   MAX_THROW_SPEED = 0.021;   // max 3D dart speed after scaling (7 × 0.003)
 let CAM_VCX = 0.50;   // 0 = left edge, 1 = right edge
 let CAM_VCY = 0.60;   // default = Laptop (camera above screen)
 const PINCH_IN  = 0.055;
-let   PINCH_OUT = 0.068;  // user-adjustable via slider
+let   PINCH_OUT = 0.059;  // user-adjustable via slider (lower = easier release)
 
 // Throw cooldown
 let lastThrow = 0;
@@ -1528,7 +1534,7 @@ function processHandFrame(lm, now) {
     } else {
       // Fingers separating — require 2 consecutive open frames before committing.
       pinchOpenFrames++;
-      if (pinchOpenFrames >= 2 && now - pinchStartMs >= 50) {
+      if (pinchOpenFrames >= 1 && now - pinchStartMs >= 50) {
         pinched = false; pinchOpenFrames = 0;
         if (now - lastThrow <= COOLDOWN) {
           dbgLog('throw', `SKIP cooldown ${((COOLDOWN-(now-lastThrow))/1000).toFixed(1)}s remaining`);
@@ -1668,12 +1674,19 @@ function registerThrow(throwVec) {
     // the regression vwy only as a direction signal to aim higher/lower.
     const tLand = -wz0 / vwz;
     const vwyCtr = (-wy0 + 0.5 * G_WORLD * tLand * tLand) / tLand;
-    // Center the gesture mapping on VWY_NEUTRAL so a neutral throw aims at
-    // board center. Throwing more steeply → positive offset (higher); flatter
-    // or downward → negative (lower). Range ±1.5 covers the full board.
-    const gestureAim = Math.tanh((throwVec.vwy - VWY_NEUTRAL) * THROW_SPEED * 150.0) * 1.5 / tLand;
+    // Auto-calibrate the neutral point from the last 12 throws so it matches
+    // this player's natural arm motion rather than a hard-coded constant.
+    _vwyCalibBuf.push(throwVec.vwy);
+    if (_vwyCalibBuf.length > 12) _vwyCalibBuf.shift();
+    if (_vwyCalibBuf.length >= 3) {
+      const sorted = [..._vwyCalibBuf].sort((a, b) => a - b);
+      _vwyNeutral = sorted[Math.floor(sorted.length / 2)];
+    }
+    // Gesture offset: ±1.5 board-radii around center. Neutral throw = center,
+    // steeper upward = higher, flatter/downward = lower.
+    const gestureAim = Math.tanh((throwVec.vwy - _vwyNeutral) * THROW_SPEED * 150.0) * 1.5 / tLand;
     vwy = vwyCtr + gestureAim;
-    dbgLog('throw', `THROW fwdV=${throwVec.fwdV.toFixed(2)}  raw_vwy=${throwVec.vwy.toFixed(5)}  vwyCtr=${vwyCtr.toFixed(5)}  gestAim=${(gestureAim*tLand).toFixed(3)}br  vwz=${vwz.toFixed(5)}  wz0=${wz0.toFixed(2)}  n=${handPosHist.length}`);
+    dbgLog('throw', `THROW fwdV=${throwVec.fwdV.toFixed(2)}  raw_vwy=${throwVec.vwy.toFixed(5)}  neutral=${_vwyNeutral.toFixed(5)}  gestAim=${(gestureAim*tLand).toFixed(3)}br  vwz=${vwz.toFixed(5)}  wz0=${wz0.toFixed(2)}  n=${handPosHist.length}`);
     if (throwVec._wzPts) dbgLog('throw', `  wz(t): ${throwVec._wzPts}`);
     if (throwVec._wyPts) dbgLog('throw', `  wy(t): ${throwVec._wyPts}`);
   } else {
@@ -2086,7 +2099,7 @@ function applyGpValues(gravity, speed, tmin, playerz, maxspeed, pinchsens) {
   T_MIN_MS         = tmin;
   PLAYER_Z         = playerz   / 10;
   MAX_THROW_SPEED  = maxspeed  * 0.003;
-  if (pinchsens != null) PINCH_OUT = 0.062 + (pinchsens - 1) / 8 * 0.022;
+  if (pinchsens != null) PINCH_OUT = 0.057 + (pinchsens - 1) / 8 * 0.016;
   document.getElementById('gp-gravity').value     = gravity;
   document.getElementById('gp-speed').value       = speed;
   document.getElementById('gp-tmin').value        = tmin;
@@ -2145,7 +2158,7 @@ document.getElementById('gp-pinchsens').addEventListener('input', e => {
   document.getElementById('gp-pinchsens-val').textContent = e.target.value;
 });
 document.getElementById('gp-reset').addEventListener('click', () => {
-  applyGpValues(10, 250, 450, 55, 7, 4);
+  applyGpValues(10, 250, 450, 55, 7, 2);
   setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="10"]'));
 });
 
