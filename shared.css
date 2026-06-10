@@ -52,3 +52,33 @@ body.noise::after {
 
 /* minigolf uses fixed positioning — add class="status fixed-bar" */
 .status.fixed-bar { position:fixed; }
+
+/* ── dark mode ──────────────────────────────────────────────────────── */
+html.dark {
+  --bg:#141210; --surface:#1c1916; --fg:#ede3d8;
+  --dim:#8c7f70; --dimmer:#4a4540;
+  --accent:#ccf73f; --accent-ink:#b0d428;
+  --line:rgba(237,227,216,.1); --line-strong:rgba(237,227,216,.22);
+}
+html.dark body.noise::after { opacity:.12; }
+html.dark .status {
+  background:rgba(20,18,16,.9);
+  border-bottom-color:rgba(237,227,216,.08);
+  color:rgba(237,227,216,.35);
+}
+html.dark .status .sig { color:rgba(237,227,216,.7); }
+html.dark .status .sig:hover,
+html.dark .status nav a:hover,
+html.dark .status nav a.active { color:var(--accent); }
+html.dark .status nav a { color:rgba(237,227,216,.35); }
+html.dark #clock { color:rgba(237,227,216,.22); }
+
+#dark-toggle {
+  background:none; border:1px solid var(--line-strong); color:var(--dim);
+  font-family:var(--mono); font-size:.75rem; cursor:pointer;
+  padding:2px 8px; border-radius:3px; transition:color .15s,border-color .15s;
+  letter-spacing:0; text-transform:none;
+}
+#dark-toggle:hover { color:var(--fg); border-color:var(--line-strong); }
+html.dark #dark-toggle { color:rgba(237,227,216,.4); border-color:rgba(237,227,216,.18); }
+html.dark #dark-toggle:hover { color:rgba(237,227,216,.8); }
