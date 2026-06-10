@@ -139,6 +139,8 @@
   .game-foot .play .arr{transition:transform .3s}
   a.game:hover .game-foot .play .arr{transform:translateX(5px)}
   a.game.coming-soon{opacity:.5;pointer-events:none}
+  a.see-more-card:hover .play .arr{transform:translateX(5px)}
+  a.see-more-card:hover h3{color:var(--accent-ink)}
 
   /* ---------- featured showcase ---------- */
   .sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,22px)}
@@ -652,9 +654,21 @@ if (gamesList) {
         </div>
       </a>`);
   });
+  const hidden = CARDS.filter(g => g.type === 'game' && !SHOW_IDS.includes(g.id));
+  const peeks = hidden.map(g => `
+    <div style="flex:1;display:grid;place-items:center;background:${g.thumbBg};padding:14px;overflow:hidden;transition:flex .4s cubic-bezier(.2,.7,.3,1)">
+      <div style="opacity:.55;transition:opacity .3s">${g.thumbSvg}</div>
+    </div>`).join('');
   gamesList.insertAdjacentHTML('beforeend', `
-    <a class="game" href="games/index.html" style="justify-content:center;align-items:center;min-height:160px">
-      <div class="game-body" style="flex:unset;align-items:center;text-align:center;gap:8px">
+    <a class="game see-more-card" href="games/index.html">
+      <div style="display:flex;flex-direction:row;flex:1;overflow:hidden;border-bottom:1px solid var(--line)">
+        ${peeks}
+      </div>
+      <div class="game-body" style="align-items:flex-start;gap:6px">
+        <div style="display:flex;align-items:baseline;gap:10px">
+          <h3 style="font-family:var(--disp);font-weight:520;font-size:1.45rem;letter-spacing:-.02em;line-height:1;transition:color .3s">+${hidden.length} more</h3>
+          <span style="font-family:var(--mono);font-size:.52rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)">${hidden.map(g=>g.title).join(' · ')}</span>
+        </div>
         <span class="play">See all games <span class="arr">&#x2192;</span></span>
       </div>
     </a>`);
