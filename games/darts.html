@@ -1575,16 +1575,11 @@ function calcThrowVec() {
   if (handPosHist.length < 2) return null;
   const tEnd = handPosHist[handPosHist.length - 1].t;
 
-  // Find the pullback peak: the earliest highest-wz point in the last 300ms.
-  // Everything after it is the forward throw phase; before it is pullback.
-  let startIdx = 0, maxWz = -Infinity;
-  for (let i = 0; i < handPosHist.length; i++) {
-    if (tEnd - handPosHist[i].t > 300) continue;
-    const wz = PLAYER_Z * PSC_REF / handPosHist[i].palmSc;
-    if (wz > maxWz) { maxWz = wz; startIdx = i; }
-  }
-
-  const win = handPosHist.slice(startIdx);
+  // Use the last 150ms as the throw window. Pullback phase is typically
+  // 150–400ms before release, so this captures forward motion without
+  // needing fragile peak detection (which could place the "peak" at the
+  // last frame and leave an empty window).
+  const win = handPosHist.filter(p => tEnd - p.t <= 150);
   if (win.length < 3) return null;
   const span = win[win.length - 1].t - win[0].t;
   if (span < 50) return null;
