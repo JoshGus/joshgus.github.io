@@ -905,9 +905,9 @@ body {
 
         <div class="cp-presets">
           <span class="cp-preset-lbl">Preset</span>
-          <button class="gp-preset" data-gravity="3" data-speed="200" data-tmin="200" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Easy</button>
-          <button class="gp-preset" data-gravity="5" data-speed="150" data-tmin="300" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Normal</button>
-          <button class="gp-preset active" data-gravity="10" data-speed="130" data-tmin="450" data-playerz="55" data-maxspeed="7" data-pinchsens="4">Sim</button>
+          <button class="gp-preset" data-gravity="3" data-speed="300" data-tmin="200" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Easy</button>
+          <button class="gp-preset" data-gravity="5" data-speed="270" data-tmin="300" data-playerz="55" data-maxspeed="10" data-pinchsens="4">Normal</button>
+          <button class="gp-preset active" data-gravity="10" data-speed="250" data-tmin="450" data-playerz="55" data-maxspeed="7" data-pinchsens="4">Sim</button>
         </div>
 
         <div class="cp-rows">
@@ -918,8 +918,8 @@ body {
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Speed</span>
-            <input type="range" id="gp-speed" min="50" max="300" value="130">
-            <span class="cp-val" id="gp-speed-val">130</span>
+            <input type="range" id="gp-speed" min="50" max="400" value="250">
+            <span class="cp-val" id="gp-speed-val">250</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Max speed</span>
@@ -1362,7 +1362,7 @@ let pinched=false, pinchStartMs=0, pinchOpenFrames=0;
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
 let   G_WORLD        = 0.000040; // gravity — Sim default (10 × 0.000004)
-let   THROW_SPEED    = 1.30;     // velocity multiplier applied at launch
+let   THROW_SPEED    = 2.50;     // velocity multiplier applied at launch
 let   T_MIN_MS       = 450;      // minimum flight time (ms) — caps forward speed
 let   MAX_THROW_SPEED = 0.021;   // max 3D dart speed after scaling (7 × 0.003)
 
@@ -1537,29 +1537,27 @@ function registerThrow(throwVec) {
   let vwx, vwy, vwz;
   if (throwVec) {
     vwx = throwVec.vwx * THROW_SPEED;
-    vwy = throwVec.vwy * THROW_SPEED;
     vwz = throwVec.vwz * THROW_SPEED;
     // Guarantee dart travels toward the board
     if (vwz > -wz0 / 2000) vwz = -wz0 / 1000;
     // Cap forward speed so dart spends ≥T_MIN_MS in the air.
-    // Only scale lateral (vwx); preserve vwy so a hard fast throw still arcs.
     const vwzMin = -wz0 / T_MIN_MS;
     if (vwz < vwzMin) { vwx *= vwzMin / vwz; vwz = vwzMin; }
-    // Cap total 3D speed so very fast throws still arc visibly.
-    const v3d = Math.hypot(vwx, vwy, vwz);
-    if (v3d > MAX_THROW_SPEED) { const s = MAX_THROW_SPEED / v3d; vwx*=s; vwy*=s; vwz*=s; }
-    // Clamp lateral angle: dart can't deviate more than 2× forward per unit forward.
-    // Prevents noisy regression from sending the dart 10+ board-radii off-screen.
+    // Speed cap: only forward+lateral (vwy is computed analytically below)
+    const vxzSpd = Math.hypot(vwx, vwz);
+    if (vxzSpd > MAX_THROW_SPEED) { const s = MAX_THROW_SPEED / vxzSpd; vwx *= s; vwz *= s; }
+    // Lateral clamp: only horizontal axis, not vertical
     const maxLat = Math.abs(vwz) * 2.0;
     if (Math.abs(vwx) > maxLat) vwx = Math.sign(vwx) * maxLat;
-    if (Math.abs(vwy) > maxLat) vwy = Math.sign(vwy) * maxLat;
-    // Virtual camera center perspective correction: camera above the board
-    // (vcyPx > cy) means a straight forward throw appears to go slightly
-    // downward — add upward bias proportional to offset × forward speed.
-    const { cy: boardCy, R: boardR } = getBoardLayout();
-    const camYOffset = (CAM_VCY * canvas.height - boardCy) / boardR;
-    vwy += camYOffset * (-vwz) / PLAYER_Z;
-    dbgLog('throw', `THROW fwdV=${throwVec.fwdV.toFixed(2)}  raw_vwy=${throwVec.vwy.toFixed(5)}  final_vwy=${vwy.toFixed(5)}  vwz=${vwz.toFixed(5)}  wz0=${wz0.toFixed(2)}  n=${handPosHist.length}`);
+    // Vertical arc: compute the velocity needed to reach board center from spawn
+    // height, then add a gesture-derived aim offset (±0.5 board-radii).
+    // Arm tracking velocity can't fight wy0 offset + gravity directly — we use
+    // the regression vwy only as a direction signal to aim higher/lower.
+    const tLand = -wz0 / vwz;
+    const vwyCtr = (-wy0 + 0.5 * G_WORLD * tLand * tLand) / tLand;
+    const gestureAim = Math.tanh(throwVec.vwy * THROW_SPEED * 150.0) * 0.5 / tLand;
+    vwy = vwyCtr + gestureAim;
+    dbgLog('throw', `THROW fwdV=${throwVec.fwdV.toFixed(2)}  raw_vwy=${throwVec.vwy.toFixed(5)}  vwyCtr=${vwyCtr.toFixed(5)}  gestAim=${(gestureAim*tLand).toFixed(3)}br  vwz=${vwz.toFixed(5)}  wz0=${wz0.toFixed(2)}  n=${handPosHist.length}`);
     if (throwVec._wzPts) dbgLog('throw', `  wz(t): ${throwVec._wzPts}`);
     if (throwVec._wyPts) dbgLog('throw', `  wy(t): ${throwVec._wyPts}`);
   } else {
@@ -2031,7 +2029,7 @@ document.getElementById('gp-pinchsens').addEventListener('input', e => {
   document.getElementById('gp-pinchsens-val').textContent = e.target.value;
 });
 document.getElementById('gp-reset').addEventListener('click', () => {
-  applyGpValues(10, 130, 450, 55, 7, 4);
+  applyGpValues(10, 250, 450, 55, 7, 4);
   setActiveGpPreset(document.querySelector('.gp-preset[data-gravity="10"]'));
 });
 
