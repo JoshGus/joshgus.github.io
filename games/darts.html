@@ -1358,6 +1358,12 @@ let aimBX=0, aimBY=0, aimVisible=false, aimRawHist=[];
 let handPosHist = [];   // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc,t}
 let pinched=false, pinchStartMs=0, pinchOpenFrames=0;
 
+// EMA smoothing applied to raw landmark coordinates before they enter handPosHist.
+// Knocks down frame-to-frame jitter without meaningfully lagging real throw motion.
+// α=0.4 → ~42ms time-constant at 60fps, ~83ms at 30fps; lag ≪ 80ms forward window.
+const SM_ALPHA = 0.4;
+let _sm = null; // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc}
+
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
 const PSC_REF   = 0.13;     // palm scale at natural throw distance
@@ -1414,17 +1420,30 @@ function processHandFrame(lm, now) {
   const spawnX  = (wristX + (1-lm[9].x)*canvas.width)  * 0.5;
   const spawnY  = (wristY +    lm[9].y *canvas.height)  * 0.5;
 
+  // EMA: continuously track hand position to stay settled when a pinch starts.
+  if (_sm === null) {
+    _sm = { wristX, wristY, fingerX, fingerY, spawnX, spawnY, palmSc: psc };
+  } else {
+    _sm.wristX  += SM_ALPHA * (wristX  - _sm.wristX);
+    _sm.wristY  += SM_ALPHA * (wristY  - _sm.wristY);
+    _sm.fingerX += SM_ALPHA * (fingerX - _sm.fingerX);
+    _sm.fingerY += SM_ALPHA * (fingerY - _sm.fingerY);
+    _sm.spawnX  += SM_ALPHA * (spawnX  - _sm.spawnX);
+    _sm.spawnY  += SM_ALPHA * (spawnY  - _sm.spawnY);
+    _sm.palmSc  += SM_ALPHA * (psc     - _sm.palmSc);
+  }
+
   if (!pinched && pd < sPinchIn) {
     pinched = true; pinchStartMs = now; pinchOpenFrames = 0;
     handPosHist = [];
 
   } else if (pinched) {
     if (pd <= sPinchOut) {
-      // Still gripping — record position and reset open counter.
+      // Still gripping — record smoothed position and reset open counter.
       // History is frozen once fingers start separating so the opening
       // motion doesn't corrupt the regression.
       pinchOpenFrames = 0;
-      handPosHist.push({ wristX, wristY, fingerX, fingerY, spawnX, spawnY, palmSc: psc, t: now });
+      handPosHist.push({ ..._sm, t: now });
       while (handPosHist.length > 1 && now - handPosHist[0].t > 600) handPosHist.shift();
     } else {
       // Fingers separating — require 2 consecutive open frames before committing.
@@ -1532,7 +1551,13 @@ function registerThrow(throwVec) {
   const last = handPosHist.length > 0 ? handPosHist[handPosHist.length - 1] : null;
   const wx0 = last ? (last.fingerX - cx) / R : 0;
   const wy0 = last ? -(last.fingerY - cy) / R : 0.3;
-  const wz0 = last ? Math.max(0.8, PLAYER_Z * PSC_REF / last.palmSc) : PLAYER_Z;
+  // wz0: median of last 5 frames' depth to avoid single-frame palmSc spike
+  const wz0 = (() => {
+    const n = Math.min(5, handPosHist.length);
+    if (!n) return PLAYER_Z;
+    const depths = handPosHist.slice(-n).map(p => PLAYER_Z * PSC_REF / p.palmSc).sort((a,b)=>a-b);
+    return Math.max(0.8, depths[Math.floor(depths.length / 2)]);
+  })();
 
   let vwx, vwy, vwz;
   if (throwVec) {
