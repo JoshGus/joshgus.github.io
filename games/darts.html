@@ -1363,6 +1363,9 @@ let pinched=false, pinchStartMs=0, pinchOpenFrames=0;
 // α=0.4 → ~42ms time-constant at 60fps, ~83ms at 30fps; lag ≪ 80ms forward window.
 const SM_ALPHA = 0.4;
 let _sm = null; // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc}
+// Typical upward wrist drift during a throw (board-radii/ms, pre-THROW_SPEED).
+// A throw at this raw_vwy aims at board center; flatter throws land lower.
+const VWY_NEUTRAL = 0.002;
 
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
@@ -1580,7 +1583,10 @@ function registerThrow(throwVec) {
     // the regression vwy only as a direction signal to aim higher/lower.
     const tLand = -wz0 / vwz;
     const vwyCtr = (-wy0 + 0.5 * G_WORLD * tLand * tLand) / tLand;
-    const gestureAim = Math.tanh(throwVec.vwy * THROW_SPEED * 150.0) * 0.5 / tLand;
+    // Center the gesture mapping on VWY_NEUTRAL so a neutral throw aims at
+    // board center. Throwing more steeply → positive offset (higher); flatter
+    // or downward → negative (lower). Range ±1.5 covers the full board.
+    const gestureAim = Math.tanh((throwVec.vwy - VWY_NEUTRAL) * THROW_SPEED * 150.0) * 1.5 / tLand;
     vwy = vwyCtr + gestureAim;
     dbgLog('throw', `THROW fwdV=${throwVec.fwdV.toFixed(2)}  raw_vwy=${throwVec.vwy.toFixed(5)}  vwyCtr=${vwyCtr.toFixed(5)}  gestAim=${(gestureAim*tLand).toFixed(3)}br  vwz=${vwz.toFixed(5)}  wz0=${wz0.toFixed(2)}  n=${handPosHist.length}`);
     if (throwVec._wzPts) dbgLog('throw', `  wz(t): ${throwVec._wzPts}`);
