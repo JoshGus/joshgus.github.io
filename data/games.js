@@ -250,6 +250,7 @@ export const CARDS = [
     thumbBg: '#080c16',
     thumbSvg: BOIDS_SVG,
     stack: ['Canvas', 'JS'],
+    category: 'component',
     ctaFull: 'Open sim',
     ctaShort: 'Open'
   },
@@ -263,6 +264,7 @@ export const CARDS = [
     thumbBg: '#0a0908',
     thumbSvg: HAND_SVG,
     stack: ['MediaPipe', 'WebGL'],
+    category: 'component',
     ctaFull: 'Open',
     ctaShort: 'Open'
   }
