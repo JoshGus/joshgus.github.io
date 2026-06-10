@@ -1442,13 +1442,11 @@ const SM_ALPHA = 0.4;
 let _sm = null; // {wristX,wristY,fingerX,fingerY,spawnX,spawnY,palmSc}
 // Typical upward wrist drift during a throw (board-radii/ms, pre-THROW_SPEED).
 // A throw at this raw_vwy aims at board center; flatter throws land lower.
-// VWY_NEUTRAL is auto-calibrated from actual throw data. The initial value
-// is used for the first few throws, then replaced by the rolling median of
-// the last 12 raw_vwy values. This way the aim is always centered on *this
-// player's* natural arm motion rather than a hard-coded constant.
-const VWY_NEUTRAL_INIT = 0.003;
-let _vwyNeutral = VWY_NEUTRAL_INIT;
-let _vwyCalibBuf = [];
+// VWY_NEUTRAL drifts slowly toward the player's actual throw baseline (α=0.05,
+// time constant ~20 throws). This corrects for player-to-player variation in
+// arm angle without chasing throw-to-throw aiming intent — if you aim high
+// for a few throws it won't recenter on you.
+let _vwyNeutral = 0.001;
 
 // Virtual corridor constants (world units = board radii)
 let   PLAYER_Z  = 5.5;      // virtual depth of player from board face
@@ -1674,14 +1672,9 @@ function registerThrow(throwVec) {
     // the regression vwy only as a direction signal to aim higher/lower.
     const tLand = -wz0 / vwz;
     const vwyCtr = (-wy0 + 0.5 * G_WORLD * tLand * tLand) / tLand;
-    // Auto-calibrate the neutral point from the last 12 throws so it matches
-    // this player's natural arm motion rather than a hard-coded constant.
-    _vwyCalibBuf.push(throwVec.vwy);
-    if (_vwyCalibBuf.length > 12) _vwyCalibBuf.shift();
-    if (_vwyCalibBuf.length >= 3) {
-      const sorted = [..._vwyCalibBuf].sort((a, b) => a - b);
-      _vwyNeutral = sorted[Math.floor(sorted.length / 2)];
-    }
+    // Slow baseline drift: nudge neutral 5% toward this throw's raw_vwy.
+    // Corrects for player-to-player differences without chasing aim intent.
+    _vwyNeutral += 0.05 * (throwVec.vwy - _vwyNeutral);
     // Gesture offset: ±1.5 board-radii around center. Neutral throw = center,
     // steeper upward = higher, flatter/downward = lower.
     const gestureAim = Math.tanh((throwVec.vwy - _vwyNeutral) * THROW_SPEED * 150.0) * 1.5 / tLand;
