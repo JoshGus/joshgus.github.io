@@ -204,7 +204,8 @@ function applyUpg(def,team){
 let grid=[],units=[],projs=[],deposits=[],constructions=[];
 let uid=0,selected=new Set();
 let gold=50,enemyGold=50,kills=0;
-let enemySpawnCd=6,eGatherCd=20,depositSpawnTimer=40;
+let enemySpawnCd=6,eGatherCd=10,depositSpawnTimer=40;
+let enemyBuildCd=45,eDepRespawnTimers=[];
 let difficulty='easy';
 let playerBaseHp=BASE_MAX_HP,enemyBaseHp=EBASE_MAX_HP;
 let pBaseShotCd=0,eBaseShotCd=0;
@@ -276,7 +277,7 @@ function placeDeposits(){
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*8))continue;
     const max=160+Math.floor(r()*120);
-    deposits.push({x,y,gold:max,max});
+    deposits.push({id:uid++,x,y,gold:max,max,depleted:false,despawnTimer:0});
   }
   depositSpawnTimer=45+Math.random()*25;
 }
@@ -289,7 +290,7 @@ function trySpawnDeposit(){
     if(grid[row][col]!==0)continue;
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*7))continue;
-    deposits.push({x,y,gold:0,max:140+Math.floor(r()*100)});return;
+    const mx=140+Math.floor(r()*100);deposits.push({id:uid++,x,y,gold:mx,max:mx,depleted:false,despawnTimer:0});return;
   }
 }
 
@@ -384,7 +385,7 @@ function makeUnit(type,team,col,row){
     waypoints:[],shotCd:def.rate>0?Math.random()/def.rate:.5,
     aiCd:Math.random()*2,vx:0,vy:0,
   };
-  if(type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;}
+  if(type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;u.assignedMineId=-1;}
   if(['tower','outpost','barracks','mine'].includes(type))u.isBuilding=true;
   return u;
 }
@@ -453,14 +454,13 @@ function fireAt(fx,fy,team,dmg,range,tx,ty){
 
 // ── gatherer AI (both teams) ───────────────────────────────────────────────────
 function bestDeposit(x,y){
-  // Only target deposits with meaningful gold
   let best=-1,bd=Infinity;
-  for(let i=0;i<deposits.length;i++){
-    if(deposits[i].gold<15)continue;
-    const d=Math.hypot(deposits[i].x-x,deposits[i].y-y);
-    if(d<bd){bd=d;best=i;}
+  for(const d of deposits){
+    if(d.depleted||d.gold<15)continue;
+    const dist=Math.hypot(d.x-x,d.y-y);
+    if(dist<bd){bd=dist;best=d.id;}
   }
-  return best;
+  return best; // returns deposit ID or -1
 }
 
 function updateGatherer(u,dt){
@@ -484,14 +484,18 @@ function updateGatherer(u,dt){
     return;
   }
   if(u.gatherState==='mining'){
-    const dep=u.targetDep>=0?deposits[u.targetDep]:null;
-    if(dep&&dep.gold>0){
+    const dep=deposits.find(d=>d.id===u.targetDep);
+    if(dep&&!dep.depleted&&dep.gold>0){
       const mine=Math.min(rate*dt,dep.gold,carry-u.carryGold);
       dep.gold-=mine;u.carryGold+=mine;
+      if(dep.gold<=0){dep.depleted=true;dep.despawnTimer=5;}
     }
-    if(u.carryGold>=carry||!dep||dep.gold<=0){
-      // Head to nearest mine building first, else spawn point
-      const mineB=units.find(ub=>ub.type==='mine'&&ub.team===u.team&&ub.hp>0);
+    if(u.carryGold>=carry||!dep||dep.depleted||dep.gold<=0){
+      // Route to assigned mine (player), nearest team mine, or spawn point
+      const mineB=isP&&u.assignedMineId>=0
+        ?units.find(ub=>ub.id===u.assignedMineId&&ub.hp>0)
+        :units.find(ub=>ub.type==='mine'&&ub.team===u.team&&ub.hp>0);
+      if(isP&&u.assignedMineId>=0&&!mineB)u.assignedMineId=-1;
       const tx=mineB?Math.floor(mineB.x/TS):returnC;
       const ty=mineB?Math.floor(mineB.y/TS):returnR;
       u.gatherState='returning';
@@ -508,20 +512,30 @@ function updateGatherer(u,dt){
   }
   if(u.gatherState==='going'){
     if(u.waypoints.length===0){
-      const dep=u.targetDep>=0?deposits[u.targetDep]:null;
-      if(dep&&dep.gold>=15)u.gatherState='mining';
-      else{u.gatherState='idle';u.targetDep=-1;} // deposit ran dry
+      const dep=deposits.find(d=>d.id===u.targetDep);
+      if(dep&&!dep.depleted&&dep.gold>=15)u.gatherState='mining';
+      else{u.gatherState='idle';u.targetDep=-1;}
     }
     return;
   }
-  // idle
+  // idle — check for unattended constructions first
   if(isP){
-    // Check for unattended constructions
     const unbuilt=constructions.find(con=>{
-      const builders=units.filter(ub=>ub.type==='gatherer'&&ub.gatherState==='building'&&ub.targetConId===con.id);
-      return builders.length===0;
+      if(con.team&&con.team!=='player')return false;
+      return units.filter(ub=>ub.type==='gatherer'&&ub.gatherState==='building'&&ub.targetConId===con.id).length===0;
     });
     if(unbuilt&&u.carryGold===0){
+      u.gatherState='going-build';u.targetConId=unbuilt.id;
+      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(unbuilt.x/TS),Math.floor(unbuilt.y/TS));
+      if(p)u.waypoints=toWp(p);return;
+    }
+  } else {
+    // Enemy: dispatch to unattended enemy constructions
+    const unbuilt=constructions.find(con=>
+      con.team==='enemy'&&
+      units.filter(ub=>ub.type==='gatherer'&&ub.team==='enemy'&&ub.gatherState==='building'&&ub.targetConId===con.id).length===0
+    );
+    if(unbuilt){
       u.gatherState='going-build';u.targetConId=unbuilt.id;
       const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(unbuilt.x/TS),Math.floor(unbuilt.y/TS));
       if(p)u.waypoints=toWp(p);return;
@@ -530,11 +544,52 @@ function updateGatherer(u,dt){
   const best=bestDeposit(u.x,u.y);
   if(best>=0){
     u.targetDep=best;u.gatherState='going';
-    const dep=deposits[best];
-    const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(dep.x/TS),Math.floor(dep.y/TS));
-    if(p)u.waypoints=toWp(p);
+    const dep=deposits.find(d=>d.id===best);
+    if(dep){const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(dep.x/TS),Math.floor(dep.y/TS));if(p)u.waypoints=toWp(p);}
   }
-  // else: no deposit available, stay idle
+}
+
+// ── enemy build AI ─────────────────────────────────────────────────────────────
+const EBUILD_POS={
+  'mine':        [{c:98,r:19},{c:98,r:44},{c:99,r:23}],
+  'barracks':    [{c:98,r:45},{c:98,r:18},{c:99,r:50}],
+  'guard-tower': [{c:96,r:26},{c:96,r:38},{c:95,r:32},{c:97,r:30}],
+};
+function tryEnemyBuild(){
+  const hasMine=units.some(u=>u.team==='enemy'&&u.type==='mine'&&u.hp>0);
+  const hasBarracks=units.some(u=>u.team==='enemy'&&u.type==='barracks'&&u.hp>0);
+  const pendingE=constructions.filter(c=>c.team==='enemy');
+  if(pendingE.length>=2)return;
+
+  let buildType=null;
+  if(!hasMine&&!constructions.some(c=>c.team==='enemy'&&c.type==='mine')&&enemyGold>=BDEFS['mine'].cost+TDEFS.gatherer.cost){
+    buildType='mine';
+  } else if(hasMine&&!hasBarracks&&!constructions.some(c=>c.team==='enemy'&&c.type==='barracks')&&enemyGold>=BDEFS['barracks'].cost){
+    buildType='barracks';
+  } else if(hasMine&&enemyGold>=BDEFS['guard-tower'].cost*1.5&&pendingE.filter(c=>c.type==='guard-tower').length===0){
+    buildType='guard-tower';
+  }
+  if(!buildType)return;
+
+  const cost=BDEFS[buildType].cost;
+  const positions=EBUILD_POS[buildType]||[];
+  for(const pos of positions){
+    const{c:fc,r:fr}=findOpenNear(pos.c,pos.r);
+    const x=fc*TS+TS/2,y=fr*TS+TS/2;
+    if(constructions.some(con=>Math.hypot(con.x-x,con.y-y)<TS*4))continue;
+    if(units.some(u=>u.isBuilding&&Math.hypot(u.x-x,u.y-y)<TS*4))continue;
+    enemyGold-=cost;
+    constructions.push({id:uid++,x,y,type:buildType,progress:0,buildTime:BDEFS[buildType].time,team:'enemy'});
+    // Try to assign an idle enemy gatherer
+    const idleG=units.find(u=>u.team==='enemy'&&u.type==='gatherer'&&u.gatherState==='idle');
+    if(idleG){
+      const con=constructions[constructions.length-1];
+      idleG.gatherState='going-build';idleG.targetConId=con.id;
+      const p=aStar(Math.floor(idleG.x/TS),Math.floor(idleG.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));
+      if(p)idleG.waypoints=toWp(p);
+    }
+    return;
+  }
 }
 
 // ── update ─────────────────────────────────────────────────────────────────────
@@ -550,21 +605,29 @@ function update(dt){
     gold+=mines*4*dt;
   }
 
-  // Enemy combat spawn
+  // Enemy spawn — prioritize economy (gatherers) early
   enemySpawnCd-=dt;
   if(enemySpawnCd<=0){
     enemySpawnCd=cfg.spawnCd;
-    const type=cfg.pool[Math.floor(Math.random()*cfg.pool.length)];
-    if(enemyGold>=TDEFS[type].cost){
-      enemyGold-=TDEFS[type].cost;
+    const minG=difficulty==='hard'?3:difficulty==='medium'?2:1;
+    const hasG=units.filter(u=>u.team==='enemy'&&u.type==='gatherer').length;
+    if(hasG<minG&&enemyGold>=TDEFS.gatherer.cost){
+      enemyGold-=TDEFS.gatherer.cost;
       const{c,r}=getSpawnPos('enemy');
-      units.push(makeUnit(type,'enemy',c,r));
+      units.push(makeUnit('gatherer','enemy',c,r));
+    } else {
+      const type=cfg.pool[Math.floor(Math.random()*cfg.pool.length)];
+      if(enemyGold>=TDEFS[type].cost){
+        enemyGold-=TDEFS[type].cost;
+        const{c,r}=getSpawnPos('enemy');
+        units.push(makeUnit(type,'enemy',c,r));
+      }
     }
   }
-  // Enemy gatherer spawn
+  // Enemy dedicated gatherer top-up
   eGatherCd-=dt;
   if(eGatherCd<=0){
-    eGatherCd=22+Math.random()*12;
+    eGatherCd=18+Math.random()*10;
     const maxG=difficulty==='hard'?4:difficulty==='medium'?3:2;
     const hasG=units.filter(u=>u.team==='enemy'&&u.type==='gatherer').length;
     if(hasG<maxG&&enemyGold>=TDEFS.gatherer.cost){
@@ -573,21 +636,34 @@ function update(dt){
       units.push(makeUnit('gatherer','enemy',c,r));
     }
   }
+  // Enemy build AI
+  enemyBuildCd-=dt;
+  if(enemyBuildCd<=0){enemyBuildCd=20+Math.random()*15;tryEnemyBuild();}
 
-  // Deposits refill
-  const refillRate=UPG.fasterTools.done?5:2.5;
-  for(const d of deposits)d.gold=Math.min(d.max,d.gold+refillRate*dt);
+  // Deposit depletion → despawn → respawn elsewhere
+  for(let i=deposits.length-1;i>=0;i--){
+    const d=deposits[i];
+    if(d.depleted){
+      d.despawnTimer-=dt;
+      if(d.despawnTimer<=0){deposits.splice(i,1);eDepRespawnTimers.push({timer:22+Math.random()*18});}
+    }
+  }
+  for(let i=eDepRespawnTimers.length-1;i>=0;i--){
+    eDepRespawnTimers[i].timer-=dt;
+    if(eDepRespawnTimers[i].timer<=0){if(deposits.length<MAX_DEPOSITS)trySpawnDeposit();eDepRespawnTimers.splice(i,1);}
+  }
   depositSpawnTimer-=dt;
   if(depositSpawnTimer<=0&&deposits.length<MAX_DEPOSITS){depositSpawnTimer=50+Math.random()*30;trySpawnDeposit();}
 
   // Constructions
   for(let i=constructions.length-1;i>=0;i--){
     const con=constructions[i];
-    const builders=units.filter(u=>u.type==='gatherer'&&u.gatherState==='building'&&u.targetConId===con.id);
+    const bTeam=con.team||'player';
+    const builders=units.filter(u=>u.type==='gatherer'&&u.team===bTeam&&u.gatherState==='building'&&u.targetConId===con.id);
     if(builders.length>0)con.progress+=dt*builders.length/con.buildTime;
     if(con.progress>=1){
       const{c:fc,r:fr}=findOpenNear(Math.floor(con.x/TS),Math.floor(con.y/TS));
-      units.push(makeUnit(BDEFS[con.type].spawnAs,'player',fc,fr));
+      units.push(makeUnit(BDEFS[con.type].spawnAs,bTeam,fc,fr));
       for(const b of builders){b.gatherState='idle';b.targetConId=-1;}
       constructions.splice(i,1);
     }
@@ -749,11 +825,14 @@ function drawBase(cx,cy,w,h,gateRow,isP,hp,maxHp){
 
 function drawDeposits(){
   for(const d of deposits){
-    const pct=d.gold/d.max;
-    if(pct<=0){
-      ctx.strokeStyle='rgba(100,80,20,.18)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
-      ctx.beginPath();ctx.arc(d.x,d.y,6,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);continue;
+    if(d.depleted){
+      ctx.globalAlpha=Math.max(0,d.despawnTimer/5)*.5;
+      ctx.strokeStyle='rgba(100,80,20,.5)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
+      ctx.beginPath();ctx.arc(d.x,d.y,6,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+      ctx.globalAlpha=1;continue;
     }
+    const pct=d.gold/d.max;
+    if(pct<=0)continue;
     const grd=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,18);
     grd.addColorStop(0,`rgba(210,170,15,${.2*pct})`);grd.addColorStop(1,'rgba(210,170,15,0)');
     ctx.fillStyle=grd;ctx.beginPath();ctx.arc(d.x,d.y,18,0,Math.PI*2);ctx.fill();
@@ -857,7 +936,7 @@ function drawPaths(){
   for(const u of units){
     if(u.type!=='gatherer'||u.team!=='player'||u.hp<=0)continue;
     if((u.gatherState==='going'||u.gatherState==='mining')&&u.targetDep>=0){
-      const dep=deposits[u.targetDep];if(dep&&dep.gold>0){
+      const dep=deposits.find(d=>d.id===u.targetDep);if(dep&&dep.gold>0&&!dep.depleted){
         ctx.strokeStyle='rgba(210,180,30,.18)';ctx.lineWidth=.7;ctx.setLineDash([2,6]);
         ctx.beginPath();ctx.moveTo(u.x,u.y);ctx.lineTo(dep.x,dep.y);ctx.stroke();ctx.setLineDash([]);
       }
@@ -867,17 +946,18 @@ function drawPaths(){
 
 function drawConstructions(){
   for(const con of constructions){
-    const pct=con.progress;
+    const pct=con.progress,isEnemy=con.team==='enemy';
     ctx.globalAlpha=.2+.6*pct;
     const sAs=BDEFS[con.type].spawnAs;
-    if(sAs==='tower')drawTowerShape(con.x,con.y,12,'#88aa55');
-    else if(sAs==='barracks')drawBarracksShape(con.x,con.y,15,'#446633');
-    else if(sAs==='mine')drawMineShape(con.x,con.y,12,'#664422');
+    if(sAs==='tower')drawTowerShape(con.x,con.y,12,isEnemy?'#aa5533':'#88aa55');
+    else if(sAs==='barracks')drawBarracksShape(con.x,con.y,15,isEnemy?'#553322':'#446633');
+    else if(sAs==='mine')drawMineShape(con.x,con.y,12,isEnemy?'#226644':'#664422');
     ctx.globalAlpha=1;
     const bw=30,bh=4;ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(con.x-bw/2,con.y-22,bw,bh);
-    ctx.fillStyle='#ccf73f';ctx.fillRect(con.x-bw/2,con.y-22,bw*pct,bh);
-    const builders=units.filter(u=>u.type==='gatherer'&&u.gatherState==='building'&&u.targetConId===con.id);
-    ctx.fillStyle='rgba(200,180,50,.7)';ctx.font='7px "IBM Plex Mono",monospace';ctx.textAlign='center';
+    ctx.fillStyle=isEnemy?'#ff6644':'#ccf73f';ctx.fillRect(con.x-bw/2,con.y-22,bw*pct,bh);
+    const bTeam=con.team||'player';
+    const builders=units.filter(u=>u.type==='gatherer'&&u.team===bTeam&&u.gatherState==='building'&&u.targetConId===con.id);
+    ctx.fillStyle=isEnemy?'rgba(255,160,100,.6)':'rgba(200,180,50,.7)';ctx.font='7px "IBM Plex Mono",monospace';ctx.textAlign='center';
     ctx.fillText(Math.floor(pct*100)+'%'+(builders.length?' ⚒×'+builders.length:''),con.x,con.y+28);
   }
 }
@@ -1002,7 +1082,11 @@ function updateSelPanel(){
     body.textContent=stats.join(' · ');
     if(u.type==='gatherer'){
       const stMap={idle:'Idle',going:'→ deposit',mining:'Mining',returning:'← returning','going-build':'→ build site',building:'⚒ Building'};
-      status.textContent=(stMap[u.gatherState]||'')+(u.carryGold>0?' · '+Math.floor(u.carryGold)+'g':'');
+      let stxt=stMap[u.gatherState]||'';
+      if(u.carryGold>0)stxt+=' · '+Math.floor(u.carryGold)+'g';
+      const asgMine=u.assignedMineId>=0?units.find(m=>m.id===u.assignedMineId&&m.hp>0):null;
+      if(asgMine)stxt+=' · →Mine';else if(u.assignedMineId>=0)u.assignedMineId=-1;
+      status.textContent=stxt;
       renderGathererCmds(cmd,[u.id]);
     } else {status.textContent='';cmd.innerHTML='';}
   } else {
@@ -1034,6 +1118,8 @@ function renderGathererCmds(cmd,gids){
   }
   const hasBuilding=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&(u.gatherState==='building'||u.gatherState==='going-build');});
   if(hasBuilding)html+=`<button class="cmd-btn red" id="cmd-stop">Stop</button>`;
+  const hasAssigned=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&u.assignedMineId>=0;});
+  if(hasAssigned)html+=`<button class="cmd-btn red" id="cmd-unassign">Unassign Mine</button>`;
   cmd.innerHTML=html;
   for(const btn of cmd.querySelectorAll('[data-btype]')){
     btn.addEventListener('click',()=>{
@@ -1047,6 +1133,10 @@ function renderGathererCmds(cmd,gids){
     btn.addEventListener('click',()=>{const k=btn.dataset.upg;if(UPG[k].done||Math.floor(gold)<UPG[k].cost)return;gold-=UPG[k].cost;UPG[k].done=true;updateHud();});
   cmd.querySelector('#cmd-stop')?.addEventListener('click',()=>{
     for(const id of gids){const u=units.find(u=>u.id===id);if(u&&u.type==='gatherer'){u.gatherState='idle';u.targetConId=-1;u.waypoints=[];}}
+    updateSelPanel();
+  });
+  cmd.querySelector('#cmd-unassign')?.addEventListener('click',()=>{
+    for(const id of gids){const u=units.find(u=>u.id===id);if(u&&u.type==='gatherer')u.assignedMineId=-1;}
     updateSelPanel();
   });
 }
@@ -1081,7 +1171,7 @@ canvas.addEventListener('mousedown',e=>{
   if(buildMode&&e.button===0){
     if(!tileBlocked(x,y)&&Math.floor(gold)>=BDEFS[buildMode.type].cost){
       gold-=BDEFS[buildMode.type].cost;
-      const con={id:uid++,x,y,type:buildMode.type,progress:0,buildTime:BDEFS[buildMode.type].time};
+      const con={id:uid++,x,y,type:buildMode.type,progress:0,buildTime:BDEFS[buildMode.type].time,team:'player'};
       constructions.push(con);
       // Dispatch idle gatherers to build
       for(const id of selected){
@@ -1100,6 +1190,26 @@ canvas.addEventListener('mousedown',e=>{
   mouseDown=true;mouseBtn=e.button;mxDown=x;myDown=y;
   if(e.button===2){
     if(!selected.size)return;
+    // Right-click on friendly mine → assign selected gatherers to deposit there
+    const clickedMine=units.find(u=>u.type==='mine'&&u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+10);
+    if(clickedMine){
+      for(const id of selected){const u=units.find(u=>u.id===id&&u.type==='gatherer');if(u)u.assignedMineId=clickedMine.id;}
+      updateSelPanel();return;
+    }
+    // Right-click on player construction → send gatherers to build it
+    const clickedCon=constructions.find(con=>(!con.team||con.team==='player')&&Math.hypot(con.x-x,con.y-y)<=TS*2.5);
+    if(clickedCon){
+      for(const id of selected){
+        const u=units.find(u=>u.id===id&&u.type==='gatherer');
+        if(u&&u.gatherState!=='building'){
+          u.gatherState='going-build';u.targetConId=clickedCon.id;u.carryGold=0;
+          const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(clickedCon.x/TS),Math.floor(clickedCon.y/TS));
+          if(p)u.waypoints=toWp(p);
+        }
+      }
+      updateSelPanel();return;
+    }
+    // Normal move
     const gc=Math.floor(x/TS),gr=Math.floor(y/TS);let spread=0;
     for(const id of selected){
       const u=units.find(u=>u.id===id);if(!u)continue;
@@ -1150,7 +1260,8 @@ function loop(t){const dt=Math.min((t-lastT)/1000,.05);lastT=t;update(dt);render
 function restart(){
   units=[];projs=[];deposits=[];constructions=[];selected.clear();
   buildMode=null;document.body.classList.remove('build-mode');
-  gold=50;enemyGold=50;kills=0;enemySpawnCd=6;eGatherCd=20;depositSpawnTimer=40;
+  gold=50;enemyGold=50;kills=0;enemySpawnCd=6;eGatherCd=10;depositSpawnTimer=40;
+  enemyBuildCd=45;eDepRespawnTimers=[];
   playerBaseHp=BASE_MAX_HP;enemyBaseHp=EBASE_MAX_HP;pBaseShotCd=0;eBaseShotCd=0;
   gameOver=false;gameWin=false;gameMsg='';floorColors=null;
   for(const k of Object.keys(UPG))UPG[k].done=false;
