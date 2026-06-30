@@ -1,0 +1,889 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<title>Frontline — Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<style>
+html,body{height:100%;overflow:hidden;background:#0b0e07;-webkit-font-smoothing:antialiased}
+.status.fixed-bar{z-index:100;top:0;left:0;right:0}
+.game-wrap{position:fixed;top:47px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;background:#0b0e07;overflow:hidden}
+#canvas{display:block;cursor:crosshair}
+
+#hud{
+  width:100%;display:flex;align-items:center;gap:10px;padding:5px 14px;
+  background:rgba(8,12,5,.95);border-bottom:1px solid rgba(70,110,30,.3);
+  font-family:var(--mono);font-size:.6rem;letter-spacing:.07em;color:rgba(150,200,90,.75);
+  flex-shrink:0;flex-wrap:wrap;box-sizing:border-box;
+}
+.hud-stat{display:flex;flex-direction:column;gap:1px;min-width:44px}
+.hud-val{font-size:.85rem;font-weight:700;color:#ccf73f;line-height:1.1}
+.hud-lbl{font-size:.46rem;color:rgba(110,150,60,.55);text-transform:uppercase;letter-spacing:.1em}
+.hud-sep{width:1px;height:26px;background:rgba(70,110,30,.25);flex-shrink:0}
+.spawn-btns{display:flex;gap:5px;margin-left:auto;flex-wrap:wrap}
+.spawn-btn{
+  background:rgba(20,38,10,.85);border:1px solid rgba(70,120,35,.4);
+  color:rgba(130,190,70,.85);font-family:var(--mono);font-size:.52rem;
+  letter-spacing:.05em;padding:4px 9px;cursor:pointer;transition:background .12s,border-color .12s,color .12s;
+  text-transform:uppercase;white-space:nowrap;
+}
+.spawn-btn:hover:not(:disabled){background:rgba(40,70,18,.9);border-color:rgba(110,180,50,.6);color:#ccf73f}
+.spawn-btn:disabled{opacity:.3;cursor:default}
+.spawn-btn .cost{color:rgba(240,210,50,.65);margin-left:4px}
+.spawn-btn .key{color:rgba(100,150,50,.5);font-size:.42rem}
+#info-bar{
+  width:100%;padding:2px 14px;font-family:var(--mono);font-size:.52rem;letter-spacing:.05em;
+  color:rgba(100,150,60,.55);background:rgba(6,10,3,.88);border-top:1px solid rgba(50,80,20,.2);
+  flex-shrink:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;box-sizing:border-box;
+}
+</style>
+</head>
+<body class="noise">
+<div class="status fixed-bar">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../index.html">Home</a>
+    <a href="index.html">Games</a>
+  </nav>
+  <div id="clock"></div>
+  <button id="dm-toggle" aria-label="Toggle dark mode">◑</button>
+</div>
+<div class="game-wrap">
+  <div id="hud">
+    <div class="hud-stat">
+      <div class="hud-val" id="hud-gold">300</div>
+      <div class="hud-lbl">Gold</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-stat">
+      <div class="hud-val" id="hud-kills">0</div>
+      <div class="hud-lbl">Kills</div>
+    </div>
+    <div class="hud-sep"></div>
+    <div class="hud-stat">
+      <div class="hud-val" id="hud-units">0</div>
+      <div class="hud-lbl">Troops</div>
+    </div>
+    <div class="spawn-btns">
+      <button class="spawn-btn" data-type="soldier"><span class="key">[U]</span> Soldier <span class="cost">50g</span></button>
+      <button class="spawn-btn" data-type="archer"><span class="key">[I]</span> Archer <span class="cost">80g</span></button>
+      <button class="spawn-btn" data-type="tank"><span class="key">[O]</span> Tank <span class="cost">150g</span></button>
+      <button class="spawn-btn" data-type="scout"><span class="key">[P]</span> Scout <span class="cost">35g</span></button>
+    </div>
+  </div>
+  <canvas id="canvas"></canvas>
+  <div id="info-bar">Click to select · Drag to box-select · Right-click to move · U/I/O/P to spawn units</div>
+</div>
+<script src="../dark-mode.js"></script>
+<script>
+(function(){
+'use strict';
+
+// ── constants ──────────────────────────────────────────────────────────────────
+const TS = 16, COLS = 80, ROWS = 46;
+const W = COLS * TS, H = ROWS * TS; // 1280 × 736
+const LZ = 8, RZ = 8; // reserved left/right zone cols
+
+// ── unit type definitions ──────────────────────────────────────────────────────
+const TDEFS = {
+  soldier: {name:'Soldier', cost:50,  maxHp:100, speed:68,  range:58,  dmg:12, rate:1.1, r:7,  pcol:'#4488ee', ecol:'#ee4444'},
+  archer:  {name:'Archer',  cost:80,  maxHp:58,  speed:52,  range:135, dmg:20, rate:0.65,r:6,  pcol:'#55bbff', ecol:'#ff8833'},
+  tank:    {name:'Tank',    cost:150, maxHp:290, speed:33,  range:48,  dmg:32, rate:0.5, r:11, pcol:'#2255cc', ecol:'#bb2222'},
+  scout:   {name:'Scout',   cost:35,  maxHp:44,  speed:115, range:36,  dmg:7,  rate:1.9, r:5,  pcol:'#88ddff', ecol:'#ffbb33'},
+};
+
+// ── state ──────────────────────────────────────────────────────────────────────
+let grid = [];
+let units = [];
+let projs = [];
+let uid = 0;
+let selected = new Set();
+let gold = 300, kills = 0;
+let gameOver = false, gameMsg = '', gameWin = false;
+let boxSel = null;
+let mxDown = 0, myDown = 0, mouseDown = false, mouseBtn = -1;
+let lastT = 0;
+let canvasScale = 1;
+
+// ── canvas ─────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+canvas.width = W;
+canvas.height = H;
+
+function resizeCanvas() {
+  const wrap = document.querySelector('.game-wrap');
+  const hudH = document.getElementById('hud').offsetHeight;
+  const infoH = document.getElementById('info-bar').offsetHeight;
+  const availW = wrap.clientWidth;
+  const availH = wrap.clientHeight - hudH - infoH;
+  canvasScale = Math.min(availW / W, availH / H);
+  canvas.style.width  = Math.round(W * canvasScale) + 'px';
+  canvas.style.height = Math.round(H * canvasScale) + 'px';
+}
+
+function canvasXY(e) {
+  const r = canvas.getBoundingClientRect();
+  return {
+    x: (e.clientX - r.left) / canvasScale,
+    y: (e.clientY - r.top)  / canvasScale,
+  };
+}
+
+// ── map generation ─────────────────────────────────────────────────────────────
+function mkRng(seed) {
+  let s = seed >>> 0;
+  return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 0xffffffff; };
+}
+
+function generateMap() {
+  const r = mkRng((Date.now() ^ 0xdeadbeef) & 0xffffff);
+  grid = Array.from({length: ROWS}, () => new Uint8Array(COLS));
+
+  // Fill battle zone randomly
+  for (let row = 1; row < ROWS - 1; row++) {
+    for (let col = LZ; col < COLS - RZ; col++) {
+      grid[row][col] = r() < 0.43 ? 1 : 0;
+    }
+  }
+
+  // Hard borders
+  for (let c = 0; c < COLS; c++) { grid[0][c] = 1; grid[ROWS-1][c] = 1; }
+
+  // Cellular automata smoothing (4 passes)
+  for (let pass = 0; pass < 4; pass++) {
+    const ng = Array.from({length: ROWS}, (_, row) => new Uint8Array(grid[row]));
+    for (let row = 1; row < ROWS - 1; row++) {
+      for (let col = LZ; col < COLS - RZ; col++) {
+        let walls = 0;
+        for (let dr = -1; dr <= 1; dr++)
+          for (let dc = -1; dc <= 1; dc++)
+            if (grid[row+dr]?.[col+dc] === 1) walls++;
+        ng[row][col] = walls >= 5 ? 1 : 0;
+      }
+    }
+    grid = ng;
+  }
+
+  // Clear spawn zones
+  for (let row = 1; row < ROWS - 1; row++) {
+    for (let c = 0; c < LZ; c++) grid[row][c] = 0;
+    for (let c = COLS - RZ; c < COLS; c++) grid[row][c] = 0;
+  }
+
+  // Guarantee 3 horizontal corridors
+  const lanes = [Math.floor(ROWS * 0.25), Math.floor(ROWS * 0.5), Math.floor(ROWS * 0.75)];
+  for (const lr of lanes) {
+    for (let c = LZ; c < COLS - RZ; c++) {
+      grid[Math.max(1, lr - 1)][c] = 0;
+      grid[lr][c] = 0;
+    }
+  }
+
+  ensureConnectivity();
+}
+
+function ensureConnectivity() {
+  const startC = LZ - 1, startR = Math.floor(ROWS / 2);
+  const vis = Array.from({length: ROWS}, () => new Uint8Array(COLS));
+  const q = [{c: startC, r: startR}];
+  vis[startR][startC] = 1;
+  let reached = false;
+  while (q.length) {
+    const {c, r} = q.shift();
+    if (c >= COLS - RZ) { reached = true; break; }
+    for (const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]) {
+      const nc = c + dc, nr = r + dr;
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS) continue;
+      if (grid[nr][nc] === 1 || vis[nr][nc]) continue;
+      vis[nr][nc] = 1;
+      q.push({c: nc, r: nr});
+    }
+  }
+  if (!reached) {
+    const mid = Math.floor(ROWS / 2);
+    for (let c = LZ; c < COLS - RZ; c++) grid[mid][c] = 0;
+  }
+}
+
+// ── A* pathfinding ─────────────────────────────────────────────────────────────
+function aStar(sc, sr, gc, gr) {
+  if (sc === gc && sr === gr) return [];
+
+  // Snap goal to nearest walkable tile
+  if (gc < 0 || gc >= COLS || gr < 0 || gr >= ROWS || grid[gr][gc] === 1) {
+    let snapped = false;
+    outer: for (let d = 1; d <= 6; d++) {
+      for (let dr = -d; dr <= d; dr++) {
+        for (let dc = -d; dc <= d; dc++) {
+          if (Math.abs(dr) !== d && Math.abs(dc) !== d) continue;
+          const nr = gr + dr, nc = gc + dc;
+          if (nr >= 0 && nr < ROWS && nc >= 0 && nc < COLS && grid[nr][nc] === 0) {
+            gr = nr; gc = nc; snapped = true; break outer;
+          }
+        }
+      }
+    }
+    if (!snapped) return null;
+  }
+
+  const key = (c, r) => r * COLS + c;
+  const h   = (c, r) => Math.abs(c - gc) + Math.abs(r - gr);
+  const sk  = key(sc, sr);
+  const gk  = key(gc, gr);
+
+  const open  = [{c: sc, r: sr, g: 0, f: h(sc, sr)}];
+  const best  = new Map([[sk, 0]]);
+  const came  = new Map([[sk, {c: sc, r: sr, pk: -1}]]);
+
+  const DIRS = [[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.41],[-1,1,1.41],[1,-1,1.41],[-1,-1,1.41]];
+
+  let iters = 0;
+  while (open.length && iters++ < 6000) {
+    let bi = 0;
+    for (let i = 1; i < open.length; i++) if (open[i].f < open[bi].f) bi = i;
+    const cur = open.splice(bi, 1)[0];
+    const curK = key(cur.c, cur.r);
+    if (cur.g > (best.get(curK) ?? Infinity)) continue; // stale
+
+    if (curK === gk) {
+      const path = [];
+      let k = gk;
+      while (k !== sk) {
+        const node = came.get(k);
+        path.unshift({c: node.c, r: node.r});
+        k = node.pk;
+      }
+      return path;
+    }
+
+    for (const [dc, dr, cost] of DIRS) {
+      const nc = cur.c + dc, nr = cur.r + dr;
+      if (nc < 0 || nc >= COLS || nr < 0 || nr >= ROWS || grid[nr][nc] === 1) continue;
+      if (cost > 1) { // diagonal: prevent corner cutting
+        if (grid[cur.r + dr]?.[cur.c] === 1 || grid[cur.r]?.[cur.c + dc] === 1) continue;
+      }
+      const nk = key(nc, nr);
+      const ng = cur.g + cost;
+      if ((best.get(nk) ?? Infinity) <= ng) continue;
+      best.set(nk, ng);
+      came.set(nk, {c: nc, r: nr, pk: curK});
+      open.push({c: nc, r: nr, g: ng, f: ng + h(nc, nr)});
+    }
+  }
+  return null;
+}
+
+function pathToWaypoints(path) {
+  return (path || []).map(p => ({x: p.c * TS + TS / 2, y: p.r * TS + TS / 2}));
+}
+
+function tileBlocked(px, py) {
+  const c = Math.floor(px / TS), r = Math.floor(py / TS);
+  return c < 0 || c >= COLS || r < 0 || r >= ROWS || grid[r][c] === 1;
+}
+
+function unitInWall(u) {
+  const rr = u.r * 0.82; // slightly inset so small gaps still passable
+  return tileBlocked(u.x, u.y) ||
+         tileBlocked(u.x - rr, u.y - rr) || tileBlocked(u.x + rr, u.y - rr) ||
+         tileBlocked(u.x - rr, u.y + rr) || tileBlocked(u.x + rr, u.y + rr);
+}
+
+// Radius-aware line-of-sight: sample 3 parallel lines (centre + both sides)
+function canSeeR(x0, y0, x1, y1, radius) {
+  const steps = Math.ceil(Math.hypot(x1 - x0, y1 - y0) / (TS * 0.55)) + 1;
+  const len = Math.hypot(x1 - x0, y1 - y0);
+  if (len < 1) return true;
+  const px = -(y1 - y0) / len * (radius * 0.75);
+  const py =  (x1 - x0) / len * (radius * 0.75);
+  for (let i = 1; i <= steps; i++) {
+    const t = i / steps;
+    const cx = x0 + (x1 - x0) * t, cy = y0 + (y1 - y0) * t;
+    if (tileBlocked(cx, cy) || tileBlocked(cx + px, cy + py) || tileBlocked(cx - px, cy - py)) return false;
+  }
+  return true;
+}
+
+// ── unit factory ───────────────────────────────────────────────────────────────
+function makeUnit(type, team, col, row) {
+  const def = TDEFS[type];
+  return {
+    id: uid++, type, team,
+    x: col * TS + TS / 2, y: row * TS + TS / 2,
+    hp: def.maxHp, maxHp: def.maxHp,
+    speed: def.speed, range: def.range,
+    dmg: def.dmg, rate: def.rate, r: def.r,
+    col: team === 'player' ? def.pcol : def.ecol,
+    name: def.name,
+    waypoints: [],
+    shotCd: Math.random() / def.rate,
+    aiCd: Math.random() * 2,   // stagger initial AI ticks
+    vx: 0, vy: 0,
+  };
+}
+
+function spawnPlayer(type) {
+  const def = TDEFS[type];
+  if (gold < def.cost || gameOver) return;
+  gold -= def.cost;
+  // Find an open row in left zone, prefer uncrowded rows
+  let row = 1 + Math.floor(Math.random() * (ROWS - 2));
+  const col = 2 + Math.floor(Math.random() * (LZ - 3));
+  units.push(makeUnit(type, 'player', col, row));
+  updateHud();
+}
+
+function placeEnemies() {
+  const placements = [
+    {type:'soldier', col:COLS-4, row:6},
+    {type:'archer',  col:COLS-6, row:11},
+    {type:'soldier', col:COLS-3, row:17},
+    {type:'tank',    col:COLS-5, row:22},
+    {type:'scout',   col:COLS-3, row:8},
+    {type:'soldier', col:COLS-4, row:28},
+    {type:'archer',  col:COLS-6, row:33},
+    {type:'tank',    col:COLS-4, row:38},
+    {type:'scout',   col:COLS-3, row:40},
+    {type:'soldier', col:COLS-5, row:14},
+  ];
+  for (const p of placements) units.push(makeUnit(p.type, 'enemy', p.col, p.row));
+}
+
+// ── combat ─────────────────────────────────────────────────────────────────────
+function findTarget(unit) {
+  let best = null, bestD = Infinity;
+  for (const e of units) {
+    if (e.team === unit.team || e.hp <= 0) continue;
+    const d = Math.hypot(e.x - unit.x, e.y - unit.y);
+    if (d <= unit.range && d < bestD) { bestD = d; best = e; }
+  }
+  return best;
+}
+
+function shoot(from, to) {
+  const dx = to.x - from.x, dy = to.y - from.y;
+  const d = Math.hypot(dx, dy);
+  projs.push({
+    x: from.x, y: from.y,
+    vx: dx / d * 230, vy: dy / d * 230,
+    dmg: from.dmg, team: from.team,
+    maxDist: from.range * 1.2,
+    traveled: 0,
+  });
+}
+
+// ── update ─────────────────────────────────────────────────────────────────────
+function update(dt) {
+  if (gameOver) return;
+
+  // Units
+  for (const u of units) {
+    if (u.hp <= 0) continue;
+
+    // Shoot at nearest enemy in range
+    u.shotCd -= dt;
+    const tgt = findTarget(u);
+    if (tgt && u.shotCd <= 0) {
+      shoot(u, tgt);
+      u.shotCd = 1 / u.rate;
+    }
+
+    // Enemy AI: re-evaluate target on cooldown (regardless of current waypoints)
+    if (u.team === 'enemy') {
+      u.aiCd -= dt;
+      if (u.aiCd <= 0) {
+        u.aiCd = 1.2 + Math.random() * 0.8; // recalc every 1.2–2s
+        // Don't interrupt if already in attack range of a valid target
+        const inCombat = findTarget(u) !== null;
+        if (!inCombat) {
+          const sc = Math.floor(u.x / TS), sr = Math.floor(u.y / TS);
+          // Find nearest player unit anywhere on the map
+          let nearest = null, nd = Infinity;
+          for (const p of units) {
+            if (p.team !== 'player' || p.hp <= 0) continue;
+            const d = Math.hypot(p.x - u.x, p.y - u.y);
+            if (d < nd) { nd = d; nearest = p; }
+          }
+          let tgc, tgr;
+          if (nearest) {
+            tgc = Math.floor(nearest.x / TS);
+            tgr = Math.floor(nearest.y / TS);
+          } else {
+            // March toward player base — vary row slightly so units spread out
+            tgc = Math.floor(LZ / 2);
+            tgr = Math.max(1, Math.min(ROWS - 2, sr + Math.round((Math.random() - 0.5) * 6)));
+          }
+          const path = aStar(sc, sr, tgc, tgr);
+          if (path && path.length > 0) u.waypoints = pathToWaypoints(path);
+        }
+      }
+    }
+
+    // Path smoothing: skip waypoints we have clear line-of-sight to (radius-aware)
+    while (u.waypoints.length > 1 && canSeeR(u.x, u.y, u.waypoints[1].x, u.waypoints[1].y, u.r)) {
+      u.waypoints.shift();
+    }
+
+    // Move along waypoints with radius-aware wall sliding
+    if (u.waypoints.length > 0) {
+      const wp = u.waypoints[0];
+      const dx = wp.x - u.x, dy = wp.y - u.y;
+      const d = Math.hypot(dx, dy);
+      if (d < 3) {
+        u.waypoints.shift();
+      } else {
+        const spd = Math.min(u.speed * dt, d);
+        u.vx = dx / d * spd;
+        u.vy = dy / d * spd;
+        const prevX = u.x, prevY = u.y;
+        u.x += u.vx;
+        u.y += u.vy;
+        // Radius-aware wall resolution with sliding
+        if (unitInWall(u)) {
+          u.x = prevX;              // try reverting X only (slide along Y)
+          if (unitInWall(u)) {
+            u.x += u.vx; u.y = prevY; // try reverting Y only (slide along X)
+            if (unitInWall(u)) {
+              u.x = prevX; u.y = prevY; // full stop
+            }
+          }
+        }
+      }
+    } else {
+      u.vx = 0; u.vy = 0;
+    }
+
+    // Win/loss checks
+    if (u.team === 'enemy' && u.x < LZ * TS) {
+      endGame(false, 'Enemy reached your base!');
+      return;
+    }
+  }
+
+  // Soft separation (same-team units push apart)
+  for (let i = 0; i < units.length; i++) {
+    const a = units[i];
+    if (a.hp <= 0) continue;
+    for (let j = i + 1; j < units.length; j++) {
+      const b = units[j];
+      if (b.hp <= 0 || a.team !== b.team) continue;
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const d = Math.hypot(dx, dy);
+      const minD = a.r + b.r + 1;
+      if (d < minD && d > 0.01) {
+        const push = (minD - d) * 0.35;
+        a.x -= dx / d * push; a.y -= dy / d * push;
+        b.x += dx / d * push; b.y += dy / d * push;
+      }
+    }
+  }
+
+  // Projectiles
+  const deadProj = new Set();
+  for (let i = 0; i < projs.length; i++) {
+    const p = projs[i];
+    p.x += p.vx * dt; p.y += p.vy * dt;
+    p.traveled += Math.hypot(p.vx * dt, p.vy * dt);
+    if (p.traveled > p.maxDist || p.x < 0 || p.x > W || p.y < 0 || p.y > H) {
+      deadProj.add(i); continue;
+    }
+    // Wall collision
+    const pc = Math.floor(p.x / TS), pr = Math.floor(p.y / TS);
+    if (pc >= 0 && pc < COLS && pr >= 0 && pr < ROWS && grid[pr][pc] === 1) {
+      deadProj.add(i); continue;
+    }
+    // Unit collision
+    for (const u of units) {
+      if (u.team === p.team || u.hp <= 0) continue;
+      if (Math.hypot(u.x - p.x, u.y - p.y) < u.r + 3) {
+        u.hp -= p.dmg;
+        deadProj.add(i);
+        if (u.hp <= 0 && u.team === 'enemy') { kills++; gold += 25; }
+        break;
+      }
+    }
+  }
+  projs = projs.filter((_, i) => !deadProj.has(i));
+
+  // Remove dead units
+  units = units.filter(u => u.hp > 0);
+  // Deselect dead
+  for (const id of selected) {
+    if (!units.find(u => u.id === id)) selected.delete(id);
+  }
+
+  // Check victory
+  if (!gameOver && !units.some(u => u.team === 'enemy')) {
+    endGame(true, 'VICTORY — All enemies eliminated!');
+  }
+
+  updateHud();
+}
+
+function endGame(win, msg) {
+  gameOver = true; gameWin = win; gameMsg = msg;
+}
+
+// ── rendering ──────────────────────────────────────────────────────────────────
+// Pre-compute floor tile shading
+let floorColors = null;
+function buildFloorColors() {
+  floorColors = Array.from({length: ROWS}, (_, r) =>
+    Array.from({length: COLS}, (_, c) => {
+      const h = ((c * 2654435761) ^ (r * 2246822519)) >>> 0;
+      const v = 18 + (h & 7);
+      return `rgb(${v},${v+3},${v-3})`;
+    })
+  );
+}
+
+function drawMap() {
+  if (!floorColors) buildFloorColors();
+
+  // Floor tiles
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if (grid[row][col] === 0) {
+        ctx.fillStyle = floorColors[row][col];
+        ctx.fillRect(col * TS, row * TS, TS, TS);
+      }
+    }
+  }
+
+  // Spawn zone tints
+  ctx.fillStyle = 'rgba(30,60,180,.09)';
+  ctx.fillRect(0, 0, LZ * TS, H);
+  ctx.fillStyle = 'rgba(180,30,30,.09)';
+  ctx.fillRect((COLS - RZ) * TS, 0, RZ * TS, H);
+
+  // Wall tiles
+  for (let row = 0; row < ROWS; row++) {
+    for (let col = 0; col < COLS; col++) {
+      if (grid[row][col] === 1) {
+        const x = col * TS, y = row * TS;
+        ctx.fillStyle = '#252018';
+        ctx.fillRect(x, y, TS, TS);
+        // top edge highlight
+        ctx.fillStyle = '#33291e';
+        ctx.fillRect(x, y, TS, 2);
+        // left edge
+        ctx.fillStyle = '#2e2419';
+        ctx.fillRect(x, y, 2, TS);
+      }
+    }
+  }
+
+  // Subtle grid lines
+  ctx.strokeStyle = 'rgba(255,255,255,.018)';
+  ctx.lineWidth = 0.5;
+  for (let c = 0; c <= COLS; c++) {
+    ctx.beginPath(); ctx.moveTo(c * TS, 0); ctx.lineTo(c * TS, H); ctx.stroke();
+  }
+  for (let r = 0; r <= ROWS; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r * TS); ctx.lineTo(W, r * TS); ctx.stroke();
+  }
+
+  // Zone labels
+  ctx.save();
+  ctx.font = '8px "IBM Plex Mono", monospace';
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(80,130,220,.38)';
+  ctx.fillText('BASE', LZ / 2 * TS, H / 2 - 6);
+  ctx.fillText('▶', LZ / 2 * TS, H / 2 + 8);
+  ctx.fillStyle = 'rgba(220,80,80,.30)';
+  ctx.fillText('ENEMY', (COLS - RZ / 2) * TS, H / 2 - 6);
+  ctx.fillText('◀', (COLS - RZ / 2) * TS, H / 2 + 8);
+  ctx.restore();
+}
+
+function drawUnit(u) {
+  const {x, y, r, col, hp, maxHp} = u;
+  const isSel = selected.has(u.id);
+
+  // Selection ring
+  if (isSel) {
+    ctx.strokeStyle = '#ccf73f';
+    ctx.lineWidth = 1.5;
+    ctx.setLineDash([4, 3]);
+    ctx.beginPath(); ctx.arc(x, y, r + 4, 0, Math.PI * 2); ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,.28)';
+  ctx.beginPath(); ctx.ellipse(x, y + r * 0.55, r * 0.85, r * 0.3, 0, 0, Math.PI * 2); ctx.fill();
+
+  // Body
+  ctx.fillStyle = col;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+
+  // Rim
+  ctx.strokeStyle = 'rgba(255,255,255,.18)';
+  ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.stroke();
+
+  // Inner glint
+  ctx.fillStyle = 'rgba(255,255,255,.16)';
+  ctx.beginPath(); ctx.arc(x - r * 0.28, y - r * 0.28, r * 0.42, 0, Math.PI * 2); ctx.fill();
+
+  // Type letter
+  ctx.fillStyle = 'rgba(255,255,255,.72)';
+  ctx.font = `bold ${Math.max(7, r - 1)}px "IBM Plex Mono", monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(u.name[0], x, y + 0.5);
+  ctx.textBaseline = 'alphabetic';
+
+  // Small movement arrow pointing toward first waypoint
+  if (u.waypoints.length > 0) {
+    const wp = u.waypoints[0];
+    const dx = wp.x - x, dy = wp.y - y;
+    const d = Math.hypot(dx, dy);
+    if (d > 4) {
+      ctx.strokeStyle = 'rgba(255,255,255,.55)';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      ctx.moveTo(x + dx / d * (r + 1), y + dy / d * (r + 1));
+      ctx.lineTo(x + dx / d * (r + 6), y + dy / d * (r + 6));
+      ctx.stroke();
+    }
+  }
+
+  // HP bar
+  const bw = r * 2.4, bh = 3;
+  const bx = x - bw / 2, by = y - r - 8;
+  ctx.fillStyle = 'rgba(0,0,0,.55)';
+  ctx.fillRect(bx, by, bw, bh);
+  const pct = hp / maxHp;
+  ctx.fillStyle = pct > 0.6 ? '#44cc55' : pct > 0.3 ? '#ccaa22' : '#dd3333';
+  ctx.fillRect(bx, by, bw * pct, bh);
+}
+
+function drawAttackLine(u) {
+  if (!selected.has(u.id)) return;
+  ctx.strokeStyle = 'rgba(204,247,63,.10)';
+  ctx.lineWidth = 0.8;
+  ctx.setLineDash([3, 5]);
+  ctx.beginPath(); ctx.arc(u.x, u.y, u.range, 0, Math.PI * 2); ctx.stroke();
+  ctx.setLineDash([]);
+}
+
+function drawPaths() {
+  for (const u of units) {
+    if (u.team !== 'player' || u.waypoints.length === 0 || u.hp <= 0) continue;
+    const isSelected = selected.has(u.id);
+    // Path line colour: brighter for selected units, dimmer for unselected
+    ctx.strokeStyle = isSelected ? 'rgba(204,247,63,.55)' : 'rgba(100,180,255,.32)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([4, 5]);
+    ctx.beginPath();
+    ctx.moveTo(u.x, u.y);
+    for (const wp of u.waypoints) ctx.lineTo(wp.x, wp.y);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    // Destination marker
+    const last = u.waypoints[u.waypoints.length - 1];
+    ctx.strokeStyle = isSelected ? 'rgba(204,247,63,.70)' : 'rgba(100,180,255,.45)';
+    ctx.lineWidth = 1.5;
+    const ms = 4;
+    ctx.beginPath();
+    ctx.moveTo(last.x - ms, last.y - ms); ctx.lineTo(last.x + ms, last.y + ms);
+    ctx.moveTo(last.x + ms, last.y - ms); ctx.lineTo(last.x - ms, last.y + ms);
+    ctx.stroke();
+  }
+}
+
+function drawBoxSel() {
+  if (!boxSel) return;
+  const {x0, y0, x1, y1} = boxSel;
+  const lx = Math.min(x0, x1), ly = Math.min(y0, y1);
+  const rx = Math.max(x0, x1), ry = Math.max(y0, y1);
+  ctx.fillStyle = 'rgba(204,247,63,.04)';
+  ctx.fillRect(lx, ly, rx - lx, ry - ly);
+  ctx.strokeStyle = '#ccf73f';
+  ctx.lineWidth = 1;
+  ctx.setLineDash([4, 3]);
+  ctx.strokeRect(lx, ly, rx - lx, ry - ly);
+  ctx.setLineDash([]);
+}
+
+function drawProjs() {
+  for (const p of projs) {
+    ctx.fillStyle = p.team === 'player' ? '#aaee55' : '#ff8833';
+    ctx.beginPath(); ctx.arc(p.x, p.y, 2.5, 0, Math.PI * 2); ctx.fill();
+    // Tracer tail
+    ctx.strokeStyle = p.team === 'player' ? 'rgba(160,220,70,.4)' : 'rgba(255,140,40,.35)';
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    ctx.lineTo(p.x - p.vx * 0.025, p.y - p.vy * 0.025);
+    ctx.stroke();
+  }
+}
+
+function drawGameOver() {
+  if (!gameOver) return;
+  ctx.fillStyle = 'rgba(0,0,0,.62)';
+  ctx.fillRect(0, 0, W, H);
+  ctx.textAlign = 'center';
+  ctx.font = 'bold 26px "IBM Plex Mono", monospace';
+  ctx.fillStyle = gameWin ? '#ccf73f' : '#ff4444';
+  ctx.fillText(gameMsg, W / 2, H / 2 - 10);
+  ctx.font = '12px "IBM Plex Mono", monospace';
+  ctx.fillStyle = 'rgba(200,200,200,.45)';
+  ctx.fillText('Press R to play again', W / 2, H / 2 + 18);
+}
+
+function render() {
+  ctx.clearRect(0, 0, W, H);
+  drawMap();
+  // Range rings for selected
+  for (const u of units) if (u.hp > 0) drawAttackLine(u);
+  drawPaths();
+  drawProjs();
+  for (const u of units) if (u.hp > 0) drawUnit(u);
+  drawBoxSel();
+  drawGameOver();
+}
+
+// ── HUD / info bar ─────────────────────────────────────────────────────────────
+function updateHud() {
+  document.getElementById('hud-gold').textContent  = gold;
+  document.getElementById('hud-kills').textContent = kills;
+  document.getElementById('hud-units').textContent = units.filter(u => u.team === 'player').length;
+  for (const btn of document.querySelectorAll('.spawn-btn')) {
+    btn.disabled = gameOver || gold < TDEFS[btn.dataset.type].cost;
+  }
+  updateInfoBar();
+}
+
+function updateInfoBar() {
+  const bar = document.getElementById('info-bar');
+  const sel = units.filter(u => selected.has(u.id) && u.hp > 0);
+  if (sel.length === 0) {
+    bar.textContent = 'Click to select · Drag to box-select · Right-click to move · U Soldier  I Archer  O Tank  P Scout';
+  } else if (sel.length === 1) {
+    const u = sel[0];
+    bar.textContent = `${u.name.toUpperCase()} — HP ${u.hp}/${u.maxHp}  SPD ${u.speed}  RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate.toFixed(1)}/s`;
+  } else {
+    bar.textContent = `${sel.length} units selected · Right-click to move all`;
+  }
+}
+
+// ── input ──────────────────────────────────────────────────────────────────────
+canvas.addEventListener('contextmenu', e => e.preventDefault());
+
+canvas.addEventListener('mousedown', e => {
+  if (gameOver) return;
+  const {x, y} = canvasXY(e);
+  mouseDown = true; mouseBtn = e.button;
+  mxDown = x; myDown = y;
+
+  if (e.button === 2) {
+    // Move selected units to right-clicked tile
+    if (selected.size === 0) return;
+    const gc = Math.floor(x / TS), gr = Math.floor(y / TS);
+    let spread = 0;
+    for (const id of selected) {
+      const u = units.find(u => u.id === id);
+      if (!u) continue;
+      const sc = Math.floor(u.x / TS), sr = Math.floor(u.y / TS);
+      // Offset each unit slightly so they don't stack on same tile
+      const offC = spread % 3 - 1, offR = Math.floor(spread / 3) - 1;
+      const tgc = Math.max(0, Math.min(COLS - 1, gc + offC));
+      const tgr = Math.max(0, Math.min(ROWS - 1, gr + offR));
+      const path = aStar(sc, sr, tgc, tgr);
+      if (path) u.waypoints = pathToWaypoints(path);
+      spread++;
+    }
+  } else if (e.button === 0) {
+    boxSel = {x0: x, y0: y, x1: x, y1: y};
+  }
+});
+
+canvas.addEventListener('mousemove', e => {
+  if (!mouseDown || mouseBtn !== 0 || !boxSel) return;
+  const {x, y} = canvasXY(e);
+  boxSel.x1 = x; boxSel.y1 = y;
+
+  // Live box selection
+  if (Math.hypot(x - mxDown, y - myDown) > 6) {
+    const lx = Math.min(boxSel.x0, x), rx = Math.max(boxSel.x0, x);
+    const ly = Math.min(boxSel.y0, y), ry = Math.max(boxSel.y0, y);
+    selected.clear();
+    for (const u of units) {
+      if (u.team !== 'player' || u.hp <= 0) continue;
+      if (u.x >= lx && u.x <= rx && u.y >= ly && u.y <= ry) selected.add(u.id);
+    }
+    updateInfoBar();
+  }
+});
+
+canvas.addEventListener('mouseup', e => {
+  if (!mouseDown) return;
+  const {x, y} = canvasXY(e);
+  const isDrag = Math.hypot(x - mxDown, y - myDown) > 6;
+
+  if (e.button === 0) {
+    if (!isDrag) {
+      if (!e.shiftKey) selected.clear();
+      for (const u of units) {
+        if (u.team !== 'player' || u.hp <= 0) continue;
+        if (Math.hypot(u.x - x, u.y - y) <= u.r + 3) { selected.add(u.id); break; }
+      }
+      updateInfoBar();
+    }
+    boxSel = null;
+  }
+  mouseDown = false; mouseBtn = -1;
+});
+
+window.addEventListener('keydown', e => {
+  if (e.key === 'r' || e.key === 'R') { if (gameOver) restart(); return; }
+  if (gameOver) return;
+  const map = {u:'soldier', i:'archer', o:'tank', p:'scout'};
+  if (map[e.key]) spawnPlayer(map[e.key]);
+});
+
+for (const btn of document.querySelectorAll('.spawn-btn')) {
+  btn.addEventListener('click', () => spawnPlayer(btn.dataset.type));
+}
+
+// ── main loop ──────────────────────────────────────────────────────────────────
+function loop(t) {
+  const dt = Math.min((t - lastT) / 1000, 0.05);
+  lastT = t;
+  update(dt);
+  render();
+  requestAnimationFrame(loop);
+}
+
+// ── init / restart ─────────────────────────────────────────────────────────────
+function restart() {
+  units = []; projs = []; selected.clear();
+  gold = 300; kills = 0; gameOver = false; gameWin = false; gameMsg = '';
+  floorColors = null;
+  generateMap();
+  placeEnemies();
+  updateHud();
+}
+
+function init() {
+  generateMap();
+  placeEnemies();
+  resizeCanvas();
+  updateHud();
+  window.addEventListener('resize', resizeCanvas);
+  requestAnimationFrame(t => { lastT = t; requestAnimationFrame(loop); });
+}
+
+init();
+})();
+</script>
+</body>
+</html>

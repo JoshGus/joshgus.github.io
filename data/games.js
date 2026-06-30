@@ -135,6 +135,42 @@ const PIXEL_SIM_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200
   <rect x="172" y="105" width="8" height="8" fill="rgba(76,70,66,.85)" rx="1"/>
 </svg>`;
 
+const RTS_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- ground -->
+  <rect width="200" height="120" fill="#141c0a"/>
+  <!-- walls -->
+  <rect x="60" y="18" width="12" height="36" fill="#252018"/>
+  <rect x="60" y="66" width="12" height="28" fill="#252018"/>
+  <rect x="100" y="10" width="12" height="28" fill="#252018"/>
+  <rect x="100" y="72" width="12" height="30" fill="#252018"/>
+  <rect x="140" y="22" width="12" height="32" fill="#252018"/>
+  <rect x="140" y="68" width="12" height="24" fill="#252018"/>
+  <!-- player zone tint -->
+  <rect x="0" y="0" width="40" height="120" fill="rgba(40,80,200,.07)"/>
+  <!-- enemy zone tint -->
+  <rect x="160" y="0" width="40" height="120" fill="rgba(200,40,40,.07)"/>
+  <!-- player units (blue) -->
+  <circle cx="24" cy="38" r="7" fill="#4488ee"/>
+  <circle cx="24" cy="38" r="7" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+  <circle cx="24" cy="72" r="6" fill="#55bbff"/>
+  <circle cx="24" cy="72" r="6" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+  <circle cx="14" cy="55" r="10" fill="#2255cc"/>
+  <circle cx="14" cy="55" r="10" stroke="rgba(255,255,255,.18)" stroke-width="1"/>
+  <!-- enemy units (red) -->
+  <circle cx="176" cy="35" r="7" fill="#ee4444"/>
+  <circle cx="176" cy="35" r="7" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+  <circle cx="184" cy="70" r="6" fill="#ff8833"/>
+  <circle cx="184" cy="70" r="6" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+  <circle cx="175" cy="85" r="10" fill="#bb2222"/>
+  <circle cx="175" cy="85" r="10" stroke="rgba(255,255,255,.14)" stroke-width="1"/>
+  <!-- projectiles -->
+  <circle cx="85" cy="55" r="2.5" fill="#aaee55"/>
+  <circle cx="115" cy="42" r="2" fill="#ff8833"/>
+  <circle cx="50" cy="55" r="2" fill="#aaee55"/>
+  <!-- selection ring on tank -->
+  <circle cx="14" cy="55" r="14" stroke="#ccf73f" stroke-width="1.5" stroke-dasharray="4 3"/>
+</svg>`;
+
 const BOIDS_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
   <polygon points="9,0 -4,-3.5 -4,3.5" fill="rgba(220,230,255,.88)" transform="translate(120,35) rotate(40)"/>
   <polygon points="9,0 -4,-3.5 -4,3.5" fill="rgba(215,228,255,.86)" transform="translate(132,28) rotate(38)"/>
@@ -239,6 +275,19 @@ export const CARDS = [
     credit: 'Inspired by <a href="https://dan-ball.jp/en/javagame/dust/" target="_blank" rel="noopener">Powder Game</a> and Noita',
     ctaFull: 'Open sim',
     ctaShort: 'Open'
+  },
+  {
+    id: 'rts',
+    type: 'game',
+    title: 'Frontline',
+    descShort: 'Procedural-map RTS. Spawn units, command them through ruins, wipe the enemy base.',
+    descFull: 'Mini top-down RTS with procedurally generated wall maps. Spawn soldiers, archers, tanks, and scouts — select and right-click to move. Enemies advance when you get close. Each map is freshly generated.',
+    href: 'rts.html',
+    thumbBg: 'linear-gradient(160deg,#0b0e07,#141c0a)',
+    thumbSvg: RTS_SVG,
+    stack: ['Canvas', 'A*', 'JS'],
+    ctaFull: 'Play',
+    ctaShort: 'Play'
   },
   {
     id: 'boids',
