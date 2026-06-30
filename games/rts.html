@@ -45,36 +45,37 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
   padding:2px 6px;cursor:pointer;transition:all .12s;text-transform:uppercase;
 }
 .diff-btn.active{background:rgba(45,75,18,.9);border-color:rgba(100,170,45,.55);color:#ccf73f}
-/* sel panel */
 #sel-panel{
-  width:100%;height:80px;flex-shrink:0;
+  width:100%;height:82px;flex-shrink:0;
   background:rgba(5,8,3,.98);border-top:1px solid rgba(55,90,22,.3);
   display:flex;align-items:stretch;overflow:hidden;box-sizing:border-box;
 }
 #sel-portrait{
   width:68px;flex-shrink:0;display:grid;place-items:center;
-  border-right:1px solid rgba(55,90,22,.22);font-family:var(--mono);
+  border-right:1px solid rgba(55,90,22,.2);
 }
-#sel-center{flex:1;padding:8px 14px;display:flex;flex-direction:column;justify-content:center;gap:3px;overflow:hidden}
-#sel-title{font-family:var(--mono);font-size:.7rem;font-weight:700;color:rgba(195,230,110,.9);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#sel-center{flex:1;padding:7px 14px;display:flex;flex-direction:column;justify-content:center;gap:2px;overflow:hidden;min-width:0}
+#sel-title{font-family:var(--mono);font-size:.68rem;font-weight:700;color:rgba(195,230,110,.9);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sel-body{font-family:var(--mono);font-size:.5rem;color:rgba(120,170,60,.6);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#sel-status{font-family:var(--mono);font-size:.46rem;color:rgba(200,180,60,.5);letter-spacing:.04em}
+#sel-status{font-family:var(--mono);font-size:.44rem;color:rgba(190,170,55,.5);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sel-cmd{
-  padding:8px 12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap;
-  border-left:1px solid rgba(55,90,22,.22);min-width:180px;max-width:320px;
+  padding:6px 10px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;align-content:center;
+  border-left:1px solid rgba(55,90,22,.2);min-width:160px;max-width:460px;overflow:hidden;
 }
 .cmd-btn{
   background:rgba(18,34,9,.9);border:1px solid rgba(60,110,30,.38);
-  color:rgba(160,220,70,.85);font-family:var(--mono);font-size:.5rem;
-  padding:5px 11px;cursor:pointer;transition:all .12s;text-transform:uppercase;letter-spacing:.04em;
+  color:rgba(160,220,70,.85);font-family:var(--mono);font-size:.48rem;
+  padding:4px 9px;cursor:pointer;transition:all .12s;text-transform:uppercase;letter-spacing:.04em;white-space:nowrap;
 }
 .cmd-btn:hover:not(:disabled){background:rgba(35,65,16,.95);border-color:rgba(100,170,45,.6);color:#ccf73f}
-.cmd-btn:disabled{opacity:.28;cursor:default}
-.cmd-btn.active-mode{border-color:rgba(200,175,30,.7);color:#ffdd44;background:rgba(50,40,8,.9)}
+.cmd-btn:disabled{opacity:.25;cursor:default}
+.cmd-btn.on{border-color:rgba(200,175,30,.7);color:#ffdd44;background:rgba(50,40,8,.9)}
 .cmd-btn.red{border-color:rgba(180,50,30,.5);color:rgba(220,100,80,.8)}
 .cmd-btn.red:hover:not(:disabled){border-color:rgba(220,80,55,.7);color:#ff8866;background:rgba(50,12,8,.9)}
-/* build mode cursor */
-body.build-mode #canvas{cursor:cell}
+.cmd-btn.upg{border-color:rgba(80,140,200,.4);color:rgba(140,200,240,.8)}
+.cmd-btn.upg:hover:not(:disabled){border-color:rgba(100,180,240,.6);color:#88ddff;background:rgba(8,30,50,.9)}
+.cmd-btn.owned{border-color:rgba(80,200,80,.35);color:rgba(120,220,120,.6);cursor:default;opacity:.7}
+body.build-mode #canvas{cursor:cell!important}
 </style>
 </head>
 <body class="noise">
@@ -102,7 +103,7 @@ body.build-mode #canvas{cursor:cell}
     <div class="hud-stat"><div class="hud-val" id="hud-units">0</div><div class="hud-lbl">Troops</div></div>
     <div class="hud-sep"></div>
     <div class="hud-stat">
-      <div class="diff-btns" id="diff-btns">
+      <div class="diff-btns">
         <button class="diff-btn active" data-diff="easy">Easy</button>
         <button class="diff-btn" data-diff="medium">Med</button>
         <button class="diff-btn" data-diff="hard">Hard</button>
@@ -110,12 +111,12 @@ body.build-mode #canvas{cursor:cell}
       <div class="hud-lbl">Difficulty</div>
     </div>
     <div class="spawn-btns">
-      <button class="spawn-btn" data-type="soldier"><span class="key">[U]</span> Soldier <span class="cost">50g</span></button>
-      <button class="spawn-btn" data-type="archer"><span class="key">[I]</span> Archer <span class="cost">80g</span></button>
-      <button class="spawn-btn" data-type="tank"><span class="key">[O]</span> Tank <span class="cost">150g</span></button>
-      <button class="spawn-btn" data-type="scout"><span class="key">[P]</span> Scout <span class="cost">35g</span></button>
-      <button class="spawn-btn" data-type="sniper"><span class="key">[Y]</span> Sniper <span class="cost">100g</span></button>
-      <button class="spawn-btn gb" data-type="gatherer"><span class="key">[G]</span> Gather <span class="cost">50g</span></button>
+      <button class="spawn-btn" data-type="soldier"><span class="key">[U]</span>Soldier<span class="cost">50g</span></button>
+      <button class="spawn-btn" data-type="archer"><span class="key">[I]</span>Archer<span class="cost">80g</span></button>
+      <button class="spawn-btn" data-type="tank"><span class="key">[O]</span>Tank<span class="cost">150g</span></button>
+      <button class="spawn-btn" data-type="scout"><span class="key">[P]</span>Scout<span class="cost">35g</span></button>
+      <button class="spawn-btn" data-type="sniper"><span class="key">[Y]</span>Sniper<span class="cost">100g</span></button>
+      <button class="spawn-btn gb" data-type="gatherer"><span class="key">[G]</span>Gather<span class="cost">50g</span></button>
     </div>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
@@ -123,7 +124,7 @@ body.build-mode #canvas{cursor:cell}
     <div id="sel-portrait"></div>
     <div id="sel-center">
       <div id="sel-title">No selection</div>
-      <div id="sel-body">Click or drag to select · Right-click to move</div>
+      <div id="sel-body">Click/drag to select · Right-click to move · U I O P Y G = spawn</div>
       <div id="sel-status"></div>
     </div>
     <div id="sel-cmd"></div>
@@ -133,72 +134,90 @@ body.build-mode #canvas{cursor:cell}
 <script>
 (function(){
 'use strict';
-
 // ── constants ──────────────────────────────────────────────────────────────────
-const TS=16, COLS=110, ROWS=64;
-const W=COLS*TS, H=ROWS*TS; // 1760 × 1024
-const LZ=14, RZ=14;
-
-// Base geometry (tile coords)
-const PB_C=3, PB_R=27, PB_W=5, PB_H=10;    // player base
-const EB_C=COLS-8, EB_R=27, EB_W=5, EB_H=10; // enemy base
-const GATE_R=Math.floor(ROWS/2); // gate center row = 32
-const P_GATE_X=(PB_C+PB_W)*TS;  // 128
-const P_GATE_Y=(GATE_R+0.5)*TS;
-const E_GATE_X=EB_C*TS;          // 1632
-const E_GATE_Y=(GATE_R+0.5)*TS;
-
-const P_SPAWN_C=PB_C+PB_W+1, P_SPAWN_R=GATE_R;   // col 9, row 32
-const E_SPAWN_C=EB_C-2,       E_SPAWN_R=GATE_R;   // col 100, row 32
-
-const BASE_MAX_HP=500, EBASE_MAX_HP=400;
-const BASE_RANGE=155, BASE_DMG=20, BASE_RATE=0.7;
-
-const MINE_RATE=10, CARRY_MAX=50;
+const TS=16,COLS=110,ROWS=64,W=COLS*TS,H=ROWS*TS;
+const LZ=14,RZ=14;
+const PB_C=3,PB_R=27,PB_W=5,PB_H=10;
+const EB_C=COLS-8,EB_R=27,EB_W=5,EB_H=10;
+const GATE_R=Math.floor(ROWS/2);
+const P_GATE_X=(PB_C+PB_W)*TS, P_GATE_Y=(GATE_R+.5)*TS;
+const E_GATE_X=EB_C*TS,         E_GATE_Y=(GATE_R+.5)*TS;
+const P_SPAWN_C=PB_C+PB_W+1, P_SPAWN_R=GATE_R;
+const E_SPAWN_C=EB_C-2,       E_SPAWN_R=GATE_R;
+const BASE_MAX_HP=500,EBASE_MAX_HP=400;
+const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
+const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MAX_DEPOSITS=7;
-const TOWER_BUILD_COST=80, TOWER_BUILD_TIME=14;
 
 // ── difficulty ─────────────────────────────────────────────────────────────────
-const DIFF_CFG={
-  easy:  {playerIncome:3,  enemyIncome:2,   spawnCd:14, pool:['soldier','soldier','scout','scout']},
-  medium:{playerIncome:2.5,enemyIncome:3.5, spawnCd:9,  pool:['soldier','archer','scout','tank']},
-  hard:  {playerIncome:2,  enemyIncome:5.5, spawnCd:5,  pool:['archer','tank','tank','soldier','sniper']},
+const DIFF={
+  easy:  {pInc:3,  eInc:2,   spawnCd:14, pool:['soldier','soldier','scout']},
+  medium:{pInc:2.5,eInc:3.5, spawnCd:9,  pool:['soldier','archer','scout','tank']},
+  hard:  {pInc:2,  eInc:5.5, spawnCd:5,  pool:['archer','tank','tank','sniper']},
 };
 
-// ── unit defs ──────────────────────────────────────────────────────────────────
+// ── unit / building defs ───────────────────────────────────────────────────────
 const TDEFS={
-  soldier:{name:'Soldier',cost:50, maxHp:100,speed:44, range:58, dmg:12,rate:0.9, r:7, pcol:'#4488ee',ecol:'#ee4444'},
-  archer: {name:'Archer', cost:80, maxHp:58, speed:33, range:140,dmg:20,rate:0.55,r:6, pcol:'#55bbff',ecol:'#ff8833'},
-  tank:   {name:'Tank',   cost:150,maxHp:290,speed:22, range:90, dmg:32,rate:0.42,r:11,pcol:'#2255cc',ecol:'#bb2222'},
-  scout:  {name:'Scout',  cost:35, maxHp:44, speed:72, range:36, dmg:7, rate:1.6, r:5, pcol:'#88ddff',ecol:'#ffbb33'},
-  sniper: {name:'Sniper', cost:100,maxHp:52, speed:28, range:200,dmg:50,rate:0.28,r:6, pcol:'#22ccdd',ecol:'#dd2222'},
-  gatherer:{name:'Gather',cost:50, maxHp:65, speed:58, range:0,  dmg:0, rate:0,   r:6, pcol:'#ddcc33',ecol:'#cc8833'},
-  tower:  {name:'Tower',  cost:0,  maxHp:280,speed:0,  range:120,dmg:22,rate:0.75,r:12,pcol:'#88aa55',ecol:'#aa5533'},
-  outpost:{name:'Outpost',cost:0,  maxHp:160,speed:0,  range:115,dmg:14,rate:0.6, r:9, pcol:'#558855',ecol:'#774444'},
+  soldier: {name:'Soldier', cost:50, maxHp:100,speed:44,range:58, dmg:12,rate:.9, r:7, pcol:'#4488ee',ecol:'#ee4444'},
+  archer:  {name:'Archer',  cost:80, maxHp:58, speed:33,range:140,dmg:20,rate:.55,r:6, pcol:'#55bbff',ecol:'#ff8833'},
+  tank:    {name:'Tank',    cost:150,maxHp:290,speed:22,range:90, dmg:32,rate:.42,r:11,pcol:'#2255cc',ecol:'#bb2222'},
+  scout:   {name:'Scout',   cost:35, maxHp:44, speed:72,range:36, dmg:7, rate:1.6,r:5, pcol:'#88ddff',ecol:'#ffbb33'},
+  sniper:  {name:'Sniper',  cost:100,maxHp:52, speed:28,range:200,dmg:50,rate:.28,r:6, pcol:'#22ccdd',ecol:'#dd2222'},
+  gatherer:{name:'Gather',  cost:50, maxHp:65, speed:58,range:0,  dmg:0, rate:0,  r:6, pcol:'#ddcc33',ecol:'#cc8833'},
+  tower:   {name:'Tower',   cost:0,  maxHp:280,speed:0, range:120,dmg:22,rate:.75,r:12,pcol:'#88aa55',ecol:'#aa5533'},
+  outpost: {name:'Outpost', cost:0,  maxHp:160,speed:0, range:115,dmg:14,rate:.6, r:9, pcol:'#558855',ecol:'#774444'},
+  barracks:{name:'Barracks',cost:0,  maxHp:320,speed:0, range:0,  dmg:0, rate:0,  r:15,pcol:'#446633',ecol:'#553322'},
+  mine:    {name:'Mine',    cost:0,  maxHp:200,speed:0, range:0,  dmg:0, rate:0,  r:12,pcol:'#664422',ecol:'#226644'},
+};
+const COMBAT_TYPES=['soldier','archer','tank','scout','sniper'];
+
+// ── construction defs ──────────────────────────────────────────────────────────
+const BDEFS={
+  'guard-tower':{cost:80, time:14,spawnAs:'tower',   label:'Guard Tower'},
+  'barracks':   {cost:150,time:25,spawnAs:'barracks', label:'Barracks'},
+  'mine':       {cost:100,time:20,spawnAs:'mine',     label:'Mine'},
 };
 
-// Construction defs
-const CDEFS={'guard-tower':{cost:TOWER_BUILD_COST,buildTime:TOWER_BUILD_TIME,spawnAs:'tower'}};
+// ── upgrades ───────────────────────────────────────────────────────────────────
+// bldg = which player building must exist to purchase
+const UPG={
+  fasterTools:{label:'Faster Tools',  desc:'+30% gather rate',    cost:120,done:false,bldg:'mine'},
+  bigCart:    {label:'Bigger Carts',  desc:'+25 carry capacity',  cost:80, done:false,bldg:'mine'},
+  autoDrill:  {label:'Auto Drill',    desc:'Mine: +4g/s passive', cost:180,done:false,bldg:'mine'},
+  ironBlades: {label:'Iron Blades',   desc:'+20% unit damage',    cost:200,done:false,bldg:'barracks'},
+  forgedArmor:{label:'Forged Armor',  desc:'+25% unit HP',        cost:220,done:false,bldg:'barracks'},
+  swiftBoots: {label:'Swift Boots',   desc:'+15% unit speed',     cost:160,done:false,bldg:'barracks'},
+};
+// helpers
+function mineRate(){ return MINE_RATE_BASE*(UPG.fasterTools.done?1.3:1); }
+function carryMax(){ return CARRY_BASE+(UPG.bigCart.done?25:0); }
+function applyUpg(def,team){
+  if(team!=='player')return def;
+  return{...def,
+    dmg:  UPG.ironBlades.done ?Math.round(def.dmg*1.2):def.dmg,
+    maxHp:UPG.forgedArmor.done?Math.round(def.maxHp*1.25):def.maxHp,
+    speed:UPG.swiftBoots.done ?Math.round(def.speed*1.15):def.speed,
+  };
+}
 
 // ── state ──────────────────────────────────────────────────────────────────────
-let grid=[], units=[], projs=[], deposits=[], constructions=[];
-let uid=0, selected=new Set();
-let gold=50, enemyGold=50, kills=0;
-let enemySpawnCd=6, depositSpawnTimer=40;
+let grid=[],units=[],projs=[],deposits=[],constructions=[];
+let uid=0,selected=new Set();
+let gold=50,enemyGold=50,kills=0;
+let enemySpawnCd=6,eGatherCd=20,depositSpawnTimer=40;
 let difficulty='easy';
-let playerBaseHp=BASE_MAX_HP, enemyBaseHp=EBASE_MAX_HP;
-let pBaseShotCd=0, eBaseShotCd=0;
-let gameOver=false, gameMsg='', gameWin=false;
-let boxSel=null, mxDown=0, myDown=0, mouseDown=false, mouseBtn=-1;
-let buildMode=null; // null | {type:'guard-tower'}
-let mousePosCanvas={x:0,y:0};
-let lastT=0, canvasScale=1;
-let floorColors=null;
+let playerBaseHp=BASE_MAX_HP,enemyBaseHp=EBASE_MAX_HP;
+let pBaseShotCd=0,eBaseShotCd=0;
+let gameOver=false,gameMsg='',gameWin=false;
+let boxSel=null,mxDown=0,myDown=0,mouseDown=false,mouseBtn=-1;
+let buildMode=null; // null | {type:'guard-tower'|'barracks'|'mine'}
+let mousePos={x:0,y:0};
+let lastT=0,canvasScale=1,floorColors=null;
 
 // ── canvas ─────────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
-canvas.width=W; canvas.height=H;
+canvas.width=W;canvas.height=H;
 
 function resizeCanvas(){
   const wrap=document.querySelector('.game-wrap');
@@ -208,102 +227,61 @@ function resizeCanvas(){
   canvas.style.width=Math.round(W*canvasScale)+'px';
   canvas.style.height=Math.round(H*canvasScale)+'px';
 }
-function canvasXY(e){
-  const r=canvas.getBoundingClientRect();
-  return{x:(e.clientX-r.left)/canvasScale,y:(e.clientY-r.top)/canvasScale};
-}
+function cxy(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/canvasScale,y:(e.clientY-r.top)/canvasScale};}
 
-// ── map generation ─────────────────────────────────────────────────────────────
-function mkRng(seed){let s=seed>>>0;return()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/0xffffffff;};}
+// ── map ────────────────────────────────────────────────────────────────────────
+function mkRng(s){s=s>>>0;return()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/0xffffffff;};}
 
 function generateMap(){
   const r=mkRng((Date.now()^0xdeadbeef)&0xffffff);
   grid=Array.from({length:ROWS},()=>new Uint8Array(COLS));
-  // Cellular automata in battle zone
-  for(let row=1;row<ROWS-1;row++)
-    for(let col=LZ;col<COLS-RZ;col++)
-      grid[row][col]=r()<0.43?1:0;
-  // Border walls
+  for(let row=1;row<ROWS-1;row++)for(let col=LZ;col<COLS-RZ;col++)grid[row][col]=r()<.43?1:0;
   for(let c=0;c<COLS;c++){grid[0][c]=1;grid[ROWS-1][c]=1;}
-  // Smooth passes
   for(let pass=0;pass<4;pass++){
     const ng=Array.from({length:ROWS},(_,row)=>new Uint8Array(grid[row]));
-    for(let row=1;row<ROWS-1;row++)
-      for(let col=LZ;col<COLS-RZ;col++){
-        let walls=0;
-        for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(grid[row+dr]?.[col+dc]===1)walls++;
-        ng[row][col]=walls>=5?1:0;
-      }
+    for(let row=1;row<ROWS-1;row++)for(let col=LZ;col<COLS-RZ;col++){
+      let w=0;for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++)if(grid[row+dr]?.[col+dc]===1)w++;
+      ng[row][col]=w>=5?1:0;
+    }
     grid=ng;
   }
-  // Clear spawn zones
-  for(let row=1;row<ROWS-1;row++){
-    for(let c=0;c<LZ;c++)grid[row][c]=0;
-    for(let c=COLS-RZ;c<COLS;c++)grid[row][c]=0;
-  }
-  // Three horizontal corridors
+  for(let row=1;row<ROWS-1;row++){for(let c=0;c<LZ;c++)grid[row][c]=0;for(let c=COLS-RZ;c<COLS;c++)grid[row][c]=0;}
   for(const lr of[Math.floor(ROWS*.25),Math.floor(ROWS*.5),Math.floor(ROWS*.75)])
     for(let c=LZ;c<COLS-RZ;c++){grid[Math.max(1,lr-1)][c]=0;grid[lr][c]=0;}
-  ensureConnectivity();
-  markBases();
-  floorColors=null;
-}
-
-function ensureConnectivity(){
+  // Connectivity
   const vis=Array.from({length:ROWS},()=>new Uint8Array(COLS));
-  const q=[{c:LZ,r:Math.floor(ROWS/2)}];
-  vis[Math.floor(ROWS/2)][LZ]=1;
-  let reached=false;
-  while(q.length){
-    const{c,r}=q.shift();
-    if(c>=COLS-RZ){reached=true;break;}
-    for(const[dc,dr]of[[1,0],[-1,0],[0,1],[0,-1]]){
-      const nc=c+dc,nr=r+dr;
-      if(nc<0||nc>=COLS||nr<0||nr>=ROWS||grid[nr][nc]!==0||vis[nr][nc])continue;
-      vis[nr][nc]=1;q.push({c:nc,r:nr});
-    }
-  }
-  if(!reached)for(let c=LZ;c<COLS-RZ;c++)grid[Math.floor(ROWS/2)][c]=0;
-}
-
-function markBases(){
-  // Mark base tiles as 2 (impassable structure, drawn separately)
-  for(let r=PB_R;r<PB_R+PB_H;r++)
-    for(let c=PB_C;c<PB_C+PB_W;c++){
-      // Leave 2-tile gate on right side of player base
-      if(c===PB_C+PB_W-1&&(r===GATE_R||r===GATE_R-1))continue;
-      grid[r][c]=2;
-    }
-  for(let r=EB_R;r<EB_R+EB_H;r++)
-    for(let c=EB_C;c<EB_C+EB_W;c++){
-      // Leave 2-tile gate on left side of enemy base
-      if(c===EB_C&&(r===GATE_R||r===GATE_R-1))continue;
-      grid[r][c]=2;
-    }
-  // Ensure gate adjacent tiles are open
-  for(const row of[GATE_R-1,GATE_R]){
-    grid[row][PB_C+PB_W]=0;  // just outside player gate
-    grid[row][EB_C-1]=0;      // just outside enemy gate
-  }
+  const q=[{c:LZ,r:Math.floor(ROWS/2)}];vis[Math.floor(ROWS/2)][LZ]=1;
+  let ok=false;
+  while(q.length){const{c,r}=q.shift();if(c>=COLS-RZ){ok=true;break;}
+    for(const[dc,dr]of[[1,0],[-1,0],[0,1],[0,-1]]){const nc=c+dc,nr=r+dr;
+      if(nc<0||nc>=COLS||nr<0||nr>=ROWS||grid[nr][nc]!==0||vis[nr][nc])continue;vis[nr][nc]=1;q.push({c:nc,r:nr});}}
+  if(!ok)for(let c=LZ;c<COLS-RZ;c++)grid[Math.floor(ROWS/2)][c]=0;
+  // Mark bases
+  for(let r=PB_R;r<PB_R+PB_H;r++)for(let c=PB_C;c<PB_C+PB_W;c++){
+    if(c===PB_C+PB_W-1&&(r===GATE_R||r===GATE_R-1))continue;grid[r][c]=2;}
+  for(let r=EB_R;r<EB_R+EB_H;r++)for(let c=EB_C;c<EB_C+EB_W;c++){
+    if(c===EB_C&&(r===GATE_R||r===GATE_R-1))continue;grid[r][c]=2;}
+  // Ensure gate adjacents are open
+  for(const row of[GATE_R-1,GATE_R]){grid[row][PB_C+PB_W]=0;grid[row][EB_C-1]=0;}
+  floorColors=null;
 }
 
 function placeDeposits(){
   const r=mkRng(Date.now()&0xfffff);
   const count=4+Math.floor(r()*3);
-  let attempts=0;
-  while(deposits.length<count&&attempts++<600){
+  for(let a=0;deposits.length<count&&a<600;a++){
     const col=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
     const row=2+Math.floor(r()*(ROWS-4));
     if(grid[row][col]!==0)continue;
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*8))continue;
-    const maxGold=160+Math.floor(r()*120);
-    deposits.push({x,y,gold:maxGold,maxGold,refillTimer:0});
+    const max=160+Math.floor(r()*120);
+    deposits.push({x,y,gold:max,max});
   }
   depositSpawnTimer=45+Math.random()*25;
 }
 
-function spawnDeposit(){
+function trySpawnDeposit(){
   const r=mkRng((Date.now()*Math.random()*999)&0xfffff);
   for(let a=0;a<200;a++){
     const col=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
@@ -311,80 +289,66 @@ function spawnDeposit(){
     if(grid[row][col]!==0)continue;
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*7))continue;
-    deposits.push({x,y,gold:0,maxGold:140+Math.floor(r()*100),refillTimer:0});
-    return;
+    deposits.push({x,y,gold:0,max:140+Math.floor(r()*100)});return;
   }
 }
 
-// ── A* ─────────────────────────────────────────────────────────────────────────
+// ── pathfinding ────────────────────────────────────────────────────────────────
 function tileBlocked(px,py){
   const c=Math.floor(px/TS),r=Math.floor(py/TS);
   return c<0||c>=COLS||r<0||r>=ROWS||grid[r][c]!==0;
 }
-function unitInWall(u){
-  const rr=u.r*0.78;
-  return tileBlocked(u.x,u.y)||tileBlocked(u.x-rr,u.y-rr)||tileBlocked(u.x+rr,u.y-rr)||
-         tileBlocked(u.x-rr,u.y+rr)||tileBlocked(u.x+rr,u.y+rr);
+function inWall(u,nx,ny){
+  const x=nx??u.x,y=ny??u.y,rr=u.r*.78;
+  return tileBlocked(x,y)||tileBlocked(x-rr,y-rr)||tileBlocked(x+rr,y-rr)||tileBlocked(x-rr,y+rr)||tileBlocked(x+rr,y+rr);
 }
-function unitInWallAt(u,nx,ny){const ou={...u,x:nx,y:ny};return unitInWall(ou);}
-function pushOutWall(u){
-  if(!unitInWall(u))return;
+function pushOut(u){
+  if(!inWall(u))return;
   const ox=u.x,oy=u.y;
-  for(let d=1;d<=12;d++){
-    for(let a=0;a<16;a++){
-      const ang=a/16*Math.PI*2;
-      u.x=ox+Math.cos(ang)*d*TS*0.5;
-      u.y=oy+Math.sin(ang)*d*TS*0.5;
-      if(!unitInWall(u))return;
-    }
+  for(let d=1;d<=12;d++)for(let a=0;a<16;a++){
+    const ang=a/16*Math.PI*2;
+    u.x=ox+Math.cos(ang)*d*TS*.5;u.y=oy+Math.sin(ang)*d*TS*.5;
+    if(!inWall(u))return;
   }
   u.x=ox;u.y=oy;
 }
-
 function canSeeR(x0,y0,x1,y1,radius){
-  const len=Math.hypot(x1-x0,y1-y0);
-  if(len<1)return true;
-  const steps=Math.ceil(len/(TS*0.55))+1;
-  const px=-(y1-y0)/len*(radius*0.72),py=(x1-x0)/len*(radius*0.72);
+  const len=Math.hypot(x1-x0,y1-y0);if(len<1)return true;
+  const steps=Math.ceil(len/(TS*.55))+1;
+  const px=-(y1-y0)/len*(radius*.72),py=(x1-x0)/len*(radius*.72);
   for(let i=1;i<=steps;i++){
     const t=i/steps,cx=x0+(x1-x0)*t,cy=y0+(y1-y0)*t;
     if(tileBlocked(cx,cy)||tileBlocked(cx+px,cy+py)||tileBlocked(cx-px,cy-py))return false;
   }
   return true;
 }
-
 function aStar(sc,sr,gc,gr){
   if(sc===gc&&sr===gr)return[];
-  // Snap goal to open tile if blocked
   if(gc<0||gc>=COLS||gr<0||gr>=ROWS||grid[gr][gc]!==0){
     let snapped=false;
-    outer:for(let d=1;d<=8;d++)
-      for(let dr=-d;dr<=d;dr++)for(let dc=-d;dc<=d;dc++){
-        if(Math.abs(dr)!==d&&Math.abs(dc)!==d)continue;
-        const nr=gr+dr,nc=gc+dc;
-        if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===0){gr=nr;gc=nc;snapped=true;break outer;}
-      }
+    outer:for(let d=1;d<=8;d++)for(let dr=-d;dr<=d;dr++)for(let dc=-d;dc<=d;dc++){
+      if(Math.abs(dr)!==d&&Math.abs(dc)!==d)continue;
+      const nr=gr+dr,nc=gc+dc;
+      if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===0){gr=nr;gc=nc;snapped=true;break outer;}
+    }
     if(!snapped)return null;
   }
-  const key=(c,r)=>r*COLS+c;
-  const h=(c,r)=>Math.abs(c-gc)+Math.abs(r-gr);
+  const key=(c,r)=>r*COLS+c,h=(c,r)=>Math.abs(c-gc)+Math.abs(r-gr);
   const sk=key(sc,sr),gk=key(gc,gr);
   const open=[{c:sc,r:sr,g:0,f:h(sc,sr)}];
-  const best=new Map([[sk,0]]);
-  const came=new Map([[sk,{c:sc,r:sr,pk:-1}]]);
-  const DIRS=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.41],[-1,1,1.41],[1,-1,1.41],[-1,-1,1.41]];
-  let iters=0;
-  while(open.length&&iters++<8000){
+  const best=new Map([[sk,0]]),came=new Map([[sk,{c:sc,r:sr,pk:-1}]]);
+  const D=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.41],[-1,1,1.41],[1,-1,1.41],[-1,-1,1.41]];
+  let iter=0;
+  while(open.length&&iter++<8000){
     let bi=0;for(let i=1;i<open.length;i++)if(open[i].f<open[bi].f)bi=i;
-    const cur=open.splice(bi,1)[0];
-    const curK=key(cur.c,cur.r);
+    const cur=open.splice(bi,1)[0],curK=key(cur.c,cur.r);
     if(cur.g>(best.get(curK)??Infinity))continue;
     if(curK===gk){
       const path=[];let k=gk;
       while(k!==sk){const n=came.get(k);path.unshift({c:n.c,r:n.r});k=n.pk;}
       return path;
     }
-    for(const[dc,dr,cost]of DIRS){
+    for(const[dc,dr,cost]of D){
       const nc=cur.c+dc,nr=cur.r+dr;
       if(nc<0||nc>=COLS||nr<0||nr>=ROWS||grid[nr][nc]!==0)continue;
       if(cost>1&&(grid[cur.r+dr]?.[cur.c]!==0||grid[cur.r]?.[cur.c+dc]!==0))continue;
@@ -396,46 +360,48 @@ function aStar(sc,sr,gc,gr){
   }
   return null;
 }
-function pathToWp(path){return(path||[]).map(p=>({x:p.c*TS+TS/2,y:p.r*TS+TS/2}));}
+function toWp(path){return(path||[]).map(p=>({x:p.c*TS+TS/2,y:p.r*TS+TS/2}));}
+function findOpenNear(c,r){
+  if(r>=0&&r<ROWS&&c>=0&&c<COLS&&grid[r][c]===0)return{c,r};
+  for(let d=1;d<=10;d++)for(let dr=-d;dr<=d;dr++)for(let dc=-d;dc<=d;dc++){
+    if(Math.abs(dr)!==d&&Math.abs(dc)!==d)continue;
+    const nr=r+dr,nc=c+dc;
+    if(nr>=0&&nr<ROWS&&nc>=0&&nc<COLS&&grid[nr][nc]===0)return{c:nc,r:nr};
+  }
+  return{c,r};
+}
 
 // ── unit factory ───────────────────────────────────────────────────────────────
 function makeUnit(type,team,col,row){
-  const def=TDEFS[type];
+  const raw=TDEFS[type];
+  const def=(team==='player'&&COMBAT_TYPES.includes(type))?applyUpg(raw,team):raw;
   const u={
     id:uid++,type,team,
     x:col*TS+TS/2,y:row*TS+TS/2,
     hp:def.maxHp,maxHp:def.maxHp,
     speed:def.speed,range:def.range,dmg:def.dmg,rate:def.rate,r:def.r,
     col:team==='player'?def.pcol:def.ecol,name:def.name,
-    waypoints:[],shotCd:def.rate>0?Math.random()/def.rate:1,
+    waypoints:[],shotCd:def.rate>0?Math.random()/def.rate:.5,
     aiCd:Math.random()*2,vx:0,vy:0,
   };
-  if(type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDeposit=-1;u.targetConId=-1;}
-  if(type==='tower'||type==='outpost')u.isBuilding=true;
+  if(type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;}
+  if(['tower','outpost','barracks','mine'].includes(type))u.isBuilding=true;
   return u;
 }
 
-function makePerimeterTower(team,col,row){
-  const def=TDEFS['outpost'];
-  const u={
-    id:uid++,type:'outpost',team,
-    x:col*TS+TS/2,y:row*TS+TS/2,
-    hp:def.maxHp,maxHp:def.maxHp,
-    speed:0,range:def.range,dmg:def.dmg,rate:def.rate,r:def.r,
+function makeOutpost(team,col,row){
+  const def=TDEFS.outpost;
+  return{id:uid++,type:'outpost',team,x:col*TS+TS/2,y:row*TS+TS/2,
+    hp:def.maxHp,maxHp:def.maxHp,speed:0,range:def.range,dmg:def.dmg,rate:def.rate,r:def.r,
     col:team==='player'?def.pcol:def.ecol,name:def.name,
-    waypoints:[],shotCd:Math.random()/def.rate,
-    aiCd:0,vx:0,vy:0,isBuilding:true,isPerimeter:true,
-  };
-  return u;
+    waypoints:[],shotCd:Math.random()/def.rate,aiCd:0,vx:0,vy:0,isBuilding:true,isPerimeter:true};
 }
 
-// ── spawn ──────────────────────────────────────────────────────────────────────
+// ── spawn helpers ──────────────────────────────────────────────────────────────
 function getSpawnPos(team){
-  const bc=team==='player'?P_SPAWN_C:E_SPAWN_C;
-  const br=team==='player'?P_SPAWN_R:E_SPAWN_R;
+  const bc=team==='player'?P_SPAWN_C:E_SPAWN_C,br=team==='player'?P_SPAWN_R:E_SPAWN_R;
   for(let i=0;i<30;i++){
-    const c=bc+Math.round((Math.random()-.5)*4);
-    const r=br+Math.round((Math.random()-.5)*5);
+    const c=bc+Math.round((Math.random()-.5)*4),r=br+Math.round((Math.random()-.5)*5);
     if(r>=1&&r<ROWS-1&&c>=0&&c<COLS&&grid[r][c]===0)return{c,r};
   }
   return{c:bc,r:br};
@@ -450,241 +416,242 @@ function spawnPlayer(type){
   updateHud();
 }
 
+function trainAtBarracks(bid,type){
+  const b=units.find(u=>u.id===bid);if(!b)return;
+  const def=TDEFS[type];if(Math.floor(gold)<def.cost||gameOver)return;
+  gold-=def.cost;
+  const{c,r}=findOpenNear(Math.floor(b.x/TS)+1,Math.floor(b.y/TS));
+  units.push(makeUnit(type,'player',c,r));
+  updateHud();
+}
+
 function placePerimeterTowers(){
-  // Player perimeter towers
-  for(const[col,row]of[[P_SPAWN_C+3,18],[P_SPAWN_C+3,45]]){
-    const r=Math.max(1,Math.min(ROWS-2,row)),c=Math.max(0,Math.min(COLS-1,col));
-    if(grid[r][c]===0)units.push(makePerimeterTower('player',c,r));
-    else{// find nearby open tile
-      for(let d=1;d<6;d++)for(const[dc,dr]of[[0,-1],[0,1],[-1,0],[1,0]]){
-        const nr=r+dr*d,nc=c+dc*d;
-        if(nr>=1&&nr<ROWS-1&&nc>=0&&nc<COLS&&grid[nr][nc]===0){units.push(makePerimeterTower('player',nc,nr));break;}
-      }
-    }
+  function try_place(team,col,row){
+    const{c,r}=findOpenNear(col,row);
+    units.push(makeOutpost(team,c,r));
   }
-  for(const[col,row]of[[E_SPAWN_C-3,18],[E_SPAWN_C-3,45]]){
-    const r=Math.max(1,Math.min(ROWS-2,row)),c=Math.max(0,Math.min(COLS-1,col));
-    if(grid[r][c]===0)units.push(makePerimeterTower('enemy',c,r));
-    else{
-      for(let d=1;d<6;d++)for(const[dc,dr]of[[0,-1],[0,1],[1,0],[-1,0]]){
-        const nr=r+dr*d,nc=c+dc*d;
-        if(nr>=1&&nr<ROWS-1&&nc>=0&&nc<COLS&&grid[nr][nc]===0){units.push(makePerimeterTower('enemy',nc,nr));break;}
-      }
-    }
-  }
+  try_place('player',P_SPAWN_C+3,18);
+  try_place('player',P_SPAWN_C+3,45);
+  try_place('enemy', E_SPAWN_C-3,18);
+  try_place('enemy', E_SPAWN_C-3,45);
 }
 
 // ── combat ─────────────────────────────────────────────────────────────────────
-function findTarget(unit){
-  let best=null,bestD=Infinity;
+function findTarget(u){
+  let best=null,bd=Infinity;
   for(const e of units){
-    if(e.team===unit.team||e.hp<=0)continue;
-    const d=Math.hypot(e.x-unit.x,e.y-unit.y);
-    if(d<=unit.range&&d<bestD){bestD=d;best=e;}
+    if(e.team===u.team||e.hp<=0||e.type==='gatherer')continue;
+    const d=Math.hypot(e.x-u.x,e.y-u.y);
+    if(d<=u.range&&d<bd){bd=d;best=e;}
   }
   return best;
 }
-function fireAt(from,to){
-  const dx=to.x-from.x,dy=to.y-from.y,d=Math.hypot(dx,dy);
-  projs.push({x:from.x,y:from.y,vx:dx/d*280,vy:dy/d*280,dmg:from.dmg,team:from.team,maxDist:from.range*1.3,traveled:0});
+function fireAt(fx,fy,team,dmg,range,tx,ty){
+  const dx=tx-fx,dy=ty-fy,d=Math.hypot(dx,dy);if(d<1)return;
+  projs.push({x:fx,y:fy,vx:dx/d*290,vy:dy/d*290,dmg,team,maxDist:range*1.3,traveled:0});
 }
-function fireFrom(x,y,team,dmg,range,tx,ty){
-  const dx=tx-x,dy=ty-y,d=Math.hypot(dx,dy);
-  if(d<1)return;
-  projs.push({x,y,vx:dx/d*280,vy:dy/d*280,dmg,team,maxDist:range*1.2,traveled:0,isBase:true});
+
+// ── gatherer AI (both teams) ───────────────────────────────────────────────────
+function bestDeposit(x,y){
+  // Only target deposits with meaningful gold
+  let best=-1,bd=Infinity;
+  for(let i=0;i<deposits.length;i++){
+    if(deposits[i].gold<15)continue;
+    const d=Math.hypot(deposits[i].x-x,deposits[i].y-y);
+    if(d<bd){bd=d;best=i;}
+  }
+  return best;
+}
+
+function updateGatherer(u,dt){
+  const isP=u.team==='player';
+  const returnC=isP?P_SPAWN_C:E_SPAWN_C, returnR=isP?P_SPAWN_R:E_SPAWN_R;
+  const carry=isP?carryMax():CARRY_BASE;
+  const rate=isP?mineRate():MINE_RATE_BASE;
+
+  if(u.gatherState==='building'){
+    const con=constructions.find(c=>c.id===u.targetConId);
+    if(!con){u.gatherState='idle';u.targetConId=-1;}
+    return;
+  }
+  if(u.gatherState==='going-build'){
+    if(u.waypoints.length===0){
+      const con=constructions.find(c=>c.id===u.targetConId);
+      if(con&&Math.hypot(u.x-con.x,u.y-con.y)<TS*2.5)u.gatherState='building';
+      else if(!con){u.gatherState='idle';u.targetConId=-1;}
+      else{const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));if(p)u.waypoints=toWp(p);}
+    }
+    return;
+  }
+  if(u.gatherState==='mining'){
+    const dep=u.targetDep>=0?deposits[u.targetDep]:null;
+    if(dep&&dep.gold>0){
+      const mine=Math.min(rate*dt,dep.gold,carry-u.carryGold);
+      dep.gold-=mine;u.carryGold+=mine;
+    }
+    if(u.carryGold>=carry||!dep||dep.gold<=0){
+      // Head to nearest mine building first, else spawn point
+      const mineB=units.find(ub=>ub.type==='mine'&&ub.team===u.team&&ub.hp>0);
+      const tx=mineB?Math.floor(mineB.x/TS):returnC;
+      const ty=mineB?Math.floor(mineB.y/TS):returnR;
+      u.gatherState='returning';
+      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tx,ty);if(p)u.waypoints=toWp(p);
+    }
+    return;
+  }
+  if(u.gatherState==='returning'){
+    if(u.waypoints.length===0){
+      if(isP){gold+=Math.floor(u.carryGold);}else{enemyGold+=Math.floor(u.carryGold);}
+      u.carryGold=0;u.gatherState='idle';u.targetDep=-1;
+    }
+    return;
+  }
+  if(u.gatherState==='going'){
+    if(u.waypoints.length===0){
+      const dep=u.targetDep>=0?deposits[u.targetDep]:null;
+      if(dep&&dep.gold>=15)u.gatherState='mining';
+      else{u.gatherState='idle';u.targetDep=-1;} // deposit ran dry
+    }
+    return;
+  }
+  // idle
+  if(isP){
+    // Check for unattended constructions
+    const unbuilt=constructions.find(con=>{
+      const builders=units.filter(ub=>ub.type==='gatherer'&&ub.gatherState==='building'&&ub.targetConId===con.id);
+      return builders.length===0;
+    });
+    if(unbuilt&&u.carryGold===0){
+      u.gatherState='going-build';u.targetConId=unbuilt.id;
+      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(unbuilt.x/TS),Math.floor(unbuilt.y/TS));
+      if(p)u.waypoints=toWp(p);return;
+    }
+  }
+  const best=bestDeposit(u.x,u.y);
+  if(best>=0){
+    u.targetDep=best;u.gatherState='going';
+    const dep=deposits[best];
+    const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(dep.x/TS),Math.floor(dep.y/TS));
+    if(p)u.waypoints=toWp(p);
+  }
+  // else: no deposit available, stay idle
 }
 
 // ── update ─────────────────────────────────────────────────────────────────────
 function update(dt){
   if(gameOver)return;
-  const cfg=DIFF_CFG[difficulty];
-  gold+=cfg.playerIncome*dt;
-  enemyGold+=cfg.enemyIncome*dt;
+  const cfg=DIFF[difficulty];
+  gold+=cfg.pInc*dt;
+  enemyGold+=cfg.eInc*dt;
 
-  // Enemy spawn
+  // Passive mine gold
+  if(UPG.autoDrill.done){
+    const mines=units.filter(u=>u.type==='mine'&&u.team==='player'&&u.hp>0).length;
+    gold+=mines*4*dt;
+  }
+
+  // Enemy combat spawn
   enemySpawnCd-=dt;
   if(enemySpawnCd<=0){
     enemySpawnCd=cfg.spawnCd;
     const type=cfg.pool[Math.floor(Math.random()*cfg.pool.length)];
-    const cost=TDEFS[type].cost;
-    if(enemyGold>=cost){
-      enemyGold-=cost;
+    if(enemyGold>=TDEFS[type].cost){
+      enemyGold-=TDEFS[type].cost;
       const{c,r}=getSpawnPos('enemy');
       units.push(makeUnit(type,'enemy',c,r));
     }
   }
+  // Enemy gatherer spawn
+  eGatherCd-=dt;
+  if(eGatherCd<=0){
+    eGatherCd=22+Math.random()*12;
+    const maxG=difficulty==='hard'?4:difficulty==='medium'?3:2;
+    const hasG=units.filter(u=>u.team==='enemy'&&u.type==='gatherer').length;
+    if(hasG<maxG&&enemyGold>=TDEFS.gatherer.cost){
+      enemyGold-=TDEFS.gatherer.cost;
+      const{c,r}=getSpawnPos('enemy');
+      units.push(makeUnit('gatherer','enemy',c,r));
+    }
+  }
 
-  // Deposit refill
-  for(const d of deposits) d.gold=Math.min(d.maxGold,d.gold+2.5*dt);
-
-  // New deposit spawn
+  // Deposits refill
+  const refillRate=UPG.fasterTools.done?5:2.5;
+  for(const d of deposits)d.gold=Math.min(d.max,d.gold+refillRate*dt);
   depositSpawnTimer-=dt;
-  if(depositSpawnTimer<=0&&deposits.length<MAX_DEPOSITS){
-    depositSpawnTimer=50+Math.random()*30;
-    spawnDeposit();
-  }
-
-  // Base attacks
-  pBaseShotCd-=dt;
-  if(pBaseShotCd<=0){
-    let near=null,nd=Infinity;
-    for(const u of units){
-      if(u.team!=='enemy'||u.hp<=0)continue;
-      const d=Math.hypot(u.x-P_GATE_X,u.y-P_GATE_Y);
-      if(d<=BASE_RANGE&&d<nd){nd=d;near=u;}
-    }
-    if(near){fireFrom(P_GATE_X,P_GATE_Y,'player',BASE_DMG,BASE_RANGE,near.x,near.y);pBaseShotCd=1/BASE_RATE;}
-  }
-  eBaseShotCd-=dt;
-  if(eBaseShotCd<=0){
-    let near=null,nd=Infinity;
-    for(const u of units){
-      if(u.team!=='player'||u.hp<=0)continue;
-      const d=Math.hypot(u.x-E_GATE_X,u.y-E_GATE_Y);
-      if(d<=BASE_RANGE&&d<nd){nd=d;near=u;}
-    }
-    if(near){fireFrom(E_GATE_X,E_GATE_Y,'enemy',BASE_DMG,BASE_RANGE,near.x,near.y);eBaseShotCd=1/BASE_RATE;}
-  }
+  if(depositSpawnTimer<=0&&deposits.length<MAX_DEPOSITS){depositSpawnTimer=50+Math.random()*30;trySpawnDeposit();}
 
   // Constructions
   for(let i=constructions.length-1;i>=0;i--){
     const con=constructions[i];
     const builders=units.filter(u=>u.type==='gatherer'&&u.gatherState==='building'&&u.targetConId===con.id);
-    if(builders.length>0) con.progress+=dt*builders.length/con.buildTime;
+    if(builders.length>0)con.progress+=dt*builders.length/con.buildTime;
     if(con.progress>=1){
-      const t=makeUnit('tower','player',Math.floor(con.x/TS),Math.floor(con.y/TS));
-      units.push(t);
+      const{c:fc,r:fr}=findOpenNear(Math.floor(con.x/TS),Math.floor(con.y/TS));
+      units.push(makeUnit(BDEFS[con.type].spawnAs,'player',fc,fr));
       for(const b of builders){b.gatherState='idle';b.targetConId=-1;}
       constructions.splice(i,1);
     }
+  }
+
+  // Base cannons
+  pBaseShotCd-=dt;
+  if(pBaseShotCd<=0){
+    let near=null,nd=Infinity;
+    for(const u of units){if(u.team!=='enemy'||u.hp<=0)continue;const d=Math.hypot(u.x-P_GATE_X,u.y-P_GATE_Y);if(d<=BASE_RANGE&&d<nd){nd=d;near=u;}}
+    if(near){fireAt(P_GATE_X,P_GATE_Y,'player',BASE_DMG,BASE_RANGE,near.x,near.y);pBaseShotCd=1/BASE_RATE;}
+  }
+  eBaseShotCd-=dt;
+  if(eBaseShotCd<=0){
+    let near=null,nd=Infinity;
+    for(const u of units){if(u.team!=='player'||u.hp<=0)continue;const d=Math.hypot(u.x-E_GATE_X,u.y-E_GATE_Y);if(d<=BASE_RANGE&&d<nd){nd=d;near=u;}}
+    if(near){fireAt(E_GATE_X,E_GATE_Y,'enemy',BASE_DMG,BASE_RANGE,near.x,near.y);eBaseShotCd=1/BASE_RATE;}
   }
 
   // Units
   for(const u of units){
     if(u.hp<=0)continue;
     if(u.isBuilding){
-      u.shotCd-=dt;
-      const tgt=findTarget(u);
-      if(tgt&&u.shotCd<=0&&u.dmg>0){fireAt(u,tgt);u.shotCd=1/u.rate;}
+      if(u.dmg>0){u.shotCd-=dt;const tgt=findTarget(u);if(tgt&&u.shotCd<=0){fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y);u.shotCd=1/u.rate;}}
       continue;
     }
-
-    // Combat
-    u.shotCd-=dt;
-    const tgt=findTarget(u);
-    if(tgt&&u.shotCd<=0&&u.dmg>0){fireAt(u,tgt);u.shotCd=1/u.rate;}
-
-    // Gatherer AI
-    if(u.type==='gatherer'&&u.team==='player'){
-      if(u.gatherState==='building'){
-        const con=constructions.find(c=>c.id===u.targetConId);
-        if(!con){u.gatherState='idle';u.targetConId=-1;}
-        continue;
-      }
-      if(u.gatherState==='going-build'){
-        if(u.waypoints.length===0){
-          const con=constructions.find(c=>c.id===u.targetConId);
-          if(con&&Math.hypot(u.x-con.x,u.y-con.y)<TS*2.5) u.gatherState='building';
-          else if(!con){u.gatherState='idle';u.targetConId=-1;}
-          else{// repath
-            const path=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));
-            if(path)u.waypoints=pathToWp(path);
-          }
-        }
-      } else if(u.gatherState==='mining'){
-        const dep=u.targetDeposit>=0?deposits[u.targetDeposit]:null;
-        if(dep&&dep.gold>0){
-          const mine=Math.min(MINE_RATE*dt,dep.gold,CARRY_MAX-u.carryGold);
-          dep.gold-=mine; u.carryGold+=mine;
-        }
-        if(u.carryGold>=CARRY_MAX||!dep||dep.gold<=0){
-          u.gatherState='returning';
-          const path=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),P_SPAWN_C,Math.floor(u.y/TS));
-          if(path)u.waypoints=pathToWp(path);
-        }
-      } else if(u.gatherState==='returning'){
-        if(u.waypoints.length===0){
-          gold+=Math.floor(u.carryGold); u.carryGold=0; u.gatherState='idle'; u.targetDeposit=-1;
-        }
-      } else if(u.gatherState==='going'){
-        if(u.waypoints.length===0) u.gatherState='mining';
-      } else { // idle
-        // Check for constructions first
-        const con=constructions.find(c=>c.id!==undefined);
-        if(con&&u.carryGold===0){
-          u.gatherState='going-build'; u.targetConId=con.id;
-          const path=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));
-          if(path)u.waypoints=pathToWp(path);
-        } else {
-          let best=-1,bd=Infinity;
-          for(let i=0;i<deposits.length;i++){
-            if(deposits[i].gold<=0)continue;
-            const d=Math.hypot(deposits[i].x-u.x,deposits[i].y-u.y);
-            if(d<bd){bd=d;best=i;}
-          }
-          if(best>=0){
-            u.targetDeposit=best; u.gatherState='going';
-            const dep=deposits[best];
-            const path=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(dep.x/TS),Math.floor(dep.y/TS));
-            if(path)u.waypoints=pathToWp(path);
+    // Gatherers
+    if(u.type==='gatherer'){updateGatherer(u,dt);}
+    else{
+      // Combat
+      u.shotCd-=dt;const tgt=findTarget(u);if(tgt&&u.shotCd<=0){fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y);u.shotCd=1/u.rate;}
+      // Enemy AI re-evaluate
+      if(u.team==='enemy'){
+        u.aiCd-=dt;
+        if(u.aiCd<=0){
+          u.aiCd=1.3+Math.random()*.8;
+          if(!findTarget(u)){
+            let near=null,nd=Infinity;
+            for(const p of units){if(p.team!=='player'||p.hp<=0||p.type==='gatherer')continue;const d=Math.hypot(p.x-u.x,p.y-u.y);if(d<nd){nd=d;near=p;}}
+            const tgc=near?Math.floor(near.x/TS):P_SPAWN_C+1;
+            const tgr=near?Math.floor(near.y/TS):Math.max(1,Math.min(ROWS-2,Math.floor(u.y/TS)+Math.round((Math.random()-.5)*5)));
+            const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tgc,tgr);if(p&&p.length)u.waypoints=toWp(p);
           }
         }
       }
     }
-
-    // Enemy AI
-    if(u.team==='enemy'){
-      u.aiCd-=dt;
-      if(u.aiCd<=0){
-        u.aiCd=1.3+Math.random()*0.8;
-        if(!findTarget(u)){
-          let near=null,nd=Infinity;
-          for(const p of units){
-            if(p.team!=='player'||p.hp<=0||p.type==='gatherer')continue;
-            const d=Math.hypot(p.x-u.x,p.y-u.y);
-            if(d<nd){nd=d;near=p;}
-          }
-          const tgc=near?Math.floor(near.x/TS):(P_SPAWN_C+1);
-          const tgr=near?Math.floor(near.y/TS):Math.max(1,Math.min(ROWS-2,Math.floor(u.y/TS)+Math.round((Math.random()-.5)*5)));
-          const path=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tgc,tgr);
-          if(path&&path.length>0)u.waypoints=pathToWp(path);
-        }
-      }
-    }
-
-    // Base attacks from units
+    // Base damage from units
     if(u.team==='enemy'&&u.x<=P_GATE_X+TS*2){
       u.waypoints=[];
-      if(u.shotCd<=0&&u.dmg>0){
-        playerBaseHp=Math.max(0,playerBaseHp-u.dmg*0.55);
-        u.shotCd=1/u.rate;
-        if(playerBaseHp<=0){endGame(false,'DEFEAT — Base destroyed!');return;}
-      }
+      if(u.shotCd<=0&&u.dmg>0){playerBaseHp=Math.max(0,playerBaseHp-u.dmg*.55);u.shotCd=1/u.rate;if(playerBaseHp<=0){endGame(false,'DEFEAT — Base destroyed!');return;}}
     }
     if(u.team==='player'&&u.type!=='gatherer'&&u.x>=E_GATE_X-TS*2){
       u.waypoints=[];
-      if(u.shotCd<=0&&u.dmg>0){
-        enemyBaseHp=Math.max(0,enemyBaseHp-u.dmg*0.55);
-        u.shotCd=1/u.rate;
-        if(enemyBaseHp<=0){endGame(true,'VICTORY — Enemy base destroyed!');return;}
-      }
+      if(u.shotCd<=0&&u.dmg>0){enemyBaseHp=Math.max(0,enemyBaseHp-u.dmg*.55);u.shotCd=1/u.rate;if(enemyBaseHp<=0){endGame(true,'VICTORY — Enemy base destroyed!');return;}}
     }
-
     // Movement
     while(u.waypoints.length>1&&canSeeR(u.x,u.y,u.waypoints[1].x,u.waypoints[1].y,u.r))u.waypoints.shift();
     if(u.waypoints.length>0){
-      const wp=u.waypoints[0];
-      const dx=wp.x-u.x,dy=wp.y-u.y,d=Math.hypot(dx,dy);
-      if(d<3){u.waypoints.shift();}
+      const wp=u.waypoints[0],dx=wp.x-u.x,dy=wp.y-u.y,d=Math.hypot(dx,dy);
+      if(d<3)u.waypoints.shift();
       else{
-        const spd=Math.min(u.speed*dt,d);
-        u.vx=dx/d*spd; u.vy=dy/d*spd;
-        const px=u.x,py=u.y;
-        u.x+=u.vx; u.y+=u.vy;
-        if(unitInWall(u)){
-          u.x=px;
-          if(unitInWall(u)){u.x+=u.vx;u.y=py;if(unitInWall(u)){u.x=px;u.y=py;u.waypoints=[];}}
-        }
+        const spd=Math.min(u.speed*dt,d);u.vx=dx/d*spd;u.vy=dy/d*spd;
+        const px=u.x,py=u.y;u.x+=u.vx;u.y+=u.vy;
+        if(inWall(u)){u.x=px;if(inWall(u)){u.x+=u.vx;u.y=py;if(inWall(u)){u.x=px;u.y=py;u.waypoints=[];}}}
       }
     }else{u.vx=0;u.vy=0;}
   }
@@ -695,31 +662,27 @@ function update(dt){
     for(let j=i+1;j<units.length;j++){
       const b=units[j];if(b.hp<=0||b.isBuilding||a.team!==b.team)continue;
       const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),minD=a.r+b.r+1;
-      if(d<minD&&d>0.01){
-        const push=(minD-d)*0.3;
+      if(d<minD&&d>.01){
+        const push=(minD-d)*.3;
         const nax=a.x-dx/d*push,nay=a.y-dy/d*push;
         const nbx=b.x+dx/d*push,nby=b.y+dy/d*push;
-        if(!unitInWallAt(a,nax,nay)){a.x=nax;a.y=nay;}
-        if(!unitInWallAt(b,nbx,nby)){b.x=nbx;b.y=nby;}
+        if(!inWall(a,nax,nay)){a.x=nax;a.y=nay;}
+        if(!inWall(b,nbx,nby)){b.x=nbx;b.y=nby;}
       }
     }
   }
-  // Wall push-out pass after separation
-  for(const u of units)if(u.hp>0&&!u.isBuilding)pushOutWall(u);
+  for(const u of units)if(u.hp>0&&!u.isBuilding)pushOut(u);
 
   // Projectiles
   const dead=new Set();
   for(let i=0;i<projs.length;i++){
-    const p=projs[i];
-    p.x+=p.vx*dt; p.y+=p.vy*dt;
-    p.traveled+=Math.hypot(p.vx*dt,p.vy*dt);
+    const p=projs[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.traveled+=Math.hypot(p.vx*dt,p.vy*dt);
     if(p.traveled>p.maxDist||p.x<0||p.x>W||p.y<0||p.y>H){dead.add(i);continue;}
-    const pc=Math.floor(p.x/TS),pr=Math.floor(p.y/TS);
-    if(pc>=0&&pc<COLS&&pr>=0&&pr<ROWS&&grid[pr][pc]!==0){dead.add(i);continue;}
+    if(tileBlocked(p.x,p.y)){dead.add(i);continue;}
     for(const u of units){
       if(u.team===p.team||u.hp<=0)continue;
       if(Math.hypot(u.x-p.x,u.y-p.y)<u.r+3){
-        u.hp-=p.dmg; dead.add(i);
+        u.hp-=p.dmg;dead.add(i);
         if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}
         break;
       }
@@ -730,198 +693,172 @@ function update(dt){
   for(const id of selected)if(!units.find(u=>u.id===id))selected.delete(id);
   updateHud();
 }
-
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;}
 
 // ── rendering ──────────────────────────────────────────────────────────────────
 function buildFloorColors(){
   floorColors=Array.from({length:ROWS},(_,r)=>Array.from({length:COLS},(_,c)=>{
-    const h=((c*2654435761)^(r*2246822519))>>>0;
-    const v=16+(h&7);
-    return `rgb(${v},${v+2},${v-2})`;
+    const h=((c*2654435761)^(r*2246822519))>>>0,v=16+(h&7);return`rgb(${v},${v+2},${v-2})`;
   }));
 }
 
 function drawMap(){
   if(!floorColors)buildFloorColors();
-  // Floor tiles
-  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)
     if(grid[row][col]===0){ctx.fillStyle=floorColors[row][col];ctx.fillRect(col*TS,row*TS,TS,TS);}
-  }
-  // Zone tints
   ctx.fillStyle='rgba(20,50,160,.07)';ctx.fillRect(0,0,LZ*TS,H);
   ctx.fillStyle='rgba(160,20,20,.07)';ctx.fillRect((COLS-RZ)*TS,0,RZ*TS,H);
-  // Walls (value 1)
-  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
-    if(grid[row][col]===1){
-      const x=col*TS,y=row*TS;
-      ctx.fillStyle='#1e1a12';ctx.fillRect(x,y,TS,TS);
-      ctx.fillStyle='#2a2318';ctx.fillRect(x,y,TS,2);
-      ctx.fillStyle='#231e15';ctx.fillRect(x,y,2,TS);
-    }
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)if(grid[row][col]===1){
+    const x=col*TS,y=row*TS;
+    ctx.fillStyle='#1e1a12';ctx.fillRect(x,y,TS,TS);
+    ctx.fillStyle='#2a2318';ctx.fillRect(x,y,TS,2);ctx.fillStyle='#231e15';ctx.fillRect(x,y,2,TS);
   }
-  // Grid lines
   ctx.strokeStyle='rgba(255,255,255,.015)';ctx.lineWidth=.5;
   for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(c*TS,0);ctx.lineTo(c*TS,H);ctx.stroke();}
   for(let r=0;r<=ROWS;r++){ctx.beginPath();ctx.moveTo(0,r*TS);ctx.lineTo(W,r*TS);ctx.stroke();}
-  // Zone labels
   ctx.save();ctx.font='9px "IBM Plex Mono",monospace';ctx.textAlign='center';
   ctx.fillStyle='rgba(70,120,210,.22)';ctx.fillText('BASE',LZ/2*TS,H/2-5);ctx.fillText('▶',LZ/2*TS,H/2+9);
   ctx.fillStyle='rgba(210,70,70,.18)';ctx.fillText('ENEMY',(COLS-RZ/2)*TS,H/2-5);ctx.fillText('◀',(COLS-RZ/2)*TS,H/2+9);
   ctx.restore();
 }
 
-function drawBase(cx,cy,w,h,gateRow,isPlayer,hp,maxHp){
+function drawBase(cx,cy,w,h,gateRow,isP,hp,maxHp){
   const x=cx*TS,y=cy*TS,wPx=w*TS,hPx=h*TS;
-  // Fill
   ctx.fillStyle='#0e1a08';ctx.fillRect(x,y,wPx,hPx);
-  // Gate opening (visual)
-  const gx=isPlayer?(x+wPx-TS):x;
-  ctx.fillStyle='#05080a';
-  ctx.fillRect(gx,gateRow*TS,TS,TS*2);
-  // Battlements along top/bottom edges
-  ctx.fillStyle='#1e2e12';
-  const bW=TS,numB=Math.floor(wPx/bW);
-  for(let i=0;i<numB;i++){
-    if(i%2===0){
-      ctx.fillRect(x+i*bW,y-4,bW-2,4);
-      ctx.fillRect(x+i*bW,y+hPx,bW-2,4);
-    }
-  }
-  // Border
+  const gx=isP?(x+wPx-TS):x;
+  ctx.fillStyle='#05080a';ctx.fillRect(gx,gateRow*TS,TS,TS*2);
   const pct=hp/maxHp;
-  ctx.strokeStyle=isPlayer?`rgba(60,120,220,${0.4+0.3*pct})`:`rgba(220,60,60,${0.4+0.3*pct})`;
+  ctx.strokeStyle=isP?`rgba(60,120,220,${.4+.3*pct})`:`rgba(220,60,60,${.4+.3*pct})`;
   ctx.lineWidth=2;ctx.strokeRect(x,y,wPx,hPx);
-  // Corner dots
-  ctx.fillStyle=isPlayer?'rgba(80,140,240,.5)':'rgba(240,80,80,.5)';
   for(const[bx,by]of[[x,y],[x+wPx,y],[x,y+hPx],[x+wPx,y+hPx]]){
+    ctx.fillStyle=isP?'rgba(80,140,240,.5)':'rgba(240,80,80,.5)';
     ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
   }
-  // HP bar inside structure
-  const barW=wPx-10,barH=4,barX=x+5,barY=y+8;
-  ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(barX,barY,barW,barH);
-  ctx.fillStyle=pct>0.55?'#44bbff':pct>0.28?'#ffaa22':'#ff3333';
-  ctx.fillRect(barX,barY,barW*pct,barH);
-  // HP label
-  ctx.fillStyle='rgba(200,230,255,.5)';ctx.font='bold 8px "IBM Plex Mono",monospace';
-  ctx.textAlign='center';ctx.fillText(Math.ceil(hp)+'/'+maxHp,x+wPx/2,barY+barH+9);
-  // "MAIN BASE" label
-  ctx.fillStyle=isPlayer?'rgba(80,140,240,.3)':'rgba(240,80,80,.28)';
-  ctx.font='7px "IBM Plex Mono",monospace';
-  ctx.fillText(isPlayer?'BASE':'ENEMY',x+wPx/2,y+hPx-10);
-  // Base range indicator (subtle)
-  ctx.strokeStyle=isPlayer?'rgba(60,100,200,.07)':'rgba(200,60,60,.07)';
+  const barW=wPx-10,bh=4,bx2=x+5,by2=y+8;
+  ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(bx2,by2,barW,bh);
+  ctx.fillStyle=pct>.55?'#44bbff':pct>.28?'#ffaa22':'#ff3333';ctx.fillRect(bx2,by2,barW*pct,bh);
+  ctx.fillStyle='rgba(200,230,255,.45)';ctx.font='bold 8px "IBM Plex Mono",monospace';ctx.textAlign='center';
+  ctx.fillText(Math.ceil(hp)+'/'+maxHp,x+wPx/2,by2+bh+9);
+  ctx.fillStyle=isP?'rgba(80,140,240,.25)':'rgba(240,80,80,.22)';
+  ctx.font='7px "IBM Plex Mono",monospace';ctx.fillText(isP?'BASE':'ENEMY',x+wPx/2,y+hPx-10);
+  ctx.strokeStyle=isP?'rgba(60,100,200,.06)':'rgba(200,60,60,.06)';
   ctx.lineWidth=1;ctx.setLineDash([4,6]);
-  ctx.beginPath();ctx.arc(isPlayer?P_GATE_X:E_GATE_X,isPlayer?P_GATE_Y:E_GATE_Y,BASE_RANGE,0,Math.PI*2);ctx.stroke();
-  ctx.setLineDash([]);
+  ctx.beginPath();ctx.arc(isP?P_GATE_X:E_GATE_X,isP?P_GATE_Y:E_GATE_Y,BASE_RANGE,0,Math.PI*2);
+  ctx.stroke();ctx.setLineDash([]);
 }
 
 function drawDeposits(){
   for(const d of deposits){
-    const pct=d.gold/d.maxGold;
-    const alpha=0.3+0.6*Math.max(0,pct);
+    const pct=d.gold/d.max;
     if(pct<=0){
-      // Depleted — faint outline
-      ctx.strokeStyle='rgba(100,80,20,.2)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
-      ctx.beginPath();ctx.arc(d.x,d.y,6,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-      continue;
+      ctx.strokeStyle='rgba(100,80,20,.18)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
+      ctx.beginPath();ctx.arc(d.x,d.y,6,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);continue;
     }
-    const grd=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,7*2.5);
-    grd.addColorStop(0,`rgba(210,170,15,${0.22*pct})`);grd.addColorStop(1,'rgba(210,170,15,0)');
-    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(d.x,d.y,7*2.5,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=`rgba(200,165,15,${alpha})`;ctx.strokeStyle=`rgba(255,220,55,${0.65*pct})`;ctx.lineWidth=1.4;
+    const grd=ctx.createRadialGradient(d.x,d.y,0,d.x,d.y,18);
+    grd.addColorStop(0,`rgba(210,170,15,${.2*pct})`);grd.addColorStop(1,'rgba(210,170,15,0)');
+    ctx.fillStyle=grd;ctx.beginPath();ctx.arc(d.x,d.y,18,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=`rgba(200,165,15,${.5+.4*pct})`;ctx.strokeStyle=`rgba(255,220,55,${.6*pct})`;ctx.lineWidth=1.4;
     ctx.beginPath();
     for(let i=0;i<6;i++){const a=i/6*Math.PI*2-Math.PI/6;i===0?ctx.moveTo(d.x+Math.cos(a)*7,d.y+Math.sin(a)*7):ctx.lineTo(d.x+Math.cos(a)*7,d.y+Math.sin(a)*7);}
     ctx.closePath();ctx.fill();ctx.stroke();
-    // Amount
-    ctx.fillStyle=`rgba(255,235,100,${0.75*pct})`;ctx.font='bold 6px "IBM Plex Mono",monospace';
+    ctx.fillStyle=`rgba(255,235,100,${.7*pct})`;ctx.font='bold 6px "IBM Plex Mono",monospace';
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.ceil(d.gold),d.x,d.y);ctx.textBaseline='alphabetic';
   }
 }
 
-function drawTowerShape(x,y,r,col,pct){
-  const s=r*0.9;
+function drawTowerShape(x,y,r,col){
+  const s=r*.9;
   ctx.fillStyle='#141e0c';ctx.fillRect(x-s,y-s,s*2,s*2);
   ctx.fillStyle=col;ctx.fillRect(x-s+2,y-s+2,s*2-4,s*2-4);
-  ctx.fillStyle='#141e0c';
-  const bw=(s*2-4)/4;
+  ctx.fillStyle='#141e0c';const bw=(s*2-4)/4;
   for(let i=0;i<3;i++)ctx.fillRect(x-s+2+i*(s*2-4)/3,y-s+2,bw,4);
+}
+
+function drawBarracksShape(x,y,r,col){
+  const w=r*1.9,h=r*1.5;
+  ctx.fillStyle='#0e1808';ctx.fillRect(x-w,y-h,w*2,h*2);
+  ctx.fillStyle=col;ctx.fillRect(x-w+2,y-h+2,w*2-4,h*2-4);
+  // Arch doorway
+  ctx.fillStyle='#0e1808';ctx.fillRect(x-r*.4,y,r*.8,h-2);
+  ctx.beginPath();ctx.arc(x,y,r*.4,Math.PI,0);ctx.fill();
+  // Parapet
+  for(let i=-2;i<=2;i+=1)if(Math.abs(i)!==1){ctx.fillStyle='#0e1808';ctx.fillRect(x+i*(r*.5)-r*.2,y-h-3,r*.35,5);}
+  ctx.strokeStyle=col+'aa';ctx.lineWidth=1.5;ctx.strokeRect(x-w,y-h,w*2,h*2);
+}
+
+function drawMineShape(x,y,r,col){
+  // Octagonal mine shaft
+  ctx.fillStyle='#0a1408';
+  ctx.beginPath();
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2-Math.PI/8;i===0?ctx.moveTo(x+Math.cos(a)*r*1.2,y+Math.sin(a)*r*1.2):ctx.lineTo(x+Math.cos(a)*r*1.2,y+Math.sin(a)*r*1.2);}
+  ctx.closePath();ctx.fill();
+  ctx.fillStyle=col;
+  ctx.beginPath();
+  for(let i=0;i<8;i++){const a=i/8*Math.PI*2-Math.PI/8;i===0?ctx.moveTo(x+Math.cos(a)*(r*1.2-2),y+Math.sin(a)*(r*1.2-2)):ctx.lineTo(x+Math.cos(a)*(r*1.2-2),y+Math.sin(a)*(r*1.2-2));}
+  ctx.closePath();ctx.fill();
+  // Shaft cross
+  ctx.strokeStyle='rgba(0,0,0,.5)';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(x-r*.5,y);ctx.lineTo(x+r*.5,y);ctx.moveTo(x,y-r*.5);ctx.lineTo(x,y+r*.5);ctx.stroke();
 }
 
 function drawUnit(u){
   if(u.isBuilding){
-    const{x,y,r,col,hp,maxHp,isPerimeter}=u;
+    const{x,y,r,col,hp,maxHp,type,isPerimeter}=u;
     const isSel=selected.has(u.id);
-    if(isSel){ctx.strokeStyle='#ccf73f';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.strokeRect(x-r-5,y-r-5,r*2+10,r*2+10);ctx.setLineDash([]);}
-    drawTowerShape(x,y,r,isPerimeter?'#446644':col,hp/maxHp);
-    ctx.fillStyle='rgba(255,255,255,.65)';ctx.font=`bold 8px "IBM Plex Mono",monospace`;
+    const s=r*.9;
+    if(isSel){ctx.strokeStyle='#ccf73f';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.strokeRect(x-s-6,y-s-6,s*2+12,s*2+12);ctx.setLineDash([]);}
+    if(type==='tower'||type==='outpost')drawTowerShape(x,y,r,isPerimeter?'#446644':col);
+    else if(type==='barracks')drawBarracksShape(x,y,r,col);
+    else if(type==='mine')drawMineShape(x,y,r,col);
+    ctx.fillStyle='rgba(255,255,255,.65)';ctx.font=`bold ${Math.max(7,r-1)}px "IBM Plex Mono",monospace`;
     ctx.textAlign='center';ctx.textBaseline='middle';
-    ctx.fillText(isPerimeter?'P':'T',x,y+.5);ctx.textBaseline='alphabetic';
-    const bw=r*2.4,bh=3,bx=x-bw/2,by=y-r-8;
+    const lbl={tower:'T',outpost:'P',barracks:'B',mine:'⛏'}[type]||type[0].toUpperCase();
+    ctx.fillText(lbl,x,y+.5);ctx.textBaseline='alphabetic';
+    const bw=r*2.4,bh=3,bx=x-bw/2,by=y-r-9;
     ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(bx,by,bw,bh);
-    const pct=hp/maxHp;
-    ctx.fillStyle=pct>0.6?'#44cc55':pct>0.3?'#ccaa22':'#dd3333';ctx.fillRect(bx,by,bw*pct,bh);
+    const pct=hp/maxHp;ctx.fillStyle=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';ctx.fillRect(bx,by,bw*pct,bh);
     return;
   }
   const{x,y,r,col,hp,maxHp}=u;
   const isSel=selected.has(u.id);
   if(isSel){ctx.strokeStyle='#ccf73f';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
-  // Shadow
-  ctx.fillStyle='rgba(0,0,0,.25)';ctx.beginPath();ctx.ellipse(x,y+r*.5,r*.82,r*.28,0,0,Math.PI*2);ctx.fill();
-  // Body
+  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(x,y+r*.5,r*.8,r*.26,0,0,Math.PI*2);ctx.fill();
   ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
-  ctx.strokeStyle='rgba(255,255,255,.15)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();
-  ctx.fillStyle='rgba(255,255,255,.13)';ctx.beginPath();ctx.arc(x-r*.28,y-r*.28,r*.4,0,Math.PI*2);ctx.fill();
-  // Letter
+  ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();
+  ctx.fillStyle='rgba(255,255,255,.12)';ctx.beginPath();ctx.arc(x-r*.28,y-r*.28,r*.4,0,Math.PI*2);ctx.fill();
   ctx.fillStyle='rgba(255,255,255,.7)';ctx.font=`bold ${Math.max(7,r-1)}px "IBM Plex Mono",monospace`;
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(u.name[0],x,y+.5);ctx.textBaseline='alphabetic';
-  // Gatherer extras
   if(u.type==='gatherer'){
-    if(u.carryGold>0){
-      ctx.fillStyle='rgba(220,190,30,.8)';ctx.font='5px "IBM Plex Mono",monospace';
-      ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.floor(u.carryGold)+'g',x,y-r-6);ctx.textBaseline='alphabetic';
-    }
-    if(u.gatherState==='building'||u.gatherState==='going-build'){
-      ctx.strokeStyle='rgba(220,190,50,.5)';ctx.lineWidth=1;
-      ctx.beginPath();ctx.arc(x,y,r+3,0,Math.PI*2);ctx.stroke();
-    }
+    if(u.carryGold>0){ctx.fillStyle='rgba(220,190,30,.8)';ctx.font='5px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.floor(u.carryGold)+'g',x,y-r-6);ctx.textBaseline='alphabetic';}
+    if(u.gatherState==='building'||u.gatherState==='going-build'){ctx.strokeStyle='rgba(220,190,50,.45)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,r+3,0,Math.PI*2);ctx.stroke();}
   }
-  // HP bar
   const bw=r*2.4,bh=3,bx=x-bw/2,by=y-r-8;
   ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(bx,by,bw,bh);
-  const pct=hp/maxHp;
-  ctx.fillStyle=pct>0.6?'#44cc55':pct>0.3?'#ccaa22':'#dd3333';ctx.fillRect(bx,by,bw*pct,bh);
+  const pct=hp/maxHp;ctx.fillStyle=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';ctx.fillRect(bx,by,bw*pct,bh);
 }
 
 function drawAttackRing(u){
   if(!selected.has(u.id)||u.range<=0)return;
-  ctx.strokeStyle=u.type==='sniper'?'rgba(30,195,215,.12)':'rgba(204,247,63,.08)';
-  ctx.lineWidth=0.7;ctx.setLineDash([3,5]);
-  ctx.beginPath();ctx.arc(u.x,u.y,u.range,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle=u.type==='sniper'?'rgba(30,195,215,.1)':'rgba(204,247,63,.07)';
+  ctx.lineWidth=.7;ctx.setLineDash([3,5]);ctx.beginPath();ctx.arc(u.x,u.y,u.range,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
 }
 
 function drawPaths(){
   for(const u of units){
     if(u.team!=='player'||u.waypoints.length===0||u.hp<=0)continue;
     const isSel=selected.has(u.id);
-    ctx.strokeStyle=isSel?'rgba(204,247,63,.5)':'rgba(100,180,255,.26)';
-    ctx.lineWidth=1;ctx.setLineDash([4,5]);
-    ctx.beginPath();ctx.moveTo(u.x,u.y);
-    for(const wp of u.waypoints)ctx.lineTo(wp.x,wp.y);
-    ctx.stroke();ctx.setLineDash([]);
+    ctx.strokeStyle=isSel?'rgba(204,247,63,.48)':'rgba(100,180,255,.24)';
+    ctx.lineWidth=1;ctx.setLineDash([4,5]);ctx.beginPath();ctx.moveTo(u.x,u.y);
+    for(const wp of u.waypoints)ctx.lineTo(wp.x,wp.y);ctx.stroke();ctx.setLineDash([]);
     const last=u.waypoints[u.waypoints.length-1];
-    ctx.strokeStyle=isSel?'rgba(204,247,63,.65)':'rgba(100,180,255,.4)';ctx.lineWidth=1.5;
-    const ms=4;
-    ctx.beginPath();ctx.moveTo(last.x-ms,last.y-ms);ctx.lineTo(last.x+ms,last.y+ms);
-    ctx.moveTo(last.x+ms,last.y-ms);ctx.lineTo(last.x-ms,last.y+ms);ctx.stroke();
+    ctx.strokeStyle=isSel?'rgba(204,247,63,.62)':'rgba(100,180,255,.38)';ctx.lineWidth=1.5;
+    const ms=4;ctx.beginPath();ctx.moveTo(last.x-ms,last.y-ms);ctx.lineTo(last.x+ms,last.y+ms);ctx.moveTo(last.x+ms,last.y-ms);ctx.lineTo(last.x-ms,last.y+ms);ctx.stroke();
   }
-  // Gatherer deposit/build lines
   for(const u of units){
     if(u.type!=='gatherer'||u.team!=='player'||u.hp<=0)continue;
-    if((u.gatherState==='going'||u.gatherState==='mining')&&u.targetDeposit>=0){
-      const dep=deposits[u.targetDeposit];
-      if(dep&&dep.gold>0){
-        ctx.strokeStyle='rgba(210,180,30,.2)';ctx.lineWidth=0.7;ctx.setLineDash([2,6]);
+    if((u.gatherState==='going'||u.gatherState==='mining')&&u.targetDep>=0){
+      const dep=deposits[u.targetDep];if(dep&&dep.gold>0){
+        ctx.strokeStyle='rgba(210,180,30,.18)';ctx.lineWidth=.7;ctx.setLineDash([2,6]);
         ctx.beginPath();ctx.moveTo(u.x,u.y);ctx.lineTo(dep.x,dep.y);ctx.stroke();ctx.setLineDash([]);
       }
     }
@@ -931,25 +868,25 @@ function drawPaths(){
 function drawConstructions(){
   for(const con of constructions){
     const pct=con.progress;
-    ctx.globalAlpha=0.25+0.6*pct;
-    drawTowerShape(con.x,con.y,12,'#88aa55',pct);
+    ctx.globalAlpha=.2+.6*pct;
+    const sAs=BDEFS[con.type].spawnAs;
+    if(sAs==='tower')drawTowerShape(con.x,con.y,12,'#88aa55');
+    else if(sAs==='barracks')drawBarracksShape(con.x,con.y,15,'#446633');
+    else if(sAs==='mine')drawMineShape(con.x,con.y,12,'#664422');
     ctx.globalAlpha=1;
-    // Progress bar
-    const bw=30,bh=4;
-    ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(con.x-bw/2,con.y-22,bw,bh);
+    const bw=30,bh=4;ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(con.x-bw/2,con.y-22,bw,bh);
     ctx.fillStyle='#ccf73f';ctx.fillRect(con.x-bw/2,con.y-22,bw*pct,bh);
     const builders=units.filter(u=>u.type==='gatherer'&&u.gatherState==='building'&&u.targetConId===con.id);
     ctx.fillStyle='rgba(200,180,50,.7)';ctx.font='7px "IBM Plex Mono",monospace';ctx.textAlign='center';
-    ctx.fillText(`${Math.floor(pct*100)}%${builders.length>0?' ⚒×'+builders.length:''}`,con.x,con.y+24);
+    ctx.fillText(Math.floor(pct*100)+'%'+(builders.length?' ⚒×'+builders.length:''),con.x,con.y+28);
   }
 }
 
 function drawProjs(){
   for(const p of projs){
-    const isBase=p.isBase;
-    ctx.fillStyle=p.team==='player'?(isBase?'#88ddff':'#aaee55'):(isBase?'#ffaa55':'#ff8833');
-    ctx.beginPath();ctx.arc(p.x,p.y,isBase?3.5:2.5,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle=p.team==='player'?(isBase?'rgba(100,200,255,.35)':'rgba(150,220,65,.35)'):'rgba(255,140,40,.3)';
+    ctx.fillStyle=p.team==='player'?'#aaee55':'#ff8833';
+    ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);ctx.fill();
+    ctx.strokeStyle=p.team==='player'?'rgba(150,220,65,.3)':'rgba(255,140,40,.28)';
     ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.02,p.y-p.vy*.02);ctx.stroke();
   }
 }
@@ -959,50 +896,41 @@ function drawBoxSel(){
   const lx=Math.min(boxSel.x0,boxSel.x1),rx=Math.max(boxSel.x0,boxSel.x1);
   const ly=Math.min(boxSel.y0,boxSel.y1),ry=Math.max(boxSel.y0,boxSel.y1);
   ctx.fillStyle='rgba(204,247,63,.04)';ctx.fillRect(lx,ly,rx-lx,ry-ly);
-  ctx.strokeStyle='#ccf73f';ctx.lineWidth=1;ctx.setLineDash([4,3]);
-  ctx.strokeRect(lx,ly,rx-lx,ry-ly);ctx.setLineDash([]);
+  ctx.strokeStyle='#ccf73f';ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.strokeRect(lx,ly,rx-lx,ry-ly);ctx.setLineDash([]);
 }
 
 function drawBuildGhost(){
   if(!buildMode)return;
-  const{x,y}=mousePosCanvas;
-  const canPlace=!tileBlocked(x,y);
-  ctx.globalAlpha=canPlace?0.55:0.25;
-  drawTowerShape(x,y,12,canPlace?'#88aa55':'#aa4444',1);
+  const{x,y}=mousePos,ok=!tileBlocked(x,y)&&Math.floor(gold)>=BDEFS[buildMode.type].cost;
+  ctx.globalAlpha=ok?.5:.22;
+  const def=BDEFS[buildMode.type];
+  if(def.spawnAs==='tower')drawTowerShape(x,y,12,ok?'#88aa55':'#aa4444');
+  else if(def.spawnAs==='barracks')drawBarracksShape(x,y,15,ok?'#446633':'#663322');
+  else if(def.spawnAs==='mine')drawMineShape(x,y,12,ok?'#664422':'#aa3322');
   ctx.globalAlpha=1;
-  ctx.strokeStyle=canPlace?'rgba(150,230,80,.6)':'rgba(220,80,60,.5)';
-  ctx.lineWidth=1;ctx.setLineDash([4,3]);
-  ctx.strokeRect(x-14,y-14,28,28);ctx.setLineDash([]);
-  ctx.fillStyle=canPlace?'rgba(160,230,80,.6)':'rgba(220,100,80,.6)';
-  ctx.font='8px "IBM Plex Mono",monospace';ctx.textAlign='center';
-  ctx.fillText(canPlace?'BUILD 80g':'BLOCKED',x,y+28);
+  ctx.strokeStyle=ok?'rgba(140,220,75,.55)':'rgba(220,80,60,.45)';
+  ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.strokeRect(x-16,y-16,32,32);ctx.setLineDash([]);
+  ctx.fillStyle=ok?'rgba(160,230,80,.55)':'rgba(220,100,80,.55)';ctx.font='7px "IBM Plex Mono",monospace';ctx.textAlign='center';
+  ctx.fillText(ok?BDEFS[buildMode.type].label+' '+BDEFS[buildMode.type].cost+'g':'BLOCKED',x,y+30);
 }
 
 function drawGameOver(){
   if(!gameOver)return;
-  ctx.fillStyle='rgba(0,0,0,.62)';ctx.fillRect(0,0,W,H);
-  ctx.textAlign='center';
-  ctx.font='bold 28px "IBM Plex Mono",monospace';
-  ctx.fillStyle=gameWin?'#ccf73f':'#ff4444';ctx.fillText(gameMsg,W/2,H/2-10);
-  ctx.font='12px "IBM Plex Mono",monospace';
-  ctx.fillStyle='rgba(200,200,200,.4)';ctx.fillText('Press R to play again',W/2,H/2+18);
+  ctx.fillStyle='rgba(0,0,0,.62)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
+  ctx.font='bold 28px "IBM Plex Mono",monospace';ctx.fillStyle=gameWin?'#ccf73f':'#ff4444';ctx.fillText(gameMsg,W/2,H/2-10);
+  ctx.font='12px "IBM Plex Mono",monospace';ctx.fillStyle='rgba(200,200,200,.4)';ctx.fillText('Press R to play again',W/2,H/2+18);
 }
 
 function render(){
   ctx.clearRect(0,0,W,H);
   drawMap();
-  // Draw physical bases (value-2 tiles + overlay)
   drawBase(PB_C,PB_R,PB_W,PB_H,GATE_R-1,true,playerBaseHp,BASE_MAX_HP);
   drawBase(EB_C,EB_R,EB_W,EB_H,GATE_R-1,false,enemyBaseHp,EBASE_MAX_HP);
-  drawDeposits();
-  drawConstructions();
+  drawDeposits();drawConstructions();
   for(const u of units)if(u.hp>0)drawAttackRing(u);
-  drawPaths();
-  drawProjs();
+  drawPaths();drawProjs();
   for(const u of units)if(u.hp>0)drawUnit(u);
-  drawBoxSel();
-  drawBuildGhost();
-  drawGameOver();
+  drawBoxSel();drawBuildGhost();drawGameOver();
 }
 
 // ── HUD + sel panel ────────────────────────────────────────────────────────────
@@ -1011,7 +939,7 @@ function updateHud(){
   document.getElementById('hud-kills').textContent=kills;
   document.getElementById('hud-units').textContent=units.filter(u=>u.team==='player').length;
   const inc=document.getElementById('hud-income');
-  if(inc)inc.textContent='+'+DIFF_CFG[difficulty].playerIncome+'/s';
+  if(inc)inc.textContent='+'+DIFF[difficulty].pInc+'/s';
   const bf=document.getElementById('base-hp-fill'),ef=document.getElementById('enemy-hp-fill');
   if(bf)bf.style.width=(playerBaseHp/BASE_MAX_HP*100).toFixed(1)+'%';
   if(ef)ef.style.width=(enemyBaseHp/EBASE_MAX_HP*100).toFixed(1)+'%';
@@ -1019,6 +947,8 @@ function updateHud(){
     btn.disabled=gameOver||Math.floor(gold)<TDEFS[btn.dataset.type].cost;
   updateSelPanel();
 }
+
+function hasBldg(type){return units.some(u=>u.type===type&&u.team==='player'&&u.hp>0);}
 
 function updateSelPanel(){
   const sel=units.filter(u=>selected.has(u.id)&&u.hp>0);
@@ -1028,62 +958,97 @@ function updateSelPanel(){
   const status=document.getElementById('sel-status');
   const cmd=document.getElementById('sel-cmd');
 
-  if(sel.length===0){
-    portrait.innerHTML='<div style="font-size:1.8rem;color:rgba(70,110,40,.25)">◻</div>';
-    title.textContent='No selection';
-    body.textContent='Click or drag to select · Right-click to move';
+  if(!sel.length){
+    portrait.innerHTML='<div style="font-size:1.6rem;color:rgba(70,110,40,.22)">◻</div>';
+    title.textContent='No selection';body.textContent='Click/drag to select · Right-click to move · U I O P Y G = spawn';status.textContent='';cmd.innerHTML='';return;
+  }
+
+  // Single building
+  if(sel.length===1&&sel[0].isBuilding){
+    const u=sel[0];
+    portrait.innerHTML=`<div style="width:42px;height:42px;background:${u.col};display:grid;place-items:center;font-size:1rem;font-weight:700;color:rgba(255,255,255,.8);border:2px solid rgba(255,255,255,.15)">${{tower:'T',outpost:'P',barracks:'B',mine:'⛏'}[u.type]||'?'}</div>`;
+    title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
+    body.textContent=u.type==='tower'||u.type==='outpost'?`RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s`:'';
     status.textContent='';
-    cmd.innerHTML='';
+
+    if(u.type==='barracks'){
+      body.textContent='Select unit to train · spawns near barracks';
+      const opts=COMBAT_TYPES.map(t=>{const d=TDEFS[t];const ok=Math.floor(gold)>=d.cost&&!gameOver;return`<button class="cmd-btn"${ok?'':' disabled'} data-train="${t}" data-brid="${u.id}">[${t[0].toUpperCase()}] ${d.name} ${d.cost}g</button>`;}).join('');
+      cmd.innerHTML=opts;
+      for(const btn of cmd.querySelectorAll('[data-train]'))
+        btn.addEventListener('click',()=>trainAtBarracks(+btn.dataset.brid,btn.dataset.train));
+    } else if(u.type==='mine'){
+      body.textContent='Upgrades — applied globally to your team';
+      const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='mine');
+      const html=upgKeys.map(k=>{
+        const upg=UPG[k],owned=upg.done,canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver;
+        return`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}">${owned?'✓ ':''} ${upg.label} ${owned?'(done)':upg.cost+'g'}<br><span style="font-size:.38rem;opacity:.7">${upg.desc}</span></button>`;
+      }).join('');
+      cmd.innerHTML=html||'<span style="font-size:.48rem;color:rgba(120,170,60,.4)">No upgrades available</span>';
+      for(const btn of cmd.querySelectorAll('[data-upg]'))
+        btn.addEventListener('click',()=>{const k=btn.dataset.upg;if(UPG[k].done||Math.floor(gold)<UPG[k].cost)return;gold-=UPG[k].cost;UPG[k].done=true;updateHud();});
+    } else {
+      cmd.innerHTML='';
+    }
     return;
   }
 
+  // Gatherer or mixed selection
   if(sel.length===1){
     const u=sel[0];
-    portrait.innerHTML=`<div style="width:42px;height:42px;border-radius:50%;background:${u.col};display:grid;place-items:center;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.8);border:2px solid rgba(255,255,255,.15)">${u.name[0]}</div>`;
+    portrait.innerHTML=`<div style="width:42px;height:42px;border-radius:50%;background:${u.col};display:grid;place-items:center;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.8);border:2px solid rgba(255,255,255,.14)">${u.name[0]}</div>`;
     title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
-    const stats=[];
-    if(u.speed>0)stats.push(`SPD ${u.speed}`);
-    if(u.range>0)stats.push(`RNG ${u.range}`);
-    if(u.dmg>0)stats.push(`DMG ${u.dmg}`);
+    const stats=[];if(u.speed>0)stats.push('SPD '+u.speed);if(u.range>0)stats.push('RNG '+u.range);if(u.dmg>0)stats.push('DMG '+u.dmg);
     body.textContent=stats.join(' · ');
-    const stateMap={idle:'Idle',going:'→ deposit',mining:'Mining',returning:'← returning',
-      'going-build':'→ build site',building:'⚒ Building'};
     if(u.type==='gatherer'){
-      status.textContent=`${stateMap[u.gatherState]||''}${u.carryGold>0?' · Carrying '+Math.floor(u.carryGold)+'g':''}`;
-      const isBM=buildMode!==null;
-      cmd.innerHTML=`
-        <button class="cmd-btn${isBM?' active-mode':''}" id="cmd-build">[B] ${isBM?'Click map to place…':'Guard Tower 80g'}</button>
-        ${(u.gatherState==='building'||u.gatherState==='going-build')?'<button class="cmd-btn red" id="cmd-stop-build">Stop</button>':''}
-      `;
-      document.getElementById('cmd-build')?.addEventListener('click',()=>{
-        if(buildMode){buildMode=null;document.body.classList.remove('build-mode');}
-        else if(Math.floor(gold)>=TOWER_BUILD_COST){buildMode={type:'guard-tower'};document.body.classList.add('build-mode');}
-      });
-      document.getElementById('cmd-stop-build')?.addEventListener('click',()=>{
-        for(const id of selected){const u=units.find(u=>u.id===id);if(u&&u.type==='gatherer'){u.gatherState='idle';u.targetConId=-1;u.waypoints=[];}}
-        updateSelPanel();
-      });
-    } else {
-      status.textContent='';cmd.innerHTML='';
-    }
+      const stMap={idle:'Idle',going:'→ deposit',mining:'Mining',returning:'← returning','going-build':'→ build site',building:'⚒ Building'};
+      status.textContent=(stMap[u.gatherState]||'')+(u.carryGold>0?' · '+Math.floor(u.carryGold)+'g':'');
+      renderGathererCmds(cmd,[u.id]);
+    } else {status.textContent='';cmd.innerHTML='';}
   } else {
-    const types={};
-    for(const u of sel)types[u.type]=(types[u.type]||0)+1;
-    const typeStr=Object.entries(types).map(([t,n])=>`${n}× ${TDEFS[t]?.name||t}`).join('  ');
-    const gatherers=sel.filter(u=>u.type==='gatherer');
-    portrait.innerHTML=`<div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:#ccf73f;font-family:var(--mono)">${sel.length}</div><div style="font-size:.38rem;color:rgba(130,170,55,.45);letter-spacing:.1em;font-family:var(--mono)">SELECTED</div></div>`;
-    title.textContent=`${sel.length} units selected`;
-    body.textContent=typeStr;
+    const types={};for(const u of sel)types[u.type]=(types[u.type]||0)+1;
+    portrait.innerHTML=`<div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:#ccf73f;font-family:var(--mono)">${sel.length}</div><div style="font-size:.38rem;color:rgba(130,170,55,.4);letter-spacing:.1em;font-family:var(--mono)">SEL</div></div>`;
+    title.textContent=`${sel.length} units`;
+    body.textContent=Object.entries(types).map(([t,n])=>`${n}× ${TDEFS[t]?.name||t}`).join('  ');
     status.textContent='';
-    if(gatherers.length>0){
-      const isBM=buildMode!==null;
-      cmd.innerHTML=`<button class="cmd-btn${isBM?' active-mode':''}" id="cmd-build">[B] ${isBM?'Click map to place…':'Guard Tower 80g'} (${gatherers.length}×gather)</button>`;
-      document.getElementById('cmd-build')?.addEventListener('click',()=>{
-        if(buildMode){buildMode=null;document.body.classList.remove('build-mode');}
-        else if(Math.floor(gold)>=TOWER_BUILD_COST){buildMode={type:'guard-tower'};document.body.classList.add('build-mode');}
-      });
-    } else {cmd.innerHTML='';}
+    const gids=sel.filter(u=>u.type==='gatherer').map(u=>u.id);
+    if(gids.length)renderGathererCmds(cmd,gids);else cmd.innerHTML='';
   }
+}
+
+function renderGathererCmds(cmd,gids){
+  const bm=buildMode;
+  const makeBldBtn=(key,label,cost)=>{
+    const active=bm&&bm.type===key;
+    const canAfford=Math.floor(gold)>=cost;
+    return`<button class="cmd-btn${active?' on':''}"${canAfford||active?'':' disabled'} data-btype="${key}">[B] ${label} ${cost}g</button>`;
+  };
+  let html=makeBldBtn('guard-tower','Tower',80)+makeBldBtn('barracks','Barracks',150)+makeBldBtn('mine','Mine',100);
+  // Barracks upgrades accessible via barracks building, but show here if barracks exists
+  if(hasBldg('barracks')){
+    const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='barracks');
+    upgKeys.forEach(k=>{
+      const upg=UPG[k],owned=upg.done,canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver;
+      html+=`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}">${owned?'✓ ':''} ${upg.label} ${owned?'':upg.cost+'g'}</button>`;
+    });
+  }
+  const hasBuilding=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&(u.gatherState==='building'||u.gatherState==='going-build');});
+  if(hasBuilding)html+=`<button class="cmd-btn red" id="cmd-stop">Stop</button>`;
+  cmd.innerHTML=html;
+  for(const btn of cmd.querySelectorAll('[data-btype]')){
+    btn.addEventListener('click',()=>{
+      const t=btn.dataset.btype;
+      if(buildMode&&buildMode.type===t){buildMode=null;document.body.classList.remove('build-mode');}
+      else{buildMode={type:t};document.body.classList.add('build-mode');}
+      updateSelPanel();
+    });
+  }
+  for(const btn of cmd.querySelectorAll('[data-upg]'))
+    btn.addEventListener('click',()=>{const k=btn.dataset.upg;if(UPG[k].done||Math.floor(gold)<UPG[k].cost)return;gold-=UPG[k].cost;UPG[k].done=true;updateHud();});
+  cmd.querySelector('#cmd-stop')?.addEventListener('click',()=>{
+    for(const id of gids){const u=units.find(u=>u.id===id);if(u&&u.type==='gatherer'){u.gatherState='idle';u.targetConId=-1;u.waypoints=[];}}
+    updateSelPanel();
+  });
 }
 
 // ── input ──────────────────────────────────────────────────────────────────────
@@ -1095,82 +1060,67 @@ function commitBoxSel(){
     selected.clear();
     for(const u of units)if(u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry)selected.add(u.id);
   }
-  boxSel=null;mouseDown=false;mouseBtn=-1;
-  updateSelPanel();updateHud();
+  boxSel=null;mouseDown=false;mouseBtn=-1;updateSelPanel();updateHud();
 }
 
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
-
-canvas.addEventListener('mousedown',e=>{
-  if(gameOver)return;
-  const{x,y}=canvasXY(e);
-  // Build placement mode
-  if(buildMode&&e.button===0){
-    if(tileBlocked(x,y))return;
-    if(Math.floor(gold)<TOWER_BUILD_COST)return;
-    gold-=TOWER_BUILD_COST;
-    const con={id:uid++,x,y,type:'guard-tower',progress:0,buildTime:TOWER_BUILD_TIME};
-    constructions.push(con);
-    // Dispatch selected gatherers to this construction
-    for(const id of selected){
-      const u=units.find(u=>u.id===id&&u.type==='gatherer');
-      if(u){
-        u.gatherState='going-build';u.targetConId=con.id;u.carryGold=0;
-        const path=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(x/TS),Math.floor(y/TS));
-        if(path)u.waypoints=pathToWp(path);
-      }
-    }
-    buildMode=null;document.body.classList.remove('build-mode');
-    updateHud();return;
-  }
-  mouseDown=true;mouseBtn=e.button;mxDown=x;myDown=y;
-  if(e.button===2){
-    if(selected.size===0)return;
-    const gc=Math.floor(x/TS),gr=Math.floor(y/TS);
-    let spread=0;
-    for(const id of selected){
-      const u=units.find(u=>u.id===id);if(!u)continue;
-      if(u.type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDeposit=-1;u.targetConId=-1;}
-      const oc=spread%3-1,or=Math.floor(spread/3)-1;
-      const tgc=Math.max(0,Math.min(COLS-1,gc+oc));
-      const tgr=Math.max(0,Math.min(ROWS-1,gr+or));
-      const path=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tgc,tgr);
-      if(path)u.waypoints=pathToWp(path);
-      spread++;
-    }
-  } else if(e.button===0){
-    boxSel={x0:x,y0:y,x1:x,y1:y};
-  }
-});
-
 canvas.addEventListener('mousemove',e=>{
-  const{x,y}=canvasXY(e);
-  mousePosCanvas={x,y};
+  const{x,y}=cxy(e);mousePos={x,y};
   if(!mouseDown||mouseBtn!==0||!boxSel)return;
   boxSel.x1=x;boxSel.y1=y;
   if(Math.hypot(x-mxDown,y-myDown)>6){
-    const lx=Math.min(boxSel.x0,x),rx=Math.max(boxSel.x0,x);
-    const ly=Math.min(boxSel.y0,y),ry=Math.max(boxSel.y0,y);
+    const lx=Math.min(boxSel.x0,x),rx=Math.max(boxSel.x0,x),ly=Math.min(boxSel.y0,y),ry=Math.max(boxSel.y0,y);
     selected.clear();
     for(const u of units)if(u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry)selected.add(u.id);
     updateSelPanel();updateHud();
   }
 });
-
+canvas.addEventListener('mousedown',e=>{
+  if(gameOver)return;
+  const{x,y}=cxy(e);
+  if(buildMode&&e.button===0){
+    if(!tileBlocked(x,y)&&Math.floor(gold)>=BDEFS[buildMode.type].cost){
+      gold-=BDEFS[buildMode.type].cost;
+      const con={id:uid++,x,y,type:buildMode.type,progress:0,buildTime:BDEFS[buildMode.type].time};
+      constructions.push(con);
+      // Dispatch idle gatherers to build
+      for(const id of selected){
+        const u=units.find(u=>u.id===id&&u.type==='gatherer');
+        if(u&&u.gatherState==='idle'){
+          u.gatherState='going-build';u.targetConId=con.id;u.carryGold=0;
+          const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(x/TS),Math.floor(y/TS));
+          if(p)u.waypoints=toWp(p);
+        }
+      }
+      // build mode stays active — press B / click button to cancel
+      updateHud();
+    }
+    return;
+  }
+  mouseDown=true;mouseBtn=e.button;mxDown=x;myDown=y;
+  if(e.button===2){
+    if(!selected.size)return;
+    const gc=Math.floor(x/TS),gr=Math.floor(y/TS);let spread=0;
+    for(const id of selected){
+      const u=units.find(u=>u.id===id);if(!u)continue;
+      if(u.type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;}
+      const oc=spread%3-1,or=Math.floor(spread/3)-1;
+      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.max(0,Math.min(COLS-1,gc+oc)),Math.max(0,Math.min(ROWS-1,gr+or)));
+      if(p)u.waypoints=toWp(p);spread++;
+    }
+  } else if(e.button===0){boxSel={x0:x,y0:y,x1:x,y1:y};}
+});
 canvas.addEventListener('mouseup',e=>{
   if(!mouseDown)return;
-  const{x,y}=canvasXY(e);
-  const isDrag=Math.hypot(x-mxDown,y-myDown)>6;
+  const{x,y}=cxy(e);
   if(e.button===0){
-    if(!isDrag){
+    if(Math.hypot(x-mxDown,y-myDown)<=6){
       if(!e.shiftKey)selected.clear();
       for(const u of units)if(u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+3){selected.add(u.id);break;}
-      boxSel=null;mouseDown=false;mouseBtn=-1;
-      updateSelPanel();updateHud();
-    }else{commitBoxSel();}
-  }else{mouseDown=false;mouseBtn=-1;}
+      boxSel=null;mouseDown=false;mouseBtn=-1;updateSelPanel();updateHud();
+    } else commitBoxSel();
+  } else{mouseDown=false;mouseBtn=-1;}
 });
-
 canvas.addEventListener('mouseleave',()=>{if(mouseDown&&mouseBtn===0&&boxSel)commitBoxSel();});
 window.addEventListener('mouseup',e=>{if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
 
@@ -1184,32 +1134,26 @@ window.addEventListener('keydown',e=>{
     const hasG=[...selected].some(id=>{const u=units.find(u=>u.id===id);return u&&u.type==='gatherer';});
     if(!hasG)return;
     if(buildMode){buildMode=null;document.body.classList.remove('build-mode');}
-    else if(Math.floor(gold)>=TOWER_BUILD_COST){buildMode={type:'guard-tower'};document.body.classList.add('build-mode');}
+    else{buildMode={type:'guard-tower'};document.body.classList.add('build-mode');}
     updateSelPanel();
   }
 });
 
 for(const btn of document.querySelectorAll('.spawn-btn[data-type]'))btn.addEventListener('click',()=>spawnPlayer(btn.dataset.type));
 for(const btn of document.querySelectorAll('.diff-btn'))btn.addEventListener('click',()=>{
-  difficulty=btn.dataset.diff;
-  document.querySelectorAll('.diff-btn').forEach(b=>b.classList.toggle('active',b===btn));
-  updateHud();
+  difficulty=btn.dataset.diff;document.querySelectorAll('.diff-btn').forEach(b=>b.classList.toggle('active',b===btn));updateHud();
 });
 
 // ── loop + init ────────────────────────────────────────────────────────────────
-function loop(t){
-  const dt=Math.min((t-lastT)/1000,0.05);
-  lastT=t;update(dt);render();
-  requestAnimationFrame(loop);
-}
+function loop(t){const dt=Math.min((t-lastT)/1000,.05);lastT=t;update(dt);render();requestAnimationFrame(loop);}
 
 function restart(){
   units=[];projs=[];deposits=[];constructions=[];selected.clear();
   buildMode=null;document.body.classList.remove('build-mode');
-  gold=50;enemyGold=50;kills=0;enemySpawnCd=6;depositSpawnTimer=40;
-  playerBaseHp=BASE_MAX_HP;enemyBaseHp=EBASE_MAX_HP;
-  pBaseShotCd=0;eBaseShotCd=0;
+  gold=50;enemyGold=50;kills=0;enemySpawnCd=6;eGatherCd=20;depositSpawnTimer=40;
+  playerBaseHp=BASE_MAX_HP;enemyBaseHp=EBASE_MAX_HP;pBaseShotCd=0;eBaseShotCd=0;
   gameOver=false;gameWin=false;gameMsg='';floorColors=null;
+  for(const k of Object.keys(UPG))UPG[k].done=false;
   generateMap();placeDeposits();placePerimeterTowers();updateHud();
 }
 
