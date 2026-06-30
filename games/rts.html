@@ -385,7 +385,7 @@ function makeUnit(type,team,col,row){
     waypoints:[],shotCd:def.rate>0?Math.random()/def.rate:.5,
     aiCd:Math.random()*2,vx:0,vy:0,
   };
-  if(type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;u.assignedMineId=-1;}
+  if(type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;u.assignedMineId=-1;u.assignedDepositId=-1;}
   if(['tower','outpost','barracks','mine'].includes(type))u.isBuilding=true;
   return u;
 }
@@ -491,15 +491,20 @@ function updateGatherer(u,dt){
       if(dep.gold<=0){dep.depleted=true;dep.despawnTimer=5;}
     }
     if(u.carryGold>=carry||!dep||dep.depleted||dep.gold<=0){
-      // Route to assigned mine (player), nearest team mine, or spawn point
-      const mineB=isP&&u.assignedMineId>=0
-        ?units.find(ub=>ub.id===u.assignedMineId&&ub.hp>0)
-        :units.find(ub=>ub.type==='mine'&&ub.team===u.team&&ub.hp>0);
-      if(isP&&u.assignedMineId>=0&&!mineB)u.assignedMineId=-1;
-      const tx=mineB?Math.floor(mineB.x/TS):returnC;
-      const ty=mineB?Math.floor(mineB.y/TS):returnR;
-      u.gatherState='returning';
-      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tx,ty);if(p)u.waypoints=toWp(p);
+      if(u.carryGold>0){
+        // Return gold to assigned mine, nearest team mine, or spawn point
+        const mineB=isP&&u.assignedMineId>=0
+          ?units.find(ub=>ub.id===u.assignedMineId&&ub.hp>0)
+          :units.find(ub=>ub.type==='mine'&&ub.team===u.team&&ub.hp>0);
+        if(isP&&u.assignedMineId>=0&&!mineB)u.assignedMineId=-1;
+        const tx=mineB?Math.floor(mineB.x/TS):returnC;
+        const ty=mineB?Math.floor(mineB.y/TS):returnR;
+        u.gatherState='returning';
+        const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tx,ty);if(p)u.waypoints=toWp(p);
+      } else {
+        // Nothing to deliver — skip return trip, go idle immediately
+        u.gatherState='idle';u.targetDep=-1;
+      }
     }
     return;
   }
@@ -511,14 +516,27 @@ function updateGatherer(u,dt){
     return;
   }
   if(u.gatherState==='going'){
+    // Abort early if deposit depleted while en route
+    const dep=deposits.find(d=>d.id===u.targetDep);
+    if(!dep||dep.depleted){u.gatherState='idle';u.targetDep=-1;u.waypoints=[];return;}
     if(u.waypoints.length===0){
-      const dep=deposits.find(d=>d.id===u.targetDep);
-      if(dep&&!dep.depleted&&dep.gold>=15)u.gatherState='mining';
+      const minGold=u.assignedDepositId===u.targetDep?1:15;
+      if(dep.gold>=minGold)u.gatherState='mining';
       else{u.gatherState='idle';u.targetDep=-1;}
     }
     return;
   }
-  // idle — check for unattended constructions first
+  // idle — dedicated deposit first, then constructions, then bestDeposit
+  if(u.assignedDepositId>=0){
+    const aDep=deposits.find(d=>d.id===u.assignedDepositId);
+    if(!aDep||aDep.depleted){u.assignedDepositId=-1;} // deposit gone, clear
+    else if(aDep.gold>0){
+      u.targetDep=aDep.id;u.gatherState='going';
+      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(aDep.x/TS),Math.floor(aDep.y/TS));
+      if(p)u.waypoints=toWp(p);return;
+    }
+    // else: assigned deposit exists but temporarily empty — skip to next check
+  }
   if(isP){
     const unbuilt=constructions.find(con=>{
       if(con.team&&con.team!=='player')return false;
@@ -530,7 +548,6 @@ function updateGatherer(u,dt){
       if(p)u.waypoints=toWp(p);return;
     }
   } else {
-    // Enemy: dispatch to unattended enemy constructions
     const unbuilt=constructions.find(con=>
       con.team==='enemy'&&
       units.filter(ub=>ub.type==='gatherer'&&ub.team==='enemy'&&ub.gatherState==='building'&&ub.targetConId===con.id).length===0
@@ -541,11 +558,14 @@ function updateGatherer(u,dt){
       if(p)u.waypoints=toWp(p);return;
     }
   }
-  const best=bestDeposit(u.x,u.y);
-  if(best>=0){
-    u.targetDep=best;u.gatherState='going';
-    const dep=deposits.find(d=>d.id===best);
-    if(dep){const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(dep.x/TS),Math.floor(dep.y/TS));if(p)u.waypoints=toWp(p);}
+  // Only roam to bestDeposit if not a dedicated miner (or assigned deposit is gone)
+  if(u.assignedDepositId<0){
+    const best=bestDeposit(u.x,u.y);
+    if(best>=0){
+      u.targetDep=best;u.gatherState='going';
+      const dep=deposits.find(d=>d.id===best);
+      if(dep){const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(dep.x/TS),Math.floor(dep.y/TS));if(p)u.waypoints=toWp(p);}
+    }
   }
 }
 
@@ -842,6 +862,11 @@ function drawDeposits(){
     ctx.closePath();ctx.fill();ctx.stroke();
     ctx.fillStyle=`rgba(255,235,100,${.7*pct})`;ctx.font='bold 6px "IBM Plex Mono",monospace';
     ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.ceil(d.gold),d.x,d.y);ctx.textBaseline='alphabetic';
+    // Highlight if any player gatherer is assigned to this deposit
+    if(units.some(u=>u.team==='player'&&u.type==='gatherer'&&u.assignedDepositId===d.id)){
+      ctx.strokeStyle='rgba(220,200,50,.7)';ctx.lineWidth=1.5;ctx.setLineDash([3,3]);
+      ctx.beginPath();ctx.arc(d.x,d.y,13,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    }
   }
 }
 
@@ -1084,6 +1109,8 @@ function updateSelPanel(){
       const stMap={idle:'Idle',going:'→ deposit',mining:'Mining',returning:'← returning','going-build':'→ build site',building:'⚒ Building'};
       let stxt=stMap[u.gatherState]||'';
       if(u.carryGold>0)stxt+=' · '+Math.floor(u.carryGold)+'g';
+      const asgDep=u.assignedDepositId>=0?deposits.find(d=>d.id===u.assignedDepositId&&!d.depleted):null;
+      if(asgDep)stxt+=' · ⛏'+Math.ceil(asgDep.gold)+'g';else if(u.assignedDepositId>=0)u.assignedDepositId=-1;
       const asgMine=u.assignedMineId>=0?units.find(m=>m.id===u.assignedMineId&&m.hp>0):null;
       if(asgMine)stxt+=' · →Mine';else if(u.assignedMineId>=0)u.assignedMineId=-1;
       status.textContent=stxt;
@@ -1120,6 +1147,8 @@ function renderGathererCmds(cmd,gids){
   if(hasBuilding)html+=`<button class="cmd-btn red" id="cmd-stop">Stop</button>`;
   const hasAssigned=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&u.assignedMineId>=0;});
   if(hasAssigned)html+=`<button class="cmd-btn red" id="cmd-unassign">Unassign Mine</button>`;
+  const hasDepAssigned=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&u.assignedDepositId>=0;});
+  if(hasDepAssigned)html+=`<button class="cmd-btn red" id="cmd-unassign-dep">Free Miner</button>`;
   cmd.innerHTML=html;
   for(const btn of cmd.querySelectorAll('[data-btype]')){
     btn.addEventListener('click',()=>{
@@ -1137,6 +1166,10 @@ function renderGathererCmds(cmd,gids){
   });
   cmd.querySelector('#cmd-unassign')?.addEventListener('click',()=>{
     for(const id of gids){const u=units.find(u=>u.id===id);if(u&&u.type==='gatherer')u.assignedMineId=-1;}
+    updateSelPanel();
+  });
+  cmd.querySelector('#cmd-unassign-dep')?.addEventListener('click',()=>{
+    for(const id of gids){const u=units.find(u=>u.id===id);if(u&&u.type==='gatherer')u.assignedDepositId=-1;}
     updateSelPanel();
   });
 }
@@ -1190,7 +1223,16 @@ canvas.addEventListener('mousedown',e=>{
   mouseDown=true;mouseBtn=e.button;mxDown=x;myDown=y;
   if(e.button===2){
     if(!selected.size)return;
-    // Right-click on friendly mine → assign selected gatherers to deposit there
+    // Right-click on gold deposit → assign gatherers as dedicated miners
+    const clickedDep=deposits.find(d=>!d.depleted&&Math.hypot(d.x-x,d.y-y)<=18);
+    if(clickedDep){
+      for(const id of selected){
+        const u=units.find(u=>u.id===id&&u.type==='gatherer');
+        if(u){u.assignedDepositId=clickedDep.id;u.gatherState='idle';u.waypoints=[];u.targetDep=-1;}
+      }
+      updateSelPanel();return;
+    }
+    // Right-click on friendly mine → assign selected gatherers to return gold there
     const clickedMine=units.find(u=>u.type==='mine'&&u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+10);
     if(clickedMine){
       for(const id of selected){const u=units.find(u=>u.id===id&&u.type==='gatherer');if(u)u.assignedMineId=clickedMine.id;}
@@ -1243,8 +1285,13 @@ window.addEventListener('keydown',e=>{
   if(e.key==='b'||e.key==='B'){
     const hasG=[...selected].some(id=>{const u=units.find(u=>u.id===id);return u&&u.type==='gatherer';});
     if(!hasG)return;
-    if(buildMode){buildMode=null;document.body.classList.remove('build-mode');}
-    else{buildMode={type:'guard-tower'};document.body.classList.add('build-mode');}
+    const cycle=['guard-tower','barracks','mine'];
+    if(!buildMode){buildMode={type:'guard-tower'};document.body.classList.add('build-mode');}
+    else{
+      const idx=cycle.indexOf(buildMode.type);
+      if(idx<0||idx===cycle.length-1){buildMode=null;document.body.classList.remove('build-mode');}
+      else{buildMode={type:cycle[idx+1]};}
+    }
     updateSelPanel();
   }
 });
