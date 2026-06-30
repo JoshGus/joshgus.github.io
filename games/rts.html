@@ -133,12 +133,12 @@ const DIFF_CFG = {
 
 // ── unit type definitions ──────────────────────────────────────────────────────
 const TDEFS = {
-  soldier: {name:'Soldier', cost:50,  maxHp:100, speed:68,  range:58,  dmg:12, rate:1.1, r:7,  pcol:'#4488ee', ecol:'#ee4444'},
-  archer:  {name:'Archer',  cost:80,  maxHp:58,  speed:52,  range:135, dmg:20, rate:0.65,r:6,  pcol:'#55bbff', ecol:'#ff8833'},
-  tank:    {name:'Tank',    cost:150, maxHp:290, speed:33,  range:48,  dmg:32, rate:0.5, r:11, pcol:'#2255cc', ecol:'#bb2222'},
-  scout:   {name:'Scout',   cost:35,  maxHp:44,  speed:115, range:36,  dmg:7,  rate:1.9, r:5,  pcol:'#88ddff', ecol:'#ffbb33'},
-  sniper:  {name:'Sniper',  cost:100, maxHp:52,  speed:42,  range:195, dmg:48, rate:0.35,r:6,  pcol:'#22ccdd', ecol:'#dd2222'},
-  gatherer:{name:'Gather',  cost:50,  maxHp:65,  speed:92,  range:0,   dmg:0,  rate:0,   r:6,  pcol:'#ddcc33', ecol:'#cc8833'},
+  soldier: {name:'Soldier', cost:50,  maxHp:100, speed:51,  range:58,  dmg:12, rate:1.1, r:7,  pcol:'#4488ee', ecol:'#ee4444'},
+  archer:  {name:'Archer',  cost:80,  maxHp:58,  speed:39,  range:135, dmg:20, rate:0.65,r:6,  pcol:'#55bbff', ecol:'#ff8833'},
+  tank:    {name:'Tank',    cost:150, maxHp:290, speed:25,  range:48,  dmg:32, rate:0.5, r:11, pcol:'#2255cc', ecol:'#bb2222'},
+  scout:   {name:'Scout',   cost:35,  maxHp:44,  speed:86,  range:36,  dmg:7,  rate:1.9, r:5,  pcol:'#88ddff', ecol:'#ffbb33'},
+  sniper:  {name:'Sniper',  cost:100, maxHp:52,  speed:31,  range:195, dmg:48, rate:0.35,r:6,  pcol:'#22ccdd', ecol:'#dd2222'},
+  gatherer:{name:'Gather',  cost:50,  maxHp:65,  speed:69,  range:0,   dmg:0,  rate:0,   r:6,  pcol:'#ddcc33', ecol:'#cc8833'},
   tower:   {name:'Tower',   cost:0,   maxHp:280, speed:0,   range:110, dmg:20, rate:0.9, r:12, pcol:'#88aa55', ecol:'#aa5533'},
 };
 
@@ -352,13 +352,7 @@ function spawnPlayer(type) {
 }
 
 function placeEnemies() {
-  const placements = [
-    {type:'soldier', col:COLS-4, row:12},
-    {type:'soldier', col:COLS-4, row:23},
-    {type:'soldier', col:COLS-4, row:34},
-    {type:'archer',  col:COLS-6, row:18},
-  ];
-  for (const p of placements) units.push(makeUnit(p.type,'enemy',p.col,p.row));
+  // Enemy starts empty — spawns via the gold economy timer
 }
 
 // ── combat ─────────────────────────────────────────────────────────────────────
@@ -373,7 +367,7 @@ function findTarget(unit) {
 }
 function shoot(from,to) {
   const dx=to.x-from.x,dy=to.y-from.y,d=Math.hypot(dx,dy);
-  projs.push({x:from.x,y:from.y,vx:dx/d*230,vy:dy/d*230,dmg:from.dmg,team:from.team,maxDist:from.range*1.25,traveled:0});
+  projs.push({x:from.x,y:from.y,vx:dx/d*172,vy:dy/d*172,dmg:from.dmg,team:from.team,maxDist:from.range*1.25,traveled:0});
 }
 
 // ── update ─────────────────────────────────────────────────────────────────────
