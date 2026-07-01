@@ -46,10 +46,18 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 }
 .diff-btn.active{background:rgba(45,75,18,.9);border-color:rgba(100,170,45,.55);color:#ccf73f}
 #sel-panel{
-  width:100%;height:82px;flex-shrink:0;
+  width:100%;height:96px;flex-shrink:0;
   background:rgba(5,8,3,.98);border-top:1px solid rgba(55,90,22,.3);
   display:flex;align-items:stretch;overflow:hidden;box-sizing:border-box;
 }
+#sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:30px;}
+.sel-port{
+  width:24px;height:24px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.35);
+  cursor:pointer;display:grid;place-items:center;font-family:var(--mono);font-size:.55rem;
+  font-weight:700;flex-shrink:0;transition:border-color .1s;
+}
+.sel-port:hover{border-color:rgba(200,240,100,.55);}
+.sel-port.hi{border-color:#ccf73f;background:rgba(30,50,10,.7);}
 #sel-portrait{
   width:68px;flex-shrink:0;display:grid;place-items:center;
   border-right:1px solid rgba(55,90,22,.2);
@@ -111,12 +119,16 @@ body.build-mode #canvas{cursor:cell!important}
       <div class="hud-lbl">Difficulty</div>
     </div>
     <div class="spawn-btns">
-      <button class="spawn-btn" data-type="soldier"><span class="key">[U]</span>Soldier<span class="cost">50g</span></button>
-      <button class="spawn-btn" data-type="archer"><span class="key">[I]</span>Archer<span class="cost">80g</span></button>
-      <button class="spawn-btn" data-type="tank"><span class="key">[O]</span>Tank<span class="cost">150g</span></button>
-      <button class="spawn-btn" data-type="scout"><span class="key">[P]</span>Scout<span class="cost">35g</span></button>
-      <button class="spawn-btn" data-type="sniper"><span class="key">[Y]</span>Sniper<span class="cost">100g</span></button>
-      <button class="spawn-btn gb" data-type="gatherer"><span class="key">[G]</span>Gather<span class="cost">50g</span></button>
+      <button class="spawn-btn" data-type="rifleman"><span class="key">[U]</span>Rifleman<span class="cost">50g</span></button>
+      <button class="spawn-btn" data-type="hmg"><span class="key">[I]</span>HMG<span class="cost">90g</span></button>
+      <button class="spawn-btn" data-type="shotgun"><span class="key">[J]</span>Shotgun<span class="cost">60g</span></button>
+      <button class="spawn-btn" data-type="atv"><span class="key">[O]</span>ATV<span class="cost">40g</span></button>
+      <button class="spawn-btn" data-type="grenadier"><span class="key">[P]</span>Grenadier<span class="cost">80g</span></button>
+      <button class="spawn-btn" data-type="sniper"><span class="key">[Y]</span>Sniper<span class="cost">110g</span></button>
+      <button class="spawn-btn" data-type="mortar"><span class="key">[M]</span>Mortar<span class="cost">130g</span></button>
+      <button class="spawn-btn" data-type="tank"><span class="key">[T]</span>Tank<span class="cost">200g</span></button>
+      <button class="spawn-btn" data-type="helicopter"><span class="key">[H]</span>Heli<span class="cost">220g</span></button>
+      <button class="spawn-btn gb" data-type="gatherer"><span class="key">[G]</span>Gatherer<span class="cost">50g</span></button>
     </div>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
@@ -124,8 +136,9 @@ body.build-mode #canvas{cursor:cell!important}
     <div id="sel-portrait"></div>
     <div id="sel-center">
       <div id="sel-title">No selection</div>
-      <div id="sel-body">Click/drag to select · Right-click to move · U I O P Y G = spawn</div>
+      <div id="sel-body">Click/drag to select · Right-click to move · U I J O P Y M T H G = spawn</div>
       <div id="sel-status"></div>
+      <div id="sel-portraits"></div>
     </div>
     <div id="sel-cmd"></div>
   </div>
@@ -151,25 +164,29 @@ const MAX_DEPOSITS=7;
 
 // ── difficulty ─────────────────────────────────────────────────────────────────
 const DIFF={
-  easy:  {pInc:3,  eInc:2,   spawnCd:14, pool:['soldier','soldier','scout']},
-  medium:{pInc:2.5,eInc:3.5, spawnCd:9,  pool:['soldier','archer','scout','tank']},
-  hard:  {pInc:2,  eInc:5.5, spawnCd:5,  pool:['archer','tank','tank','sniper']},
+  easy:  {pInc:3,  eInc:2,   spawnCd:14,pool:['rifleman','rifleman','atv']},
+  medium:{pInc:2.5,eInc:3.5, spawnCd:9, pool:['rifleman','hmg','atv','grenadier']},
+  hard:  {pInc:2,  eInc:5.5, spawnCd:5, pool:['hmg','grenadier','sniper','mortar']},
 };
 
 // ── unit / building defs ───────────────────────────────────────────────────────
 const TDEFS={
-  soldier: {name:'Soldier', cost:50, maxHp:100,speed:44,range:58, dmg:12,rate:.9, r:7, pcol:'#4488ee',ecol:'#ee4444'},
-  archer:  {name:'Archer',  cost:80, maxHp:58, speed:33,range:140,dmg:20,rate:.55,r:6, pcol:'#55bbff',ecol:'#ff8833'},
-  tank:    {name:'Tank',    cost:150,maxHp:290,speed:22,range:90, dmg:32,rate:.42,r:11,pcol:'#2255cc',ecol:'#bb2222'},
-  scout:   {name:'Scout',   cost:35, maxHp:44, speed:72,range:36, dmg:7, rate:1.6,r:5, pcol:'#88ddff',ecol:'#ffbb33'},
-  sniper:  {name:'Sniper',  cost:100,maxHp:52, speed:28,range:200,dmg:50,rate:.28,r:6, pcol:'#22ccdd',ecol:'#dd2222'},
-  gatherer:{name:'Gather',  cost:50, maxHp:65, speed:58,range:0,  dmg:0, rate:0,  r:6, pcol:'#ddcc33',ecol:'#cc8833'},
-  tower:   {name:'Tower',   cost:0,  maxHp:280,speed:0, range:120,dmg:22,rate:.75,r:12,pcol:'#88aa55',ecol:'#aa5533'},
-  outpost: {name:'Outpost', cost:0,  maxHp:160,speed:0, range:115,dmg:14,rate:.6, r:9, pcol:'#558855',ecol:'#774444'},
-  barracks:{name:'Barracks',cost:0,  maxHp:320,speed:0, range:0,  dmg:0, rate:0,  r:15,pcol:'#446633',ecol:'#553322'},
-  mine:    {name:'Mine',    cost:0,  maxHp:200,speed:0, range:0,  dmg:0, rate:0,  r:12,pcol:'#664422',ecol:'#226644'},
+  rifleman:  {name:'Rifleman',  cost:50, maxHp:100,speed:44,range:80, dmg:14,rate:.9, r:7, pcol:'#4488ee',ecol:'#ee4444'},
+  hmg:       {name:'HMG',       cost:90, maxHp:75, speed:28,range:110,dmg:12,rate:2.2,r:7, pcol:'#55bbff',ecol:'#ff8833'},
+  shotgun:   {name:'Shotgun',   cost:60, maxHp:90, speed:40,range:55, dmg:20,rate:.8, r:7, pcol:'#88aaff',ecol:'#ff6622',spread:true},
+  atv:       {name:'ATV',       cost:40, maxHp:50, speed:80,range:45, dmg:8, rate:1.6,r:5, pcol:'#88ddff',ecol:'#ffbb33'},
+  grenadier: {name:'Grenadier', cost:80, maxHp:85, speed:36,range:90, dmg:22,rate:.5, r:7, pcol:'#aabb44',ecol:'#bb6622',aoe:30},
+  sniper:    {name:'Sniper',    cost:110,maxHp:55, speed:28,range:220,dmg:60,rate:.25,r:6, pcol:'#22ccdd',ecol:'#dd2222',los:true,req:'advTraining'},
+  mortar:    {name:'Mortar',    cost:130,maxHp:65, speed:22,range:200,dmg:35,rate:.3, r:7, pcol:'#668822',ecol:'#886622',aoe:45,req:'advTraining'},
+  tank:      {name:'Tank',      cost:200,maxHp:320,speed:20,range:100,dmg:40,rate:.35,r:12,pcol:'#2255cc',ecol:'#bb2222',aoe:35,cone:true,req:'heavyDiv'},
+  helicopter:{name:'Heli',      cost:220,maxHp:180,speed:65,range:130,dmg:28,rate:.6, r:9, pcol:'#33aadd',ecol:'#dd5522',canFly:true,req:'heavyDiv'},
+  gatherer:  {name:'Gatherer',  cost:50, maxHp:65, speed:58,range:0,  dmg:0, rate:0,  r:6, pcol:'#ddcc33',ecol:'#cc8833'},
+  tower:     {name:'Tower',     cost:0,  maxHp:280,speed:0, range:120,dmg:22,rate:.75,r:12,pcol:'#88aa55',ecol:'#aa5533'},
+  outpost:   {name:'Outpost',   cost:0,  maxHp:160,speed:0, range:115,dmg:14,rate:.6, r:9, pcol:'#558855',ecol:'#774444'},
+  barracks:  {name:'Barracks',  cost:0,  maxHp:320,speed:0, range:0,  dmg:0, rate:0,  r:15,pcol:'#446633',ecol:'#553322'},
+  mine:      {name:'Mine',      cost:0,  maxHp:200,speed:0, range:0,  dmg:0, rate:0,  r:12,pcol:'#664422',ecol:'#226644'},
 };
-const COMBAT_TYPES=['soldier','archer','tank','scout','sniper'];
+const COMBAT_TYPES=['rifleman','hmg','shotgun','atv','grenadier','sniper','mortar','tank','helicopter'];
 
 // ── construction defs ──────────────────────────────────────────────────────────
 const BDEFS={
@@ -179,16 +196,22 @@ const BDEFS={
 };
 
 // ── upgrades ───────────────────────────────────────────────────────────────────
-// bldg = which player building must exist to purchase
 const UPG={
-  fasterTools:{label:'Faster Tools',  desc:'+30% gather rate',    cost:120,done:false,bldg:'mine'},
-  bigCart:    {label:'Bigger Carts',  desc:'+25 carry capacity',  cost:80, done:false,bldg:'mine'},
-  autoDrill:  {label:'Auto Drill',    desc:'Mine: +4g/s passive', cost:180,done:false,bldg:'mine'},
-  ironBlades: {label:'Iron Blades',   desc:'+20% unit damage',    cost:200,done:false,bldg:'barracks'},
-  forgedArmor:{label:'Forged Armor',  desc:'+25% unit HP',        cost:220,done:false,bldg:'barracks'},
-  swiftBoots: {label:'Swift Boots',   desc:'+15% unit speed',     cost:160,done:false,bldg:'barracks'},
+  fasterTools:{label:'Faster Tools',  desc:'+30% gather rate',         cost:120,done:false,bldg:'mine'},
+  bigCart:    {label:'Bigger Carts',  desc:'+25 carry capacity',       cost:80, done:false,bldg:'mine'},
+  autoDrill:  {label:'Auto Drill',    desc:'Mine: +4g/s passive',      cost:180,done:false,bldg:'mine'},
+  ironBlades: {label:'Iron Blades',   desc:'+20% unit damage',         cost:200,done:false,bldg:'barracks'},
+  forgedArmor:{label:'Forged Armor',  desc:'+25% unit HP',             cost:220,done:false,bldg:'barracks'},
+  swiftBoots: {label:'Swift Boots',   desc:'+15% unit speed',          cost:160,done:false,bldg:'barracks'},
+  advTraining:{label:'Adv. Training', desc:'Unlocks Sniper & Mortar',  cost:180,done:false,bldg:'barracks'},
+  heavyDiv:   {label:'Heavy Division',desc:'Unlocks Tank & Helicopter',cost:300,done:false,bldg:'barracks',req:'advTraining'},
 };
-// helpers
+function unitUnlocked(type){
+  const req=TDEFS[type]?.req;if(!req)return true;
+  if(req==='advTraining')return UPG.advTraining.done;
+  if(req==='heavyDiv')return UPG.heavyDiv.done;
+  return false;
+}
 function mineRate(){ return MINE_RATE_BASE*(UPG.fasterTools.done?1.3:1); }
 function carryMax(){ return CARRY_BASE+(UPG.bigCart.done?25:0); }
 function applyUpg(def,team){
@@ -387,6 +410,7 @@ function makeUnit(type,team,col,row){
   };
   if(type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;u.assignedMineId=-1;u.assignedDepositId=-1;}
   if(['tower','outpost','barracks','mine'].includes(type))u.isBuilding=true;
+  if(def.canFly)u.canFly=true;
   return u;
 }
 
@@ -410,7 +434,7 @@ function getSpawnPos(team){
 
 function spawnPlayer(type){
   const def=TDEFS[type];
-  if(Math.floor(gold)<def.cost||gameOver)return;
+  if(Math.floor(gold)<def.cost||gameOver||!unitUnlocked(type))return;
   gold-=def.cost;
   const{c,r}=getSpawnPos('player');
   units.push(makeUnit(type,'player',c,r));
@@ -419,7 +443,7 @@ function spawnPlayer(type){
 
 function trainAtBarracks(bid,type){
   const b=units.find(u=>u.id===bid);if(!b)return;
-  const def=TDEFS[type];if(Math.floor(gold)<def.cost||gameOver)return;
+  const def=TDEFS[type];if(Math.floor(gold)<def.cost||gameOver||!unitUnlocked(type))return;
   gold-=def.cost;
   const{c,r}=findOpenNear(Math.floor(b.x/TS)+1,Math.floor(b.y/TS));
   units.push(makeUnit(type,'player',c,r));
@@ -438,18 +462,49 @@ function placePerimeterTowers(){
 }
 
 // ── combat ─────────────────────────────────────────────────────────────────────
+function canSeeLine(x0,y0,x1,y1){
+  const d=Math.hypot(x1-x0,y1-y0);if(d<1)return true;
+  const steps=Math.ceil(d/TS)+1;
+  for(let i=1;i<steps;i++){const t=i/steps;if(tileBlocked(x0+(x1-x0)*t,y0+(y1-y0)*t))return false;}
+  return true;
+}
 function findTarget(u){
   let best=null,bd=Infinity;
+  const losOnly=TDEFS[u.type]?.los;
   for(const e of units){
-    if(e.team===u.team||e.hp<=0||e.type==='gatherer')continue;
+    if(e.team===u.team||e.hp<=0)continue;
     const d=Math.hypot(e.x-u.x,e.y-u.y);
-    if(d<=u.range&&d<bd){bd=d;best=e;}
+    if(d<=u.range&&d<bd){
+      if(losOnly&&!canSeeLine(u.x,u.y,e.x,e.y))continue;
+      bd=d;best=e;
+    }
   }
   return best;
 }
-function fireAt(fx,fy,team,dmg,range,tx,ty){
+function applyAoe(p,cx,cy){
+  for(const u of units){
+    if(u.team===p.team||u.hp<=0)continue;
+    const dx=u.x-cx,dy=u.y-cy,dist=Math.hypot(dx,dy);
+    if(p.cone){
+      const angDiff=Math.abs(((Math.atan2(dy,dx)-p.angle+Math.PI*3)%(Math.PI*2))-Math.PI);
+      if(dist<=p.aoe&&angDiff<Math.PI/3){u.hp-=p.dmg*(1-dist/p.aoe*.4);if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}}
+    } else {
+      if(dist<=p.aoe){u.hp-=p.dmg*(1-dist/p.aoe*.5);if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}}
+    }
+  }
+}
+function fireAt(fx,fy,team,dmg,range,tx,ty,opts={}){
   const dx=tx-fx,dy=ty-fy,d=Math.hypot(dx,dy);if(d<1)return;
-  projs.push({x:fx,y:fy,vx:dx/d*290,vy:dy/d*290,dmg,team,maxDist:range*1.3,traveled:0});
+  const angle=Math.atan2(dy,dx);
+  projs.push({x:fx,y:fy,vx:dx/d*290,vy:dy/d*290,dmg,team,maxDist:range*1.3,traveled:0,
+    aoe:opts.aoe||0,cone:opts.cone||false,angle});
+}
+function fireSpread(fx,fy,team,dmg,range,tx,ty,count,spread){
+  const base=Math.atan2(ty-fy,tx-fx);
+  for(let i=0;i<count;i++){
+    const ang=base+(i-(count-1)/2)*spread;
+    projs.push({x:fx,y:fy,vx:Math.cos(ang)*290,vy:Math.sin(ang)*290,dmg,team,maxDist:range*1.3,traveled:0,aoe:0,cone:false,angle:ang});
+  }
 }
 
 // ── gatherer AI (both teams) ───────────────────────────────────────────────────
@@ -714,7 +769,14 @@ function update(dt){
     if(u.type==='gatherer'){updateGatherer(u,dt);}
     else{
       // Combat
-      u.shotCd-=dt;const tgt=findTarget(u);if(tgt&&u.shotCd<=0){fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y);u.shotCd=1/u.rate;}
+      u.shotCd-=dt;const tgt=findTarget(u);
+      if(tgt&&u.shotCd<=0){
+        const td=TDEFS[u.type];
+        if(td?.spread){fireSpread(u.x,u.y,u.team,Math.round(u.dmg/3),u.range,tgt.x,tgt.y,5,0.13);}
+        else if(td?.aoe){fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y,{aoe:td.aoe,cone:td.cone||false});}
+        else{fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y);}
+        u.shotCd=1/u.rate;
+      }
       // Enemy AI re-evaluate
       if(u.team==='enemy'){
         u.aiCd-=dt;
@@ -722,10 +784,13 @@ function update(dt){
           u.aiCd=1.3+Math.random()*.8;
           if(!findTarget(u)){
             let near=null,nd=Infinity;
-            for(const p of units){if(p.team!=='player'||p.hp<=0||p.type==='gatherer')continue;const d=Math.hypot(p.x-u.x,p.y-u.y);if(d<nd){nd=d;near=p;}}
-            const tgc=near?Math.floor(near.x/TS):P_SPAWN_C+1;
-            const tgr=near?Math.floor(near.y/TS):Math.max(1,Math.min(ROWS-2,Math.floor(u.y/TS)+Math.round((Math.random()-.5)*5)));
-            const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tgc,tgr);if(p&&p.length)u.waypoints=toWp(p);
+            for(const p of units){if(p.team!=='player'||p.hp<=0)continue;const d=Math.hypot(p.x-u.x,p.y-u.y);if(d<nd){nd=d;near=p;}}
+            if(u.canFly){u.waypoints=[{x:near?near.x:P_GATE_X,y:near?near.y:P_GATE_Y}];}
+            else{
+              const tgc=near?Math.floor(near.x/TS):P_SPAWN_C+1;
+              const tgr=near?Math.floor(near.y/TS):Math.max(1,Math.min(ROWS-2,Math.floor(u.y/TS)+Math.round((Math.random()-.5)*5)));
+              const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tgc,tgr);if(p&&p.length)u.waypoints=toWp(p);
+            }
           }
         }
       }
@@ -740,14 +805,15 @@ function update(dt){
       if(u.shotCd<=0&&u.dmg>0){enemyBaseHp=Math.max(0,enemyBaseHp-u.dmg*.55);u.shotCd=1/u.rate;if(enemyBaseHp<=0){endGame(true,'VICTORY — Enemy base destroyed!');return;}}
     }
     // Movement
-    while(u.waypoints.length>1&&canSeeR(u.x,u.y,u.waypoints[1].x,u.waypoints[1].y,u.r))u.waypoints.shift();
+    if(!u.canFly)while(u.waypoints.length>1&&canSeeR(u.x,u.y,u.waypoints[1].x,u.waypoints[1].y,u.r))u.waypoints.shift();
     if(u.waypoints.length>0){
       const wp=u.waypoints[0],dx=wp.x-u.x,dy=wp.y-u.y,d=Math.hypot(dx,dy);
       if(d<3)u.waypoints.shift();
       else{
         const spd=Math.min(u.speed*dt,d);u.vx=dx/d*spd;u.vy=dy/d*spd;
-        const px=u.x,py=u.y;u.x+=u.vx;u.y+=u.vy;
-        if(inWall(u)){u.x=px;if(inWall(u)){u.x+=u.vx;u.y=py;if(inWall(u)){u.x=px;u.y=py;u.waypoints=[];}}}
+        if(u.canFly){u.x+=u.vx;u.y+=u.vy;}
+        else{const px=u.x,py=u.y;u.x+=u.vx;u.y+=u.vy;
+          if(inWall(u)){u.x=px;if(inWall(u)){u.x+=u.vx;u.y=py;if(inWall(u)){u.x=px;u.y=py;u.waypoints=[];}}}}
       }
     }else{u.vx=0;u.vy=0;}
   }
@@ -767,26 +833,35 @@ function update(dt){
       }
     }
   }
-  for(const u of units)if(u.hp>0&&!u.isBuilding)pushOut(u);
+  for(const u of units)if(u.hp>0&&!u.isBuilding&&!u.canFly)pushOut(u);
 
   // Projectiles
   const dead=new Set();
   for(let i=0;i<projs.length;i++){
     const p=projs[i];p.x+=p.vx*dt;p.y+=p.vy*dt;p.traveled+=Math.hypot(p.vx*dt,p.vy*dt);
-    if(p.traveled>p.maxDist||p.x<0||p.x>W||p.y<0||p.y>H){dead.add(i);continue;}
-    if(tileBlocked(p.x,p.y)){dead.add(i);continue;}
+    const outOfBounds=p.x<0||p.x>W||p.y<0||p.y>H;
+    const maxed=p.traveled>p.maxDist;
+    if(maxed||outOfBounds){
+      if(p.aoe>0&&maxed&&!outOfBounds)applyAoe(p,p.x,p.y);
+      dead.add(i);continue;
+    }
+    if(tileBlocked(p.x,p.y)){if(p.aoe>0)applyAoe(p,p.x,p.y);dead.add(i);continue;}
     for(const u of units){
       if(u.team===p.team||u.hp<=0)continue;
       if(Math.hypot(u.x-p.x,u.y-p.y)<u.r+3){
-        u.hp-=p.dmg;dead.add(i);
-        if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}
+        dead.add(i);
+        if(p.aoe>0){applyAoe(p,p.x,p.y);}
+        else{u.hp-=p.dmg;if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}}
         break;
       }
     }
   }
   projs=projs.filter((_,i)=>!dead.has(i));
+  const prevSelSig=[...selected].sort().join(',');
   units=units.filter(u=>u.hp>0);
   for(const id of selected)if(!units.find(u=>u.id===id))selected.delete(id);
+  const newSelSig=[...selected].sort().join(',');
+  if(newSelSig!==prevSelSig)updateSelPanel();
   updateHud();
 }
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;}
@@ -926,10 +1001,20 @@ function drawUnit(u){
   const{x,y,r,col,hp,maxHp}=u;
   const isSel=selected.has(u.id);
   if(isSel){ctx.strokeStyle='#ccf73f';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
-  ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(x,y+r*.5,r*.8,r*.26,0,0,Math.PI*2);ctx.fill();
+  // Shadow (lower for flying units)
+  if(u.canFly){ctx.fillStyle='rgba(0,0,0,.14)';ctx.beginPath();ctx.ellipse(x,y+r*1.6,r*.7,r*.22,0,0,Math.PI*2);ctx.fill();}
+  else{ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(x,y+r*.5,r*.8,r*.26,0,0,Math.PI*2);ctx.fill();}
   ctx.fillStyle=col;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.fill();
+  // Rotor blades for helicopter
+  if(u.type==='helicopter'){ctx.strokeStyle='rgba(200,230,255,.6)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(x-r*1.5,y);ctx.lineTo(x+r*1.5,y);ctx.moveTo(x,y-r*1.5);ctx.lineTo(x,y+r*1.5);ctx.stroke();}
   ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=1;ctx.beginPath();ctx.arc(x,y,r,0,Math.PI*2);ctx.stroke();
   ctx.fillStyle='rgba(255,255,255,.12)';ctx.beginPath();ctx.arc(x-r*.28,y-r*.28,r*.4,0,Math.PI*2);ctx.fill();
+  // Tank turret
+  if(u.type==='tank'){
+    const ang=Math.atan2(u.vy||0,u.vx||1);
+    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=3;
+    ctx.beginPath();ctx.moveTo(x,y);ctx.lineTo(x+Math.cos(ang)*r*1.4,y+Math.sin(ang)*r*1.4);ctx.stroke();
+  }
   ctx.fillStyle='rgba(255,255,255,.7)';ctx.font=`bold ${Math.max(7,r-1)}px "IBM Plex Mono",monospace`;
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(u.name[0],x,y+.5);ctx.textBaseline='alphabetic';
   if(u.type==='gatherer'){
@@ -989,9 +1074,18 @@ function drawConstructions(){
 
 function drawProjs(){
   for(const p of projs){
-    ctx.fillStyle=p.team==='player'?'#aaee55':'#ff8833';
-    ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);ctx.fill();
-    ctx.strokeStyle=p.team==='player'?'rgba(150,220,65,.3)':'rgba(255,140,40,.28)';
+    const isP=p.team==='player';
+    if(p.aoe>0){
+      // AoE projectile — larger dot with glow ring
+      ctx.fillStyle=isP?'#ddee44':'#ff6600';
+      ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle=isP?'rgba(220,230,60,.35)':'rgba(255,100,0,.35)';
+      ctx.lineWidth=.7;ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(p.x,p.y,p.aoe*.5,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    } else {
+      ctx.fillStyle=isP?'#aaee55':'#ff8833';
+      ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);ctx.fill();
+    }
+    ctx.strokeStyle=isP?'rgba(150,220,65,.3)':'rgba(255,140,40,.28)';
     ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.02,p.y-p.vy*.02);ctx.stroke();
   }
 }
@@ -1006,17 +1100,18 @@ function drawBoxSel(){
 
 function drawBuildGhost(){
   if(!buildMode)return;
-  const{x,y}=mousePos,ok=!tileBlocked(x,y)&&Math.floor(gold)>=BDEFS[buildMode.type].cost;
+  const gx=Math.floor(mousePos.x/TS)*TS+TS/2,gy=Math.floor(mousePos.y/TS)*TS+TS/2;
+  const ok=!tileBlocked(gx,gy)&&Math.floor(gold)>=BDEFS[buildMode.type].cost;
   ctx.globalAlpha=ok?.5:.22;
   const def=BDEFS[buildMode.type];
-  if(def.spawnAs==='tower')drawTowerShape(x,y,12,ok?'#88aa55':'#aa4444');
-  else if(def.spawnAs==='barracks')drawBarracksShape(x,y,15,ok?'#446633':'#663322');
-  else if(def.spawnAs==='mine')drawMineShape(x,y,12,ok?'#664422':'#aa3322');
+  if(def.spawnAs==='tower')drawTowerShape(gx,gy,12,ok?'#88aa55':'#aa4444');
+  else if(def.spawnAs==='barracks')drawBarracksShape(gx,gy,15,ok?'#446633':'#663322');
+  else if(def.spawnAs==='mine')drawMineShape(gx,gy,12,ok?'#664422':'#aa3322');
   ctx.globalAlpha=1;
   ctx.strokeStyle=ok?'rgba(140,220,75,.55)':'rgba(220,80,60,.45)';
-  ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.strokeRect(x-16,y-16,32,32);ctx.setLineDash([]);
+  ctx.lineWidth=1;ctx.setLineDash([4,3]);ctx.strokeRect(gx-TS/2,gy-TS/2,TS,TS);ctx.setLineDash([]);
   ctx.fillStyle=ok?'rgba(160,230,80,.55)':'rgba(220,100,80,.55)';ctx.font='7px "IBM Plex Mono",monospace';ctx.textAlign='center';
-  ctx.fillText(ok?BDEFS[buildMode.type].label+' '+BDEFS[buildMode.type].cost+'g':'BLOCKED',x,y+30);
+  ctx.fillText(ok?BDEFS[buildMode.type].label+' '+BDEFS[buildMode.type].cost+'g':'BLOCKED',gx,gy+TS);
 }
 
 function drawGameOver(){
@@ -1039,6 +1134,28 @@ function render(){
 }
 
 // ── HUD + sel panel ────────────────────────────────────────────────────────────
+function tickSelPanel(){
+  // Updates only text fields each frame — never touches cmd buttons (preserves click listeners)
+  const sel=units.filter(u=>selected.has(u.id)&&u.hp>0);
+  if(!sel.length)return;
+  const title=document.getElementById('sel-title');
+  const status=document.getElementById('sel-status');
+  if(sel.length===1){
+    const u=sel[0];
+    if(title)title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
+    if(u.type==='gatherer'&&status){
+      const stMap={idle:'Idle',going:'→ deposit',mining:'Mining',returning:'← returning','going-build':'→ build site',building:'⚒ Building'};
+      let stxt=stMap[u.gatherState]||'';
+      if(u.carryGold>0)stxt+=' · '+Math.floor(u.carryGold)+'g carried';
+      status.textContent=stxt;
+    } else if(u.isBuilding&&title){
+      title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
+    }
+  } else {
+    if(title)title.textContent=`${sel.length} units selected`;
+  }
+}
+
 function updateHud(){
   document.getElementById('hud-gold').textContent=Math.floor(gold);
   document.getElementById('hud-kills').textContent=kills;
@@ -1048,9 +1165,11 @@ function updateHud(){
   const bf=document.getElementById('base-hp-fill'),ef=document.getElementById('enemy-hp-fill');
   if(bf)bf.style.width=(playerBaseHp/BASE_MAX_HP*100).toFixed(1)+'%';
   if(ef)ef.style.width=(enemyBaseHp/EBASE_MAX_HP*100).toFixed(1)+'%';
-  for(const btn of document.querySelectorAll('.spawn-btn[data-type]'))
-    btn.disabled=gameOver||Math.floor(gold)<TDEFS[btn.dataset.type].cost;
-  updateSelPanel();
+  for(const btn of document.querySelectorAll('.spawn-btn[data-type]')){
+    const t=btn.dataset.type;
+    btn.disabled=gameOver||Math.floor(gold)<(TDEFS[t]?.cost||0)||!unitUnlocked(t);
+  }
+  tickSelPanel();
 }
 
 function hasBldg(type){return units.some(u=>u.type===type&&u.team==='player'&&u.hp>0);}
@@ -1063,10 +1182,12 @@ function updateSelPanel(){
   const status=document.getElementById('sel-status');
   const cmd=document.getElementById('sel-cmd');
 
+  const portsEl=document.getElementById('sel-portraits');
   if(!sel.length){
     portrait.innerHTML='<div style="font-size:1.6rem;color:rgba(70,110,40,.22)">◻</div>';
-    title.textContent='No selection';body.textContent='Click/drag to select · Right-click to move · U I O P Y G = spawn';status.textContent='';cmd.innerHTML='';return;
+    title.textContent='No selection';body.textContent='Click/drag to select · Right-click to move · U I J O P Y M T H G = spawn';status.textContent='';cmd.innerHTML='';if(portsEl)portsEl.innerHTML='';return;
   }
+  if(portsEl)portsEl.innerHTML='';
 
   // Single building
   if(sel.length===1&&sel[0].isBuilding){
@@ -1077,8 +1198,14 @@ function updateSelPanel(){
     status.textContent='';
 
     if(u.type==='barracks'){
-      body.textContent='Select unit to train · spawns near barracks';
-      const opts=COMBAT_TYPES.map(t=>{const d=TDEFS[t];const ok=Math.floor(gold)>=d.cost&&!gameOver;return`<button class="cmd-btn"${ok?'':' disabled'} data-train="${t}" data-brid="${u.id}">[${t[0].toUpperCase()}] ${d.name} ${d.cost}g</button>`;}).join('');
+      body.textContent='Train unit · spawns near barracks';
+      const opts=COMBAT_TYPES.map(t=>{
+        const d=TDEFS[t];
+        const unlocked=unitUnlocked(t);
+        const ok=Math.floor(gold)>=d.cost&&!gameOver&&unlocked;
+        const lockTxt=!unlocked?(d.req==='advTraining'?' [needs Adv.Training]':' [needs Heavy Div]'):'';
+        return`<button class="cmd-btn"${ok?'':' disabled'} data-train="${t}" data-brid="${u.id}" style="opacity:${unlocked?.9:.35}">${d.name} ${d.cost}g${lockTxt}</button>`;
+      }).join('');
       cmd.innerHTML=opts;
       for(const btn of cmd.querySelectorAll('[data-train]'))
         btn.addEventListener('click',()=>trainAtBarracks(+btn.dataset.brid,btn.dataset.train));
@@ -1087,11 +1214,11 @@ function updateSelPanel(){
       const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='mine');
       const html=upgKeys.map(k=>{
         const upg=UPG[k],owned=upg.done,canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver;
-        return`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}">${owned?'✓ ':''} ${upg.label} ${owned?'(done)':upg.cost+'g'}<br><span style="font-size:.38rem;opacity:.7">${upg.desc}</span></button>`;
+        return`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}">${owned?'✓ ':''}${upg.label} ${owned?'(done)':upg.cost+'g'}<br><span style="font-size:.38rem;opacity:.7">${upg.desc}</span></button>`;
       }).join('');
       cmd.innerHTML=html||'<span style="font-size:.48rem;color:rgba(120,170,60,.4)">No upgrades available</span>';
       for(const btn of cmd.querySelectorAll('[data-upg]'))
-        btn.addEventListener('click',()=>{const k=btn.dataset.upg;if(UPG[k].done||Math.floor(gold)<UPG[k].cost)return;gold-=UPG[k].cost;UPG[k].done=true;updateHud();});
+        btn.addEventListener('click',()=>{const k=btn.dataset.upg;const upg=UPG[k];if(upg.done||Math.floor(gold)<upg.cost)return;if(upg.req&&!UPG[upg.req]?.done)return;gold-=upg.cost;upg.done=true;updateSelPanel();updateHud();});
     } else {
       cmd.innerHTML='';
     }
@@ -1119,9 +1246,23 @@ function updateSelPanel(){
   } else {
     const types={};for(const u of sel)types[u.type]=(types[u.type]||0)+1;
     portrait.innerHTML=`<div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:#ccf73f;font-family:var(--mono)">${sel.length}</div><div style="font-size:.38rem;color:rgba(130,170,55,.4);letter-spacing:.1em;font-family:var(--mono)">SEL</div></div>`;
-    title.textContent=`${sel.length} units`;
+    title.textContent=`${sel.length} units selected`;
     body.textContent=Object.entries(types).map(([t,n])=>`${n}× ${TDEFS[t]?.name||t}`).join('  ');
     status.textContent='';
+    // Portrait grid
+    if(portsEl){
+      portsEl.innerHTML=sel.map(u=>`<div class="sel-port" data-uid="${u.id}" style="color:${u.col};border-color:rgba(255,255,255,.12)">${u.name[0]}</div>`).join('');
+      for(const port of portsEl.querySelectorAll('.sel-port')){
+        port.addEventListener('click',e=>{
+          const id=+port.dataset.uid;
+          if(e.ctrlKey||e.shiftKey){
+            const ut=units.find(u=>u.id===id)?.type;
+            if(ut)for(const ou of units)if(ou.type===ut&&ou.team==='player'&&ou.hp>0)selected.add(ou.id);
+          } else {selected.clear();selected.add(id);}
+          updateSelPanel();
+        });
+      }
+    }
     const gids=sel.filter(u=>u.type==='gatherer').map(u=>u.id);
     if(gids.length)renderGathererCmds(cmd,gids);else cmd.innerHTML='';
   }
@@ -1139,8 +1280,10 @@ function renderGathererCmds(cmd,gids){
   if(hasBldg('barracks')){
     const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='barracks');
     upgKeys.forEach(k=>{
-      const upg=UPG[k],owned=upg.done,canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver;
-      html+=`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}">${owned?'✓ ':''} ${upg.label} ${owned?'':upg.cost+'g'}</button>`;
+      const upg=UPG[k],owned=upg.done;
+      const reqMet=!upg.req||(UPG[upg.req]?.done);
+      const canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver&&reqMet;
+      html+=`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" style="opacity:${reqMet||owned?1:.4}">${owned?'✓ ':''}${upg.label} ${owned?'':upg.cost+'g'}</button>`;
     });
   }
   const hasBuilding=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&(u.gatherState==='building'||u.gatherState==='going-build');});
@@ -1159,7 +1302,7 @@ function renderGathererCmds(cmd,gids){
     });
   }
   for(const btn of cmd.querySelectorAll('[data-upg]'))
-    btn.addEventListener('click',()=>{const k=btn.dataset.upg;if(UPG[k].done||Math.floor(gold)<UPG[k].cost)return;gold-=UPG[k].cost;UPG[k].done=true;updateHud();});
+    btn.addEventListener('click',()=>{const k=btn.dataset.upg;const upg=UPG[k];if(upg.done||Math.floor(gold)<upg.cost)return;if(upg.req&&!UPG[upg.req]?.done)return;gold-=upg.cost;upg.done=true;updateSelPanel();updateHud();});
   cmd.querySelector('#cmd-stop')?.addEventListener('click',()=>{
     for(const id of gids){const u=units.find(u=>u.id===id);if(u&&u.type==='gatherer'){u.gatherState='idle';u.targetConId=-1;u.waypoints=[];}}
     updateSelPanel();
@@ -1202,9 +1345,10 @@ canvas.addEventListener('mousedown',e=>{
   if(gameOver)return;
   const{x,y}=cxy(e);
   if(buildMode&&e.button===0){
-    if(!tileBlocked(x,y)&&Math.floor(gold)>=BDEFS[buildMode.type].cost){
+    const sx=Math.floor(x/TS)*TS+TS/2,sy=Math.floor(y/TS)*TS+TS/2;
+    if(!tileBlocked(sx,sy)&&Math.floor(gold)>=BDEFS[buildMode.type].cost){
       gold-=BDEFS[buildMode.type].cost;
-      const con={id:uid++,x,y,type:buildMode.type,progress:0,buildTime:BDEFS[buildMode.type].time,team:'player'};
+      const con={id:uid++,x:sx,y:sy,type:buildMode.type,progress:0,buildTime:BDEFS[buildMode.type].time,team:'player'};
       constructions.push(con);
       // Dispatch idle gatherers to build
       for(const id of selected){
@@ -1257,8 +1401,10 @@ canvas.addEventListener('mousedown',e=>{
       const u=units.find(u=>u.id===id);if(!u)continue;
       if(u.type==='gatherer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;}
       const oc=spread%3-1,or=Math.floor(spread/3)-1;
-      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.max(0,Math.min(COLS-1,gc+oc)),Math.max(0,Math.min(ROWS-1,gr+or)));
-      if(p)u.waypoints=toWp(p);spread++;
+      const tc=Math.max(0,Math.min(COLS-1,gc+oc)),tr=Math.max(0,Math.min(ROWS-1,gr+or));
+      if(u.canFly){u.waypoints=[{x:tc*TS+TS/2,y:tr*TS+TS/2}];}
+      else{const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tc,tr);if(p)u.waypoints=toWp(p);}
+      spread++;
     }
   } else if(e.button===0){boxSel={x0:x,y0:y,x1:x,y1:y};}
 });
@@ -1280,7 +1426,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){buildMode=null;document.body.classList.remove('build-mode');if(!gameOver){selected.clear();updateSelPanel();updateHud();}return;}
   if((e.key==='r'||e.key==='R')&&gameOver){restart();return;}
   if(gameOver)return;
-  const spawnMap={u:'soldier',i:'archer',o:'tank',p:'scout',y:'sniper',g:'gatherer'};
+  const spawnMap={u:'rifleman',i:'hmg',j:'shotgun',o:'atv',p:'grenadier',y:'sniper',m:'mortar',t:'tank',h:'helicopter',g:'gatherer'};
   if(spawnMap[e.key.toLowerCase()]){spawnPlayer(spawnMap[e.key.toLowerCase()]);return;}
   if(e.key==='b'||e.key==='B'){
     const hasG=[...selected].some(id=>{const u=units.find(u=>u.id===id);return u&&u.type==='gatherer';});
