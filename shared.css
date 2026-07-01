@@ -50,8 +50,8 @@ body.noise::after {
 .status.dark .sig:hover, .status.dark nav a:hover, .status.dark nav a.active { color:var(--accent); }
 .status.dark #clock { color:rgba(255,255,255,.18); }
 
-/* minigolf uses fixed positioning — add class="status fixed-bar" */
-.status.fixed-bar { position:fixed; }
+/* minigolf/rts use fixed positioning — add class="status fixed-bar" */
+.status.fixed-bar { position:fixed; top:0; left:0; right:0; z-index:100; }
 
 /* ── dark mode ──────────────────────────────────────────────────────── */
 html.dark {
