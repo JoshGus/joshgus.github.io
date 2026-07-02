@@ -50,13 +50,13 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 }
 .diff-btn.active{background:rgba(45,75,18,.9);border-color:rgba(100,170,45,.55);color:#ccf73f}
 #sel-panel{
-  width:100%;min-height:96px;max-height:180px;flex-shrink:0;
+  width:100%;min-height:96px;max-height:260px;flex-shrink:0;
   background:rgba(5,8,3,.98);border-top:1px solid rgba(55,90,22,.3);
   display:flex;align-items:stretch;overflow:hidden;box-sizing:border-box;
   transition:max-height .15s ease;position:relative;z-index:10;
 }
-#sel-panel.expanded{max-height:180px;}
-#sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:54px;}
+#sel-panel.expanded{max-height:260px;}
+#sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:80px;}
 .sel-port{
   width:24px;height:24px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.35);
   cursor:pointer;display:grid;place-items:center;font-family:var(--mono);font-size:.55rem;
@@ -66,10 +66,10 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 .sel-port.hi{border-color:#ccf73f;background:rgba(30,50,10,.7);}
 .sel-hp{position:absolute;bottom:0;left:0;height:3px;}
 #sel-portrait{
-  width:68px;flex-shrink:0;display:grid;place-items:center;
+  width:68px;flex-shrink:0;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;padding-top:12px;
   border-right:1px solid rgba(55,90,22,.2);
 }
-#sel-center{flex:1;padding:7px 14px;display:flex;flex-direction:column;justify-content:center;gap:2px;overflow:hidden;min-width:0}
+#sel-center{flex:1;padding:7px 14px;display:flex;flex-direction:column;justify-content:flex-start;gap:2px;overflow:hidden;min-width:0}
 #sel-title{font-family:var(--mono);font-size:.68rem;font-weight:700;color:rgba(195,230,110,.9);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sel-body{font-family:var(--mono);font-size:.5rem;color:rgba(120,170,60,.6);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sel-status{font-family:var(--mono);font-size:.44rem;color:rgba(190,170,55,.5);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -244,7 +244,7 @@ const TDEFS={
   atv:       {name:'ATV',       cost:40, maxHp:50, speed:80,range:85, dmg:8, rate:1.6,r:5, pcol:'#88ddff',ecol:'#ffbb33'},
   grenadier: {name:'Grenadier', cost:80, maxHp:85, speed:36,range:150,dmg:38,rate:.5, r:7, pcol:'#aabb44',ecol:'#bb6622',aoe:60},
   sniper:    {name:'Sniper',    cost:110,maxHp:55, speed:28,range:320,dmg:75,rate:.25,r:6, pcol:'#22ccdd',ecol:'#dd2222',los:true,req:'advTraining'},
-  mortar:    {name:'Mortar',    cost:130,maxHp:65, speed:22,range:270,dmg:60,rate:.3, r:7, pcol:'#668822',ecol:'#886622',aoe:80,req:'advTraining'},
+  mortar:    {name:'Mortar',    cost:130,maxHp:65, speed:22,range:170,dmg:60,rate:.3, r:7, pcol:'#668822',ecol:'#886622',aoe:55,req:'advTraining'},
   tank:      {name:'Tank',      cost:200,maxHp:320,speed:20,range:210,dmg:70,rate:.35,r:12,pcol:'#2255cc',ecol:'#bb2222',aoe:65,cone:true,req:'heavyDiv'},
   helicopter:{name:'Heli',      cost:220,maxHp:180,speed:65,range:185,dmg:28,rate:.6, r:9, pcol:'#33aadd',ecol:'#dd5522',canFly:true,req:'heavyDiv'},
   engineer:  {name:'Engineer',  cost:50, maxHp:65, speed:58,range:0,  dmg:0, rate:0,  r:6, pcol:'#ddcc33',ecol:'#cc8833'},
@@ -271,6 +271,13 @@ const TOWER_UPGRADES={
   sniperPost:{label:'Sniper Post', cost:155,desc:'Extreme range, line-of-sight',range:350,dmg:95,rate:.25,aoe:0,  los:true},
 };
 
+// ── base upgrades ─────────────────────────────────────────────────────────────
+const BUPG={
+  defRange:{label:'Extended Perimeter',desc:'+30% defense range',   cost:180,done:false},
+  defDmg:  {label:'Heavy Cannons',     desc:'+60% base defense dmg',cost:220,done:false},
+};
+const AIRSTRIKE_COST=350, AIRSTRIKE_CD=45;
+
 // ── upgrades ───────────────────────────────────────────────────────────────────
 const UPG={
   fasterTools: {label:'Faster Tools',   desc:'+30% gather rate',          cost:120,done:false,bldg:'mine'},
@@ -281,9 +288,10 @@ const UPG={
   swiftBoots:  {label:'Swift Boots',    desc:'+15% unit speed',           cost:160,done:false,bldg:'barracks'},
   advTraining: {label:'Adv. Training',  desc:'Unlocks Sniper & Mortar',   cost:180,done:false,bldg:'barracks'},
   heavyDiv:    {label:'Heavy Division', desc:'Unlocks Tank & Helicopter', cost:300,done:false,bldg:'barracks',req:'advTraining'},
-  bulletSpeed: {label:'HV Ammo',        desc:'+40% projectile speed',     cost:150,done:false,bldg:'research'},
-  expRange:    {label:'Blast Radius',   desc:'+40% AoE radius',           cost:200,done:false,bldg:'research'},
-  rapidFire:   {label:'Rapid Fire',     desc:'+20% fire rate all units',  cost:220,done:false,bldg:'research'},
+  bulletSpeed:    {label:'HV Ammo',          desc:'+40% projectile speed',          cost:150,done:false,bldg:'research'},
+  expRange:       {label:'Blast Radius',     desc:'+40% AoE radius',                cost:200,done:false,bldg:'research'},
+  rapidFire:      {label:'Rapid Fire',       desc:'+20% fire rate all units',       cost:220,done:false,bldg:'research'},
+  mortarPrecision:{label:'Mortar Targeting', desc:'Mortar scatter −75%',            cost:180,done:false,bldg:'research'},
 };
 function unitUnlocked(type){
   const req=TDEFS[type]?.req;if(!req)return true;
@@ -305,6 +313,18 @@ function applyUpg(def,team){
   };
 }
 
+function baseRange(){return BASE_RANGE*(BUPG.defRange.done?1.3:1);}
+function baseDmg(){return BASE_DMG*(BUPG.defDmg.done?1.6:1);}
+function totalRepairCost(){return Math.ceil(units.filter(u=>u.isBuilding&&u.team==='player'&&u.hp>0&&u.hp<u.maxHp).reduce((s,u)=>s+(u.maxHp-u.hp)*.5,0));}
+function repairAllBuildings(){const rc=totalRepairCost();if(Math.floor(gold)<rc||rc===0)return;gold-=rc;for(const u of units)if(u.isBuilding&&u.team==='player'&&u.hp>0)u.hp=u.maxHp;updateHud();updateSelPanel();}
+function inPlayerBase(cx,cy){return cx>=PB_C*TS&&cx<=(PB_C+PB_W)*TS&&cy>=PB_R*TS&&cy<=(PB_R+PB_H)*TS;}
+function fireAirstrike(tx,ty){
+  const fp={team:'player',aoe:160*aoeRadiusMult(),dmg:220,cone:false};
+  applyAoe(fp,tx,ty);
+  airstrikeEffects.push({x:tx,y:ty,timer:1.4,maxTimer:1.4});
+  airstrikeStock=0;airstrikeCD=AIRSTRIKE_CD;
+}
+
 // ── state ──────────────────────────────────────────────────────────────────────
 let grid=[],units=[],projs=[],deposits=[],constructions=[];
 let uid=0,selected=new Set();
@@ -322,6 +342,9 @@ let lastT=0,canvasScale=1,floorColors=null;
 let trainQueues=new Map(); // barracksId → [{type,timeLeft,maxTime}]
 let playerSpawnQueue=[]; // [{type,timeLeft,maxTime}] — base/keyboard spawns
 let sidePanelCd=0;
+let airstrikeStock=0,airstrikeCD=0,pendingAirstrike=false;
+let baseSelected=false,airstrikeEffects=[],explosions=[];
+let upgradeQueue=[]; // [{key,timeLeft,maxTime,bldgType}] — global ordered queue
 
 // ── canvas ─────────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('canvas');
@@ -633,13 +656,22 @@ function applyAoe(p,cx,cy){
   }
 }
 function fireAt(fx,fy,team,dmg,range,tx,ty,opts={}){
-  const dx=tx-fx,dy=ty-fy,d=Math.hypot(dx,dy);if(d<1)return;
+  // For arc+toDest: add landing variance (mortar scatter), reduced by mortarPrecision upgrade
+  let ltx=tx,lty=ty;
+  if(opts.arc&&opts.toDest&&opts.scatter){
+    const sc=opts.scatter*(UPG.mortarPrecision?.done?0.25:1);
+    const ang=Math.random()*Math.PI*2;
+    ltx+=Math.cos(ang)*sc;lty+=Math.sin(ang)*sc;
+  }
+  const dx=ltx-fx,dy=lty-fy,d=Math.hypot(dx,dy);if(d<1)return;
   const angle=Math.atan2(dy,dx);
   const spd=opts.speed||projSpeed();
-  const maxD=opts.toDest?d*1.05:range*1.35; // toDest: travel exactly to destination
-  projs.push({x:fx,y:fy,vx:dx/d*spd,vy:dy/d*spd,dmg,team,maxDist:maxD,traveled:0,
+  const maxD=opts.toDest?d:range*1.35;
+  const proj={x:fx,y:fy,vx:dx/d*spd,vy:dy/d*spd,dmg,team,maxDist:maxD,traveled:0,
     aoe:opts.aoe||0,cone:opts.cone||false,angle,
-    passWalls:opts.passWalls||false,arc:opts.arc||false,airOnly:opts.airOnly||false});
+    passWalls:opts.passWalls||false,arc:opts.arc||false,airOnly:opts.airOnly||false};
+  if(opts.toDest)proj.landX=ltx,proj.landY=lty;
+  projs.push(proj);
 }
 function fireSpread(fx,fy,team,dmg,range,tx,ty,count,spread,opts={}){
   const base=Math.atan2(ty-fy,tx-fx),spd=projSpeed();
@@ -898,8 +930,8 @@ function update(dt){
   pBaseShotCd-=dt;
   if(pBaseShotCd<=0){
     let near=null,nd=Infinity;
-    for(const u of units){if(u.team!=='enemy'||u.hp<=0)continue;const d=Math.hypot(u.x-P_GATE_X,u.y-P_GATE_Y);if(d<=BASE_RANGE&&d<nd){nd=d;near=u;}}
-    if(near){fireAt(P_GATE_X,P_GATE_Y,'player',BASE_DMG,BASE_RANGE,near.x,near.y);pBaseShotCd=1/BASE_RATE;}
+    for(const u of units){if(u.team!=='enemy'||u.hp<=0)continue;const d=Math.hypot(u.x-P_GATE_X,u.y-P_GATE_Y);if(d<=baseRange()&&d<nd){nd=d;near=u;}}
+    if(near){fireAt(P_GATE_X,P_GATE_Y,'player',baseDmg(),baseRange(),near.x,near.y);pBaseShotCd=1/BASE_RATE;}
   }
   eBaseShotCd-=dt;
   if(eBaseShotCd<=0){
@@ -945,13 +977,15 @@ function update(dt){
         const useAoe=td?.aoe?aoeRadiusMult()*td.aoe:0;
         const isLob=u.type==='grenadier'||u.type==='mortar'; // lob = arc + wall pass
         const isAir=u.canFly; // helicopter = air-to-ground, passes walls
-        const passW=isLob||isAir;
+        const tgtFlying=tgt&&tgt.canFly; // targeting a flying unit → shots must pass walls
+        const passW=isLob||isAir||tgtFlying;
         const useArc=isLob;
-        const useToDest=isLob&&u.type==='mortar'; // mortar travels to exact destination
+        const useToDest=isLob; // lobs always travel to exact aimed destination (not range*1.35)
         if(td?.spread){
           fireSpread(u.x,u.y,u.team,Math.round(effDmg/3),effRange,tgt.x,tgt.y,5,0.13,{passWalls:passW,arc:useArc});
         } else if(useAoe){
-          fireAt(u.x,u.y,u.team,effDmg,effRange,tgt.x,tgt.y,{aoe:useAoe,cone:td.cone||false,speed:projSpeed(),passWalls:passW,arc:useArc,toDest:useToDest});
+          const scatter=u.type==='mortar'?28:0; // mortars have landing variance; grenadiers don't
+          fireAt(u.x,u.y,u.team,effDmg,effRange,tgt.x,tgt.y,{aoe:useAoe,cone:td.cone||false,speed:projSpeed(),passWalls:passW,arc:useArc,toDest:useToDest,scatter});
         } else {
           fireAt(u.x,u.y,u.team,effDmg,effRange,tgt.x,tgt.y,{speed:projSpeed(),passWalls:passW,arc:useArc});
         }
@@ -1026,10 +1060,15 @@ function update(dt){
     const outOfBounds=p.x<0||p.x>W||p.y<0||p.y>H;
     const maxed=p.traveled>p.maxDist;
     if(maxed||outOfBounds){
-      if(p.aoe>0&&maxed&&!outOfBounds)applyAoe(p,p.x,p.y);
+      if(p.aoe>0&&maxed&&!outOfBounds){
+        const ex=p.landX!==undefined?p.landX:p.x;
+        const ey=p.landY!==undefined?p.landY:p.y;
+        applyAoe(p,ex,ey);
+        explosions.push({x:ex,y:ey,timer:.42,maxTimer:.42,radius:p.aoe,col:p.team==='player'?'200,220,50':'255,90,20'});
+      }
       dead.add(i);continue;
     }
-    if(!p.passWalls&&tileBlocked(p.x,p.y)){if(p.aoe>0)applyAoe(p,p.x,p.y);dead.add(i);continue;}
+    if(!p.passWalls&&tileBlocked(p.x,p.y)){if(p.aoe>0){applyAoe(p,p.x,p.y);explosions.push({x:p.x,y:p.y,timer:.42,maxTimer:.42,radius:p.aoe,col:p.team==='player'?'200,220,50':'255,90,20'});}dead.add(i);continue;}
     // Skip unit collision for arced/lob projectiles (they detonate at max range)
     if(!p.arc){
       for(const u of units){
@@ -1037,7 +1076,7 @@ function update(dt){
         if(p.airOnly&&!u.canFly)continue; // air-only hits flying units only
         if(Math.hypot(u.x-p.x,u.y-p.y)<u.r+3){
           dead.add(i);
-          if(p.aoe>0){applyAoe(p,p.x,p.y);}
+          if(p.aoe>0){applyAoe(p,p.x,p.y);explosions.push({x:p.x,y:p.y,timer:.42,maxTimer:.42,radius:p.aoe,col:p.team==='player'?'200,220,50':'255,90,20'});}
           else{u.hp-=p.dmg;if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}}
           break;
         }
@@ -1050,8 +1089,16 @@ function update(dt){
   for(const id of selected)if(!units.find(u=>u.id===id))selected.delete(id);
   const newSelSig=[...selected].sort().join(',');
   if(newSelSig!==prevSelSig)updateSelPanel();
+  if(airstrikeCD>0)airstrikeCD=Math.max(0,airstrikeCD-dt);
+  for(let i=airstrikeEffects.length-1;i>=0;i--){airstrikeEffects[i].timer-=dt;if(airstrikeEffects[i].timer<=0)airstrikeEffects.splice(i,1);}
+  for(let i=explosions.length-1;i>=0;i--){explosions[i].timer-=dt;if(explosions[i].timer<=0)explosions.splice(i,1);}
+  // Upgrade queue tick
+  if(upgradeQueue.length){
+    const cur=upgradeQueue[0];cur.timeLeft-=dt;
+    if(cur.timeLeft<=0){UPG[cur.key].done=true;upgradeQueue.shift();updateSelPanel();updateHud();}
+  }
   sidePanelCd-=dt;
-  if(sidePanelCd<=0){sidePanelCd=0.25;updateSidePanel();}
+  if(sidePanelCd<=0){sidePanelCd=0.25;updateSidePanel();updateSelPanel();}
   updateHud();
 }
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;}
@@ -1067,8 +1114,6 @@ function drawMap(){
   if(!floorColors)buildFloorColors();
   for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)
     if(grid[row][col]===0){ctx.fillStyle=floorColors[row][col];ctx.fillRect(col*TS,row*TS,TS,TS);}
-  ctx.fillStyle='rgba(20,50,160,.07)';ctx.fillRect(0,0,LZ*TS,H);
-  ctx.fillStyle='rgba(160,20,20,.07)';ctx.fillRect((COLS-RZ)*TS,0,RZ*TS,H);
   for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)if(grid[row][col]===1){
     const x=col*TS,y=row*TS;
     ctx.fillStyle='#1e1a12';ctx.fillRect(x,y,TS,TS);
@@ -1085,27 +1130,41 @@ function drawMap(){
 
 function drawBase(cx,cy,w,h,gateRow,isP,hp,maxHp){
   const x=cx*TS,y=cy*TS,wPx=w*TS,hPx=h*TS;
+  const gateX=isP?P_GATE_X:E_GATE_X,gateY=isP?P_GATE_Y:E_GATE_Y;
+  const rng=isP?baseRange():BASE_RANGE;
+  const isSel=isP&&baseSelected;
+  // Defense range ring (fill subtle when selected)
+  if(isSel){
+    ctx.fillStyle='rgba(60,100,220,.04)';ctx.beginPath();ctx.arc(gateX,gateY,rng,0,Math.PI*2);ctx.fill();
+  }
+  ctx.strokeStyle=isP?`rgba(60,100,220,${isSel?.18:.07})`:`rgba(220,60,60,.07)`;
+  ctx.lineWidth=isSel?1.5:.8;ctx.setLineDash([4,6]);
+  ctx.beginPath();ctx.arc(gateX,gateY,rng,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  // Structure
   ctx.fillStyle='#0e1a08';ctx.fillRect(x,y,wPx,hPx);
   const gx=isP?(x+wPx-TS):x;
   ctx.fillStyle='#05080a';ctx.fillRect(gx,gateRow*TS,TS,TS*2);
   const pct=hp/maxHp;
   ctx.strokeStyle=isP?`rgba(60,120,220,${.4+.3*pct})`:`rgba(220,60,60,${.4+.3*pct})`;
-  ctx.lineWidth=2;ctx.strokeRect(x,y,wPx,hPx);
+  ctx.lineWidth=isSel?2.5:2;ctx.strokeRect(x,y,wPx,hPx);
   for(const[bx,by]of[[x,y],[x+wPx,y],[x,y+hPx],[x+wPx,y+hPx]]){
     ctx.fillStyle=isP?'rgba(80,140,240,.5)':'rgba(240,80,80,.5)';
     ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
+  }
+  // Gate cannon indicator
+  if(isP){
+    ctx.fillStyle='rgba(80,140,240,.6)';ctx.beginPath();ctx.arc(gateX,gateY,5,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle='rgba(120,180,255,.4)';ctx.font='bold 7px "IBM Plex Mono",monospace';ctx.textAlign='center';
+    ctx.fillText('⊕',gateX,gateY+2.5);
   }
   const barW=wPx-10,bh=4,bx2=x+5,by2=y+8;
   ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(bx2,by2,barW,bh);
   ctx.fillStyle=pct>.55?'#44bbff':pct>.28?'#ffaa22':'#ff3333';ctx.fillRect(bx2,by2,barW*pct,bh);
   ctx.fillStyle='rgba(200,230,255,.45)';ctx.font='bold 8px "IBM Plex Mono",monospace';ctx.textAlign='center';
   ctx.fillText(Math.ceil(hp)+'/'+maxHp,x+wPx/2,by2+bh+9);
-  ctx.fillStyle=isP?'rgba(80,140,240,.25)':'rgba(240,80,80,.22)';
-  ctx.font='7px "IBM Plex Mono",monospace';ctx.fillText(isP?'BASE':'ENEMY',x+wPx/2,y+hPx-10);
-  ctx.strokeStyle=isP?'rgba(60,100,200,.06)':'rgba(200,60,60,.06)';
-  ctx.lineWidth=1;ctx.setLineDash([4,6]);
-  ctx.beginPath();ctx.arc(isP?P_GATE_X:E_GATE_X,isP?P_GATE_Y:E_GATE_Y,BASE_RANGE,0,Math.PI*2);
-  ctx.stroke();ctx.setLineDash([]);
+  ctx.fillStyle=isP?`rgba(80,140,240,${isSel?.5:.25})`:'rgba(240,80,80,.22)';
+  ctx.font=`${isSel?'bold ':''}7px "IBM Plex Mono",monospace`;
+  ctx.fillText(isP?(isSel?'◀ BASE ▶':'BASE'):'ENEMY',x+wPx/2,y+hPx-10);
 }
 
 function drawDeposits(){
@@ -1371,6 +1430,30 @@ function drawGameOver(){
   ctx.font='12px "IBM Plex Mono",monospace';ctx.fillStyle='rgba(200,200,200,.4)';ctx.fillText('Press R to play again',W/2,H/2+18);
 }
 
+function drawExplosions(){
+  for(const e of explosions){
+    const t=1-e.timer/e.maxTimer; // 0→1 as animation progresses
+    const r=e.radius*(.25+t*.75);
+    const alpha=(1-t)*.75;
+    // Outer expanding ring
+    ctx.strokeStyle=`rgba(${e.col},${alpha})`;
+    ctx.lineWidth=2+t*4;
+    ctx.beginPath();ctx.arc(e.x,e.y,r,0,Math.PI*2);ctx.stroke();
+    // Secondary inner ring
+    if(t<0.6){
+      const ir=e.radius*(.1+t*.4);const ia=(0.6-t)/0.6*.5;
+      ctx.strokeStyle=`rgba(255,240,150,${ia})`;ctx.lineWidth=1.5;
+      ctx.beginPath();ctx.arc(e.x,e.y,ir,0,Math.PI*2);ctx.stroke();
+    }
+    // Central flash (early in animation)
+    if(t<0.3){
+      const fa=(0.3-t)/0.3;
+      ctx.fillStyle=`rgba(255,240,180,${fa*.45})`;
+      ctx.beginPath();ctx.arc(e.x,e.y,e.radius*.4*fa,0,Math.PI*2);ctx.fill();
+    }
+  }
+}
+
 function render(){
   ctx.clearRect(0,0,W,H);
   drawMap();
@@ -1380,6 +1463,7 @@ function render(){
   for(const u of units)if(u.hp>0)drawAttackRing(u);
   drawPaths();drawProjs();
   for(const u of units)if(u.hp>0)drawUnit(u);
+  drawExplosions();
   drawBoxSel();drawBuildGhost();drawGameOver();
 }
 
@@ -1398,8 +1482,24 @@ function tickSelPanel(){
       let stxt=stMap[u.gatherState]||'';
       if(u.carryGold>0)stxt+=' · '+Math.floor(u.carryGold)+'g carried';
       status.textContent=stxt;
-    } else if(u.isBuilding&&title){
+    } else if(u.isBuilding&&status){
       title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
+      // Live tick for training/research status
+      if(u.type==='barracks'){
+        const q=trainQueues.get(u.id)||[];
+        if(q.length){const cur=q[0];status.textContent=`Training ${TDEFS[cur.type].name} — ${cur.timeLeft.toFixed(1)}s`;}
+        else{const aq=upgradeQueue.find(e=>e.bldgType==='barracks');
+          if(aq){const p=Math.round((1-aq.timeLeft/aq.maxTime)*100);status.textContent=`Researching ${UPG[aq.key].label} — ${aq.timeLeft.toFixed(1)}s (${p}%)`;}
+          else{status.textContent='';}}
+      } else if(u.type==='research'){
+        const aq=upgradeQueue.find(e=>e.bldgType==='research');
+        if(aq){const p=Math.round((1-aq.timeLeft/aq.maxTime)*100);status.textContent=`Researching ${UPG[aq.key].label} — ${aq.timeLeft.toFixed(1)}s (${p}%)`;}
+        else{status.textContent='';}
+      } else if(u.type==='mine'){
+        const aq=upgradeQueue.find(e=>e.bldgType==='mine');
+        if(aq){const p=Math.round((1-aq.timeLeft/aq.maxTime)*100);status.textContent=`Upgrading ${UPG[aq.key].label} — ${aq.timeLeft.toFixed(1)}s (${p}%)`;}
+        else{status.textContent='';}
+      }
     }
   } else {
     if(title)title.textContent=`${sel.length} units selected`;
@@ -1476,9 +1576,10 @@ function updateSidePanel(){
     for(const con of pCons)h+=`<div class="sp-con">⚒ ${BDEFS[con.type]?.label} — ${Math.floor(con.progress*100)}%</div>`;
   }
   // Upgrades
-  if(doneUpgs.length){
+  if(doneUpgs.length||upgradeQueue.length){
     h+=`<div class="sp-head">Upgrades</div>`;
     for(const[,v] of doneUpgs)h+=`<div class="sp-upg done">✓ ${v.label}</div>`;
+    for(const q of upgradeQueue){const p=Math.round((1-q.timeLeft/q.maxTime)*100);h+=`<div class="sp-con">⏳ ${UPG[q.key].label} ${q.timeLeft.toFixed(0)}s (${p}%)</div>`;}
   }
   sc.innerHTML=h;
 }
@@ -1510,30 +1611,52 @@ function updateSelPanel(){
 
     if(u.type==='barracks'){
       const q=trainQueues.get(u.id)||[];
-      const qStr=q.length?` [Q:${q.map(e=>TDEFS[e.type].name[0]).join('')}]`:'';
-      body.textContent='Train unit · spawns nearby'+qStr;
-      if(q.length){const cur=q[0];status.textContent=`Training ${TDEFS[cur.type].name} — ${cur.timeLeft.toFixed(1)}s`;}else{status.textContent='';}
+      const activeUpg=upgradeQueue.find(e=>e.bldgType==='barracks');
+      body.textContent='Train unit · spawns nearby'+(q.length?` [${q.length} queued]`:'');
+      if(q.length){const cur=q[0];status.textContent=`Training ${TDEFS[cur.type].name} — ${cur.timeLeft.toFixed(1)}s`;}
+      else if(activeUpg){const p=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Researching ${UPG[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s (${p}%)`;}
+      else{status.textContent='';}
+      // Training queue portraits
+      if(portsEl&&q.length){
+        let pHtml='<div style="font-size:.33rem;color:rgba(100,140,55,.4);font-family:var(--mono);letter-spacing:.08em;width:100%;margin-bottom:1px">TRAINING QUEUE</div>';
+        q.forEach((qi,idx)=>{
+          const td=TDEFS[qi.type];
+          const pct=1-qi.timeLeft/qi.maxTime;
+          const hpCol=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';
+          const active=idx===0;
+          pHtml+=`<div class="sel-port${active?' hi':''}" style="color:${td.pcol};border-radius:50%" title="${td.name} ${qi.timeLeft.toFixed(1)}s">${td.name[0]}<div class="sel-hp" style="width:${(pct*100).toFixed(0)}%;background:${hpCol}"></div></div>`;
+        });
+        portsEl.innerHTML=pHtml;
+      }
       let opts=COMBAT_TYPES.map(t=>{
         const d=TDEFS[t];const unlocked=unitUnlocked(t);
         const ok=Math.floor(gold)>=d.cost&&!gameOver&&unlocked&&q.length<5;
-        const lockTxt=!unlocked?(d.req==='advTraining'?' [Adv.Trn]':' [Hvy.Div]'):'';
-        const trainT=Math.max(3,d.cost*0.07).toFixed(0)+'s';
-        return`<button class="cmd-btn"${ok?'':' disabled'} data-train="${t}" data-brid="${u.id}" style="opacity:${unlocked?.9:.35}">${d.name} ${d.cost}g (${trainT})${lockTxt}</button>`;
+        const lockTxt=!unlocked?(d.req==='advTraining'?' ⬡':' ⬡⬡'):'';
+        return`<button class="cmd-btn"${ok?'':' disabled'} data-train="${t}" data-brid="${u.id}" style="opacity:${unlocked?.9:.35}">${d.name} ${d.cost}g${lockTxt}</button>`;
       }).join('');
-      // Barracks upgrades shown here
       opts+=`<div style="width:100%;height:1px;background:rgba(100,140,55,.15);margin:3px 0"></div>`;
       const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='barracks');
       opts+=upgKeys.map(k=>{
         const upg=UPG[k],owned=upg.done;
-        const reqMet=!upg.req||(UPG[upg.req]?.done);
-        const canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver&&reqMet;
-        return`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" style="opacity:${reqMet||owned?1:.4}">${owned?'✓ ':''}${upg.label} ${owned?'':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
+        const inQueue=upgradeQueue.some(e=>e.key===k);
+        const reqMet=!upg.req||(UPG[upg.req]?.done)||upgradeQueue.some(e=>e.key===upg.req);
+        const canBuy=!owned&&!inQueue&&Math.floor(gold)>=upg.cost&&!gameOver&&reqMet;
+        const lbl=owned?'✓ ':inQueue?'⏳ ':'';
+        return`<button class="cmd-btn${owned?' owned':inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="barracks" style="opacity:${reqMet||owned?1:.4}">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
       }).join('');
       cmd.innerHTML=opts;
       for(const btn of cmd.querySelectorAll('[data-train]'))
         btn.addEventListener('click',()=>trainAtBarracks(+btn.dataset.brid,btn.dataset.train));
       for(const btn of cmd.querySelectorAll('[data-upg]'))
-        btn.addEventListener('click',()=>{const k=btn.dataset.upg;const upg=UPG[k];if(upg.done||Math.floor(gold)<upg.cost)return;if(upg.req&&!UPG[upg.req]?.done)return;gold-=upg.cost;upg.done=true;updateSelPanel();updateHud();});
+        btn.addEventListener('click',()=>{
+          const k=btn.dataset.upg,bldgType=btn.dataset.btype;
+          const upg=UPG[k];if(!upg||upg.done||upgradeQueue.some(e=>e.key===k))return;
+          if(Math.floor(gold)<upg.cost)return;
+          if(upg.req&&!UPG[upg.req]?.done&&!upgradeQueue.some(e=>e.key===upg.req))return;
+          gold-=upg.cost;const t=Math.max(8,Math.ceil(upg.cost*.1));
+          upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType});
+          updateSelPanel();updateHud();
+        });
     } else if(u.type==='tower'){
       if(!u.towerUpg){
         body.textContent=`RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s  — upgrade:`;
@@ -1558,25 +1681,61 @@ function updateSelPanel(){
         cmd.innerHTML=`<span style="font-size:.44rem;color:rgba(120,200,80,.6)">✓ Upgraded to ${tu.label}</span>`;
       }
     } else if(u.type==='research'){
+      const activeUpg=upgradeQueue.find(e=>e.bldgType==='research');
       body.textContent='Research upgrades — applied globally';
+      if(activeUpg){const p=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Researching ${UPG[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s (${p}%)`;}
+      else{status.textContent='';}
+      // Research queue portraits
+      const rQueueItems=upgradeQueue.filter(e=>e.bldgType==='research');
+      if(portsEl&&rQueueItems.length){
+        let pHtml='<div style="font-size:.33rem;color:rgba(100,140,55,.4);font-family:var(--mono);letter-spacing:.08em;width:100%;margin-bottom:1px">RESEARCH QUEUE</div>';
+        rQueueItems.forEach((qi,idx)=>{
+          const pct=1-qi.timeLeft/qi.maxTime;
+          const hpCol=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';
+          pHtml+=`<div class="sel-port${idx===0?' hi':''}" style="color:#88bbff;border-radius:2px" title="${UPG[qi.key].label} ${qi.timeLeft.toFixed(1)}s">R<div class="sel-hp" style="width:${(pct*100).toFixed(0)}%;background:${hpCol}"></div></div>`;
+        });
+        portsEl.innerHTML=pHtml;
+      }
       const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='research');
       const html=upgKeys.map(k=>{
-        const upg=UPG[k],owned=upg.done,canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver;
-        return`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}">${owned?'✓ ':''}${upg.label} ${owned?'(done)':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
+        const upg=UPG[k],owned=upg.done,inQueue=upgradeQueue.some(e=>e.key===k);
+        const canBuy=!owned&&!inQueue&&Math.floor(gold)>=upg.cost&&!gameOver;
+        const lbl=owned?'✓ ':inQueue?'⏳ ':'';
+        return`<button class="cmd-btn${owned||inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="research">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
       }).join('');
       cmd.innerHTML=html||'<span style="font-size:.46rem;color:rgba(120,170,60,.4)">No upgrades available</span>';
       for(const btn of cmd.querySelectorAll('[data-upg]'))
-        btn.addEventListener('click',()=>{const k=btn.dataset.upg;const upg=UPG[k];if(upg.done||Math.floor(gold)<upg.cost)return;gold-=upg.cost;upg.done=true;updateSelPanel();updateHud();});
+        btn.addEventListener('click',()=>{
+          const k=btn.dataset.upg,bldgType=btn.dataset.btype;
+          const upg=UPG[k];if(!upg||upg.done||upgradeQueue.some(e=>e.key===k))return;
+          if(Math.floor(gold)<upg.cost)return;
+          gold-=upg.cost;const t=Math.max(8,Math.ceil(upg.cost*.1));
+          upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType});
+          updateSelPanel();updateHud();
+        });
     } else if(u.type==='mine'){
+      const activeUpg=upgradeQueue.find(e=>e.bldgType==='mine');
       body.textContent='Upgrades — applied globally to your team';
+      if(activeUpg){const p=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Upgrading ${UPG[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s (${p}%)`;}
+      else{status.textContent='';}
       const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='mine');
       const html=upgKeys.map(k=>{
-        const upg=UPG[k],owned=upg.done,canBuy=!owned&&Math.floor(gold)>=upg.cost&&!gameOver;
-        return`<button class="cmd-btn${owned?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}">${owned?'✓ ':''}${upg.label} ${owned?'(done)':upg.cost+'g'}<br><span style="font-size:.38rem;opacity:.7">${upg.desc}</span></button>`;
+        const upg=UPG[k],owned=upg.done,inQueue=upgradeQueue.some(e=>e.key===k);
+        const canBuy=!owned&&!inQueue&&Math.floor(gold)>=upg.cost&&!gameOver&&(!upg.req||(UPG[upg.req]?.done)||upgradeQueue.some(e=>e.key===upg.req));
+        const lbl=owned?'✓ ':inQueue?'⏳ ':'';
+        return`<button class="cmd-btn${owned||inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="mine">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.38rem;opacity:.7">${upg.desc}</span></button>`;
       }).join('');
       cmd.innerHTML=html||'<span style="font-size:.48rem;color:rgba(120,170,60,.4)">No upgrades available</span>';
       for(const btn of cmd.querySelectorAll('[data-upg]'))
-        btn.addEventListener('click',()=>{const k=btn.dataset.upg;const upg=UPG[k];if(upg.done||Math.floor(gold)<upg.cost)return;if(upg.req&&!UPG[upg.req]?.done)return;gold-=upg.cost;upg.done=true;updateSelPanel();updateHud();});
+        btn.addEventListener('click',()=>{
+          const k=btn.dataset.upg,bldgType=btn.dataset.btype;
+          const upg=UPG[k];if(!upg||upg.done||upgradeQueue.some(e=>e.key===k))return;
+          if(Math.floor(gold)<upg.cost)return;
+          if(upg.req&&!UPG[upg.req]?.done&&!upgradeQueue.some(e=>e.key===upg.req))return;
+          gold-=upg.cost;const t=Math.max(8,Math.ceil(upg.cost*.1));
+          upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType});
+          updateSelPanel();updateHud();
+        });
     } else {
       cmd.innerHTML='';
     }
@@ -1909,8 +2068,10 @@ function restart(){
   enemyBuildCd=45;eDepRespawnTimers=[];trainQueues=new Map();playerSpawnQueue=[];
   playerBaseHp=BASE_MAX_HP;enemyBaseHp=EBASE_MAX_HP;pBaseShotCd=0;eBaseShotCd=0;
   gameOver=false;gameWin=false;gameMsg='';floorColors=null;
-  window._pendingMortarTarget=null;sidePanelCd=0;
+  window._pendingMortarTarget=null;sidePanelCd=0;upgradeQueue=[];explosions=[];
+  airstrikeStock=0;airstrikeCD=0;pendingAirstrike=false;baseSelected=false;airstrikeEffects=[];
   for(const k of Object.keys(UPG))UPG[k].done=false;
+  for(const k of Object.keys(BUPG))BUPG[k].done=false;
   generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();updateHud();updateSidePanel();
 }
 
