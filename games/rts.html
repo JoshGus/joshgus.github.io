@@ -259,23 +259,12 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
         <div class="sq-bar"><div class="sq-bar-fill" id="sq-fill" style="width:0%"></div></div>
       </div>
     </div>
-    <div class="spawn-btns">
-      <button class="spawn-btn" data-type="rifleman"><span class="key">[U]</span>Rifleman<span class="cost">50g</span></button>
-      <button class="spawn-btn" data-type="hmg"><span class="key">[I]</span>HMG<span class="cost">90g</span></button>
-      <button class="spawn-btn" data-type="shotgun"><span class="key">[J]</span>Shotgun<span class="cost">60g</span></button>
-      <button class="spawn-btn" data-type="atv"><span class="key">[O]</span>ATV<span class="cost">40g</span></button>
-      <button class="spawn-btn" data-type="grenadier"><span class="key">[P]</span>Grenadier<span class="cost">80g</span></button>
-      <button class="spawn-btn" data-type="sniper"><span class="key">[Y]</span>Sniper<span class="cost">110g</span></button>
-      <button class="spawn-btn" data-type="mortar"><span class="key">[M]</span>Mortar<span class="cost">130g</span></button>
-      <button class="spawn-btn" data-type="tank"><span class="key">[T]</span>Tank<span class="cost">200g</span></button>
-      <button class="spawn-btn" data-type="helicopter"><span class="key">[H]</span>Heli<span class="cost">220g</span></button>
-      <button class="spawn-btn gb" data-type="engineer"><span class="key">[E]</span>Engineer<span class="cost">50g</span></button>
-    </div>
+    <button class="diff-btn" id="base-btn" style="margin-left:auto" title="Select your base to spawn units &amp; buy upgrades">▣ Base</button>
     <button class="diff-btn" id="heat-btn" title="Toggle enemy density heat map">Heat</button>
     <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
     <button class="diff-btn" id="style-btn" title="Cycle map biome">◑ Style</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.9.0</span>
+    <span id="version-badge">v0.10.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="sel-panel">
@@ -293,14 +282,14 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.9.0</div>
+    <div class="help-ver" id="help-ver">v0.10.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
-      <dl class="help-item"><dt>Selecting &amp; moving</dt><dd><b>Left-click / drag</b> to select. <b>Right-click</b> to move or issue orders. <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click a portrait selects all of that type. Press <kbd>.</kbd> to grab idle engineers.</dd></dl>
+      <dl class="help-item"><dt>Selecting &amp; moving</dt><dd><b>Left-click / drag</b> to select. <b>Right-click</b> ground to move, or <b>right-click an enemy</b> to lock on — your units chase and stay in range until it dies, then hold. <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click a portrait selects all of that type. Press <kbd>.</kbd> to grab idle engineers.</dd></dl>
       <dl class="help-item"><dt>Camera</dt><dd>The field is large — <b>scroll</b> to zoom to the cursor, <b>middle-drag</b> or <kbd>WASD</kbd>/arrows to pan, or push the screen edges. Top-bar toggles: <b>Heat</b> (enemy density) and <b>Threat</b> (overlapping enemy firing ranges — where you're targetable).</dd></dl>
       <dl class="help-item"><dt>Building</dt><dd>Select an engineer, pick a structure, then click a spot. <kbd>B</kbd> cycles build types. Build <b>Mines</b> (economy), <b>Barracks</b> (train units), <b>Research</b> (global upgrades), and <b>Guard Towers</b> (defense — upgradeable to MG / Artillery / Sniper).</dd></dl>
-      <dl class="help-item"><dt>Units</dt><dd>Spawn with the top bar or hotkeys: <kbd>U</kbd>Rifleman <kbd>I</kbd>HMG <kbd>J</kbd>Shotgun <kbd>O</kbd>ATV <kbd>P</kbd>Grenadier <kbd>Y</kbd>Sniper <kbd>M</kbd>Mortar <kbd>T</kbd>Tank <kbd>H</kbd>Heli <kbd>E</kbd>Engineer. Snipers, Mortars, Tanks &amp; Helis need Barracks upgrades.</dd></dl>
+      <dl class="help-item"><dt>Your base</dt><dd>Click your <b>▣ Base</b> (or the top-bar button) to open it — train units, buy base-defense upgrades, repair all buildings, or call an airstrike. Hotkeys still work: <kbd>U</kbd>Rifleman <kbd>I</kbd>HMG <kbd>J</kbd>Shotgun <kbd>O</kbd>ATV <kbd>P</kbd>Grenadier <kbd>Y</kbd>Sniper <kbd>M</kbd>Mortar <kbd>T</kbd>Tank <kbd>H</kbd>Heli <kbd>E</kbd>Engineer. Snipers/Mortars/Tanks/Helis need Barracks upgrades.</dd></dl>
       <dl class="help-item"><dt>Mortars</dt><dd>Select a Mortar and <b>Entrench</b> it for +60% range &amp; damage (can't move while entrenched). Set a target area to bombard blindly. Research <b>Mortar Targeting</b> to reduce scatter.</dd></dl>
       <dl class="help-item"><dt>Terrain</dt><dd><b>Rock walls</b> block movement and line of sight — route around them. <b>Water</b> can't be crossed but doesn't block sight, so units can fire across it. Each match rolls a random biome (grassland, desert, polar, jungle) — cycle it live with the <b>◑ style</b> button.</dd></dl>
       <dl class="help-item"><dt>Base defense</dt><dd>Your base auto-fires at nearby enemies. Upgrade its range &amp; cannons, repair buildings, and — at the top tier — call in a one-shot <b>Airstrike</b> anywhere on your side.</dd></dl>
@@ -325,7 +314,7 @@ const BASE_MAX_HP=500,EBASE_MAX_HP=400;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MAX_DEPOSITS=12;
-const VERSION='v0.9.0';
+const VERSION='v0.10.0';
 // Map style overlays — a colour system laid over the same terrain/mapgen.
 // floor: two base tones blended by smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
@@ -426,6 +415,7 @@ function baseDmg(){return BASE_DMG*(BUPG.defDmg.done?1.6:1);}
 function totalRepairCost(){return Math.ceil(units.filter(u=>u.isBuilding&&u.team==='player'&&u.hp>0&&u.hp<u.maxHp).reduce((s,u)=>s+(u.maxHp-u.hp)*.5,0));}
 function repairAllBuildings(){const rc=totalRepairCost();if(Math.floor(gold)<rc||rc===0)return;gold-=rc;for(const u of units)if(u.isBuilding&&u.team==='player'&&u.hp>0)u.hp=u.maxHp;updateHud();updateSelPanel();}
 function inPlayerBase(cx,cy){return cx>=PB_C*TS&&cx<=(PB_C+PB_W)*TS&&cy>=PB_R*TS&&cy<=(PB_R+PB_H)*TS;}
+function engineerNear(x,y,rad){return units.some(u=>u.type==='engineer'&&u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=rad);}
 function fireAirstrike(tx,ty){
   const fp={team:'player',aoe:160*aoeRadiusMult(),dmg:220,cone:false};
   applyAoe(fp,tx,ty);
@@ -1123,6 +1113,17 @@ function update(dt){
       constructions.splice(i,1);
     }
   }
+  // Tower upgrades — progress only while a player engineer stands nearby (engineer input + time)
+  for(const u of units){
+    if(u.type!=='tower'||!u.towerUpgrading||u.hp<=0)continue;
+    if(engineerNear(u.x,u.y,TS*3)){
+      u.towerUpgrading.elapsed+=dt;
+      if(u.towerUpgrading.elapsed>=u.towerUpgrading.time){
+        const tu=TOWER_UPGRADES[u.towerUpgrading.key];
+        u.towerUpg=u.towerUpgrading.key;u.range=tu.range;u.dmg=tu.dmg;u.rate=tu.rate;u.towerUpgrading=null;
+      }
+    }
+  }
 
   // Spawn + train queues
   processPlayerQueue(dt);
@@ -1167,13 +1168,34 @@ function update(dt){
         u.entrenchTimer-=dt;
         if(u.entrenchTimer<=0){u.entrenched=!u.entrenched;u.entrenching=false;}
       }
+      // Player-issued attack order: pursue the target, hold when in range, release when it dies
+      let forced=null;
+      if(u.attackTarget!=null){
+        const t=units.find(x=>x.id===u.attackTarget);
+        if(!t||t.hp<=0){u.attackTarget=null;}
+        else{
+          forced=t;
+          const d=Math.hypot(t.x-u.x,t.y-u.y),rng=(u.type==='mortar'&&u.entrenched?u.range*1.6:u.range);
+          const stuck=u.type==='mortar'&&(u.entrenched||u.entrenching);
+          if(d>rng*0.85&&!stuck){
+            u.atkRepath=(u.atkRepath||0)-dt;
+            if(u.atkRepath<=0||u.waypoints.length===0){
+              u.atkRepath=0.4;
+              if(u.canFly)u.waypoints=[{x:t.x,y:t.y}];
+              else{const p=aStarForUnit(u,Math.floor(t.x/TS),Math.floor(t.y/TS));if(p&&p.length)u.waypoints=toWp(p);}
+            }
+          } else if(!stuck){u.waypoints=[];} // in range → hold position and fire
+        }
+      }
       // Combat
       u.shotCd-=dt;
       const effRange=u.type==='mortar'&&u.entrenched?u.range*1.6:u.range;
       const effDmg=u.type==='mortar'&&u.entrenched?u.dmg*1.4:u.dmg;
       // Mortars can't fire while moving or transitioning (entrench/un-pit)
       const mortarBusy=u.type==='mortar'&&(u.entrenching||u.waypoints.length>0);
+      const losOK=(ft)=>!(TDEFS[u.type]?.los)||canSeeLine(u.x,u.y,ft.x,ft.y);
       const tgt=mortarBusy?null
+        :(forced&&Math.hypot(forced.x-u.x,forced.y-u.y)<=effRange&&losOK(forced))?forced
         :(u.type==='mortar'&&u.entrenched&&u.mortarTarget)
         ? {x:u.mortarTarget.x,y:u.mortarTarget.y,team:'enemy',hp:1}
         : findTargetRange(u,effRange);
@@ -1300,7 +1322,7 @@ function update(dt){
   // Upgrade queue tick
   if(upgradeQueue.length){
     const cur=upgradeQueue[0];cur.timeLeft-=dt;
-    if(cur.timeLeft<=0){UPG[cur.key].done=true;upgradeQueue.shift();updateSelPanel();updateHud();}
+    if(cur.timeLeft<=0){(cur.table==='BUPG'?BUPG:UPG)[cur.key].done=true;upgradeQueue.shift();updateSelPanel();updateHud();}
   }
   sidePanelCd-=dt;
   if(sidePanelCd<=0){sidePanelCd=0.25;updateSidePanel();updateSelPanel();}
@@ -1620,6 +1642,15 @@ function drawPaths(){
       }
     }
   }
+  // Attack orders — line from selected hunter to its locked target + a target reticle
+  for(const u of units){
+    if(u.team!=='player'||u.hp<=0||u.attackTarget==null)continue;
+    const t=units.find(x=>x.id===u.attackTarget&&x.hp>0);if(!t)continue;
+    const sel=selected.has(u.id);
+    ctx.strokeStyle=sel?'rgba(240,70,60,.5)':'rgba(240,70,60,.2)';ctx.lineWidth=1;ctx.setLineDash([3,4]);
+    ctx.beginPath();ctx.moveTo(u.x,u.y);ctx.lineTo(t.x,t.y);ctx.stroke();ctx.setLineDash([]);
+    if(sel){ctx.strokeStyle='rgba(240,70,60,.7)';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(t.x,t.y,t.r+5,0,Math.PI*2);ctx.stroke();}
+  }
 }
 
 function drawConstructions(){
@@ -1764,6 +1795,29 @@ function drawExplosions(){
   }
 }
 
+function drawAirstrikeEffects(){
+  for(const e of airstrikeEffects){
+    const t=1-e.timer/e.maxTimer;
+    for(let i=0;i<3;i++){
+      const r=(60+i*45)*(0.2+t*1.1),a=(1-t)*(.5-i*.13);
+      if(a<=0)continue;
+      ctx.strokeStyle=`rgba(255,${120-i*30},20,${a})`;ctx.lineWidth=3+ (1-t)*4;
+      ctx.beginPath();ctx.arc(e.x,e.y,r,0,Math.PI*2);ctx.stroke();
+    }
+    if(t<.4){ctx.fillStyle=`rgba(255,240,180,${(0.4-t)/0.4*.5})`;ctx.beginPath();ctx.arc(e.x,e.y,70*(1-t),0,Math.PI*2);ctx.fill();}
+  }
+}
+function drawAirstrikeTargeting(){
+  if(!pendingAirstrike)return;
+  const x=mousePos.x,y=mousePos.y,ok=x<=W*0.52;
+  ctx.strokeStyle=ok?'rgba(255,80,40,.85)':'rgba(150,150,150,.5)';ctx.lineWidth=1.5;
+  ctx.beginPath();ctx.arc(x,y,160*aoeRadiusMult(),0,Math.PI*2);ctx.stroke();
+  ctx.setLineDash([4,4]);ctx.beginPath();ctx.arc(x,y,18,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  ctx.beginPath();ctx.moveTo(x-24,y);ctx.lineTo(x+24,y);ctx.moveTo(x,y-24);ctx.lineTo(x,y+24);ctx.stroke();
+  // Dim the enemy half to show valid drop zone
+  ctx.fillStyle='rgba(120,30,30,.12)';ctx.fillRect(W*0.52,0,W-W*0.52,H);
+}
+
 function render(){
   const dpr=window.devicePixelRatio||1;
   ctx.setTransform(1,0,0,1,0,0);
@@ -1781,7 +1835,7 @@ function render(){
   for(const u of units)if(u.hp>0)drawAttackRing(u);
   drawPaths();drawProjs();
   for(const u of units)if(u.hp>0)drawUnit(u);
-  drawExplosions();
+  drawExplosions();drawAirstrikeEffects();drawAirstrikeTargeting();
   drawBoxSel();drawBuildGhost();
   // Screen-space overlays (unaffected by zoom/pan)
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -1921,11 +1975,14 @@ function selPanelSig(sel){
     Object.keys(UPG).filter(k=>UPG[k].done).join(','),
     Object.keys(BUPG).filter(k=>BUPG[k].done).join(','),
     gameOver?'1':'0',
+    baseSelected?'BASE':'',
+    baseSelected?`${Math.ceil(playerBaseHp)}|${airstrikeStock}|${airstrikeCD>0?1:0}|${totalRepairCost()}`:'',
   ];
-  let queueActive=upgradeQueue.length>0;
+  let queueActive=upgradeQueue.length>0||pendingAirstrike;
   for(const u of sel){
     let s=u.type+':'+(u.towerUpg||'')+':'+(u.entrenched?'E':u.entrenching?'e':'m')+':'+(u.mortarTarget?'T':'')
       +':'+(u.gatherState||'')+':'+(u.assignedMineId>=0?'M':'')+':'+(u.assignedDepositId>=0?'D':'');
+    if(u.towerUpgrading){s+=':tu'+u.towerUpgrading.key;queueActive=true;}
     const q=trainQueues.get(u.id);
     if(q&&q.length){s+=':q'+q.length;queueActive=true;}
     p.push(s);
@@ -1933,6 +1990,60 @@ function selPanelSig(sel){
   // While a queue/progress bar animates, advance the fingerprint every ~200ms so it refreshes
   p.push(queueActive?Math.floor(performance.now()/200):0);
   return p.join('#');
+}
+
+function renderBasePanel(){
+  const portrait=document.getElementById('sel-portrait');
+  const title=document.getElementById('sel-title');
+  const body=document.getElementById('sel-body');
+  const status=document.getElementById('sel-status');
+  const cmd=document.getElementById('sel-cmd');
+  const portsEl=document.getElementById('sel-portraits');
+  if(portsEl)portsEl.innerHTML='';
+  portrait.innerHTML=`<div style="width:42px;height:42px;background:#16324f;display:grid;place-items:center;font-size:1.2rem;font-weight:700;color:#9cc8ff;border:2px solid rgba(120,180,255,.35)">▣</div>`;
+  title.textContent=`MAIN BASE — ${Math.ceil(playerBaseHp)}/${BASE_MAX_HP} HP`;
+  body.textContent=`Defense RNG ${Math.round(baseRange())} · DMG ${Math.round(baseDmg())} · train & upgrade here`;
+  const activeUpg=upgradeQueue.find(e=>e.table==='BUPG');
+  status.textContent=activeUpg?`Upgrading ${BUPG[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s`:'';
+  const g=Math.floor(gold);
+  let h='<div style="width:100%;font-size:.36rem;color:rgba(120,160,70,.55);letter-spacing:.1em;font-family:var(--mono);margin-bottom:1px">TRAIN UNITS</div>';
+  for(const t of['rifleman','hmg','shotgun','atv','grenadier','sniper','mortar','tank','helicopter','engineer']){
+    const d=TDEFS[t],unlocked=unitUnlocked(t),locked=!unlocked||playerSpawnQueue.length>=8;
+    const ok=g>=d.cost&&!gameOver&&!locked,lk=!unlocked?(d.req==='advTraining'?' ⬡':' ⬡⬡'):'';
+    h+=`<button class="cmd-btn${t==='engineer'?' on':''}"${ok?'':' disabled'} data-spawn="${t}" data-cost="${d.cost}" data-locked="${locked?1:0}" style="opacity:${unlocked?1:.4}">${d.name} ${d.cost}g${lk}</button>`;
+  }
+  h+='<div style="width:100%;height:1px;background:rgba(100,140,55,.15);margin:3px 0"></div>';
+  h+='<div style="width:100%;font-size:.36rem;color:rgba(120,160,70,.55);letter-spacing:.1em;font-family:var(--mono);margin-bottom:1px">BASE DEFENSE</div>';
+  for(const k of Object.keys(BUPG)){
+    const up=BUPG[k],owned=up.done,inQ=upgradeQueue.some(e=>e.key===k&&e.table==='BUPG');
+    const locked=owned||inQ,canBuy=!locked&&g>=up.cost&&!gameOver,lbl=owned?'✓ ':inQ?'⏳ ':'';
+    h+=`<button class="cmd-btn${owned||inQ?' owned':' upg'}"${canBuy?'':' disabled'} data-bupg="${k}" data-cost="${up.cost}" data-locked="${locked?1:0}">${lbl}${up.label} ${(owned||inQ)?'':up.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${up.desc}</span></button>`;
+  }
+  const rc=totalRepairCost();
+  h+=`<button class="cmd-btn"${(rc>0&&g>=rc&&!gameOver)?'':' disabled'} id="cmd-repair-all"${rc>0?` data-cost="${rc}" data-locked="0"`:''}>🔧 Repair All ${rc>0?rc+'g':'(ok)'}</button>`;
+  if(airstrikeStock>0){
+    h+=`<button class="cmd-btn red" id="cmd-airstrike">✈ Launch Airstrike</button>`;
+  }else{
+    const acd=airstrikeCD>0;
+    h+=`<button class="cmd-btn upg"${(!acd&&g>=AIRSTRIKE_COST&&!gameOver)?'':' disabled'} id="cmd-buy-airstrike"${!acd?` data-cost="${AIRSTRIKE_COST}" data-locked="0"`:''}>✈ Airstrike ${acd?Math.ceil(airstrikeCD)+'s':AIRSTRIKE_COST+'g'}</button>`;
+  }
+  cmd.innerHTML=h;
+  for(const b of cmd.querySelectorAll('[data-spawn]'))b.addEventListener('click',()=>{spawnPlayer(b.dataset.spawn);});
+  for(const b of cmd.querySelectorAll('[data-bupg]'))b.addEventListener('click',()=>{
+    const k=b.dataset.bupg,up=BUPG[k];
+    if(!up||up.done||upgradeQueue.some(e=>e.key===k&&e.table==='BUPG')||Math.floor(gold)<up.cost)return;
+    gold-=up.cost;const t=Math.max(10,Math.ceil(up.cost*.09));
+    upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType:'base',table:'BUPG'});
+    updateSelPanel();updateHud();
+  });
+  cmd.querySelector('#cmd-repair-all')?.addEventListener('click',()=>{repairAllBuildings();updateSelPanel();});
+  cmd.querySelector('#cmd-buy-airstrike')?.addEventListener('click',()=>{
+    if(airstrikeCD>0||airstrikeStock>0||Math.floor(gold)<AIRSTRIKE_COST)return;
+    gold-=AIRSTRIKE_COST;airstrikeStock=1;updateSelPanel();updateHud();
+  });
+  cmd.querySelector('#cmd-airstrike')?.addEventListener('click',()=>{
+    pendingAirstrike=true;document.getElementById('sel-status').textContent='Click your (left) half of the map to strike — Esc to cancel';
+  });
 }
 
 function updateSelPanel(){
@@ -1947,9 +2058,10 @@ function updateSelPanel(){
   const cmd=document.getElementById('sel-cmd');
 
   const portsEl=document.getElementById('sel-portraits');
+  if(baseSelected){renderBasePanel();return;}
   if(!sel.length){
     portrait.innerHTML='<div style="font-size:1.6rem;color:rgba(70,110,40,.22)">◻</div>';
-    title.textContent='No selection';body.textContent='Click/drag select · Right-click move · Scroll = zoom · WASD / edge = pan · UIJOPYMTHG = spawn';status.textContent='';cmd.innerHTML='';if(portsEl)portsEl.innerHTML='';return;
+    title.textContent='No selection';body.textContent='Click your ▣ Base to spawn/upgrade · Click/drag select · Right-click move/attack · Scroll zoom · WASD pan';status.textContent='';cmd.innerHTML='';if(portsEl)portsEl.innerHTML='';return;
   }
   if(portsEl)portsEl.innerHTML='';
 
@@ -2012,8 +2124,21 @@ function updateSelPanel(){
           updateSelPanel();updateHud();
         });
     } else if(u.type==='tower'){
-      if(!u.towerUpg){
-        body.textContent=`RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s  — upgrade:`;
+      if(u.towerUpg){
+        const tu=TOWER_UPGRADES[u.towerUpg];
+        body.textContent=`${tu.label} · RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s`;
+        cmd.innerHTML=`<span style="font-size:.44rem;color:rgba(120,200,80,.6)">✓ Upgraded to ${tu.label}</span>`;
+      } else if(u.towerUpgrading){
+        const up=u.towerUpgrading,tu=TOWER_UPGRADES[up.key],pct=Math.round(up.elapsed/up.time*100);
+        const eng=engineerNear(u.x,u.y,TS*3);
+        body.textContent=`Upgrading → ${tu.label}`;
+        status.textContent=eng?`Building… ${pct}%`:`⚠ Needs an engineer nearby (${pct}%)`;
+        cmd.innerHTML=`<div style="width:100%"><div class="sq-bar" style="height:5px"><div class="sq-bar-fill" style="width:${pct}%"></div></div></div>`+
+          `<button class="cmd-btn red" id="cmd-cancel-tupg">Cancel</button>`+
+          (eng?'':`<span style="font-size:.42rem;color:rgba(220,170,60,.7)">Right-click this tower with an engineer selected to send one.</span>`);
+        cmd.querySelector('#cmd-cancel-tupg')?.addEventListener('click',()=>{gold+=Math.floor(TOWER_UPGRADES[u.towerUpgrading.key].cost*.5);u.towerUpgrading=null;updateSelPanel();updateHud();});
+      } else {
+        body.textContent=`RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s — upgrade (needs engineer + time):`;
         const opts=Object.entries(TOWER_UPGRADES).map(([k,tu])=>{
           const canBuy=Math.floor(gold)>=tu.cost&&!gameOver;
           return`<button class="cmd-btn upg"${canBuy?'':' disabled'} data-tupg="${k}" data-tid="${u.id}" data-cost="${tu.cost}" data-locked="0">${tu.label} ${tu.cost}g<br><span style="font-size:.36rem;opacity:.7">${tu.desc}</span></button>`;
@@ -2022,17 +2147,12 @@ function updateSelPanel(){
         for(const btn of cmd.querySelectorAll('[data-tupg]')){
           btn.addEventListener('click',()=>{
             const tu=TOWER_UPGRADES[btn.dataset.tupg];if(!tu||Math.floor(gold)<tu.cost)return;
+            const tid=+btn.dataset.tid;const tower=units.find(u=>u.id===tid);if(!tower||tower.towerUpg||tower.towerUpgrading)return;
             gold-=tu.cost;
-            const tid=+btn.dataset.tid;const tower=units.find(u=>u.id===tid);if(!tower)return;
-            tower.towerUpg=btn.dataset.tupg;
-            tower.range=tu.range;tower.dmg=tu.dmg;tower.rate=tu.rate;
+            tower.towerUpgrading={key:btn.dataset.tupg,elapsed:0,time:Math.max(12,Math.round(tu.cost*.09))};
             updateSelPanel();updateHud();
           });
         }
-      } else {
-        const tu=TOWER_UPGRADES[u.towerUpg];
-        body.textContent=`${tu.label} · RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s`;
-        cmd.innerHTML=`<span style="font-size:.44rem;color:rgba(120,200,80,.6)">✓ Upgraded to ${tu.label}</span>`;
       }
     } else if(u.type==='research'){
       const activeUpg=upgradeQueue.find(e=>e.bldgType==='research');
@@ -2259,7 +2379,7 @@ function commitBoxSel(){
   const lx=Math.min(boxSel.x0,boxSel.x1),rx=Math.max(boxSel.x0,boxSel.x1);
   const ly=Math.min(boxSel.y0,boxSel.y1),ry=Math.max(boxSel.y0,boxSel.y1);
   if(Math.hypot(boxSel.x1-mxDown,boxSel.y1-myDown)>6){
-    selected.clear();
+    selected.clear();baseSelected=false;
     for(const u of units)if(u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry)selected.add(u.id);
   }
   boxSel=null;mouseDown=false;mouseBtn=-1;updateSelPanel();updateHud();
@@ -2287,7 +2407,7 @@ canvas.addEventListener('mousemove',e=>{
   boxSel.x1=x;boxSel.y1=y;
   if(Math.hypot(x-mxDown,y-myDown)>6){
     const lx=Math.min(boxSel.x0,x),rx=Math.max(boxSel.x0,x),ly=Math.min(boxSel.y0,y),ry=Math.max(boxSel.y0,y);
-    selected.clear();
+    selected.clear();baseSelected=false;
     for(const u of units)if(u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry)selected.add(u.id);
     updateSelPanel();updateHud();
   }
@@ -2296,6 +2416,11 @@ canvas.addEventListener('mousedown',e=>{
   if(e.button===1){e.preventDefault();camDrag={sx:e.clientX,sy:e.clientY,cx:cam.x,cy:cam.y};return;} // middle = pan
   if(gameOver)return;
   const{x,y}=cxy(e);
+  // Airstrike drop mode — left-click the player's (left) half to strike
+  if(pendingAirstrike&&e.button===0){
+    if(airstrikeStock>0&&x<=W*0.52)fireAirstrike(x,y);
+    pendingAirstrike=false;updateSelPanel();updateHud();return;
+  }
   if(buildMode&&e.button===0){
     const sx=Math.floor(x/TS)*TS+TS/2,sy=Math.floor(y/TS)*TS+TS/2;
     if(!tileBlocked(sx,sy)&&Math.floor(gold)>=BDEFS[buildMode.type].cost){
@@ -2361,10 +2486,29 @@ canvas.addEventListener('mousedown',e=>{
       for(const id of selected){const u=units.find(u=>u.id===id&&u.type==='engineer');if(u){u.assignedMineId=clickedBldg.id;u.gatherState='idle';u.targetDep=-1;}}
       updateSelPanel();return;
     }
-    // Normal move
+    // Right-click a tower/outpost with engineers selected → send them there (to work its upgrade)
+    if(clickedBldg&&(clickedBldg.type==='tower'||clickedBldg.type==='outpost')){
+      let sent=false;
+      for(const id of selected){const u=units.find(u=>u.id===id&&u.type==='engineer');
+        if(u){u.gatherState='parked';u.targetDep=-1;u.targetConId=-1;u.attackTarget=null;
+          const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(clickedBldg.x/TS),Math.floor(clickedBldg.y/TS));if(p)u.waypoints=toWp(p);sent=true;}}
+      if(sent){updateSelPanel();return;}
+    }
+    // Right-click an enemy unit/building → order selected combat units to hunt it (follow until dead)
+    const enemyTgt=units.find(u=>u.team==='enemy'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+6);
+    if(enemyTgt){
+      let any=false;
+      for(const id of selected){
+        const u=units.find(u=>u.id===id);
+        if(u&&!u.isBuilding&&u.type!=='engineer'&&u.dmg>0){u.attackTarget=enemyTgt.id;u.atkRepath=0;u.waypoints=[];any=true;}
+      }
+      if(any){enemyTgt._pingTimer=1;updateSelPanel();return;}
+    }
+    // Normal move (also cancels any attack order)
     const gc=Math.floor(x/TS),gr=Math.floor(y/TS);let spread=0;
     for(const id of selected){
       const u=units.find(u=>u.id===id);if(!u)continue;
+      u.attackTarget=null;
       if(u.isBuilding||u.speed<=0){u.waypoints=[];continue;} // immobile — ignore move orders
       if(u.type==='engineer'){
         // Moving engineer to empty space = park it (stop auto-gathering)
@@ -2383,6 +2527,11 @@ canvas.addEventListener('mouseup',e=>{
   const{x,y}=cxy(e);
   if(e.button===0){
     if(Math.hypot(x-mxDown,y-myDown)<=6){
+      // Click on your base footprint → select the base (opens spawn/upgrade panel)
+      if(inPlayerBase(x,y)){
+        selected.clear();baseSelected=true;boxSel=null;mouseDown=false;mouseBtn=-1;updateSelPanel();updateHud();return;
+      }
+      baseSelected=false;
       if(!e.shiftKey)selected.clear();
       for(const u of units)if(u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+3){selected.add(u.id);break;}
       boxSel=null;mouseDown=false;mouseBtn=-1;updateSelPanel();updateHud();
@@ -2396,7 +2545,8 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
     const hm=document.getElementById('help-modal');
     if(hm&&hm.classList.contains('open')){hm.classList.remove('open');return;}
-    buildMode=null;document.body.classList.remove('build-mode');if(!gameOver){selected.clear();updateSelPanel();updateHud();}return;
+    buildMode=null;document.body.classList.remove('build-mode');pendingAirstrike=false;baseSelected=false;
+    if(!gameOver){selected.clear();updateSelPanel();updateHud();}return;
   }
   if((e.key==='r'||e.key==='R')&&gameOver){restart();return;}
   if(gameOver)return;
@@ -2439,6 +2589,7 @@ document.getElementById('side-toggle')?.addEventListener('click',()=>{
 const helpModal=document.getElementById('help-modal');
 function toggleHelp(show){helpModal.classList.toggle('open',show??!helpModal.classList.contains('open'));}
 document.getElementById('help-btn')?.addEventListener('click',()=>toggleHelp());
+document.getElementById('base-btn')?.addEventListener('click',()=>{selected.clear();baseSelected=true;pendingAirstrike=false;updateSelPanel();updateHud();});
 document.getElementById('heat-btn')?.addEventListener('click',e=>{showHeat=!showHeat;e.currentTarget.classList.toggle('active',showHeat);});
 document.getElementById('threat-btn')?.addEventListener('click',e=>{showThreat=!showThreat;e.currentTarget.classList.toggle('active',showThreat);});
 // Camera pan keys (WASD / arrows) + edge-scroll; middle-drag handled in mouse events
