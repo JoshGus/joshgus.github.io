@@ -170,6 +170,44 @@ body.build-mode #canvas{cursor:cell!important}
   font-family:var(--mono);font-size:.7rem;cursor:pointer;padding:3px 10px;border-radius:3px;transition:all .12s;
 }
 .help-close:hover{border-color:rgba(120,190,50,.7);color:#ccf73f;}
+/* ── light-mode theming: game chrome follows the site dark/light toggle ──
+   Dark military theme (rules above) applies when html.dark is set; these
+   overrides make the UI a readable light surface when the site is in light mode. */
+html:not(.dark) body,html:not(.dark) .game-wrap{background:var(--bg)}
+html:not(.dark) #hud{background:#fbf4ea;border-bottom-color:rgba(29,23,18,.16);color:#5a6a3a}
+html:not(.dark) .hud-val{color:#4a6410}
+html:not(.dark) .hud-lbl,html:not(.dark) .sq-lbl{color:#8a7a5a}
+html:not(.dark) .hud-sep{background:rgba(29,23,18,.14)}
+html:not(.dark) .spawn-btn,html:not(.dark) .cmd-btn,html:not(.dark) .diff-btn,html:not(.dark) #help-btn,html:not(.dark) #side-toggle{background:#efe4d2;border-color:rgba(29,23,18,.2);color:#4a6410}
+html:not(.dark) .spawn-btn:hover:not(:disabled),html:not(.dark) .cmd-btn:hover:not(:disabled),html:not(.dark) #help-btn:hover,html:not(.dark) #side-toggle:hover{background:#e7d9c4;border-color:#5e7d0f;color:#33430f}
+html:not(.dark) .spawn-btn .key{color:#a89878}
+html:not(.dark) .spawn-btn .cost{color:#9a7a20}
+html:not(.dark) .diff-btn.active{background:#dfe9c2;border-color:#5e7d0f;color:#33430f}
+html:not(.dark) #sel-panel{background:#f6ecdf;border-top-color:rgba(29,23,18,.16)}
+html:not(.dark) #sel-portrait{border-right-color:rgba(29,23,18,.12)}
+html:not(.dark) #sel-title{color:#33430f}
+html:not(.dark) #sel-body{color:#6b7a4a}
+html:not(.dark) #sel-status{color:#8a6a2a}
+html:not(.dark) #sel-cmd{border-left-color:rgba(29,23,18,.12)}
+html:not(.dark) .sel-port{border-color:rgba(29,23,18,.2);background:rgba(255,255,255,.55)}
+html:not(.dark) #side-panel{background:#f6ecdf;border-right-color:rgba(29,23,18,.16);color:#5a6a3a}
+html:not(.dark) #side-header,html:not(.dark) .sp-head{color:#8a7a5a;border-bottom-color:rgba(29,23,18,.12)}
+html:not(.dark) .sp-label{color:#6b7a4a}
+html:not(.dark) .sp-val{color:#3a4d18}
+html:not(.dark) .sp-val.hi{color:#4a6410}
+html:not(.dark) .sp-val.dim{color:#9a8a6a}
+html:not(.dark) .sp-upg{color:#9a8a6a}
+html:not(.dark) .sp-upg.done{color:#4a7a20}
+html:not(.dark) #version-badge{color:#7a8a5a;border-color:rgba(29,23,18,.18)}
+html:not(.dark) .help-box{background:#fbf4ea;border-color:rgba(29,23,18,.2);color:#3a4d18}
+html:not(.dark) .help-box h2{color:#4a6410}
+html:not(.dark) .help-box .help-ver{color:#8a7a5a}
+html:not(.dark) .help-item dt{color:#4a6410}
+html:not(.dark) .help-item dd{color:#5a5040}
+html:not(.dark) .help-item dd b{color:#2a2018}
+html:not(.dark) .help-item kbd{background:#e2ecc8;border-color:rgba(29,23,18,.2);color:#33430f}
+html:not(.dark) .help-close{border-color:rgba(29,23,18,.25);color:#5a6a3a}
+html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
 </style>
 </head>
 <body class="noise">
@@ -237,7 +275,7 @@ body.build-mode #canvas{cursor:cell!important}
     <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
     <button class="diff-btn" id="style-btn" title="Cycle map biome">◑ Style</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.8.0</span>
+    <span id="version-badge">v0.9.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="sel-panel">
@@ -255,7 +293,7 @@ body.build-mode #canvas{cursor:cell!important}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.8.0</div>
+    <div class="help-ver" id="help-ver">v0.9.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
@@ -287,9 +325,9 @@ const BASE_MAX_HP=500,EBASE_MAX_HP=400;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MAX_DEPOSITS=12;
-const VERSION='v0.8.0';
+const VERSION='v0.9.0';
 // Map style overlays — a colour system laid over the same terrain/mapgen.
-// floor: two base tones (jittered per-tile), wall/wallEdge, water/waterTop, grid line, labels.
+// floor: two base tones blended by smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
   grassland:{name:'Grassland',floor:[[96,124,66],[108,138,74]],wall:[86,70,44],wallEdge:[120,100,64],water:[64,128,162],waterTop:[104,168,198],grid:'rgba(0,0,0,.05)',bg:'#6f9550'},
   desert:   {name:'Desert',   floor:[[204,178,128],[218,194,142]],wall:[158,120,74],wallEdge:[192,158,104],water:[92,164,182],waterTop:[132,196,210],grid:'rgba(80,50,10,.06)',bg:'#cbab74'},
@@ -298,10 +336,12 @@ const MAP_STYLES={
 };
 
 // ── difficulty ─────────────────────────────────────────────────────────────────
+// Difficulty affects only AI decisiveness — reaction speed (react), actions/sec (apm),
+// perception (awareness) and unit-mix quality — NOT economy. Both sides earn the same income.
 const DIFF={
-  easy:  {pInc:3,  eInc:2,   spawnCd:14,pool:['rifleman','rifleman','atv']},
-  medium:{pInc:2.5,eInc:3.5, spawnCd:9, pool:['rifleman','hmg','atv','grenadier']},
-  hard:  {pInc:2,  eInc:5.5, spawnCd:5, pool:['hmg','grenadier','sniper','mortar']},
+  easy:  {pInc:3,eInc:3, spawnCd:13, apm:0.6, react:2.4, awareness:0.6, pool:['rifleman','rifleman','atv']},
+  medium:{pInc:3,eInc:3, spawnCd:9,  apm:1.2, react:1.5, awareness:0.8, pool:['rifleman','hmg','atv','grenadier']},
+  hard:  {pInc:3,eInc:3, spawnCd:6,  apm:2.2, react:0.9, awareness:1.0, pool:['hmg','grenadier','sniper','mortar']},
 };
 
 // ── unit / building defs ───────────────────────────────────────────────────────
@@ -395,7 +435,7 @@ function fireAirstrike(tx,ty){
 
 // ── state ──────────────────────────────────────────────────────────────────────
 let grid=[],units=[],projs=[],deposits=[],constructions=[];
-let waterTiles=[],mapBaked=false,mapStyle='grassland'; // grid:0 open,1 wall,2 base,3 water
+let waterTiles=[],mapBaked=false,mapStyle='grassland',mapSeed=1; // grid:0 open,1 wall,2 base,3 water
 let uid=0,selected=new Set();
 let gold=50,enemyGold=50,kills=0;
 let enemySpawnCd=6,eGatherCd=10,depositSpawnTimer=40;
@@ -429,10 +469,14 @@ const mctx=mapCanvas.getContext('2d');
 
 function resizeCanvas(){
   const wrap=document.querySelector('.game-wrap');
-  const hudH=document.getElementById('hud').offsetHeight;
-  const selH=document.getElementById('sel-panel').offsetHeight;
+  const hudEl=document.getElementById('hud');
+  const selEl=document.getElementById('sel-panel');
+  const hudH=hudEl.offsetHeight;
+  const selH=selEl.offsetHeight;
   const sp=document.getElementById('side-panel');
   const panelW=(sp&&!sp.classList.contains('collapsed'))?180:0;
+  // Keep the side panel between the top bar and the bottom panel so nothing overlaps it
+  if(sp){sp.style.top=hudEl.getBoundingClientRect().bottom+'px';sp.style.bottom=selH+'px';}
   viewW=Math.max(120,wrap.clientWidth-panelW);
   viewH=Math.max(120,wrap.clientHeight-hudH-selH);
   const dpr=window.devicePixelRatio||1;
@@ -512,6 +556,7 @@ function generateMap(){
   for(const row of[GATE_R-1,GATE_R]){grid[row][PB_C+PB_W]=0;grid[row][EB_C-1]=0;}
   placeWater();
   pickMapStyle();
+  mapSeed=(Date.now()^0x9e3779b1)&0x7fffffff;
   mapBaked=false;
 }
 
@@ -1019,7 +1064,7 @@ function update(dt){
   enemySpawnCd-=dt;
   if(enemySpawnCd<=0){
     enemySpawnCd=cfg.spawnCd;
-    const minG=difficulty==='hard'?3:difficulty==='medium'?2:1;
+    const minG=2; // economy is equal across difficulties — no gatherer/income advantage
     const hasG=units.filter(u=>u.team==='enemy'&&u.type==='engineer').length;
     if(hasG<minG&&enemyGold>=TDEFS.engineer.cost){
       enemyGold-=TDEFS.engineer.cost;
@@ -1038,7 +1083,7 @@ function update(dt){
   eGatherCd-=dt;
   if(eGatherCd<=0){
     eGatherCd=18+Math.random()*10;
-    const maxG=difficulty==='hard'?4:difficulty==='medium'?3:2;
+    const maxG=3; // equal economy cap regardless of difficulty
     const hasG=units.filter(u=>u.team==='enemy'&&u.type==='engineer').length;
     if(hasG<maxG&&enemyGold>=TDEFS.engineer.cost){
       enemyGold-=TDEFS.engineer.cost;
@@ -1155,7 +1200,7 @@ function update(dt){
       if(u.team==='enemy'){
         u.aiCd-=dt;
         if(u.aiCd<=0){
-          u.aiCd=1.3+Math.random()*.8;
+          u.aiCd=(cfg.react||1.5)*(0.7+Math.random()*0.6); // reaction speed scales with difficulty
           if(!findTarget(u)){
             let near=null,nd=Infinity;
             for(const p of units){if(p.team!=='player'||p.hp<=0)continue;const d=Math.hypot(p.x-u.x,p.y-u.y);if(d<nd){nd=d;near=p;}}
@@ -1265,37 +1310,79 @@ function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;}
 
 // ── rendering ──────────────────────────────────────────────────────────────────
 const clampC=v=>v<0?0:v>255?255:v|0;
-// Bakes the static terrain (floor, water, walls) into an offscreen canvas using the active map style.
+const rgb=(a)=>`rgb(${clampC(a[0])},${clampC(a[1])},${clampC(a[2])})`;
+const shade=(a,d)=>[a[0]+d,a[1]+d,a[2]+d];
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+// Smooth value noise sampler over the tile grid (bilinear + smoothstep). cellSize = feature scale in tiles.
+function valueNoise(seed,cellSize){
+  const rnd=mkRng(seed>>>0);
+  const gw=Math.ceil(COLS/cellSize)+2,gh=Math.ceil(ROWS/cellSize)+2;
+  const n=new Float32Array(gw*gh);for(let i=0;i<n.length;i++)n[i]=rnd();
+  return(col,row)=>{
+    const fx=col/cellSize,fy=row/cellSize,x0=Math.floor(fx),y0=Math.floor(fy),tx=fx-x0,ty=fy-y0;
+    const a=n[y0*gw+x0],b=n[y0*gw+x0+1],c=n[(y0+1)*gw+x0],d=n[(y0+1)*gw+x0+1];
+    const sx=tx*tx*(3-2*tx),sy=ty*ty*(3-2*ty);
+    return(a*(1-sx)+b*sx)*(1-sy)+(c*(1-sx)+d*sx)*sy;
+  };
+}
+// Bakes the static terrain into an offscreen canvas using the active map style.
 function bakeMap(){
   const g=mctx,S=MAP_STYLES[mapStyle]||MAP_STYLES.grassland;
-  g.clearRect(0,0,W,H);
-  g.fillStyle=S.bg;g.fillRect(0,0,W,H);
-  // Floor + water
+  g.clearRect(0,0,W,H);g.fillStyle=S.bg;g.fillRect(0,0,W,H);
+  const isW=(r,c)=>r>=0&&r<ROWS&&c>=0&&c<COLS&&grid[r][c]===1;
+  const isWa=(r,c)=>r>=0&&r<ROWS&&c>=0&&c<COLS&&grid[r][c]===3;
+  const nReg=valueNoise(mapSeed^0xa17,11);  // low-freq region tint → cohesive patches
+  const nTex=valueNoise(mapSeed^0xb29,3.2);  // mid-freq mottle → gentle texture
+  // ── Ground (open floor + base tiles sit on ground) ──
   for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
-    const v=grid[row][col],x=col*TS,y=row*TS;
-    if(v===0){
-      const n=(((col*2654435761)^(row*2246822519))>>>0)&7;
-      const b=S.floor[n&1],j=(n-3)*2; // pick one of two floor tones + jitter for texture
-      g.fillStyle=`rgb(${clampC(b[0]+j)},${clampC(b[1]+j)},${clampC(b[2]+j)})`;g.fillRect(x,y,TS,TS);
-    } else if(v===3){
-      const w=S.water,wt=S.waterTop;
-      g.fillStyle=`rgb(${w[0]},${w[1]},${w[2]})`;g.fillRect(x,y,TS,TS);
-      g.fillStyle=`rgb(${wt[0]},${wt[1]},${wt[2]})`;g.fillRect(x,y,TS,TS-4);
-      g.fillStyle='rgba(255,255,255,.16)';g.fillRect(x,y+3,TS,1.5);
-    }
-  }
-  // Walls — higher contrast: solid body with a lit top/left edge
-  const wl=S.wall,we=S.wallEdge;
-  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)if(grid[row][col]===1){
+    const v=grid[row][col];if(v===1||v===3)continue;
     const x=col*TS,y=row*TS;
-    g.fillStyle=`rgb(${wl[0]},${wl[1]},${wl[2]})`;g.fillRect(x,y,TS,TS);
-    g.fillStyle=`rgb(${we[0]},${we[1]},${we[2]})`;g.fillRect(x,y,TS,2);g.fillRect(x,y,2,TS);
-    g.fillStyle='rgba(0,0,0,.22)';g.fillRect(x,y+TS-2,TS,2);g.fillRect(x+TS-2,y,2,TS);
+    const reg=nReg(col,row),tex=(nTex(col,row)-.5);
+    let c=lerp3(S.floor[0],S.floor[1],reg*.7+.15);
+    c=shade(c,tex*9);
+    g.fillStyle=rgb(c);g.fillRect(x,y,TS,TS);
+    // sparse ground detail specks
+    const h=(((col*73856093)^(row*19349663))>>>0);
+    if((h&31)===0){g.fillStyle=rgb(shade(c,-14));g.fillRect(x+(h>>5&7)+2,y+(h>>8&7)+2,2,2);}
   }
-  // Grid
-  g.strokeStyle=S.grid;g.lineWidth=.5;
-  for(let c=0;c<=COLS;c++){g.beginPath();g.moveTo(c*TS,0);g.lineTo(c*TS,H);g.stroke();}
-  for(let r=0;r<=ROWS;r++){g.beginPath();g.moveTo(0,r*TS);g.lineTo(W,r*TS);g.stroke();}
+  // ── Water — connected body with a lighter surface band + shoreline foam ──
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
+    if(grid[row][col]!==3)continue;
+    const x=col*TS,y=row*TS,reg=nReg(col,row);
+    g.fillStyle=rgb(shade(S.water,(reg-.5)*8));g.fillRect(x,y,TS,TS);
+    // lighter surface toward the top of the cell (depth cue), only where open above
+    if(!isWa(row-1,col)){g.fillStyle=rgb(S.waterTop);g.fillRect(x,y,TS,4);}
+    // shoreline foam where water meets non-water
+    g.fillStyle='rgba(255,255,255,.28)';
+    if(!isWa(row-1,col)&&grid[row-1]?.[col]!==3)g.fillRect(x,y,TS,1.5);
+    if(!isWa(row+1,col))g.fillRect(x,y+TS-1.5,TS,1.5);
+    if(!isWa(row,col-1))g.fillRect(x,y,1.5,TS);
+    if(!isWa(row,col+1))g.fillRect(x+TS-1.5,y,1.5,TS);
+  }
+  // ── Walls — one connected rock mass: fill body, bevel only the exposed outline ──
+  const wl=S.wall,we=S.wallEdge;
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
+    if(grid[row][col]!==1)continue;
+    const x=col*TS,y=row*TS,tex=(nTex(col,row)-.5);
+    g.fillStyle=rgb(shade(wl,tex*12));g.fillRect(x,y,TS,TS);
+    // subtle interior cracks
+    const h=(((col*40503)^(row*12289))>>>0);
+    if((h&7)===0){g.fillStyle=rgb(shade(wl,-16));g.fillRect(x+(h>>4&11)+1,y+(h>>8&11)+1,2,1);}
+  }
+  // exposed edges pass (after all bodies so bevels sit on top cleanly)
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
+    if(grid[row][col]!==1)continue;
+    const x=col*TS,y=row*TS;
+    if(!isW(row-1,col)){g.fillStyle=rgb(shade(we,10));g.fillRect(x,y,TS,3);}      // lit top
+    if(!isW(row,col-1)){g.fillStyle=rgb(we);g.fillRect(x,y,3,TS);}                 // lit left
+    if(!isW(row,col+1)){g.fillStyle='rgba(0,0,0,.34)';g.fillRect(x+TS-3,y,3,TS);} // shadow right
+    if(!isW(row+1,col)){g.fillStyle='rgba(0,0,0,.42)';g.fillRect(x,y+TS-3,TS,3);} // shadow bottom
+    // outer corner rounding (darken the diagonal outside corner)
+    if(!isW(row-1,col)&&!isW(row,col-1)){g.fillStyle=S.bg;g.fillRect(x,y,2,2);}
+    if(!isW(row-1,col)&&!isW(row,col+1)){g.fillStyle=S.bg;g.fillRect(x+TS-2,y,2,2);}
+    if(!isW(row+1,col)&&!isW(row,col-1)){g.fillStyle=S.bg;g.fillRect(x,y+TS-2,2,2);}
+    if(!isW(row+1,col)&&!isW(row,col+1)){g.fillStyle=S.bg;g.fillRect(x+TS-2,y+TS-2,2,2);}
+  }
   // Zone labels
   g.font='9px "IBM Plex Mono",monospace';g.textAlign='center';
   g.fillStyle='rgba(30,70,170,.4)';g.fillText('BASE',LZ/2*TS,H/2-5);g.fillText('▶',LZ/2*TS,H/2+9);
@@ -1305,13 +1392,13 @@ function bakeMap(){
 function drawMap(){
   if(!mapBaked){bakeMap();mapBaked=true;}
   ctx.drawImage(mapCanvas,0,0);
-  // Animated water shimmer (cheap — only over water tiles)
+  // Animated water surface glints
   if(waterTiles.length){
     const tsec=performance.now()/1000;
     for(const w of waterTiles){
-      const x=w.c*TS,y=w.r*TS,sh=Math.sin(tsec*1.6+w.c*.7+w.r*.5);
-      ctx.fillStyle=`rgba(255,255,255,${.05+.06*(sh*.5+.5)})`;
-      ctx.fillRect(x,y+(sh>0?2:TS-4),TS,2);
+      const x=w.c*TS,y=w.r*TS,sh=Math.sin(tsec*1.3+w.c*.55+w.r*.4);
+      ctx.fillStyle=`rgba(255,255,255,${(.04+.05*(sh*.5+.5)).toFixed(3)})`;
+      ctx.fillRect(x+2,y+6+sh*2,TS-4,1.5);
     }
   }
 }
