@@ -134,6 +134,43 @@ body.build-mode #canvas{cursor:cell!important}
 .sp-upg{font-size:.44rem;padding:1px 0;color:rgba(100,140,50,.38);}
 .sp-upg.done{color:rgba(130,210,80,.7);}
 .sp-con{font-size:.44rem;padding:1px 0;color:rgba(200,170,50,.5);}
+/* ── version + help ── */
+#version-badge{
+  margin-left:6px;font-family:var(--mono);font-size:.5rem;letter-spacing:.08em;
+  color:rgba(120,170,60,.55);padding:2px 6px;border:1px solid rgba(60,100,25,.28);
+  border-radius:3px;flex-shrink:0;
+}
+#help-btn{
+  background:rgba(18,34,9,.85);border:1px solid rgba(60,110,30,.38);
+  color:rgba(150,210,70,.9);font-family:var(--mono);font-size:.6rem;font-weight:700;
+  width:20px;height:20px;border-radius:50%;cursor:pointer;flex-shrink:0;
+  transition:all .12s;display:grid;place-items:center;line-height:1;
+}
+#help-btn:hover{background:rgba(35,65,16,.95);border-color:rgba(100,170,45,.6);color:#ccf73f}
+#help-modal{
+  position:fixed;inset:0;z-index:200;display:none;align-items:center;justify-content:center;
+  background:rgba(3,6,2,.82);backdrop-filter:blur(3px);padding:24px;
+}
+#help-modal.open{display:flex;}
+.help-box{
+  max-width:820px;max-height:86vh;overflow-y:auto;width:100%;
+  background:rgba(8,14,5,.98);border:1px solid rgba(70,120,30,.4);border-radius:6px;
+  padding:22px 26px 26px;font-family:var(--body);color:rgba(180,220,120,.85);
+  box-shadow:0 24px 60px -20px rgba(0,0,0,.8);
+  scrollbar-width:thin;scrollbar-color:rgba(100,160,50,.3) transparent;
+}
+.help-box h2{font-family:var(--disp);font-weight:500;font-size:1.5rem;color:#ccf73f;letter-spacing:-.01em;margin-bottom:2px;}
+.help-box .help-ver{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;color:rgba(120,170,60,.5);margin-bottom:16px;}
+.help-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px 22px;}
+.help-item dt{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;text-transform:uppercase;color:#a8e04a;margin-bottom:4px;}
+.help-item dd{font-size:.82rem;line-height:1.5;color:rgba(170,210,130,.72);}
+.help-item dd b{color:rgba(210,240,150,.9);font-weight:600;}
+.help-item kbd{font-family:var(--mono);font-size:.68rem;background:rgba(40,70,18,.8);border:1px solid rgba(90,150,40,.4);border-radius:3px;padding:0 4px;color:#ccf73f;}
+.help-close{
+  float:right;background:none;border:1px solid rgba(90,150,40,.4);color:rgba(150,200,80,.8);
+  font-family:var(--mono);font-size:.7rem;cursor:pointer;padding:3px 10px;border-radius:3px;transition:all .12s;
+}
+.help-close:hover{border-color:rgba(120,190,50,.7);color:#ccf73f;}
 </style>
 </head>
 <body class="noise">
@@ -197,6 +234,8 @@ body.build-mode #canvas{cursor:cell!important}
       <button class="spawn-btn" data-type="helicopter"><span class="key">[H]</span>Heli<span class="cost">220g</span></button>
       <button class="spawn-btn gb" data-type="engineer"><span class="key">[E]</span>Engineer<span class="cost">50g</span></button>
     </div>
+    <button id="help-btn" title="How to play">?</button>
+    <span id="version-badge">v0.6.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="sel-panel">
@@ -208,6 +247,23 @@ body.build-mode #canvas{cursor:cell!important}
       <div id="sel-portraits"></div>
     </div>
     <div id="sel-cmd"></div>
+  </div>
+</div>
+<div id="help-modal">
+  <div class="help-box">
+    <button class="help-close" id="help-close">✕ Close</button>
+    <h2>Frontline — How to play</h2>
+    <div class="help-ver" id="help-ver">v0.6.0</div>
+    <div class="help-grid">
+      <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
+      <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
+      <dl class="help-item"><dt>Selecting &amp; moving</dt><dd><b>Left-click / drag</b> to select. <b>Right-click</b> to move or issue orders. <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click a portrait selects all of that type. Press <kbd>.</kbd> to grab idle engineers.</dd></dl>
+      <dl class="help-item"><dt>Building</dt><dd>Select an engineer, pick a structure, then click a spot. <kbd>B</kbd> cycles build types. Build <b>Mines</b> (economy), <b>Barracks</b> (train units), <b>Research</b> (global upgrades), and <b>Guard Towers</b> (defense — upgradeable to MG / Artillery / Sniper).</dd></dl>
+      <dl class="help-item"><dt>Units</dt><dd>Spawn with the top bar or hotkeys: <kbd>U</kbd>Rifleman <kbd>I</kbd>HMG <kbd>J</kbd>Shotgun <kbd>O</kbd>ATV <kbd>P</kbd>Grenadier <kbd>Y</kbd>Sniper <kbd>M</kbd>Mortar <kbd>T</kbd>Tank <kbd>H</kbd>Heli <kbd>E</kbd>Engineer. Snipers, Mortars, Tanks &amp; Helis need Barracks upgrades.</dd></dl>
+      <dl class="help-item"><dt>Mortars</dt><dd>Select a Mortar and <b>Entrench</b> it for +60% range &amp; damage (can't move while entrenched). Set a target area to bombard blindly. Research <b>Mortar Targeting</b> to reduce scatter.</dd></dl>
+      <dl class="help-item"><dt>Terrain</dt><dd>The field has <b>3 elevation levels</b>. Units can climb one level at a time — <b>cliffs</b> (2-level drops) block movement, so plan routes around them. <b>Water</b> can't be crossed but doesn't block line of sight. Rock walls block both.</dd></dl>
+      <dl class="help-item"><dt>Base defense</dt><dd>Your base auto-fires at nearby enemies. Upgrade its range &amp; cannons, repair buildings, and — at the top tier — call in a one-shot <b>Airstrike</b> anywhere on your side.</dd></dl>
+    </div>
   </div>
 </div>
 <script src="../dark-mode.js"></script>
@@ -228,6 +284,7 @@ const BASE_MAX_HP=500,EBASE_MAX_HP=400;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MAX_DEPOSITS=7;
+const VERSION='v0.6.0';
 
 // ── difficulty ─────────────────────────────────────────────────────────────────
 const DIFF={
@@ -327,6 +384,7 @@ function fireAirstrike(tx,ty){
 
 // ── state ──────────────────────────────────────────────────────────────────────
 let grid=[],units=[],projs=[],deposits=[],constructions=[];
+let heightMap=[],waterTiles=[],mapBaked=false; // grid:0 open,1 wall,2 base,3 water; heightMap:0/1/2 elevation
 let uid=0,selected=new Set();
 let gold=50,enemyGold=50,kills=0;
 let enemySpawnCd=6,eGatherCd=10,depositSpawnTimer=40;
@@ -338,10 +396,11 @@ let gameOver=false,gameMsg='',gameWin=false;
 let boxSel=null,mxDown=0,myDown=0,mouseDown=false,mouseBtn=-1;
 let buildMode=null;
 let mousePos={x:0,y:0};
-let lastT=0,canvasScale=1,floorColors=null;
+let lastT=0,canvasScale=1;
 let trainQueues=new Map(); // barracksId → [{type,timeLeft,maxTime}]
 let playerSpawnQueue=[]; // [{type,timeLeft,maxTime}] — base/keyboard spawns
 let sidePanelCd=0;
+let _selPanelSig=null; // structural fingerprint — avoids rebuilding (and dropping clicks) every tick
 let airstrikeStock=0,airstrikeCD=0,pendingAirstrike=false;
 let baseSelected=false,airstrikeEffects=[],explosions=[];
 let upgradeQueue=[]; // [{key,timeLeft,maxTime,bldgType}] — global ordered queue
@@ -350,6 +409,9 @@ let upgradeQueue=[]; // [{key,timeLeft,maxTime,bldgType}] — global ordered que
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
 canvas.width=W;canvas.height=H;
+// Offscreen baked map (static terrain — redrawn only on regenerate)
+const mapCanvas=document.createElement('canvas');mapCanvas.width=W;mapCanvas.height=H;
+const mctx=mapCanvas.getContext('2d');
 
 function resizeCanvas(){
   const wrap=document.querySelector('.game-wrap');
@@ -400,7 +462,60 @@ function generateMap(){
     if(c===EB_C&&(r===GATE_R||r===GATE_R-1))continue;grid[r][c]=2;}
   // Ensure gate adjacents are open
   for(const row of[GATE_R-1,GATE_R]){grid[row][PB_C+PB_W]=0;grid[row][EB_C-1]=0;}
-  floorColors=null;
+  buildHeightMap();
+  placeWater();
+  mapBaked=false;
+}
+
+const CORRIDOR_ROWS=[Math.floor(ROWS*.25),Math.floor(ROWS*.5),Math.floor(ROWS*.75)];
+function buildHeightMap(){
+  const r=mkRng((Date.now()^0x51ab3f)&0xffffff);
+  heightMap=Array.from({length:ROWS},()=>new Uint8Array(COLS)); // all lowland (0)
+  const seeds=3+Math.floor(r()*3); // 3-5 plateaus
+  for(let s=0;s<seeds;s++){
+    const cx=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
+    const cy=3+Math.floor(r()*(ROWS-6));
+    const r2=3+Math.floor(r()*4);      // high-core (level 2) radius
+    const rampBase=2+r()*2.5;           // max ramp (level 1) width
+    const a1=r()*Math.PI*2,k=1+Math.floor(r()*3); // ramp width varies by angle → cliffs where it dips to 0
+    const rad=Math.ceil(r2+rampBase+2);
+    for(let dr=-rad;dr<=rad;dr++)for(let dc=-rad;dc<=rad;dc++){
+      const rr=cy+dr,cc=cx+dc;
+      if(rr<1||rr>=ROWS-1||cc<LZ||cc>=COLS-RZ)continue;
+      const dist=Math.hypot(dc,dr),ang=Math.atan2(dr,dc);
+      const rw=Math.max(0,rampBase*(0.5+0.5*Math.sin(ang*k+a1))-0.5); // ramp width at this angle
+      if(dist<=r2)heightMap[rr][cc]=2;
+      else if(dist<=r2+rw&&heightMap[rr][cc]<1)heightMap[rr][cc]=1;
+    }
+  }
+  // Flatten protected zones to lowland so a flat, cliff-free highway always exists
+  for(let row=0;row<ROWS;row++){
+    for(let c=0;c<LZ+2;c++)heightMap[row][c]=0;
+    for(let c=COLS-RZ-2;c<COLS;c++)heightMap[row][c]=0;
+  }
+  for(const lr of CORRIDOR_ROWS)
+    for(let c=0;c<COLS;c++){heightMap[Math.max(1,lr-1)][c]=0;heightMap[lr][c]=0;heightMap[Math.min(ROWS-2,lr+1)][c]=0;}
+  for(let row=PB_R-1;row<=PB_R+PB_H;row++)for(let c=PB_C-1;c<=PB_C+PB_W+1;c++)if(row>=0&&row<ROWS&&c>=0&&c<COLS)heightMap[row][c]=0;
+  for(let row=EB_R-1;row<=EB_R+EB_H;row++)for(let c=EB_C-1;c<=EB_C+EB_W+1;c++)if(row>=0&&row<ROWS&&c>=0&&c<COLS)heightMap[row][c]=0;
+}
+function placeWater(){
+  const r=mkRng((Date.now()^0x7a2e91)&0xffffff);
+  waterTiles=[];
+  const protRows=new Set();
+  for(const lr of CORRIDOR_ROWS){protRows.add(lr-1);protRows.add(lr);protRows.add(lr+1);}
+  const blobs=2+Math.floor(r()*3);
+  for(let b=0;b<blobs;b++){
+    const cx=LZ+6+Math.floor(r()*(COLS-LZ-RZ-12));
+    const cy=3+Math.floor(r()*(ROWS-6));
+    const rad=1.6+r()*2.6;
+    for(let dr=-4;dr<=4;dr++)for(let dc=-4;dc<=4;dc++){
+      const rr=cy+dr,cc=cx+dc;
+      if(rr<1||rr>=ROWS-1||cc<LZ+2||cc>=COLS-RZ-2)continue;
+      if(protRows.has(rr))continue;
+      if(grid[rr][cc]!==0||heightMap[rr][cc]!==0)continue; // only lowland open floor
+      if(Math.hypot(dc,dr)+(r()-.5)<=rad){grid[rr][cc]=3;waterTiles.push({c:cc,r:rr});}
+    }
+  }
 }
 
 function placeDeposits(){
@@ -409,7 +524,7 @@ function placeDeposits(){
   for(let a=0;deposits.length<count&&a<600;a++){
     const col=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
     const row=2+Math.floor(r()*(ROWS-4));
-    if(grid[row][col]!==0)continue;
+    if(grid[row][col]!==0||(heightMap[row]?.[col]||0)>1)continue;
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*8))continue;
     const max=160+Math.floor(r()*120);
@@ -423,7 +538,7 @@ function trySpawnDeposit(){
   for(let a=0;a<200;a++){
     const col=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
     const row=2+Math.floor(r()*(ROWS-4));
-    if(grid[row][col]!==0)continue;
+    if(grid[row][col]!==0||(heightMap[row]?.[col]||0)>1)continue;
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*7))continue;
     const mx=140+Math.floor(r()*100);deposits.push({id:uid++,x,y,gold:mx,max:mx,depleted:false,despawnTimer:0});return;
@@ -431,9 +546,22 @@ function trySpawnDeposit(){
 }
 
 // ── pathfinding ────────────────────────────────────────────────────────────────
-function tileBlocked(px,py){
+function tileBlocked(px,py){ // blocks movement — walls, base, water
   const c=Math.floor(px/TS),r=Math.floor(py/TS);
   return c<0||c>=COLS||r<0||r>=ROWS||grid[r][c]!==0;
+}
+function tileBlocksLoS(px,py){ // blocks sight — walls & base only (water is transparent)
+  const c=Math.floor(px/TS),r=Math.floor(py/TS);
+  if(c<0||c>=COLS||r<0||r>=ROWS)return true;
+  const v=grid[r][c];return v===1||v===2;
+}
+function tileHeightAt(px,py){
+  const c=Math.floor(px/TS),r=Math.floor(py/TS);
+  if(c<0||c>=COLS||r<0||r>=ROWS)return 0;
+  return heightMap[r]?.[c]||0;
+}
+function heightBlocked(fx,fy,tx,ty){ // cliff — can't cross >1 elevation level
+  return Math.abs(tileHeightAt(tx,ty)-tileHeightAt(fx,fy))>1;
 }
 function inWall(u,nx,ny){
   const x=nx??u.x,y=ny??u.y,rr=u.r*.78;
@@ -449,13 +577,25 @@ function pushOut(u){
   }
   u.x=ox;u.y=oy;
 }
-function canSeeR(x0,y0,x1,y1,radius){
+function canSeeR(x0,y0,x1,y1,radius){ // line-of-sight (targeting) — water transparent
   const len=Math.hypot(x1-x0,y1-y0);if(len<1)return true;
   const steps=Math.ceil(len/(TS*.55))+1;
   const px=-(y1-y0)/len*(radius*.72),py=(x1-x0)/len*(radius*.72);
   for(let i=1;i<=steps;i++){
     const t=i/steps,cx=x0+(x1-x0)*t,cy=y0+(y1-y0)*t;
+    if(tileBlocksLoS(cx,cy)||tileBlocksLoS(cx+px,cy+py)||tileBlocksLoS(cx-px,cy-py))return false;
+  }
+  return true;
+}
+function pathClearMove(x0,y0,x1,y1,radius){ // walkable straight-line (waypoint smoothing) — respects water & cliffs
+  const len=Math.hypot(x1-x0,y1-y0);if(len<1)return true;
+  const steps=Math.ceil(len/(TS*.5))+1;
+  const px=-(y1-y0)/len*(radius*.72),py=(x1-x0)/len*(radius*.72);
+  const h0=tileHeightAt(x0,y0);
+  for(let i=1;i<=steps;i++){
+    const t=i/steps,cx=x0+(x1-x0)*t,cy=y0+(y1-y0)*t;
     if(tileBlocked(cx,cy)||tileBlocked(cx+px,cy+py)||tileBlocked(cx-px,cy-py))return false;
+    if(Math.abs(tileHeightAt(cx,cy)-h0)>1)return false;
   }
   return true;
 }
@@ -493,9 +633,11 @@ function aStar(sc,sr,gc,gr,clearance=0){
       while(k!==sk){const n=came.get(k);path.unshift({c:n.c,r:n.r});k=n.pk;}
       return path;
     }
+    const curH=heightMap[cur.r]?.[cur.c]||0;
     for(const[dc,dr,cost]of D){
       const nc=cur.c+dc,nr=cur.r+dr;
       if(!tileSafe(nc,nr))continue;
+      if(Math.abs((heightMap[nr]?.[nc]||0)-curH)>1)continue; // cliff — can't climb >1 level
       if(cost>1&&(!tileSafe(cur.c,cur.r+dr)||!tileSafe(cur.c+dc,cur.r)))continue;
       const nk=key(nc,nr),ng=cur.g+cost;
       if((best.get(nk)??Infinity)<=ng)continue;
@@ -626,7 +768,7 @@ function placePerimeterTowers(){
 function canSeeLine(x0,y0,x1,y1){
   const d=Math.hypot(x1-x0,y1-y0);if(d<1)return true;
   const steps=Math.ceil(d/TS)+1;
-  for(let i=1;i<steps;i++){const t=i/steps;if(tileBlocked(x0+(x1-x0)*t,y0+(y1-y0)*t))return false;}
+  for(let i=1;i<steps;i++){const t=i/steps;if(tileBlocksLoS(x0+(x1-x0)*t,y0+(y1-y0)*t))return false;}
   return true;
 }
 function findTarget(u){return findTargetRange(u,u.range);}
@@ -1020,7 +1162,7 @@ function update(dt){
     }
     // Movement (entrenched mortars can't move)
     if(u.type==='mortar'&&(u.entrenched||u.entrenching)){u.waypoints=[];u.vx=0;u.vy=0;continue;}
-    if(!u.canFly)while(u.waypoints.length>1&&canSeeR(u.x,u.y,u.waypoints[1].x,u.waypoints[1].y,u.r))u.waypoints.shift();
+    if(!u.canFly)while(u.waypoints.length>1&&pathClearMove(u.x,u.y,u.waypoints[1].x,u.waypoints[1].y,u.r))u.waypoints.shift();
     if(u.waypoints.length>0){
       const wp=u.waypoints[0],dx=wp.x-u.x,dy=wp.y-u.y,d=Math.hypot(dx,dy);
       if(d<3)u.waypoints.shift();
@@ -1028,7 +1170,8 @@ function update(dt){
         const spd=Math.min(u.speed*dt,d);u.vx=dx/d*spd;u.vy=dy/d*spd;
         if(u.canFly){u.x+=u.vx;u.y+=u.vy;}
         else{const px=u.x,py=u.y;u.x+=u.vx;u.y+=u.vy;
-          if(inWall(u)){u.x=px;if(inWall(u)){u.x+=u.vx;u.y=py;if(inWall(u)){u.x=px;u.y=py;u.waypoints=[];}}}}
+          const blk=()=>inWall(u)||heightBlocked(px,py,u.x,u.y);
+          if(blk()){u.x=px;if(blk()){u.x=px+u.vx;u.y=py;if(blk()){u.x=px;u.y=py;u.waypoints=[];}}}}
       }
     }else{u.vx=0;u.vy=0;}
   }
@@ -1104,28 +1247,70 @@ function update(dt){
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;}
 
 // ── rendering ──────────────────────────────────────────────────────────────────
-function buildFloorColors(){
-  floorColors=Array.from({length:ROWS},(_,r)=>Array.from({length:COLS},(_,c)=>{
-    const h=((c*2654435761)^(r*2246822519))>>>0,v=16+(h&7);return`rgb(${v},${v+2},${v-2})`;
-  }));
+// Bakes the static terrain (floor by elevation, cliff edges, water, walls) into an offscreen canvas.
+function bakeMap(){
+  const g=mctx;g.clearRect(0,0,W,H);
+  g.fillStyle='#080b05';g.fillRect(0,0,W,H);
+  const HB={0:[19,25,13],1:[30,41,20],2:[44,58,29]}; // elevation base colours
+  // Floor + water
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
+    const v=grid[row][col],x=col*TS,y=row*TS;
+    if(v===0){
+      const h=heightMap[row][col],b=HB[h];
+      const n=(((col*2654435761)^(row*2246822519))>>>0)&7,j=n-3;
+      g.fillStyle=`rgb(${b[0]+j},${b[1]+j},${b[2]+j})`;g.fillRect(x,y,TS,TS);
+    } else if(v===3){
+      g.fillStyle='#0e2c3e';g.fillRect(x,y,TS,TS);
+      g.fillStyle='#164a63';g.fillRect(x,y,TS,TS-4);
+      g.fillStyle='rgba(90,150,180,.18)';g.fillRect(x,y+3,TS,1.5);
+    }
+  }
+  // Cliff shading — shadow on the low side of a drop, sunlit lip on the high side
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
+    if(grid[row][col]!==0)continue;
+    const h=heightMap[row][col],x=col*TS,y=row*TS;
+    for(const[dc,dr,side]of[[0,-1,'t'],[0,1,'b'],[-1,0,'l'],[1,0,'r']]){
+      const rr=row+dr,cc=col+dc;
+      const nh=(rr<0||rr>=ROWS||cc<0||cc>=COLS||grid[rr][cc]!==0)?h:heightMap[rr][cc];
+      if(nh<h){ // higher tile → bright lip
+        g.fillStyle=`rgba(150,185,95,${.22+.14*(h-nh)})`;
+        if(side==='t')g.fillRect(x,y,TS,2);else if(side==='b')g.fillRect(x,y+TS-2,TS,2);
+        else if(side==='l')g.fillRect(x,y,2,TS);else g.fillRect(x+TS-2,y,2,TS);
+      } else if(nh>h){ // lower tile → cast shadow
+        g.fillStyle=`rgba(0,0,0,${.32+.22*(nh-h)})`;
+        if(side==='t')g.fillRect(x,y,TS,3);else if(side==='b')g.fillRect(x,y+TS-3,TS,3);
+        else if(side==='l')g.fillRect(x,y,3,TS);else g.fillRect(x+TS-3,y,3,TS);
+      }
+    }
+  }
+  // Walls
+  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)if(grid[row][col]===1){
+    const x=col*TS,y=row*TS;
+    g.fillStyle='#1e1a12';g.fillRect(x,y,TS,TS);
+    g.fillStyle='#2a2318';g.fillRect(x,y,TS,2);g.fillStyle='#231e15';g.fillRect(x,y,2,TS);
+  }
+  // Grid
+  g.strokeStyle='rgba(255,255,255,.015)';g.lineWidth=.5;
+  for(let c=0;c<=COLS;c++){g.beginPath();g.moveTo(c*TS,0);g.lineTo(c*TS,H);g.stroke();}
+  for(let r=0;r<=ROWS;r++){g.beginPath();g.moveTo(0,r*TS);g.lineTo(W,r*TS);g.stroke();}
+  // Zone labels
+  g.font='9px "IBM Plex Mono",monospace';g.textAlign='center';
+  g.fillStyle='rgba(70,120,210,.22)';g.fillText('BASE',LZ/2*TS,H/2-5);g.fillText('▶',LZ/2*TS,H/2+9);
+  g.fillStyle='rgba(210,70,70,.18)';g.fillText('ENEMY',(COLS-RZ/2)*TS,H/2-5);g.fillText('◀',(COLS-RZ/2)*TS,H/2+9);
 }
 
 function drawMap(){
-  if(!floorColors)buildFloorColors();
-  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)
-    if(grid[row][col]===0){ctx.fillStyle=floorColors[row][col];ctx.fillRect(col*TS,row*TS,TS,TS);}
-  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)if(grid[row][col]===1){
-    const x=col*TS,y=row*TS;
-    ctx.fillStyle='#1e1a12';ctx.fillRect(x,y,TS,TS);
-    ctx.fillStyle='#2a2318';ctx.fillRect(x,y,TS,2);ctx.fillStyle='#231e15';ctx.fillRect(x,y,2,TS);
+  if(!mapBaked){bakeMap();mapBaked=true;}
+  ctx.drawImage(mapCanvas,0,0);
+  // Animated water shimmer (cheap — only over water tiles)
+  if(waterTiles.length){
+    const tsec=performance.now()/1000;
+    for(const w of waterTiles){
+      const x=w.c*TS,y=w.r*TS,sh=Math.sin(tsec*1.6+w.c*.7+w.r*.5);
+      ctx.fillStyle=`rgba(130,190,220,${.05+.05*(sh*.5+.5)})`;
+      ctx.fillRect(x,y+(sh>0?2:TS-4),TS,2);
+    }
   }
-  ctx.strokeStyle='rgba(255,255,255,.015)';ctx.lineWidth=.5;
-  for(let c=0;c<=COLS;c++){ctx.beginPath();ctx.moveTo(c*TS,0);ctx.lineTo(c*TS,H);ctx.stroke();}
-  for(let r=0;r<=ROWS;r++){ctx.beginPath();ctx.moveTo(0,r*TS);ctx.lineTo(W,r*TS);ctx.stroke();}
-  ctx.save();ctx.font='9px "IBM Plex Mono",monospace';ctx.textAlign='center';
-  ctx.fillStyle='rgba(70,120,210,.22)';ctx.fillText('BASE',LZ/2*TS,H/2-5);ctx.fillText('▶',LZ/2*TS,H/2+9);
-  ctx.fillStyle='rgba(210,70,70,.18)';ctx.fillText('ENEMY',(COLS-RZ/2)*TS,H/2-5);ctx.fillText('◀',(COLS-RZ/2)*TS,H/2+9);
-  ctx.restore();
 }
 
 function drawBase(cx,cy,w,h,gateRow,isP,hp,maxHp){
@@ -1308,10 +1493,21 @@ function drawUnit(u){
   const pct=hp/maxHp;ctx.fillStyle=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';ctx.fillRect(bx,by,bw*pct,bh);
 }
 
+function effRangeOf(u){ // effective (current) firing range including situational modifiers
+  if(u.type==='mortar'&&u.entrenched)return u.range*1.6;
+  return u.range;
+}
 function drawAttackRing(u){
   if(!selected.has(u.id)||u.range<=0)return;
-  ctx.strokeStyle=u.type==='sniper'?'rgba(30,195,215,.1)':'rgba(204,247,63,.07)';
-  ctx.lineWidth=.7;ctx.setLineDash([3,5]);ctx.beginPath();ctx.arc(u.x,u.y,u.range,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  const rng=effRangeOf(u);
+  const entrenched=u.type==='mortar'&&u.entrenched;
+  ctx.strokeStyle=entrenched?'rgba(230,180,50,.14)':u.type==='sniper'?'rgba(30,195,215,.1)':'rgba(204,247,63,.07)';
+  ctx.lineWidth=.7;ctx.setLineDash([3,5]);ctx.beginPath();ctx.arc(u.x,u.y,rng,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  // For mortars, also show the (dimmer) mobile range so the entrench bonus reads clearly
+  if(entrenched){
+    ctx.strokeStyle='rgba(200,180,50,.06)';ctx.setLineDash([2,6]);
+    ctx.beginPath();ctx.arc(u.x,u.y,u.range,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+  }
 }
 
 function drawPaths(){
@@ -1469,6 +1665,10 @@ function render(){
 
 // ── HUD + sel panel ────────────────────────────────────────────────────────────
 function tickSelPanel(){
+  // Refresh purchasable-button affordability every frame (no rebuild — clicks stay alive)
+  const gm=Math.floor(gold);
+  for(const btn of document.querySelectorAll('#sel-cmd button[data-cost]'))
+    btn.disabled=gameOver||btn.dataset.locked==='1'||gm<+btn.dataset.cost;
   // Updates only text fields each frame — never touches cmd buttons (preserves click listeners)
   const sel=units.filter(u=>selected.has(u.id)&&u.hp>0);
   if(!sel.length)return;
@@ -1586,8 +1786,35 @@ function updateSidePanel(){
 
 function hasBldg(type){return units.some(u=>u.type===type&&u.team==='player'&&u.hp>0);}
 
+// Structural fingerprint of the selection panel — excludes gold (affordability is refreshed
+// every frame in tickSelPanel), so the panel only fully rebuilds when something structural changes.
+function selPanelSig(sel){
+  const p=[
+    [...selected].sort((a,b)=>a-b).join(','),
+    buildMode?buildMode.type:'',
+    upgradeQueue.map(e=>e.key).join(','),
+    Object.keys(UPG).filter(k=>UPG[k].done).join(','),
+    Object.keys(BUPG).filter(k=>BUPG[k].done).join(','),
+    gameOver?'1':'0',
+  ];
+  let queueActive=upgradeQueue.length>0;
+  for(const u of sel){
+    let s=u.type+':'+(u.towerUpg||'')+':'+(u.entrenched?'E':u.entrenching?'e':'m')+':'+(u.mortarTarget?'T':'')
+      +':'+(u.gatherState||'')+':'+(u.assignedMineId>=0?'M':'')+':'+(u.assignedDepositId>=0?'D':'');
+    const q=trainQueues.get(u.id);
+    if(q&&q.length){s+=':q'+q.length;queueActive=true;}
+    p.push(s);
+  }
+  // While a queue/progress bar animates, advance the fingerprint every ~200ms so it refreshes
+  p.push(queueActive?Math.floor(performance.now()/200):0);
+  return p.join('#');
+}
+
 function updateSelPanel(){
   const sel=units.filter(u=>selected.has(u.id)&&u.hp>0);
+  const sig=selPanelSig(sel);
+  if(sig===_selPanelSig)return; // nothing structural changed — skip rebuild (keeps clicks alive)
+  _selPanelSig=sig;
   const portrait=document.getElementById('sel-portrait');
   const title=document.getElementById('sel-title');
   const body=document.getElementById('sel-body');
@@ -1630,9 +1857,10 @@ function updateSelPanel(){
       }
       let opts=COMBAT_TYPES.map(t=>{
         const d=TDEFS[t];const unlocked=unitUnlocked(t);
-        const ok=Math.floor(gold)>=d.cost&&!gameOver&&unlocked&&q.length<5;
+        const locked=!unlocked||q.length>=5;
+        const ok=Math.floor(gold)>=d.cost&&!gameOver&&!locked;
         const lockTxt=!unlocked?(d.req==='advTraining'?' ⬡':' ⬡⬡'):'';
-        return`<button class="cmd-btn"${ok?'':' disabled'} data-train="${t}" data-brid="${u.id}" style="opacity:${unlocked?.9:.35}">${d.name} ${d.cost}g${lockTxt}</button>`;
+        return`<button class="cmd-btn"${ok?'':' disabled'} data-train="${t}" data-brid="${u.id}" data-cost="${d.cost}" data-locked="${locked?1:0}" style="opacity:${unlocked?.9:.35}">${d.name} ${d.cost}g${lockTxt}</button>`;
       }).join('');
       opts+=`<div style="width:100%;height:1px;background:rgba(100,140,55,.15);margin:3px 0"></div>`;
       const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='barracks');
@@ -1640,9 +1868,10 @@ function updateSelPanel(){
         const upg=UPG[k],owned=upg.done;
         const inQueue=upgradeQueue.some(e=>e.key===k);
         const reqMet=!upg.req||(UPG[upg.req]?.done)||upgradeQueue.some(e=>e.key===upg.req);
-        const canBuy=!owned&&!inQueue&&Math.floor(gold)>=upg.cost&&!gameOver&&reqMet;
+        const locked=owned||inQueue||!reqMet;
+        const canBuy=!locked&&Math.floor(gold)>=upg.cost&&!gameOver;
         const lbl=owned?'✓ ':inQueue?'⏳ ':'';
-        return`<button class="cmd-btn${owned?' owned':inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="barracks" style="opacity:${reqMet||owned?1:.4}">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
+        return`<button class="cmd-btn${owned?' owned':inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="barracks" data-cost="${upg.cost}" data-locked="${locked?1:0}" style="opacity:${reqMet||owned?1:.4}">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
       }).join('');
       cmd.innerHTML=opts;
       for(const btn of cmd.querySelectorAll('[data-train]'))
@@ -1662,7 +1891,7 @@ function updateSelPanel(){
         body.textContent=`RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s  — upgrade:`;
         const opts=Object.entries(TOWER_UPGRADES).map(([k,tu])=>{
           const canBuy=Math.floor(gold)>=tu.cost&&!gameOver;
-          return`<button class="cmd-btn upg"${canBuy?'':' disabled'} data-tupg="${k}" data-tid="${u.id}">${tu.label} ${tu.cost}g<br><span style="font-size:.36rem;opacity:.7">${tu.desc}</span></button>`;
+          return`<button class="cmd-btn upg"${canBuy?'':' disabled'} data-tupg="${k}" data-tid="${u.id}" data-cost="${tu.cost}" data-locked="0">${tu.label} ${tu.cost}g<br><span style="font-size:.36rem;opacity:.7">${tu.desc}</span></button>`;
         }).join('');
         cmd.innerHTML=opts;
         for(const btn of cmd.querySelectorAll('[data-tupg]')){
@@ -1699,9 +1928,10 @@ function updateSelPanel(){
       const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='research');
       const html=upgKeys.map(k=>{
         const upg=UPG[k],owned=upg.done,inQueue=upgradeQueue.some(e=>e.key===k);
-        const canBuy=!owned&&!inQueue&&Math.floor(gold)>=upg.cost&&!gameOver;
+        const locked=owned||inQueue;
+        const canBuy=!locked&&Math.floor(gold)>=upg.cost&&!gameOver;
         const lbl=owned?'✓ ':inQueue?'⏳ ':'';
-        return`<button class="cmd-btn${owned||inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="research">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
+        return`<button class="cmd-btn${owned||inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="research" data-cost="${upg.cost}" data-locked="${locked?1:0}">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.36rem;opacity:.7">${upg.desc}</span></button>`;
       }).join('');
       cmd.innerHTML=html||'<span style="font-size:.46rem;color:rgba(120,170,60,.4)">No upgrades available</span>';
       for(const btn of cmd.querySelectorAll('[data-upg]'))
@@ -1721,9 +1951,11 @@ function updateSelPanel(){
       const upgKeys=Object.keys(UPG).filter(k=>UPG[k].bldg==='mine');
       const html=upgKeys.map(k=>{
         const upg=UPG[k],owned=upg.done,inQueue=upgradeQueue.some(e=>e.key===k);
-        const canBuy=!owned&&!inQueue&&Math.floor(gold)>=upg.cost&&!gameOver&&(!upg.req||(UPG[upg.req]?.done)||upgradeQueue.some(e=>e.key===upg.req));
+        const reqMet=!upg.req||(UPG[upg.req]?.done)||upgradeQueue.some(e=>e.key===upg.req);
+        const locked=owned||inQueue||!reqMet;
+        const canBuy=!locked&&Math.floor(gold)>=upg.cost&&!gameOver;
         const lbl=owned?'✓ ':inQueue?'⏳ ':'';
-        return`<button class="cmd-btn${owned||inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="mine">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.38rem;opacity:.7">${upg.desc}</span></button>`;
+        return`<button class="cmd-btn${owned||inQueue?' owned':' upg'}"${canBuy?'':' disabled'} data-upg="${k}" data-btype="mine" data-cost="${upg.cost}" data-locked="${locked?1:0}">${lbl}${upg.label} ${(owned||inQueue)?'':upg.cost+'g'}<br><span style="font-size:.38rem;opacity:.7">${upg.desc}</span></button>`;
       }).join('');
       cmd.innerHTML=html||'<span style="font-size:.48rem;color:rgba(120,170,60,.4)">No upgrades available</span>';
       for(const btn of cmd.querySelectorAll('[data-upg]'))
@@ -1747,7 +1979,9 @@ function updateSelPanel(){
     const u=sel[0];
     portrait.innerHTML=`<div style="width:42px;height:42px;border-radius:50%;background:${u.col};display:grid;place-items:center;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.8);border:2px solid rgba(255,255,255,.14)">${u.name[0]}</div>`;
     title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
-    const stats=[];if(u.speed>0)stats.push('SPD '+u.speed);if(u.range>0)stats.push('RNG '+u.range);if(u.dmg>0)stats.push('DMG '+u.dmg);
+    const stats=[];if(u.speed>0)stats.push('SPD '+u.speed);
+    if(u.range>0){const er=Math.round(effRangeOf(u));stats.push('RNG '+er+(u.type==='mortar'&&!u.entrenched?' (⚓'+Math.round(u.range*1.6)+')':''));}
+    if(u.dmg>0){const ed=u.type==='mortar'&&u.entrenched?Math.round(u.dmg*1.4):u.dmg;stats.push('DMG '+ed);}
     body.textContent=stats.join(' · ');
     if(u.type==='engineer'){
       const stMap={idle:'Auto-gather',parked:'Idle (parked)',going:'→ deposit',mining:'Mining',returning:'← returning','going-build':'→ build site',building:'⚒ Building'};
@@ -1849,7 +2083,9 @@ function renderEngineerCmds(cmd,gids){
   const makeBldBtn=(key,label,cost)=>{
     const active=bm&&bm.type===key;
     const canAfford=Math.floor(gold)>=cost;
-    return`<button class="cmd-btn${active?' on':''}"${canAfford||active?'':' disabled'} data-btype="${key}">[B] ${label} ${cost}g</button>`;
+    // Active button stays clickable (to toggle off) so it carries no data-cost
+    const costAttr=active?'':` data-cost="${cost}" data-locked="0"`;
+    return`<button class="cmd-btn${active?' on':''}"${canAfford||active?'':' disabled'} data-btype="${key}"${costAttr}>[B] ${label} ${cost}g</button>`;
   };
   let html=makeBldBtn('guard-tower','Tower',80)
     +makeBldBtn('barracks','Barracks',150)
@@ -1988,6 +2224,7 @@ canvas.addEventListener('mousedown',e=>{
     const gc=Math.floor(x/TS),gr=Math.floor(y/TS);let spread=0;
     for(const id of selected){
       const u=units.find(u=>u.id===id);if(!u)continue;
+      if(u.isBuilding||u.speed<=0){u.waypoints=[];continue;} // immobile — ignore move orders
       if(u.type==='engineer'){
         // Moving engineer to empty space = park it (stop auto-gathering)
         u.gatherState='parked';u.targetDep=-1;u.targetConId=-1;
@@ -2015,7 +2252,11 @@ canvas.addEventListener('mouseleave',()=>{if(mouseDown&&mouseBtn===0&&boxSel)com
 window.addEventListener('mouseup',e=>{if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
 
 window.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){buildMode=null;document.body.classList.remove('build-mode');if(!gameOver){selected.clear();updateSelPanel();updateHud();}return;}
+  if(e.key==='Escape'){
+    const hm=document.getElementById('help-modal');
+    if(hm&&hm.classList.contains('open')){hm.classList.remove('open');return;}
+    buildMode=null;document.body.classList.remove('build-mode');if(!gameOver){selected.clear();updateSelPanel();updateHud();}return;
+  }
   if((e.key==='r'||e.key==='R')&&gameOver){restart();return;}
   if(gameOver)return;
   if(e.key==='.'){
@@ -2051,6 +2292,17 @@ document.getElementById('side-toggle')?.addEventListener('click',()=>{
   resizeCanvas();
 });
 
+// Version badge + How-to-play modal
+{const vb=document.getElementById('version-badge');if(vb)vb.textContent=VERSION;
+ const hv=document.getElementById('help-ver');if(hv)hv.textContent=VERSION+' · Frontline';}
+const helpModal=document.getElementById('help-modal');
+function toggleHelp(show){helpModal.classList.toggle('open',show??!helpModal.classList.contains('open'));}
+document.getElementById('help-btn')?.addEventListener('click',()=>toggleHelp());
+document.getElementById('help-close')?.addEventListener('click',()=>toggleHelp(false));
+helpModal?.addEventListener('click',e=>{if(e.target===helpModal)toggleHelp(false);});
+// Show once for first-time visitors
+try{if(!localStorage.getItem('rts-seen-help')){toggleHelp(true);localStorage.setItem('rts-seen-help','1');}}catch(e){}
+
 // ── loop + init ────────────────────────────────────────────────────────────────
 function loop(t){const dt=Math.min((t-lastT)/1000,.05);lastT=t;update(dt);render();requestAnimationFrame(loop);}
 
@@ -2067,8 +2319,8 @@ function restart(){
   gold=50;enemyGold=50;kills=0;enemySpawnCd=6;eGatherCd=10;depositSpawnTimer=40;
   enemyBuildCd=45;eDepRespawnTimers=[];trainQueues=new Map();playerSpawnQueue=[];
   playerBaseHp=BASE_MAX_HP;enemyBaseHp=EBASE_MAX_HP;pBaseShotCd=0;eBaseShotCd=0;
-  gameOver=false;gameWin=false;gameMsg='';floorColors=null;
-  window._pendingMortarTarget=null;sidePanelCd=0;upgradeQueue=[];explosions=[];
+  gameOver=false;gameWin=false;gameMsg='';mapBaked=false;
+  window._pendingMortarTarget=null;sidePanelCd=0;upgradeQueue=[];explosions=[];_selPanelSig=null;
   airstrikeStock=0;airstrikeCD=0;pendingAirstrike=false;baseSelected=false;airstrikeEffects=[];
   for(const k of Object.keys(UPG))UPG[k].done=false;
   for(const k of Object.keys(BUPG))BUPG[k].done=false;
