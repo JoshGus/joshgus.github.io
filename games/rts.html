@@ -56,14 +56,15 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
   transition:max-height .15s ease;
 }
 #sel-panel.expanded{max-height:180px;}
-#sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:30px;}
+#sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:54px;}
 .sel-port{
   width:24px;height:24px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.35);
   cursor:pointer;display:grid;place-items:center;font-family:var(--mono);font-size:.55rem;
-  font-weight:700;flex-shrink:0;transition:border-color .1s;
+  font-weight:700;flex-shrink:0;transition:border-color .1s;position:relative;overflow:hidden;
 }
 .sel-port:hover{border-color:rgba(200,240,100,.55);}
 .sel-port.hi{border-color:#ccf73f;background:rgba(30,50,10,.7);}
+.sel-hp{position:absolute;bottom:0;left:0;height:3px;}
 #sel-portrait{
   width:68px;flex-shrink:0;display:grid;place-items:center;
   border-right:1px solid rgba(55,90,22,.2);
@@ -945,6 +946,9 @@ function update(dt){
     }else{u.vx=0;u.vy=0;}
   }
 
+  // Ping timer
+  for(const u of units)if(u._pingTimer>0)u._pingTimer=Math.max(0,u._pingTimer-dt);
+
   // Soft separation
   for(let i=0;i<units.length;i++){
     const a=units[i];if(a.hp<=0||a.isBuilding)continue;
@@ -1150,6 +1154,7 @@ function drawUnit(u){
   const{x,y,r,col,hp,maxHp}=u;
   const isSel=selected.has(u.id);
   if(isSel){ctx.strokeStyle='#ccf73f';ctx.lineWidth=1.5;ctx.setLineDash([4,3]);ctx.beginPath();ctx.arc(x,y,r+4,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
+  if(u._pingTimer>0){const pt=u._pingTimer/1.5;ctx.strokeStyle=`rgba(220,210,50,${pt*.7})`;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(x,y,r+4+(1-pt)*22,0,Math.PI*2);ctx.stroke();}
   // Shadow (lower for flying units)
   if(u.canFly){ctx.fillStyle='rgba(0,0,0,.14)';ctx.beginPath();ctx.ellipse(x,y+r*1.6,r*.7,r*.22,0,0,Math.PI*2);ctx.fill();}
   else{ctx.fillStyle='rgba(0,0,0,.22)';ctx.beginPath();ctx.ellipse(x,y+r*.5,r*.8,r*.26,0,0,Math.PI*2);ctx.fill();}
@@ -1507,7 +1512,8 @@ function updateSelPanel(){
       const bldgs=sel.filter(u=>u.isBuilding),troops=sel.filter(u=>!u.isBuilding);
       const mkPort=(u)=>{const isBldg=u.isBuilding;
         const shape=isBldg?`border-radius:0;border-color:rgba(150,200,100,.25);background:rgba(0,20,0,.45);`:`border-radius:50%;`;
-        return`<div class="sel-port" data-uid="${u.id}" style="color:${u.col};${shape}" title="${u.name}">${u.name[0]}</div>`;
+        const pct=u.hp/u.maxHp;const hpCol=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';
+        return`<div class="sel-port" data-uid="${u.id}" style="color:${u.col};${shape}" title="${u.name} ${Math.ceil(u.hp)}/${u.maxHp}HP">${u.name[0]}<div class="sel-hp" style="width:${(pct*100).toFixed(0)}%;background:${hpCol}"></div></div>`;
       };
       let html='';
       if(bldgs.length){html+=`<div style="font-size:.33rem;color:rgba(100,140,55,.4);font-family:var(--mono);letter-spacing:.08em;width:100%;margin-bottom:1px">BLDG</div>`+bldgs.map(mkPort).join('');}
@@ -1517,7 +1523,7 @@ function updateSelPanel(){
       for(const port of portsEl.querySelectorAll('.sel-port')){
         port.addEventListener('click',e=>{
           const id=+port.dataset.uid;
-          if(e.ctrlKey||e.shiftKey){
+          if(e.ctrlKey||e.metaKey||e.shiftKey){
             const ut=units.find(u=>u.id===id)?.type;
             if(ut){const prev=new Set(selected);selected.clear();for(const sid of prev){const su=units.find(u=>u.id===sid);if(su&&su.type===ut)selected.add(sid);}}
           } else {selected.clear();selected.add(id);}
@@ -1525,9 +1531,42 @@ function updateSelPanel(){
         });
       }
     }
+    const allSameType=sel.every(u=>u.type===sel[0].type);
+    const selType=sel[0].type;
+    const mids=sel.filter(u=>u.type==='mortar').map(u=>u.id);
     const gids=sel.filter(u=>u.type==='engineer').map(u=>u.id);
-    if(gids.length)renderEngineerCmds(cmd,gids);else cmd.innerHTML='';
+    if(allSameType&&selType==='mortar'){
+      const entrenched=sel.filter(u=>!u.entrenching&&u.entrenched).length;
+      const transitioning=sel.filter(u=>u.entrenching).length;
+      const mobile=sel.filter(u=>!u.entrenching&&!u.entrenched).length;
+      const parts=[];if(entrenched)parts.push(entrenched+'⚓');if(transitioning)parts.push(transitioning+' transitioning');if(mobile)parts.push(mobile+' mobile');
+      status.textContent=parts.join(' · ');
+      renderMortarCmds(cmd,mids);
+    } else if(gids.length){
+      renderEngineerCmds(cmd,gids);
+    } else {
+      cmd.innerHTML='';
+    }
   }
+}
+
+function renderMortarCmds(cmd,mids){
+  const ms=mids.map(id=>units.find(u=>u.id===id)).filter(Boolean);
+  const anyCanEntrench=ms.some(u=>!u.entrenched&&!u.entrenching);
+  const anyCanUnpit=ms.some(u=>u.entrenched&&!u.entrenching);
+  let html='';
+  if(anyCanEntrench)html+=`<button class="cmd-btn" id="cmd-entrench-all">Entrench All</button>`;
+  if(anyCanUnpit)html+=`<button class="cmd-btn on" id="cmd-unpit-all">Un-pit All</button>`;
+  if(!html)html='<span style="font-size:.44rem;color:rgba(120,170,60,.4)">All transitioning…</span>';
+  cmd.innerHTML=html;
+  cmd.querySelector('#cmd-entrench-all')?.addEventListener('click',()=>{
+    for(const id of mids){const u=units.find(u=>u.id===id);if(u&&!u.entrenched&&!u.entrenching){u.entrenching=true;u.entrenchTimer=2;u.waypoints=[];}}
+    updateSelPanel();
+  });
+  cmd.querySelector('#cmd-unpit-all')?.addEventListener('click',()=>{
+    for(const id of mids){const u=units.find(u=>u.id===id);if(u&&u.entrenched&&!u.entrenching){u.entrenching=true;u.entrenchTimer=2;}}
+    updateSelPanel();
+  });
 }
 
 function renderEngineerCmds(cmd,gids){
@@ -1704,6 +1743,11 @@ window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){buildMode=null;document.body.classList.remove('build-mode');if(!gameOver){selected.clear();updateSelPanel();updateHud();}return;}
   if((e.key==='r'||e.key==='R')&&gameOver){restart();return;}
   if(gameOver)return;
+  if(e.key==='.'){
+    const idle=units.filter(u=>u.team==='player'&&u.type==='engineer'&&u.hp>0&&(u.gatherState==='idle'||u.gatherState==='parked'));
+    if(idle.length){selected.clear();idle.forEach(u=>{selected.add(u.id);u._pingTimer=1.5;});updateSelPanel();updateHud();}
+    return;
+  }
   const spawnMap={u:'rifleman',i:'hmg',j:'shotgun',o:'atv',p:'grenadier',y:'sniper',m:'mortar',t:'tank',h:'helicopter',e:'engineer',g:'engineer'};
   if(spawnMap[e.key.toLowerCase()]){spawnPlayer(spawnMap[e.key.toLowerCase()]);return;}
   if(e.key==='b'||e.key==='B'){
