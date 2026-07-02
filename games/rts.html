@@ -11,7 +11,7 @@
 <style>
 html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:antialiased}
 .game-wrap{position:fixed;top:47px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:flex-start;background:#080b05;overflow:hidden}
-#canvas{display:block}
+#canvas{display:block;flex-shrink:0}
 #hud{
   width:100%;display:flex;align-items:center;gap:8px;padding:4px 12px;
   background:rgba(8,12,5,.97);border-bottom:1px solid rgba(60,100,25,.3);
@@ -233,16 +233,18 @@ body.build-mode #canvas{cursor:cell!important}
       <button class="spawn-btn" data-type="helicopter"><span class="key">[H]</span>Heli<span class="cost">220g</span></button>
       <button class="spawn-btn gb" data-type="engineer"><span class="key">[E]</span>Engineer<span class="cost">50g</span></button>
     </div>
+    <button class="diff-btn" id="heat-btn" title="Toggle enemy density heat map">Heat</button>
+    <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
     <button class="diff-btn" id="style-btn" title="Cycle map biome">◑ Style</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.7.0</span>
+    <span id="version-badge">v0.8.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="sel-panel">
     <div id="sel-portrait"></div>
     <div id="sel-center">
       <div id="sel-title">No selection</div>
-      <div id="sel-body">Click/drag to select · Right-click to move · U I J O P Y M T H G = spawn</div>
+      <div id="sel-body">Click/drag select · Right-click move · Scroll = zoom · WASD / edge = pan · UIJOPYMTHG = spawn</div>
       <div id="sel-status"></div>
       <div id="sel-portraits"></div>
     </div>
@@ -253,11 +255,12 @@ body.build-mode #canvas{cursor:cell!important}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.7.0</div>
+    <div class="help-ver" id="help-ver">v0.8.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
       <dl class="help-item"><dt>Selecting &amp; moving</dt><dd><b>Left-click / drag</b> to select. <b>Right-click</b> to move or issue orders. <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click a portrait selects all of that type. Press <kbd>.</kbd> to grab idle engineers.</dd></dl>
+      <dl class="help-item"><dt>Camera</dt><dd>The field is large — <b>scroll</b> to zoom to the cursor, <b>middle-drag</b> or <kbd>WASD</kbd>/arrows to pan, or push the screen edges. Top-bar toggles: <b>Heat</b> (enemy density) and <b>Threat</b> (overlapping enemy firing ranges — where you're targetable).</dd></dl>
       <dl class="help-item"><dt>Building</dt><dd>Select an engineer, pick a structure, then click a spot. <kbd>B</kbd> cycles build types. Build <b>Mines</b> (economy), <b>Barracks</b> (train units), <b>Research</b> (global upgrades), and <b>Guard Towers</b> (defense — upgradeable to MG / Artillery / Sniper).</dd></dl>
       <dl class="help-item"><dt>Units</dt><dd>Spawn with the top bar or hotkeys: <kbd>U</kbd>Rifleman <kbd>I</kbd>HMG <kbd>J</kbd>Shotgun <kbd>O</kbd>ATV <kbd>P</kbd>Grenadier <kbd>Y</kbd>Sniper <kbd>M</kbd>Mortar <kbd>T</kbd>Tank <kbd>H</kbd>Heli <kbd>E</kbd>Engineer. Snipers, Mortars, Tanks &amp; Helis need Barracks upgrades.</dd></dl>
       <dl class="help-item"><dt>Mortars</dt><dd>Select a Mortar and <b>Entrench</b> it for +60% range &amp; damage (can't move while entrenched). Set a target area to bombard blindly. Research <b>Mortar Targeting</b> to reduce scatter.</dd></dl>
@@ -271,11 +274,11 @@ body.build-mode #canvas{cursor:cell!important}
 (function(){
 'use strict';
 // ── constants ──────────────────────────────────────────────────────────────────
-const TS=16,COLS=110,ROWS=64,W=COLS*TS,H=ROWS*TS;
+const TS=16,COLS=170,ROWS=100,W=COLS*TS,H=ROWS*TS;
 const LZ=14,RZ=14;
-const PB_C=3,PB_R=27,PB_W=5,PB_H=10;
-const EB_C=COLS-8,EB_R=27,EB_W=5,EB_H=10;
 const GATE_R=Math.floor(ROWS/2);
+const PB_C=3,PB_W=5,PB_H=10,PB_R=GATE_R-5;
+const EB_C=COLS-8,EB_W=5,EB_H=10,EB_R=GATE_R-5;
 const P_GATE_X=(PB_C+PB_W)*TS, P_GATE_Y=(GATE_R+.5)*TS;
 const E_GATE_X=EB_C*TS,         E_GATE_Y=(GATE_R+.5)*TS;
 const P_SPAWN_C=PB_C+PB_W+1, P_SPAWN_R=GATE_R;
@@ -283,8 +286,8 @@ const E_SPAWN_C=EB_C-2,       E_SPAWN_R=GATE_R;
 const BASE_MAX_HP=500,EBASE_MAX_HP=400;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
-const MAX_DEPOSITS=7;
-const VERSION='v0.7.0';
+const MAX_DEPOSITS=12;
+const VERSION='v0.8.0';
 // Map style overlays — a colour system laid over the same terrain/mapgen.
 // floor: two base tones (jittered per-tile), wall/wallEdge, water/waterTop, grid line, labels.
 const MAP_STYLES={
@@ -403,8 +406,12 @@ let pBaseShotCd=0,eBaseShotCd=0;
 let gameOver=false,gameMsg='',gameWin=false;
 let boxSel=null,mxDown=0,myDown=0,mouseDown=false,mouseBtn=-1;
 let buildMode=null;
-let mousePos={x:0,y:0};
-let lastT=0,canvasScale=1;
+let mousePos={x:0,y:0},mouseScreen={x:-1,y:-1};
+let lastT=0;
+let cam={x:0,y:0,zoom:1},viewW=800,viewH=600,camMinZoom=.2,camMaxZoom=2.6,camDrag=null;
+let panKeys=new Set();
+let showHeat=false,showThreat=false;
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
 let trainQueues=new Map(); // barracksId → [{type,timeLeft,maxTime}]
 let playerSpawnQueue=[]; // [{type,timeLeft,maxTime}] — base/keyboard spawns
 let sidePanelCd=0;
@@ -416,7 +423,6 @@ let upgradeQueue=[]; // [{key,timeLeft,maxTime,bldgType}] — global ordered que
 // ── canvas ─────────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('canvas');
 const ctx=canvas.getContext('2d');
-canvas.width=W;canvas.height=H;
 // Offscreen baked map (static terrain — redrawn only on regenerate)
 const mapCanvas=document.createElement('canvas');mapCanvas.width=W;mapCanvas.height=H;
 const mctx=mapCanvas.getContext('2d');
@@ -427,14 +433,48 @@ function resizeCanvas(){
   const selH=document.getElementById('sel-panel').offsetHeight;
   const sp=document.getElementById('side-panel');
   const panelW=(sp&&!sp.classList.contains('collapsed'))?180:0;
-  const availW=wrap.clientWidth-panelW;
-  canvasScale=Math.min(availW/W,(wrap.clientHeight-hudH-selH)/H);
-  const cw=Math.round(W*canvasScale),ch=Math.round(H*canvasScale);
-  canvas.style.width=cw+'px';
-  canvas.style.height=ch+'px';
-  canvas.style.marginLeft=Math.round(panelW+(availW-cw)/2)+'px';
+  viewW=Math.max(120,wrap.clientWidth-panelW);
+  viewH=Math.max(120,wrap.clientHeight-hudH-selH);
+  const dpr=window.devicePixelRatio||1;
+  canvas.style.width=viewW+'px';
+  canvas.style.height=viewH+'px';
+  canvas.style.marginLeft=panelW+'px';
+  canvas.width=Math.round(viewW*dpr);
+  canvas.height=Math.round(viewH*dpr);
+  camMinZoom=Math.max(.12,Math.min(viewW/W,viewH/H));
+  camMaxZoom=Math.max(2.6,camMinZoom*3);
+  cam.zoom=clamp(cam.zoom,camMinZoom,camMaxZoom);
+  clampCam();
 }
-function cxy(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
+function clampCam(){
+  const vw=viewW/cam.zoom,vh=viewH/cam.zoom;
+  cam.x=vw>=W?(W-vw)/2:clamp(cam.x,0,W-vw);
+  cam.y=vh>=H?(H-vh)/2:clamp(cam.y,0,H-vh);
+}
+function initCamera(){
+  cam.zoom=clamp(1,camMinZoom,camMaxZoom);
+  cam.x=P_GATE_X-viewW/cam.zoom*.5;
+  cam.y=P_GATE_Y-viewH/cam.zoom*.5;
+  clampCam();
+}
+// screen(css px within canvas) → world
+function screenToWorld(sx,sy){return{x:cam.x+sx/cam.zoom,y:cam.y+sy/cam.zoom};}
+function cxy(e){const r=canvas.getBoundingClientRect();return screenToWorld(e.clientX-r.left,e.clientY-r.top);}
+function updateCamera(dt){
+  const sp=700/cam.zoom*dt;
+  if(panKeys.has('a')||panKeys.has('ArrowLeft'))cam.x-=sp;
+  if(panKeys.has('d')||panKeys.has('ArrowRight'))cam.x+=sp;
+  if(panKeys.has('w')||panKeys.has('ArrowUp'))cam.y-=sp;
+  if(panKeys.has('s')||panKeys.has('ArrowDown'))cam.y+=sp;
+  // edge-scroll when the cursor is inside the viewport and not drag-selecting
+  const hm=document.getElementById('help-modal');
+  if(!boxSel&&!camDrag&&!(hm&&hm.classList.contains('open'))&&mouseScreen.x>=0&&mouseScreen.x<=viewW&&mouseScreen.y>=0&&mouseScreen.y<=viewH){
+    const edge=26;
+    if(mouseScreen.x<edge)cam.x-=sp;else if(mouseScreen.x>viewW-edge)cam.x+=sp;
+    if(mouseScreen.y<edge)cam.y-=sp;else if(mouseScreen.y>viewH-edge)cam.y+=sp;
+  }
+  clampCam();
+}
 
 // ── map ────────────────────────────────────────────────────────────────────────
 function mkRng(s){s=s>>>0;return()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/0xffffffff;};}
@@ -728,10 +768,10 @@ function placePerimeterTowers(){
     const{c,r}=findOpenNear(col,row);
     units.push(makeOutpost(team,c,r));
   }
-  try_place('player',P_SPAWN_C+3,18);
-  try_place('player',P_SPAWN_C+3,45);
-  try_place('enemy', E_SPAWN_C-3,18);
-  try_place('enemy', E_SPAWN_C-3,45);
+  try_place('player',P_SPAWN_C+3,GATE_R-14);
+  try_place('player',P_SPAWN_C+3,GATE_R+13);
+  try_place('enemy', E_SPAWN_C-3,GATE_R-14);
+  try_place('enemy', E_SPAWN_C-3,GATE_R+13);
 }
 
 // ── combat ─────────────────────────────────────────────────────────────────────
@@ -915,11 +955,16 @@ function updateEngineer(u,dt){
 }
 
 // ── enemy build AI ─────────────────────────────────────────────────────────────
-const EBUILD_POS={
-  'mine':        [{c:98,r:19},{c:98,r:44},{c:99,r:23}],
-  'barracks':    [{c:98,r:45},{c:98,r:18},{c:99,r:50}],
-  'guard-tower': [{c:96,r:26},{c:96,r:38},{c:95,r:32},{c:97,r:30}],
-};
+// Enemy build spots — relative to enemy base so they scale with map size.
+function enemyBuildPos(type){
+  const bc=EB_C,gr=GATE_R;
+  const map={
+    'mine':        [[bc-4,gr-13],[bc-4,gr+12],[bc-3,gr-9]],
+    'barracks':    [[bc-4,gr+13],[bc-4,gr-14],[bc-3,gr+18]],
+    'guard-tower': [[bc-6,gr-6],[bc-6,gr+6],[bc-7,gr],[bc-5,gr-2]],
+  };
+  return(map[type]||[]).map(([c,r])=>({c,r}));
+}
 function tryEnemyBuild(){
   const hasMine=units.some(u=>u.team==='enemy'&&u.type==='mine'&&u.hp>0);
   const hasBarracks=units.some(u=>u.team==='enemy'&&u.type==='barracks'&&u.hp>0);
@@ -937,7 +982,7 @@ function tryEnemyBuild(){
   if(!buildType)return;
 
   const cost=BDEFS[buildType].cost;
-  const positions=EBUILD_POS[buildType]||[];
+  const positions=enemyBuildPos(buildType);
   for(const pos of positions){
     const{c:fc,r:fr}=findOpenNear(pos.c,pos.r);
     const x=fc*TS+TS/2,y=fr*TS+TS/2;
@@ -1577,11 +1622,35 @@ function drawBuildGhost(){
   ctx.fillText(ok?BDEFS[buildMode.type].label+' '+BDEFS[buildMode.type].cost+'g':'BLOCKED',gx,gy+TS);
 }
 
-function drawGameOver(){
+function drawGameOver(){ // drawn in screen space (viewport px)
   if(!gameOver)return;
-  ctx.fillStyle='rgba(0,0,0,.62)';ctx.fillRect(0,0,W,H);ctx.textAlign='center';
-  ctx.font='bold 28px "IBM Plex Mono",monospace';ctx.fillStyle=gameWin?'#ccf73f':'#ff4444';ctx.fillText(gameMsg,W/2,H/2-10);
-  ctx.font='12px "IBM Plex Mono",monospace';ctx.fillStyle='rgba(200,200,200,.4)';ctx.fillText('Press R to play again',W/2,H/2+18);
+  ctx.fillStyle='rgba(0,0,0,.62)';ctx.fillRect(0,0,viewW,viewH);ctx.textAlign='center';
+  ctx.font='bold 28px "IBM Plex Mono",monospace';ctx.fillStyle=gameWin?'#ccf73f':'#ff4444';ctx.fillText(gameMsg,viewW/2,viewH/2-10);
+  ctx.font='12px "IBM Plex Mono",monospace';ctx.fillStyle='rgba(200,200,200,.4)';ctx.fillText('Press R to play again',viewW/2,viewH/2+18);
+}
+// Enemy density heat map (coarse cells, red = dense) — world space
+function drawHeatOverlay(){
+  const cell=TS*4,gw=Math.ceil(W/cell),gh=Math.ceil(H/cell);
+  const dens=new Float32Array(gw*gh);let mx=0;
+  for(const u of units){
+    if(u.team!=='enemy'||u.hp<=0)continue;
+    const wgt=u.isBuilding?1.2:1;const cx=Math.floor(u.x/cell),cy=Math.floor(u.y/cell);
+    for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++){const gx=cx+dx,gy=cy+dy;if(gx<0||gy<0||gx>=gw||gy>=gh)continue;dens[gy*gw+gx]+=wgt*((dx||dy)?.45:1);}
+  }
+  for(const v of dens)if(v>mx)mx=v;
+  if(mx<=0)return;
+  for(let gy=0;gy<gh;gy++)for(let gx=0;gx<gw;gx++){const v=dens[gy*gw+gx];if(v<=0)continue;const t=Math.min(1,v/mx);
+    ctx.fillStyle=`rgba(255,${Math.round(150*(1-t))},20,${(.10+.34*t).toFixed(3)})`;
+    ctx.fillRect(gx*cell,gy*cell,cell,cell);}
+}
+// Overlapping enemy firing ranges → shows where the player is targetable — world space
+function drawThreatOverlay(){
+  ctx.fillStyle='rgba(225,40,40,.055)';
+  ctx.beginPath();ctx.arc(E_GATE_X,E_GATE_Y,BASE_RANGE,0,Math.PI*2);ctx.fill();
+  for(const u of units){
+    if(u.team!=='enemy'||u.hp<=0||u.range<=0)continue;
+    ctx.beginPath();ctx.arc(u.x,u.y,u.range,0,Math.PI*2);ctx.fill();
+  }
 }
 
 function drawExplosions(){
@@ -1609,16 +1678,27 @@ function drawExplosions(){
 }
 
 function render(){
-  ctx.clearRect(0,0,W,H);
+  const dpr=window.devicePixelRatio||1;
+  ctx.setTransform(1,0,0,1,0,0);
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  // Crisp tiles when upscaling (zoomed in); smooth when downscaling (zoomed out) to avoid graininess
+  ctx.imageSmoothingEnabled=cam.zoom*dpr<1;
+  // World-space camera transform
+  ctx.setTransform(dpr*cam.zoom,0,0,dpr*cam.zoom,-cam.x*dpr*cam.zoom,-cam.y*dpr*cam.zoom);
   drawMap();
   drawBase(PB_C,PB_R,PB_W,PB_H,GATE_R-1,true,playerBaseHp,BASE_MAX_HP);
   drawBase(EB_C,EB_R,EB_W,EB_H,GATE_R-1,false,enemyBaseHp,EBASE_MAX_HP);
+  if(showHeat)drawHeatOverlay();
+  if(showThreat)drawThreatOverlay();
   drawDeposits();drawConstructions();
   for(const u of units)if(u.hp>0)drawAttackRing(u);
   drawPaths();drawProjs();
   for(const u of units)if(u.hp>0)drawUnit(u);
   drawExplosions();
-  drawBoxSel();drawBuildGhost();drawGameOver();
+  drawBoxSel();drawBuildGhost();
+  // Screen-space overlays (unaffected by zoom/pan)
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  drawGameOver();
 }
 
 // ── HUD + sel panel ────────────────────────────────────────────────────────────
@@ -1782,7 +1862,7 @@ function updateSelPanel(){
   const portsEl=document.getElementById('sel-portraits');
   if(!sel.length){
     portrait.innerHTML='<div style="font-size:1.6rem;color:rgba(70,110,40,.22)">◻</div>';
-    title.textContent='No selection';body.textContent='Click/drag to select · Right-click to move · U I J O P Y M T H G = spawn';status.textContent='';cmd.innerHTML='';if(portsEl)portsEl.innerHTML='';return;
+    title.textContent='No selection';body.textContent='Click/drag select · Right-click move · Scroll = zoom · WASD / edge = pan · UIJOPYMTHG = spawn';status.textContent='';cmd.innerHTML='';if(portsEl)portsEl.innerHTML='';return;
   }
   if(portsEl)portsEl.innerHTML='';
 
@@ -2099,7 +2179,22 @@ function commitBoxSel(){
 }
 
 canvas.addEventListener('contextmenu',e=>e.preventDefault());
+canvas.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const r=canvas.getBoundingClientRect();
+  const sx=e.clientX-r.left,sy=e.clientY-r.top;
+  const w=screenToWorld(sx,sy); // world point under cursor — keep it fixed while zooming
+  cam.zoom=clamp(cam.zoom*(e.deltaY<0?1.15:1/1.15),camMinZoom,camMaxZoom);
+  cam.x=w.x-sx/cam.zoom;cam.y=w.y-sy/cam.zoom;
+  clampCam();
+},{passive:false});
 canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  mouseScreen={x:e.clientX-r.left,y:e.clientY-r.top};
+  if(camDrag){ // middle-drag pan
+    cam.x=camDrag.cx-(e.clientX-camDrag.sx)/cam.zoom;
+    cam.y=camDrag.cy-(e.clientY-camDrag.sy)/cam.zoom;clampCam();return;
+  }
   const{x,y}=cxy(e);mousePos={x,y};
   if(!mouseDown||mouseBtn!==0||!boxSel)return;
   boxSel.x1=x;boxSel.y1=y;
@@ -2111,6 +2206,7 @@ canvas.addEventListener('mousemove',e=>{
   }
 });
 canvas.addEventListener('mousedown',e=>{
+  if(e.button===1){e.preventDefault();camDrag={sx:e.clientX,sy:e.clientY,cx:cam.x,cy:cam.y};return;} // middle = pan
   if(gameOver)return;
   const{x,y}=cxy(e);
   if(buildMode&&e.button===0){
@@ -2206,8 +2302,8 @@ canvas.addEventListener('mouseup',e=>{
     } else commitBoxSel();
   } else{mouseDown=false;mouseBtn=-1;}
 });
-canvas.addEventListener('mouseleave',()=>{if(mouseDown&&mouseBtn===0&&boxSel)commitBoxSel();});
-window.addEventListener('mouseup',e=>{if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
+canvas.addEventListener('mouseleave',()=>{mouseScreen={x:-1,y:-1};if(mouseDown&&mouseBtn===0&&boxSel)commitBoxSel();});
+window.addEventListener('mouseup',e=>{if(e.button===1)camDrag=null;if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
 
 window.addEventListener('keydown',e=>{
   if(e.key==='Escape'){
@@ -2239,8 +2335,8 @@ window.addEventListener('keydown',e=>{
 });
 
 for(const btn of document.querySelectorAll('.spawn-btn[data-type]'))btn.addEventListener('click',()=>spawnPlayer(btn.dataset.type));
-for(const btn of document.querySelectorAll('.diff-btn'))btn.addEventListener('click',()=>{
-  difficulty=btn.dataset.diff;document.querySelectorAll('.diff-btn').forEach(b=>b.classList.toggle('active',b===btn));updateHud();
+for(const btn of document.querySelectorAll('.diff-btn[data-diff]'))btn.addEventListener('click',()=>{
+  difficulty=btn.dataset.diff;document.querySelectorAll('.diff-btn[data-diff]').forEach(b=>b.classList.toggle('active',b===btn));updateHud();
 });
 document.getElementById('side-toggle')?.addEventListener('click',()=>{
   const sp=document.getElementById('side-panel');
@@ -2256,6 +2352,13 @@ document.getElementById('side-toggle')?.addEventListener('click',()=>{
 const helpModal=document.getElementById('help-modal');
 function toggleHelp(show){helpModal.classList.toggle('open',show??!helpModal.classList.contains('open'));}
 document.getElementById('help-btn')?.addEventListener('click',()=>toggleHelp());
+document.getElementById('heat-btn')?.addEventListener('click',e=>{showHeat=!showHeat;e.currentTarget.classList.toggle('active',showHeat);});
+document.getElementById('threat-btn')?.addEventListener('click',e=>{showThreat=!showThreat;e.currentTarget.classList.toggle('active',showThreat);});
+// Camera pan keys (WASD / arrows) + edge-scroll; middle-drag handled in mouse events
+const PAN_KEYS=new Set(['w','a','s','d','ArrowUp','ArrowDown','ArrowLeft','ArrowRight']);
+window.addEventListener('keydown',e=>{if(PAN_KEYS.has(e.key)){panKeys.add(e.key);if(e.key.indexOf('Arrow')===0)e.preventDefault();}});
+window.addEventListener('keyup',e=>panKeys.delete(e.key));
+window.addEventListener('blur',()=>panKeys.clear());
 document.getElementById('style-btn')?.addEventListener('click',()=>{
   const keys=Object.keys(MAP_STYLES);mapStyle=keys[(keys.indexOf(mapStyle)+1)%keys.length];
   mapBaked=false;
@@ -2267,7 +2370,7 @@ helpModal?.addEventListener('click',e=>{if(e.target===helpModal)toggleHelp(false
 try{if(!localStorage.getItem('rts-seen-help')){toggleHelp(true);localStorage.setItem('rts-seen-help','1');}}catch(e){}
 
 // ── loop + init ────────────────────────────────────────────────────────────────
-function loop(t){const dt=Math.min((t-lastT)/1000,.05);lastT=t;update(dt);render();requestAnimationFrame(loop);}
+function loop(t){const dt=Math.min((t-lastT)/1000,.05);lastT=t;update(dt);updateCamera(dt);render();requestAnimationFrame(loop);}
 
 function spawnStartEngineer(){
   const{c,r}=getSpawnPos('player');
@@ -2287,12 +2390,12 @@ function restart(){
   airstrikeStock=0;airstrikeCD=0;pendingAirstrike=false;baseSelected=false;airstrikeEffects=[];
   for(const k of Object.keys(UPG))UPG[k].done=false;
   for(const k of Object.keys(BUPG))BUPG[k].done=false;
-  generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();updateHud();updateSidePanel();
+  generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();initCamera();updateHud();updateSidePanel();
 }
 
 function init(){
   generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();
-  resizeCanvas();updateHud();updateSidePanel();
+  resizeCanvas();initCamera();updateHud();updateSidePanel();
   window.addEventListener('resize',resizeCanvas);
   // Recompute canvas fit whenever the HUD or bottom panel changes height (prevents overflow off-screen)
   if(window.ResizeObserver){
