@@ -10,13 +10,13 @@
 <link rel="stylesheet" href="../shared.css">
 <style>
 html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:antialiased}
-.game-wrap{position:fixed;top:47px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:center;background:#080b05;overflow:hidden}
+.game-wrap{position:fixed;top:47px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:flex-start;background:#080b05;overflow:hidden}
 #canvas{display:block}
 #hud{
   width:100%;display:flex;align-items:center;gap:8px;padding:4px 12px;
   background:rgba(8,12,5,.97);border-bottom:1px solid rgba(60,100,25,.3);
   font-family:var(--mono);font-size:.6rem;letter-spacing:.07em;color:rgba(150,200,90,.75);
-  flex-shrink:0;flex-wrap:wrap;box-sizing:border-box;
+  flex-shrink:0;flex-wrap:wrap;box-sizing:border-box;position:relative;z-index:10;
 }
 .hud-stat{display:flex;flex-direction:column;gap:1px;min-width:36px}
 .hud-val{font-size:.8rem;font-weight:700;color:#ccf73f;line-height:1.1}
@@ -53,7 +53,7 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
   width:100%;min-height:96px;max-height:180px;flex-shrink:0;
   background:rgba(5,8,3,.98);border-top:1px solid rgba(55,90,22,.3);
   display:flex;align-items:stretch;overflow:hidden;box-sizing:border-box;
-  transition:max-height .15s ease;
+  transition:max-height .15s ease;position:relative;z-index:10;
 }
 #sel-panel.expanded{max-height:180px;}
 #sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:54px;}
@@ -92,6 +92,48 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 .cmd-btn.upg:hover:not(:disabled){border-color:rgba(100,180,240,.6);color:#88ddff;background:rgba(8,30,50,.9)}
 .cmd-btn.owned{border-color:rgba(80,200,80,.35);color:rgba(120,220,120,.6);cursor:default;opacity:.7}
 body.build-mode #canvas{cursor:cell!important}
+/* ── side stats panel ── */
+#side-panel{
+  position:fixed;left:0;top:47px;bottom:0;width:180px;z-index:5;
+  background:rgba(4,7,2,.97);border-right:1px solid rgba(55,90,22,.3);
+  font-family:var(--mono);font-size:.52rem;color:rgba(140,190,70,.75);
+  transition:transform .2s ease;display:flex;flex-direction:column;
+}
+#side-panel.collapsed{transform:translateX(-158px);}
+#side-header{
+  padding:7px 10px 5px;font-size:.44rem;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(90,130,45,.55);border-bottom:1px solid rgba(55,90,22,.2);flex-shrink:0;
+}
+#side-toggle{
+  position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+  background:rgba(6,12,3,.97);border:1px solid rgba(55,90,22,.35);border-left:none;
+  color:rgba(150,200,80,.6);font-size:.65rem;cursor:pointer;padding:11px 4px;
+  font-family:var(--mono);transition:color .15s,background .15s;z-index:6;line-height:1;
+}
+#side-toggle:hover{color:#ccf73f;background:rgba(14,28,6,.97);}
+#side-content{
+  flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 10px 10px;
+  scrollbar-width:thin;scrollbar-color:rgba(100,160,50,.2) transparent;
+}
+.sp-head{
+  font-size:.41rem;letter-spacing:.14em;text-transform:uppercase;
+  color:rgba(90,130,45,.55);padding:7px 0 2px;
+  border-bottom:1px solid rgba(55,90,22,.15);margin-bottom:3px;
+}
+.sp-head:first-child{padding-top:0;}
+.sp-row{display:flex;justify-content:space-between;align-items:baseline;padding:1px 0;gap:4px;}
+.sp-label{color:rgba(110,150,55,.6);font-size:.47rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1;}
+.sp-val{color:rgba(170,210,80,.9);font-size:.52rem;font-weight:700;flex-shrink:0;margin-left:3px;}
+.sp-val.hi{color:#ccf73f;}
+.sp-val.warn{color:#ffbb44;}
+.sp-val.dim{color:rgba(110,145,50,.45);font-weight:400;}
+.sp-type-row{display:flex;align-items:center;gap:4px;padding:1px 0;}
+.sp-dot{width:5px;height:5px;border-radius:50%;flex-shrink:0;}
+.sp-mini-bar{flex:1;height:3px;background:rgba(0,0,0,.4);border-radius:2px;overflow:hidden;max-width:32px;}
+.sp-mini-fill{height:100%;border-radius:2px;}
+.sp-upg{font-size:.44rem;padding:1px 0;color:rgba(100,140,50,.38);}
+.sp-upg.done{color:rgba(130,210,80,.7);}
+.sp-con{font-size:.44rem;padding:1px 0;color:rgba(200,170,50,.5);}
 </style>
 </head>
 <body class="noise">
@@ -106,6 +148,11 @@ body.build-mode #canvas{cursor:cell!important}
   <span id="clock">--:-- EST</span>
 </div>
 <div class="game-wrap">
+  <div id="side-panel">
+    <div id="side-header">Field Stats</div>
+    <div id="side-content"></div>
+    <button id="side-toggle">◀</button>
+  </div>
   <div id="hud">
     <div class="hud-stat">
       <div class="hud-val" id="hud-gold">50</div>
@@ -274,6 +321,7 @@ let mousePos={x:0,y:0};
 let lastT=0,canvasScale=1,floorColors=null;
 let trainQueues=new Map(); // barracksId → [{type,timeLeft,maxTime}]
 let playerSpawnQueue=[]; // [{type,timeLeft,maxTime}] — base/keyboard spawns
+let sidePanelCd=0;
 
 // ── canvas ─────────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('canvas');
@@ -284,9 +332,14 @@ function resizeCanvas(){
   const wrap=document.querySelector('.game-wrap');
   const hudH=document.getElementById('hud').offsetHeight;
   const selH=document.getElementById('sel-panel').offsetHeight;
-  canvasScale=Math.min(wrap.clientWidth/W,(wrap.clientHeight-hudH-selH)/H);
-  canvas.style.width=Math.round(W*canvasScale)+'px';
-  canvas.style.height=Math.round(H*canvasScale)+'px';
+  const sp=document.getElementById('side-panel');
+  const panelW=(sp&&!sp.classList.contains('collapsed'))?180:0;
+  const availW=wrap.clientWidth-panelW;
+  canvasScale=Math.min(availW/W,(wrap.clientHeight-hudH-selH)/H);
+  const cw=Math.round(W*canvasScale),ch=Math.round(H*canvasScale);
+  canvas.style.width=cw+'px';
+  canvas.style.height=ch+'px';
+  canvas.style.marginLeft=Math.round(panelW+(availW-cw)/2)+'px';
 }
 function cxy(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/canvasScale,y:(e.clientY-r.top)/canvasScale};}
 
@@ -997,6 +1050,8 @@ function update(dt){
   for(const id of selected)if(!units.find(u=>u.id===id))selected.delete(id);
   const newSelSig=[...selected].sort().join(',');
   if(newSelSig!==prevSelSig)updateSelPanel();
+  sidePanelCd-=dt;
+  if(sidePanelCd<=0){sidePanelCd=0.25;updateSidePanel();}
   updateHud();
 }
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;}
@@ -1365,6 +1420,67 @@ function updateHud(){
     btn.disabled=gameOver||Math.floor(gold)<(TDEFS[t]?.cost||0)||!unitUnlocked(t);
   }
   tickSelPanel();
+}
+
+function updateSidePanel(){
+  const sc=document.getElementById('side-content');
+  if(!sc)return;
+  const cfg=DIFF[difficulty];
+  const myMines=units.filter(u=>u.type==='mine'&&u.team==='player'&&u.hp>0);
+  const myEngs=units.filter(u=>u.type==='engineer'&&u.team==='player'&&u.hp>0);
+  const engBusy=myEngs.filter(u=>u.gatherState!=='idle'&&u.gatherState!=='parked');
+  const engParked=myEngs.filter(u=>u.gatherState==='parked').length;
+  const carryTotal=myEngs.reduce((s,u)=>s+u.carryGold,0);
+  const passiveMine=UPG.autoDrill.done?myMines.length*4:0;
+  const gRate=(cfg.pInc+passiveMine).toFixed(1);
+  const myTroops=units.filter(u=>u.team==='player'&&u.hp>0&&!u.isBuilding&&u.type!=='engineer');
+  const typeCounts={};for(const u of myTroops)typeCounts[u.type]=(typeCounts[u.type]||0)+1;
+  const maxCnt=Math.max(1,...Object.values(typeCounts));
+  const allQ=[...playerSpawnQueue];
+  for(const[bid,q] of trainQueues){const b=units.find(u=>u.id===bid&&u.hp>0);if(b)allQ.push(...q);}
+  const doneUpgs=Object.entries(UPG).filter(([,v])=>v.done);
+  const pCons=constructions.filter(c=>!c.team||c.team==='player');
+  const myBldgs=units.filter(u=>u.isBuilding&&u.team==='player'&&u.hp>0);
+  const bCounts={};for(const u of myBldgs)bCounts[u.type]=(bCounts[u.type]||0)+1;
+  let h='';
+  // Economy
+  h+=`<div class="sp-head">Economy</div>`;
+  h+=`<div class="sp-row"><span class="sp-label">Income</span><span class="sp-val hi">+${gRate}g/s</span></div>`;
+  h+=`<div class="sp-row"><span class="sp-label">Mines</span><span class="sp-val">${myMines.length}</span></div>`;
+  h+=`<div class="sp-row"><span class="sp-label">Engineers</span><span class="sp-val">${engBusy.length}<span class="sp-val dim">/${myEngs.length}</span></span></div>`;
+  if(carryTotal>=1)h+=`<div class="sp-row"><span class="sp-label">In transit</span><span class="sp-val warn">+${Math.floor(carryTotal)}g</span></div>`;
+  if(engParked)h+=`<div class="sp-row"><span class="sp-label">Parked</span><span class="sp-val dim">${engParked}</span></div>`;
+  // Army
+  const ordT=['rifleman','hmg','shotgun','atv','grenadier','sniper','mortar','tank','helicopter'];
+  h+=`<div class="sp-head">Army${myTroops.length?' ('+myTroops.length+')':''}</div>`;
+  if(!ordT.some(t=>typeCounts[t])){h+=`<div class="sp-row"><span class="sp-label" style="color:rgba(90,120,45,.35)">No troops</span></div>`;}
+  for(const t of ordT){
+    if(!typeCounts[t])continue;
+    const def=TDEFS[t];const pct=typeCounts[t]/maxCnt;
+    h+=`<div class="sp-type-row"><div class="sp-dot" style="background:${def.pcol}"></div><span class="sp-label">${def.name}</span><div class="sp-mini-bar"><div class="sp-mini-fill" style="width:${(pct*100).toFixed(0)}%;background:${def.pcol}88"></div></div><span class="sp-val" style="min-width:14px;text-align:right">${typeCounts[t]}</span></div>`;
+  }
+  h+=`<div class="sp-row" style="margin-top:2px"><span class="sp-label">Kills</span><span class="sp-val hi">${kills}</span></div>`;
+  // Training
+  if(allQ.length){
+    h+=`<div class="sp-head">Training (${allQ.length})</div>`;
+    for(const q of allQ.slice(0,6)){
+      const pct=Math.round((1-q.timeLeft/q.maxTime)*100);
+      h+=`<div class="sp-type-row"><div class="sp-mini-bar" style="max-width:none"><div class="sp-mini-fill" style="width:${pct}%;background:rgba(180,220,70,.45)"></div></div><span class="sp-label" style="flex:none;margin-left:5px">${TDEFS[q.type]?.name||q.type}</span><span class="sp-val dim">${pct}%</span></div>`;
+    }
+    if(allQ.length>6)h+=`<div style="font-size:.39rem;color:rgba(100,140,50,.38);padding:2px 0">+${allQ.length-6} more</div>`;
+  }
+  // Buildings
+  if(myBldgs.length||pCons.length){
+    h+=`<div class="sp-head">Buildings</div>`;
+    for(const t of['mine','research','barracks','tower','outpost']){if(bCounts[t])h+=`<div class="sp-row"><span class="sp-label">${TDEFS[t]?.name||t}</span><span class="sp-val">${bCounts[t]}</span></div>`;}
+    for(const con of pCons)h+=`<div class="sp-con">⚒ ${BDEFS[con.type]?.label} — ${Math.floor(con.progress*100)}%</div>`;
+  }
+  // Upgrades
+  if(doneUpgs.length){
+    h+=`<div class="sp-head">Upgrades</div>`;
+    for(const[,v] of doneUpgs)h+=`<div class="sp-upg done">✓ ${v.label}</div>`;
+  }
+  sc.innerHTML=h;
 }
 
 function hasBldg(type){return units.some(u=>u.type===type&&u.team==='player'&&u.hp>0);}
@@ -1768,6 +1884,13 @@ for(const btn of document.querySelectorAll('.spawn-btn[data-type]'))btn.addEvent
 for(const btn of document.querySelectorAll('.diff-btn'))btn.addEventListener('click',()=>{
   difficulty=btn.dataset.diff;document.querySelectorAll('.diff-btn').forEach(b=>b.classList.toggle('active',b===btn));updateHud();
 });
+document.getElementById('side-toggle')?.addEventListener('click',()=>{
+  const sp=document.getElementById('side-panel');
+  const tog=document.getElementById('side-toggle');
+  sp.classList.toggle('collapsed');
+  if(tog)tog.textContent=sp.classList.contains('collapsed')?'▶':'◀';
+  resizeCanvas();
+});
 
 // ── loop + init ────────────────────────────────────────────────────────────────
 function loop(t){const dt=Math.min((t-lastT)/1000,.05);lastT=t;update(dt);render();requestAnimationFrame(loop);}
@@ -1786,14 +1909,14 @@ function restart(){
   enemyBuildCd=45;eDepRespawnTimers=[];trainQueues=new Map();playerSpawnQueue=[];
   playerBaseHp=BASE_MAX_HP;enemyBaseHp=EBASE_MAX_HP;pBaseShotCd=0;eBaseShotCd=0;
   gameOver=false;gameWin=false;gameMsg='';floorColors=null;
-  window._pendingMortarTarget=null;
+  window._pendingMortarTarget=null;sidePanelCd=0;
   for(const k of Object.keys(UPG))UPG[k].done=false;
-  generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();updateHud();
+  generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();updateHud();updateSidePanel();
 }
 
 function init(){
   generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();
-  resizeCanvas();updateHud();
+  resizeCanvas();updateHud();updateSidePanel();
   window.addEventListener('resize',resizeCanvas);
   requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(loop);});
 }
