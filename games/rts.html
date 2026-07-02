@@ -24,7 +24,12 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 .hud-sep{width:1px;height:22px;background:rgba(60,100,25,.22);flex-shrink:0}
 .base-bar{width:48px;height:3px;background:rgba(0,0,0,.5);border-radius:2px;overflow:hidden;margin-top:2px}
 .base-bar-fill{height:100%;border-radius:2px;transition:width .25s}
-.spawn-btns{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap}
+.spawn-btns{display:flex;gap:4px;margin-left:auto;flex-wrap:wrap;max-width:520px;overflow-x:auto}
+.spawn-queue-bar{display:flex;align-items:center;gap:5px;min-width:0;flex-shrink:0}
+.sq-wrap{display:flex;flex-direction:column;gap:1px;min-width:60px;max-width:120px}
+.sq-lbl{font-size:.38rem;color:rgba(150,200,80,.4);letter-spacing:.08em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sq-bar{height:3px;background:rgba(0,0,0,.5);border-radius:2px;overflow:hidden}
+.sq-bar-fill{height:100%;background:#ccf73f;border-radius:2px;transition:width .1s}
 .spawn-btn{
   background:rgba(18,34,9,.85);border:1px solid rgba(60,110,30,.38);
   color:rgba(120,180,65,.85);font-family:var(--mono);font-size:.49rem;
@@ -45,10 +50,12 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 }
 .diff-btn.active{background:rgba(45,75,18,.9);border-color:rgba(100,170,45,.55);color:#ccf73f}
 #sel-panel{
-  width:100%;height:96px;flex-shrink:0;
+  width:100%;min-height:96px;max-height:180px;flex-shrink:0;
   background:rgba(5,8,3,.98);border-top:1px solid rgba(55,90,22,.3);
   display:flex;align-items:stretch;overflow:hidden;box-sizing:border-box;
+  transition:max-height .15s ease;
 }
+#sel-panel.expanded{max-height:180px;}
 #sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:30px;}
 .sel-port{
   width:24px;height:24px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.35);
@@ -66,8 +73,9 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 #sel-body{font-family:var(--mono);font-size:.5rem;color:rgba(120,170,60,.6);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sel-status{font-family:var(--mono);font-size:.44rem;color:rgba(190,170,55,.5);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sel-cmd{
-  padding:6px 10px;display:flex;align-items:center;gap:5px;flex-wrap:wrap;align-content:center;
-  border-left:1px solid rgba(55,90,22,.2);min-width:160px;max-width:460px;overflow:hidden;
+  padding:6px 10px;display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap;align-content:flex-start;
+  border-left:1px solid rgba(55,90,22,.2);min-width:160px;max-width:560px;
+  overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(100,160,50,.3) transparent;
 }
 .cmd-btn{
   background:rgba(18,34,9,.9);border:1px solid rgba(60,110,30,.38);
@@ -121,6 +129,13 @@ body.build-mode #canvas{cursor:cell!important}
         <button class="diff-btn" data-diff="hard">Hard</button>
       </div>
       <div class="hud-lbl">Difficulty</div>
+    </div>
+    <div class="spawn-queue-bar">
+      <div class="hud-sep"></div>
+      <div class="sq-wrap" id="sq-wrap" style="display:none">
+        <div class="sq-lbl" id="sq-lbl">Training…</div>
+        <div class="sq-bar"><div class="sq-bar-fill" id="sq-fill" style="width:0%"></div></div>
+      </div>
     </div>
     <div class="spawn-btns">
       <button class="spawn-btn" data-type="rifleman"><span class="key">[U]</span>Rifleman<span class="cost">50g</span></button>
@@ -257,6 +272,7 @@ let buildMode=null;
 let mousePos={x:0,y:0};
 let lastT=0,canvasScale=1,floorColors=null;
 let trainQueues=new Map(); // barracksId → [{type,timeLeft,maxTime}]
+let playerSpawnQueue=[]; // [{type,timeLeft,maxTime}] — base/keyboard spawns
 
 // ── canvas ─────────────────────────────────────────────────────────────────────
 const canvas=document.getElementById('canvas');
@@ -471,10 +487,26 @@ function getSpawnPos(team){
 function spawnPlayer(type){
   const def=TDEFS[type];
   if(Math.floor(gold)<def.cost||gameOver||!unitUnlocked(type))return;
+  if(playerSpawnQueue.length>=8)return; // cap queue
   gold-=def.cost;
-  const{c,r}=getSpawnPos('player');
-  units.push(makeUnit(type,'player',c,r));
+  const trainTime=Math.max(2,def.cost*0.07);
+  playerSpawnQueue.push({type,timeLeft:trainTime,maxTime:trainTime});
   updateHud();
+}
+function processPlayerQueue(dt){
+  if(!playerSpawnQueue.length)return;
+  playerSpawnQueue[0].timeLeft-=dt;
+  // Update HUD progress bar
+  const sq=document.getElementById('sq-wrap'),sf=document.getElementById('sq-fill'),sl=document.getElementById('sq-lbl');
+  if(sq){sq.style.display='flex';}
+  if(sf){const cur=playerSpawnQueue[0];sf.style.width=((1-cur.timeLeft/cur.maxTime)*100).toFixed(1)+'%';}
+  if(sl){const cur=playerSpawnQueue[0];sl.textContent=TDEFS[cur.type].name+(playerSpawnQueue.length>1?` (+${playerSpawnQueue.length-1})`:'');}
+  if(playerSpawnQueue[0].timeLeft<=0){
+    const{type}=playerSpawnQueue.shift();
+    const{c,r}=getSpawnPos('player');
+    units.push(makeUnit(type,'player',c,r));
+    if(!playerSpawnQueue.length&&sq)sq.style.display='none';
+  }
 }
 
 function trainAtBarracks(bid,type){
@@ -550,14 +582,17 @@ function fireAt(fx,fy,team,dmg,range,tx,ty,opts={}){
   const dx=tx-fx,dy=ty-fy,d=Math.hypot(dx,dy);if(d<1)return;
   const angle=Math.atan2(dy,dx);
   const spd=opts.speed||projSpeed();
-  projs.push({x:fx,y:fy,vx:dx/d*spd,vy:dy/d*spd,dmg,team,maxDist:range*1.35,traveled:0,
-    aoe:opts.aoe||0,cone:opts.cone||false,angle});
+  const maxD=opts.toDest?d*1.05:range*1.35; // toDest: travel exactly to destination
+  projs.push({x:fx,y:fy,vx:dx/d*spd,vy:dy/d*spd,dmg,team,maxDist:maxD,traveled:0,
+    aoe:opts.aoe||0,cone:opts.cone||false,angle,
+    passWalls:opts.passWalls||false,arc:opts.arc||false,airOnly:opts.airOnly||false});
 }
-function fireSpread(fx,fy,team,dmg,range,tx,ty,count,spread){
+function fireSpread(fx,fy,team,dmg,range,tx,ty,count,spread,opts={}){
   const base=Math.atan2(ty-fy,tx-fx),spd=projSpeed();
   for(let i=0;i<count;i++){
     const ang=base+(i-(count-1)/2)*spread;
-    projs.push({x:fx,y:fy,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg,team,maxDist:range*1.35,traveled:0,aoe:0,cone:false,angle:ang});
+    projs.push({x:fx,y:fy,vx:Math.cos(ang)*spd,vy:Math.sin(ang)*spd,dmg,team,maxDist:range*1.35,traveled:0,
+      aoe:0,cone:false,angle:ang,passWalls:opts.passWalls||false,arc:opts.arc||false,airOnly:false});
   }
 }
 
@@ -801,7 +836,8 @@ function update(dt){
     }
   }
 
-  // Train queues
+  // Spawn + train queues
+  processPlayerQueue(dt);
   processTrainQueues(dt);
 
   // Base cannons
@@ -828,7 +864,7 @@ function update(dt){
           const bAoe=u.towerUpg?TOWER_UPGRADES[u.towerUpg]?.aoe||0:0;
           const bLos=u.towerUpg==='sniperPost';
           if(bLos&&!canSeeLine(u.x,u.y,tgt.x,tgt.y)){u.shotCd=1/u.rate;}
-          else if(bAoe>0){fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y,{aoe:bAoe*aoeRadiusMult(),speed:projSpeed()});}
+          else if(bAoe>0){fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y,{aoe:bAoe*aoeRadiusMult(),speed:projSpeed(),passWalls:u.towerUpg==='artillery',arc:u.towerUpg==='artillery',toDest:u.towerUpg==='artillery'});}
           else{fireAt(u.x,u.y,u.team,u.dmg,u.range,tgt.x,tgt.y,{speed:projSpeed()});}
           u.shotCd=1/u.rate;
         }
@@ -853,9 +889,18 @@ function update(dt){
       if(tgt&&u.shotCd<=0){
         const td=TDEFS[u.type];
         const useAoe=td?.aoe?aoeRadiusMult()*td.aoe:0;
-        if(td?.spread){fireSpread(u.x,u.y,u.team,Math.round(effDmg/3),effRange,tgt.x,tgt.y,5,0.13);}
-        else if(useAoe){fireAt(u.x,u.y,u.team,effDmg,effRange,tgt.x,tgt.y,{aoe:useAoe,cone:td.cone||false,speed:projSpeed()});}
-        else{fireAt(u.x,u.y,u.team,effDmg,effRange,tgt.x,tgt.y,{speed:projSpeed()});}
+        const isLob=u.type==='grenadier'||u.type==='mortar'; // lob = arc + wall pass
+        const isAir=u.canFly; // helicopter = air-to-ground, passes walls
+        const passW=isLob||isAir;
+        const useArc=isLob;
+        const useToDest=isLob&&u.type==='mortar'; // mortar travels to exact destination
+        if(td?.spread){
+          fireSpread(u.x,u.y,u.team,Math.round(effDmg/3),effRange,tgt.x,tgt.y,5,0.13,{passWalls:passW,arc:useArc});
+        } else if(useAoe){
+          fireAt(u.x,u.y,u.team,effDmg,effRange,tgt.x,tgt.y,{aoe:useAoe,cone:td.cone||false,speed:projSpeed(),passWalls:passW,arc:useArc,toDest:useToDest});
+        } else {
+          fireAt(u.x,u.y,u.team,effDmg,effRange,tgt.x,tgt.y,{speed:projSpeed(),passWalls:passW,arc:useArc});
+        }
         u.shotCd=1/u.rate;
       }
       // Enemy AI re-evaluate
@@ -927,14 +972,18 @@ function update(dt){
       if(p.aoe>0&&maxed&&!outOfBounds)applyAoe(p,p.x,p.y);
       dead.add(i);continue;
     }
-    if(tileBlocked(p.x,p.y)){if(p.aoe>0)applyAoe(p,p.x,p.y);dead.add(i);continue;}
-    for(const u of units){
-      if(u.team===p.team||u.hp<=0)continue;
-      if(Math.hypot(u.x-p.x,u.y-p.y)<u.r+3){
-        dead.add(i);
-        if(p.aoe>0){applyAoe(p,p.x,p.y);}
-        else{u.hp-=p.dmg;if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}}
-        break;
+    if(!p.passWalls&&tileBlocked(p.x,p.y)){if(p.aoe>0)applyAoe(p,p.x,p.y);dead.add(i);continue;}
+    // Skip unit collision for arced/lob projectiles (they detonate at max range)
+    if(!p.arc){
+      for(const u of units){
+        if(u.team===p.team||u.hp<=0)continue;
+        if(p.airOnly&&!u.canFly)continue; // air-only hits flying units only
+        if(Math.hypot(u.x-p.x,u.y-p.y)<u.r+3){
+          dead.add(i);
+          if(p.aoe>0){applyAoe(p,p.x,p.y);}
+          else{u.hp-=p.dmg;if(u.hp<=0&&u.team==='enemy'){kills++;gold+=15;}}
+          break;
+        }
       }
     }
   }
@@ -1190,18 +1239,39 @@ function drawConstructions(){
 function drawProjs(){
   for(const p of projs){
     const isP=p.team==='player';
+    // Arced projectiles: compute altitude offset and draw shadow at ground
+    let altOff=0;
+    if(p.arc&&p.maxDist>0){
+      const t=Math.min(1,p.traveled/p.maxDist);
+      altOff=Math.sin(Math.PI*t)*(p.aoe>0?38:22); // peak altitude in screen pixels
+      // Ground shadow
+      ctx.fillStyle='rgba(0,0,0,.25)';
+      ctx.beginPath();ctx.ellipse(p.x,p.y,4,2,0,0,Math.PI*2);ctx.fill();
+      // Thin drop-line
+      ctx.strokeStyle='rgba(0,0,0,.18)';ctx.lineWidth=.5;
+      ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x,p.y-altOff);ctx.stroke();
+    }
+    const dx=p.x,dy=p.y-altOff; // draw position elevated
     if(p.aoe>0){
-      // AoE projectile — larger dot with glow ring
       ctx.fillStyle=isP?'#ddee44':'#ff6600';
-      ctx.beginPath();ctx.arc(p.x,p.y,4,0,Math.PI*2);ctx.fill();
-      ctx.strokeStyle=isP?'rgba(220,230,60,.35)':'rgba(255,100,0,.35)';
-      ctx.lineWidth=.7;ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(p.x,p.y,p.aoe*.5,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+      ctx.beginPath();ctx.arc(dx,dy,p.arc?5:4,0,Math.PI*2);ctx.fill();
+      if(!p.arc){ // show predicted blast radius ring only for non-arced (already know destination)
+        ctx.strokeStyle=isP?'rgba(220,230,60,.35)':'rgba(255,100,0,.35)';
+        ctx.lineWidth=.7;ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(p.x,p.y,p.aoe*.5,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+      }
+      // Glow on elevated position
+      if(p.arc){
+        ctx.strokeStyle=isP?'rgba(220,230,60,.25)':'rgba(255,100,0,.25)';
+        ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(dx,dy,8,0,Math.PI*2);ctx.stroke();
+      }
     } else {
       ctx.fillStyle=isP?'#aaee55':'#ff8833';
-      ctx.beginPath();ctx.arc(p.x,p.y,2.5,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(dx,dy,2.5,0,Math.PI*2);ctx.fill();
     }
-    ctx.strokeStyle=isP?'rgba(150,220,65,.3)':'rgba(255,140,40,.28)';
-    ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x-p.vx*.02,p.y-p.vy*.02);ctx.stroke();
+    if(!p.arc){
+      ctx.strokeStyle=isP?'rgba(150,220,65,.3)':'rgba(255,140,40,.28)';
+      ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(dx,dy);ctx.lineTo(dx-p.vx*.02,dy-p.vy*.02);ctx.stroke();
+    }
   }
 }
 
@@ -1669,7 +1739,7 @@ function restart(){
   units=[];projs=[];deposits=[];constructions=[];selected.clear();
   buildMode=null;document.body.classList.remove('build-mode');
   gold=50;enemyGold=50;kills=0;enemySpawnCd=6;eGatherCd=10;depositSpawnTimer=40;
-  enemyBuildCd=45;eDepRespawnTimers=[];trainQueues=new Map();
+  enemyBuildCd=45;eDepRespawnTimers=[];trainQueues=new Map();playerSpawnQueue=[];
   playerBaseHp=BASE_MAX_HP;enemyBaseHp=EBASE_MAX_HP;pBaseShotCd=0;eBaseShotCd=0;
   gameOver=false;gameWin=false;gameMsg='';floorColors=null;
   window._pendingMortarTarget=null;
