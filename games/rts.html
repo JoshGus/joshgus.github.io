@@ -265,7 +265,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
     <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.11.0</span>
+    <span id="version-badge">v0.12.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="sel-panel">
@@ -283,13 +283,13 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.11.0</div>
+    <div class="help-ver" id="help-ver">v0.12.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
       <dl class="help-item"><dt>Selecting &amp; moving</dt><dd><b>Left-click / drag</b> to select. <b>Right-click</b> ground to move, or <b>right-click an enemy</b> to lock on — your units chase and stay in range until it dies, then hold. <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click a portrait selects all of that type. Press <kbd>.</kbd> to grab idle engineers.</dd></dl>
       <dl class="help-item"><dt>Camera</dt><dd>The field is large — <b>scroll</b> to zoom to the cursor, <b>middle-drag</b> or <kbd>WASD</kbd>/arrows to pan. Top-bar toggles: <b>Ally</b> (blue friendly density), <b>Heat</b> (red enemy density) and <b>Threat</b> (overlapping enemy firing ranges — where you're targetable).</dd></dl>
-      <dl class="help-item"><dt>Building</dt><dd>Select an engineer, pick a structure, then click a spot. <kbd>B</kbd> cycles build types. Build <b>Mines</b> (economy), <b>Barracks</b> (train units), <b>Research</b> (global upgrades), and <b>Guard Towers</b> (defense — upgradeable to MG / Artillery / Sniper).</dd></dl>
+      <dl class="help-item"><dt>Building</dt><dd>Select an engineer, pick a structure, then click a spot. <kbd>B</kbd> cycles build types. Build <b>Mines</b> (economy, per-mine profit boosts), <b>Barracks</b>, <b>Research</b>, <b>Guard Towers</b> (upgrade to MG/Artillery/Sniper — needs an engineer + time), <b>Hospital</b> (heals nearby troops) and <b>Cover</b> (soaks 50% of crossing enemy fire; air ignores it — toggle targetable or have an engineer deconstruct it). Buildings block movement, so units path around them. Right-click a damaged building with an engineer to <b>repair</b> it for gold.</dd></dl>
       <dl class="help-item"><dt>Your base</dt><dd>Click your <b>▣ Base</b> (or the top-bar button) to open it — train units, buy base-defense upgrades, repair all buildings, or call an airstrike. Hotkeys still work: <kbd>U</kbd>Rifleman <kbd>I</kbd>HMG <kbd>J</kbd>Shotgun <kbd>O</kbd>ATV <kbd>P</kbd>Grenadier <kbd>Y</kbd>Sniper <kbd>M</kbd>Mortar <kbd>T</kbd>Tank <kbd>H</kbd>Heli <kbd>E</kbd>Engineer. Snipers/Mortars/Tanks/Helis need Barracks upgrades.</dd></dl>
       <dl class="help-item"><dt>Mortars</dt><dd>Select a Mortar and <b>Entrench</b> it for +60% range &amp; damage (can't move while entrenched). Set a target area to bombard blindly. Research <b>Mortar Targeting</b> to reduce scatter.</dd></dl>
       <dl class="help-item"><dt>Terrain</dt><dd><b>Rock walls</b> block movement and line of sight — route around them. <b>Water</b> can't be crossed but doesn't block sight, so units can fire across it. The battlefield is a dense jungle biome.</dd></dl>
@@ -316,7 +316,7 @@ const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120; // per-mine profit boost: +25%/lvl on gold returned to it
 const MAX_DEPOSITS=12;
-const VERSION='v0.11.0';
+const VERSION='v0.12.0';
 // Single jungle biome — floor blends two tones via smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
   jungle:{name:'Jungle',floor:[[58,98,52],[70,114,60]],wall:[74,68,42],wallEdge:[104,98,60],water:[44,124,120],waterTop:[80,164,156],grid:'rgba(0,0,0,.06)',bg:'#3a6236'},
@@ -345,11 +345,15 @@ const TDEFS={
   engineer:  {name:'Engineer',  cost:50, maxHp:65, speed:58,range:0,  dmg:0, rate:0,  r:6, pcol:'#ddcc33',ecol:'#cc8833'},
   tower:     {name:'Tower',     cost:0,  maxHp:280,speed:0, range:165,dmg:22,rate:.75,r:12,pcol:'#88aa55',ecol:'#aa5533'},
   outpost:   {name:'Outpost',   cost:0,  maxHp:160,speed:0, range:145,dmg:14,rate:.6, r:9, pcol:'#558855',ecol:'#774444'},
-  barracks:  {name:'Barracks',  cost:0,  maxHp:320,speed:0, range:0,  dmg:0, rate:0,  r:15,pcol:'#446633',ecol:'#553322'},
-  mine:      {name:'Mine',      cost:0,  maxHp:200,speed:0, range:0,  dmg:0, rate:0,  r:12,pcol:'#664422',ecol:'#226644'},
-  research:  {name:'Research',  cost:0,  maxHp:180,speed:0, range:0,  dmg:0, rate:0,  r:12,pcol:'#335577',ecol:'#334455'},
+  barracks:  {name:'Barracks',  cost:0,  maxHp:360,speed:0, range:0,  dmg:0, rate:0,  r:19,pcol:'#446633',ecol:'#553322'},
+  mine:      {name:'Mine',      cost:0,  maxHp:200,speed:0, range:0,  dmg:0, rate:0,  r:13,pcol:'#664422',ecol:'#226644'},
+  research:  {name:'Research',  cost:0,  maxHp:180,speed:0, range:0,  dmg:0, rate:0,  r:13,pcol:'#335577',ecol:'#334455'},
+  hospital:  {name:'Hospital',  cost:0,  maxHp:240,speed:0, range:0,  dmg:0, rate:0,  r:13,pcol:'#557788',ecol:'#775555'},
+  cover:     {name:'Cover',     cost:0,  maxHp:150,speed:0, range:0,  dmg:0, rate:0,  r:11,pcol:'#7a6a3a',ecol:'#6a5a3a'},
 };
 const COMBAT_TYPES=['rifleman','hmg','shotgun','atv','grenadier','sniper','mortar','tank','helicopter'];
+const HOSP_RADIUS=95, HOSP_RATE=9; // base heal radius/rate; +50% each per-hospital ward upgrade
+const HOSP_WARD_MAX=2, HOSP_WARD_BASE=140;
 
 // ── construction defs ──────────────────────────────────────────────────────────
 const BDEFS={
@@ -357,6 +361,8 @@ const BDEFS={
   'barracks':        {cost:150,time:25,spawnAs:'barracks', label:'Barracks'},
   'mine':            {cost:100,time:20,spawnAs:'mine',     label:'Mine'},
   'research-station':{cost:180,time:30,spawnAs:'research', label:'Research Stn'},
+  'hospital':        {cost:160,time:24,spawnAs:'hospital', label:'Hospital'},
+  'cover':           {cost:40, time:5, spawnAs:'cover',    label:'Cover'},
 };
 
 // ── tower individual upgrades ──────────────────────────────────────────────────
@@ -634,15 +640,32 @@ function placeDeposits(){
 }
 
 // ── pathfinding ────────────────────────────────────────────────────────────────
-function tileBlocked(px,py){ // blocks movement — walls, base, water
+function tileBlocked(px,py){ // blocks ground movement — walls, base, water, buildings, cover
   const c=Math.floor(px/TS),r=Math.floor(py/TS);
   return c<0||c>=COLS||r<0||r>=ROWS||grid[r][c]!==0;
 }
-function tileBlocksLoS(px,py){ // blocks sight — walls & base only (water is transparent)
+function tileBlocksLoS(px,py){ // blocks sight — walls, base, solid buildings (water & cover transparent)
   const c=Math.floor(px/TS),r=Math.floor(py/TS);
   if(c<0||c>=COLS||r<0||r>=ROWS)return true;
-  const v=grid[r][c];return v===1||v===2;
+  const v=grid[r][c];return v===1||v===2||v===4;
 }
+// ── building footprint occupancy (grid 4 = solid building, 5 = cover) — makes buildings pathed-around ──
+function buildingFootprint(bx,by,r){
+  const rr=r*0.72;
+  const c0=Math.max(0,Math.floor((bx-rr)/TS)),c1=Math.min(COLS-1,Math.floor((bx+rr)/TS));
+  const r0=Math.max(0,Math.floor((by-rr)/TS)),r1=Math.min(ROWS-1,Math.floor((by+rr)/TS));
+  const t=[];for(let y=r0;y<=r1;y++)for(let x=c0;x<=c1;x++)t.push([y,x]);return t;
+}
+function markBuilding(u){
+  const val=u.type==='cover'?5:4;u.footprint=[];
+  for(const[ry,cx] of buildingFootprint(u.x,u.y,u.r))if(grid[ry][cx]===0){grid[ry][cx]=val;u.footprint.push([ry,cx]);}
+}
+function unmarkBuilding(u){
+  if(!u.footprint)return;
+  for(const[ry,cx] of u.footprint)if(grid[ry][cx]===4||grid[ry][cx]===5)grid[ry][cx]=0;
+  u.footprint=null;
+}
+function coverAt(gr,gc){return units.find(u=>u.type==='cover'&&u.hp>0&&u.footprint&&u.footprint.some(f=>f[0]===gr&&f[1]===gc));}
 function inWall(u,nx,ny){
   const x=nx??u.x,y=ny??u.y,rr=u.r*.78;
   return tileBlocked(x,y)||tileBlocked(x-rr,y-rr)||tileBlocked(x+rr,y-rr)||tileBlocked(x-rr,y+rr)||tileBlocked(x+rr,y+rr);
@@ -756,18 +779,22 @@ function makeUnit(type,team,col,row){
   if(type==='engineer'){u.gatherState='idle';u.carryGold=0;u.targetDep=-1;u.targetConId=-1;u.assignedMineId=-1;u.assignedDepositId=-1;}
   if(['tower','outpost','barracks','mine','research','hospital','cover'].includes(type))u.isBuilding=true;
   if(type==='mine'){u.profitLevel=0;u.profitUpgrading=null;}
+  if(type==='hospital'){u.wardLevel=0;u.wardUpgrading=null;}
+  if(type==='cover'){u.targetable=false;u.coverOwner=team;u.deconstructing=false;}
   if(type==='tower'){u.towerUpg=null;} // null = standard, 'mg'|'artillery'|'sniperPost' = upgraded
   if(type==='mortar'){u.entrenched=false;u.entrenching=false;u.entrenchTimer=0;u.mortarTarget=null;}
   if(def.canFly)u.canFly=true;
+  if(u.isBuilding)markBuilding(u);
   return u;
 }
 
 function makeOutpost(team,col,row){
   const def=TDEFS.outpost;
-  return{id:uid++,type:'outpost',team,x:col*TS+TS/2,y:row*TS+TS/2,
+  const u={id:uid++,type:'outpost',team,x:col*TS+TS/2,y:row*TS+TS/2,
     hp:def.maxHp,maxHp:def.maxHp,speed:0,range:def.range,dmg:def.dmg,rate:def.rate,r:def.r,
     col:team==='player'?def.pcol:def.ecol,name:def.name,
     waypoints:[],shotCd:Math.random()/def.rate,aiCd:0,vx:0,vy:0,isBuilding:true,isPerimeter:true};
+  markBuilding(u);return u;
 }
 
 // ── spawn helpers ──────────────────────────────────────────────────────────────
@@ -854,6 +881,7 @@ function findTargetRange(u,range){
   const losOnly=TDEFS[u.type]?.los||(u.towerUpg==='sniperPost');
   for(const e of units){
     if(e.team===u.team||e.hp<=0)continue;
+    if(e.type==='cover'&&!e.targetable)continue; // ignore cover unless flagged targetable
     const d=Math.hypot(e.x-u.x,e.y-u.y);
     if(d<=range&&d<bd){
       if(losOnly&&!canSeeLine(u.x,u.y,e.x,e.y))continue;
@@ -914,6 +942,20 @@ function bestDeposit(x,y){
   return best; // returns deposit ID or -1
 }
 
+const REPAIR_RATE=30, REPAIR_COST_PER_HP=0.5; // paid engineer repair: hp/s and gold per hp
+function updateRepair(u,dt){
+  const b=units.find(x=>x.id===u.repairTargetId&&x.hp>0);
+  if(!b||b.hp>=b.maxHp||Math.floor(gold)<=0){u.repairTargetId=null;u.gatherState='idle';u.waypoints=[];return;}
+  const d=Math.hypot(b.x-u.x,b.y-u.y);
+  if(d>b.r+18){
+    if(u.waypoints.length===0){const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(b.x/TS),Math.floor(b.y/TS));if(p)u.waypoints=toWp(p);}
+  }else{
+    u.waypoints=[];
+    const heal=Math.min(REPAIR_RATE*dt,b.maxHp-b.hp,Math.floor(gold)/REPAIR_COST_PER_HP);
+    if(heal>0){b.hp+=heal;gold-=heal*REPAIR_COST_PER_HP;}
+    if(b.hp>=b.maxHp||Math.floor(gold)<=0){u.repairTargetId=null;u.gatherState='idle';}
+  }
+}
 function updateEngineer(u,dt){
   const isP=u.team==='player';
   const returnC=isP?P_SPAWN_C:E_SPAWN_C, returnR=isP?P_SPAWN_R:E_SPAWN_R;
@@ -1174,6 +1216,24 @@ function update(dt){
       }
     }
   }
+  // Hospitals — heal nearby friendly non-buildings; ward upgrades grow radius/rate
+  for(const h of units){
+    if(h.type!=='hospital'||h.hp<=0)continue;
+    if(h.wardUpgrading){h.wardUpgrading.elapsed+=dt;if(h.wardUpgrading.elapsed>=h.wardUpgrading.time){h.wardLevel=(h.wardLevel||0)+1;h.wardUpgrading=null;}}
+    const scale=1+(h.wardLevel||0)*0.5,rad=HOSP_RADIUS*scale,rate=HOSP_RATE*scale;
+    for(const u of units){
+      if(u.team!==h.team||u.isBuilding||u.hp<=0||u.hp>=u.maxHp)continue;
+      if(Math.hypot(u.x-h.x,u.y-h.y)<=rad)u.hp=Math.min(u.maxHp,u.hp+rate*dt);
+    }
+  }
+  // Cover deconstruction — needs a player engineer nearby; refunds half on removal
+  for(const c of units){
+    if(c.type!=='cover'||!c.deconstructing||c.hp<=0)continue;
+    if(engineerNear(c.x,c.y,TS*3)){
+      c.decoTimer=(c.decoTimer==null?1.2:c.decoTimer)-dt;
+      if(c.decoTimer<=0){gold+=Math.floor(BDEFS.cover.cost*0.5);c.hp=0;}
+    }
+  }
 
   // Spawn + train queues
   processPlayerQueue(dt);
@@ -1212,7 +1272,7 @@ function update(dt){
       continue;
     }
     // Engineers
-    if(u.type==='engineer'){updateEngineer(u,dt);}
+    if(u.type==='engineer'){if(u.repairTargetId!=null)updateRepair(u,dt);else updateEngineer(u,dt);}
     else{
       // Mortar entrenchment tick
       if(u.type==='mortar'&&u.entrenching){
@@ -1346,11 +1406,30 @@ function update(dt){
       }
       dead.add(i);continue;
     }
-    if(!p.passWalls&&tileBlocked(p.x,p.y)){if(p.aoe>0){applyAoe(p,p.x,p.y);explosions.push({x:p.x,y:p.y,timer:.42,maxTimer:.42,radius:p.aoe,col:p.team==='player'?'200,220,50':'255,90,20'});}sfx("explosion");dead.add(i);continue;}
+    if(!p.passWalls){
+      const gc=Math.floor(p.x/TS),gr=Math.floor(p.y/TS);
+      const gv=(gc<0||gc>=COLS||gr<0||gr>=ROWS)?1:grid[gr][gc];
+      if(gv===1||gv===2){ // wall / base → blocked
+        if(p.aoe>0){applyAoe(p,p.x,p.y);explosions.push({x:p.x,y:p.y,timer:.42,maxTimer:.42,radius:p.aoe,col:p.team==='player'?'200,220,50':'255,90,20'});sfx("explosion");}
+        dead.add(i);continue;
+      } else if(gv===5){ // cover — non-targetable cover absorbs 50% of crossing enemy fire (owner passes freely)
+        const tk=gr*COLS+gc;
+        if(p._coverTK!==tk){
+          p._coverTK=tk;const cov=coverAt(gr,gc);
+          if(cov&&!cov.targetable&&cov.team!==p.team&&Math.random()<0.5){
+            cov.hp-=p.dmg;
+            if(p.aoe>0){applyAoe(p,p.x,p.y);explosions.push({x:p.x,y:p.y,timer:.42,maxTimer:.42,radius:p.aoe,col:p.team==='player'?'200,220,50':'255,90,20'});sfx("explosion");}
+            dead.add(i);continue;
+          }
+        }
+      }
+      // gv 0 (open), 3 (water), 4 (building tile) → projectile flies over; buildings take damage via unit collision
+    }
     // Skip unit collision for arced/lob projectiles (they detonate at max range)
     if(!p.arc){
       for(const u of units){
         if(u.team===p.team||u.hp<=0)continue;
+        if(u.type==='cover'&&!u.targetable)continue; // non-targetable cover is only absorbed at tile level
         if(p.airOnly&&!u.canFly)continue; // air-only hits flying units only
         if(Math.hypot(u.x-p.x,u.y-p.y)<u.r+3){
           dead.add(i);
@@ -1363,6 +1442,7 @@ function update(dt){
   }
   projs=projs.filter((_,i)=>!dead.has(i));
   const prevSelSig=[...selected].sort().join(',');
+  for(const u of units)if(u.hp<=0&&u.isBuilding&&u.footprint)unmarkBuilding(u); // free grid tiles of destroyed buildings
   units=units.filter(u=>u.hp>0);
   for(const id of selected)if(!units.find(u=>u.id===id))selected.delete(id);
   const newSelSig=[...selected].sort().join(',');
@@ -1550,16 +1630,29 @@ function drawTowerShape(x,y,r,col){
   for(let i=0;i<3;i++)ctx.fillRect(x-s+2+i*(s*2-4)/3,y-s+2,bw,4);
 }
 
+function rrPath(x,y,w,h,rad){ctx.beginPath();if(ctx.roundRect)ctx.roundRect(x,y,w,h,rad);else ctx.rect(x,y,w,h);}
 function drawBarracksShape(x,y,r,col){
-  const w=r*1.9,h=r*1.5;
-  ctx.fillStyle='#0e1808';ctx.fillRect(x-w,y-h,w*2,h*2);
-  ctx.fillStyle=col;ctx.fillRect(x-w+2,y-h+2,w*2-4,h*2-4);
-  // Arch doorway
-  ctx.fillStyle='#0e1808';ctx.fillRect(x-r*.4,y,r*.8,h-2);
-  ctx.beginPath();ctx.arc(x,y,r*.4,Math.PI,0);ctx.fill();
-  // Parapet
-  for(let i=-2;i<=2;i+=1)if(Math.abs(i)!==1){ctx.fillStyle='#0e1808';ctx.fillRect(x+i*(r*.5)-r*.2,y-h-3,r*.35,5);}
-  ctx.strokeStyle=col+'aa';ctx.lineWidth=1.5;ctx.strokeRect(x-w,y-h,w*2,h*2);
+  const w=r*1.1,h=r*0.92;
+  ctx.fillStyle='#0e1808';rrPath(x-w,y-h,w*2,h*2,3);ctx.fill();
+  ctx.fillStyle=col;rrPath(x-w+2,y-h+2,w*2-4,h*2-4,2.5);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.22)';ctx.fillRect(x-w+3,y-1,w*2-6,3); // roof ridge
+  for(let i=-2;i<=2;i++){ctx.fillStyle='#0e1808';ctx.fillRect(x+i*(w*0.44)-2.5,y-h-3,5,4);} // parapet teeth
+  ctx.strokeStyle='rgba(255,255,255,.12)';ctx.lineWidth=1.2;rrPath(x-w,y-h,w*2,h*2,3);ctx.stroke();
+}
+function drawHospitalShape(x,y,r,col){
+  ctx.fillStyle='#0c1418';rrPath(x-r,y-r,r*2,r*2,3);ctx.fill();
+  ctx.fillStyle=col;rrPath(x-r+2,y-r+2,r*2-4,r*2-4,2.5);ctx.fill();
+  ctx.fillStyle='rgba(235,80,80,.92)';const t=r*.28,l=r*.66; // red cross
+  ctx.fillRect(x-t/2,y-l/2,t,l);ctx.fillRect(x-l/2,y-t/2,l,t);
+  ctx.strokeStyle='rgba(255,255,255,.14)';ctx.lineWidth=1.2;rrPath(x-r,y-r,r*2,r*2,3);ctx.stroke();
+}
+function drawCoverShape(x,y,r,col,targetable){
+  const w=r*1.05,h=r*0.6;
+  ctx.fillStyle='#241e12';rrPath(x-w,y-h,w*2,h*2,4);ctx.fill();
+  ctx.fillStyle=col;
+  for(let i=-2;i<=2;i++){ctx.beginPath();ctx.ellipse(x+i*(w*0.4),y,w*0.24,h*0.85,0,0,Math.PI*2);ctx.fill();}
+  ctx.fillStyle='rgba(0,0,0,.18)';ctx.fillRect(x-w+2,y+h-3,w*2-4,2);
+  ctx.strokeStyle=targetable?'rgba(240,90,70,.9)':'rgba(255,255,255,.12)';ctx.lineWidth=targetable?1.7:1;rrPath(x-w,y-h,w*2,h*2,4);ctx.stroke();
 }
 
 function drawMineShape(x,y,r,col){
@@ -1592,6 +1685,11 @@ function drawUnit(u){
     }
     else if(type==='barracks')drawBarracksShape(x,y,r,col);
     else if(type==='mine')drawMineShape(x,y,r,col);
+    else if(type==='hospital'){
+      drawHospitalShape(x,y,r,col);
+      if(isSel){const scale=1+(u.wardLevel||0)*0.5;ctx.strokeStyle='rgba(120,210,150,.35)';ctx.lineWidth=1;ctx.setLineDash([4,5]);ctx.beginPath();ctx.arc(x,y,HOSP_RADIUS*scale,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
+    }
+    else if(type==='cover'){drawCoverShape(x,y,r,col,u.targetable);}
     else if(type==='research'){
       // Research station: hexagonal shape
       ctx.fillStyle='#0a1420';ctx.beginPath();
@@ -1604,10 +1702,13 @@ function drawUnit(u){
       ctx.moveTo(x-r*.4,y-r*.4);ctx.lineTo(x+r*.4,y+r*.4);ctx.moveTo(x+r*.4,y-r*.4);ctx.lineTo(x-r*.4,y+r*.4);
       ctx.moveTo(x-r*.5,y);ctx.lineTo(x+r*.5,y);ctx.stroke();
     }
-    ctx.fillStyle='rgba(255,255,255,.65)';ctx.font=`bold ${Math.max(7,r-1)}px "IBM Plex Mono",monospace`;
-    ctx.textAlign='center';ctx.textBaseline='middle';
-    const lbl={tower:'T',outpost:'P',barracks:'B',mine:'⛏',research:'R'}[type]||type[0].toUpperCase();
-    ctx.fillText(lbl,x,y+.5);ctx.textBaseline='alphabetic';
+    if(type!=='cover'&&type!=='hospital'){
+      ctx.fillStyle='rgba(255,255,255,.65)';ctx.font=`bold ${Math.max(7,r-1)}px "IBM Plex Mono",monospace`;
+      ctx.textAlign='center';ctx.textBaseline='middle';
+      const lbl={tower:'T',outpost:'P',barracks:'B',mine:'⛏',research:'R'}[type]||type[0].toUpperCase();
+      ctx.fillText(lbl,x,y+.5);ctx.textBaseline='alphabetic';
+    }
+    if(type==='cover'&&u.deconstructing){ctx.fillStyle='rgba(240,120,60,.8)';ctx.font='5px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.fillText('⌫',x,y+r+5);}
     const bw=r*2.4,bh=3,bx=x-bw/2,by=y-r-9;
     ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(bx,by,bw,bh);
     const pct=hp/maxHp;ctx.fillStyle=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';ctx.fillRect(bx,by,bw*pct,bh);
@@ -1783,8 +1884,10 @@ function drawBuildGhost(){
   ctx.globalAlpha=ok?.5:.22;
   const def=BDEFS[buildMode.type];
   if(def.spawnAs==='tower')drawTowerShape(gx,gy,12,ok?'#88aa55':'#aa4444');
-  else if(def.spawnAs==='barracks')drawBarracksShape(gx,gy,15,ok?'#446633':'#663322');
-  else if(def.spawnAs==='mine')drawMineShape(gx,gy,12,ok?'#664422':'#aa3322');
+  else if(def.spawnAs==='barracks')drawBarracksShape(gx,gy,19,ok?'#446633':'#663322');
+  else if(def.spawnAs==='mine')drawMineShape(gx,gy,13,ok?'#664422':'#aa3322');
+  else if(def.spawnAs==='hospital')drawHospitalShape(gx,gy,13,ok?'#557788':'#663322');
+  else if(def.spawnAs==='cover')drawCoverShape(gx,gy,11,ok?'#7a6a3a':'#883322',false);
   else if(def.spawnAs==='research'){
     const rc=ok?'#335577':'#553322';ctx.fillStyle=rc;
     ctx.beginPath();for(let i=0;i<6;i++){const a=i/6*Math.PI*2-Math.PI/6;i===0?ctx.moveTo(gx+Math.cos(a)*12,gy+Math.sin(a)*12):ctx.lineTo(gx+Math.cos(a)*12,gy+Math.sin(a)*12);}
@@ -2044,6 +2147,8 @@ function selPanelSig(sel){
       +':'+(u.gatherState||'')+':'+(u.assignedMineId>=0?'M':'')+':'+(u.assignedDepositId>=0?'D':'');
     if(u.towerUpgrading){s+=':tu'+u.towerUpgrading.key;queueActive=true;}
     if(u.type==='mine'){s+=':p'+(u.profitLevel||0);if(u.profitUpgrading){s+=':pu';queueActive=true;}}
+    if(u.type==='hospital'){s+=':w'+(u.wardLevel||0);if(u.wardUpgrading){s+=':wu';queueActive=true;}}
+    if(u.type==='cover')s+=':cov'+(u.targetable?'T':'')+(u.deconstructing?'D':'');
     const q=trainQueues.get(u.id);
     if(q&&q.length){s+=':q'+q.length;queueActive=true;}
     p.push(s);
@@ -2129,7 +2234,7 @@ function updateSelPanel(){
   // Single building
   if(sel.length===1&&sel[0].isBuilding){
     const u=sel[0];
-    portrait.innerHTML=`<div style="width:42px;height:42px;background:${u.col};display:grid;place-items:center;font-size:1rem;font-weight:700;color:rgba(255,255,255,.8);border:2px solid rgba(255,255,255,.15)">${{tower:'T',outpost:'P',barracks:'B',mine:'⛏'}[u.type]||'?'}</div>`;
+    portrait.innerHTML=`<div style="width:42px;height:42px;background:${u.col};display:grid;place-items:center;font-size:1rem;font-weight:700;color:rgba(255,255,255,.8);border:2px solid rgba(255,255,255,.15)">${{tower:'T',outpost:'P',barracks:'B',mine:'⛏',research:'R',hospital:'✚',cover:'▤'}[u.type]||'?'}</div>`;
     title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
     body.textContent=u.type==='tower'||u.type==='outpost'?`RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s`:'';
     status.textContent='';
@@ -2288,6 +2393,30 @@ function updateSelPanel(){
           upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType});
           updateSelPanel();updateHud();
         });
+    } else if(u.type==='hospital'){
+      const wl=u.wardLevel||0,scale=1+wl*0.5;
+      body.textContent=`Heals nearby troops · RAD ${Math.round(HOSP_RADIUS*scale)} · ${(HOSP_RATE*scale).toFixed(0)} hp/s`;
+      if(u.wardUpgrading){const p=Math.round(u.wardUpgrading.elapsed/u.wardUpgrading.time*100);status.textContent=`Expanding ward (${p}%)`;}else status.textContent='';
+      const wMax=wl>=HOSP_WARD_MAX,wCost=HOSP_WARD_BASE*(wl+1),wBusy=!!u.wardUpgrading,wLocked=wMax||wBusy;
+      cmd.innerHTML=`<button class="cmd-btn${wLocked?' owned':' upg'}"${(!wLocked&&Math.floor(gold)>=wCost&&!gameOver)?'':' disabled'} data-ward="${u.id}"${wLocked?'':` data-cost="${wCost}" data-locked="0"`}>${wMax?'✓ Max Ward':wBusy?'⏳ Expanding…':'Expand Ward '+wCost+'g'}<br><span style="font-size:.36rem;opacity:.7">+50% heal radius &amp; rate</span></button>`;
+      cmd.querySelector('[data-ward]')?.addEventListener('click',()=>{
+        if(u.wardUpgrading||(u.wardLevel||0)>=HOSP_WARD_MAX)return;
+        const cost=HOSP_WARD_BASE*((u.wardLevel||0)+1);if(Math.floor(gold)<cost)return;
+        gold-=cost;u.wardUpgrading={elapsed:0,time:Math.max(12,Math.round(cost*.08))};updateSelPanel();updateHud();
+      });
+    } else if(u.type==='cover'){
+      body.textContent='Blocks movement · absorbs 50% of crossing enemy fire · air ignores it';
+      status.textContent=u.deconstructing?'Deconstructing (needs engineer nearby)…':u.targetable?'Targetable by any team':'Not targeted (soaks stray fire)';
+      cmd.innerHTML=`<button class="cmd-btn${u.targetable?' on':''}" id="cmd-cover-tgt">${u.targetable?'Untarget':'Make Targetable'}</button>`+
+        `<button class="cmd-btn red" id="cmd-cover-deco">${u.deconstructing?'Cancel Deconstruct':'Deconstruct'}</button>`;
+      cmd.querySelector('#cmd-cover-tgt')?.addEventListener('click',()=>{u.targetable=!u.targetable;updateSelPanel();});
+      cmd.querySelector('#cmd-cover-deco')?.addEventListener('click',()=>{
+        u.deconstructing=!u.deconstructing;u.decoTimer=null;
+        if(u.deconstructing){const eng=[...selected].map(id=>units.find(x=>x.id===id)).find(x=>x&&x.type==='engineer');
+          const e2=eng||units.find(x=>x.type==='engineer'&&x.team==='player'&&x.hp>0);
+          if(e2){e2.gatherState='parked';e2.attackTarget=null;const p=aStar(Math.floor(e2.x/TS),Math.floor(e2.y/TS),Math.floor(u.x/TS),Math.floor(u.y/TS));if(p)e2.waypoints=toWp(p);}}
+        updateSelPanel();
+      });
     } else {
       cmd.innerHTML='';
     }
@@ -2410,7 +2539,9 @@ function renderEngineerCmds(cmd,gids){
   let html=makeBldBtn('guard-tower','Tower',80)
     +makeBldBtn('barracks','Barracks',150)
     +makeBldBtn('mine','Mine',100)
-    +makeBldBtn('research-station','Research',180);
+    +makeBldBtn('research-station','Research',180)
+    +makeBldBtn('hospital','Hospital',160)
+    +makeBldBtn('cover','Cover',40);
   // Status controls
   const parked=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&u.gatherState==='parked';});
   const idle=gids.some(id=>{const u=units.find(u=>u.id===id);return u&&(u.gatherState==='idle');});
@@ -2556,8 +2687,15 @@ canvas.addEventListener('mousedown',e=>{
       }
       updateSelPanel();return;
     }
-    // Right-click on friendly building (already built) = assign engineer to it, unpark
+    // Right-click on friendly building (already built)
     const clickedBldg=units.find(u=>u.isBuilding&&u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+8);
+    // Damaged friendly building → engineers repair it (costs gold over time)
+    if(clickedBldg&&clickedBldg.hp<clickedBldg.maxHp&&clickedBldg.type!=='cover'){
+      let sent=false;
+      for(const id of selected){const u=units.find(u=>u.id===id&&u.type==='engineer');
+        if(u){u.repairTargetId=clickedBldg.id;u.gatherState='parked';u.targetDep=-1;u.targetConId=-1;u.assignedMineId=-1;u.attackTarget=null;u.waypoints=[];sent=true;}}
+      if(sent){updateSelPanel();return;}
+    }
     if(clickedBldg&&clickedBldg.type==='mine'){
       for(const id of selected){const u=units.find(u=>u.id===id&&u.type==='engineer');if(u){u.assignedMineId=clickedBldg.id;u.gatherState='idle';u.targetDep=-1;}}
       updateSelPanel();return;
@@ -2637,7 +2775,7 @@ window.addEventListener('keydown',e=>{
   if(e.key==='b'||e.key==='B'){
     const hasG=[...selected].some(id=>{const u=units.find(u=>u.id===id);return u&&u.type==='engineer';});
     if(!hasG)return;
-    const cycle=['guard-tower','barracks','mine'];
+    const cycle=['guard-tower','barracks','mine','research-station','hospital','cover'];
     if(!buildMode){buildMode={type:'guard-tower'};document.body.classList.add('build-mode');}
     else{
       const idx=cycle.indexOf(buildMode.type);
