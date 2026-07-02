@@ -50,13 +50,12 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 }
 .diff-btn.active{background:rgba(45,75,18,.9);border-color:rgba(100,170,45,.55);color:#ccf73f}
 #sel-panel{
-  width:100%;min-height:96px;max-height:260px;flex-shrink:0;
+  width:100%;min-height:104px;max-height:min(320px,40vh);flex-shrink:0;
   background:rgba(5,8,3,.98);border-top:1px solid rgba(55,90,22,.3);
   display:flex;align-items:stretch;overflow:hidden;box-sizing:border-box;
-  transition:max-height .15s ease;position:relative;z-index:10;
+  position:relative;z-index:10;
 }
-#sel-panel.expanded{max-height:260px;}
-#sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow:hidden;max-height:80px;}
+#sel-portraits{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;overflow-y:auto;max-height:96px;scrollbar-width:thin;scrollbar-color:rgba(100,160,50,.3) transparent;}
 .sel-port{
   width:24px;height:24px;border:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.35);
   cursor:pointer;display:grid;place-items:center;font-family:var(--mono);font-size:.55rem;
@@ -75,7 +74,7 @@ html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:
 #sel-status{font-family:var(--mono);font-size:.44rem;color:rgba(190,170,55,.5);letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #sel-cmd{
   padding:6px 10px;display:flex;align-items:flex-start;gap:5px;flex-wrap:wrap;align-content:flex-start;
-  border-left:1px solid rgba(55,90,22,.2);min-width:160px;max-width:560px;
+  border-left:1px solid rgba(55,90,22,.2);min-width:180px;max-width:min(58vw,720px);
   overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:rgba(100,160,50,.3) transparent;
 }
 .cmd-btn{
@@ -234,8 +233,9 @@ body.build-mode #canvas{cursor:cell!important}
       <button class="spawn-btn" data-type="helicopter"><span class="key">[H]</span>Heli<span class="cost">220g</span></button>
       <button class="spawn-btn gb" data-type="engineer"><span class="key">[E]</span>Engineer<span class="cost">50g</span></button>
     </div>
+    <button class="diff-btn" id="style-btn" title="Cycle map biome">◑ Style</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.6.0</span>
+    <span id="version-badge">v0.7.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="sel-panel">
@@ -253,7 +253,7 @@ body.build-mode #canvas{cursor:cell!important}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.6.0</div>
+    <div class="help-ver" id="help-ver">v0.7.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
@@ -261,7 +261,7 @@ body.build-mode #canvas{cursor:cell!important}
       <dl class="help-item"><dt>Building</dt><dd>Select an engineer, pick a structure, then click a spot. <kbd>B</kbd> cycles build types. Build <b>Mines</b> (economy), <b>Barracks</b> (train units), <b>Research</b> (global upgrades), and <b>Guard Towers</b> (defense — upgradeable to MG / Artillery / Sniper).</dd></dl>
       <dl class="help-item"><dt>Units</dt><dd>Spawn with the top bar or hotkeys: <kbd>U</kbd>Rifleman <kbd>I</kbd>HMG <kbd>J</kbd>Shotgun <kbd>O</kbd>ATV <kbd>P</kbd>Grenadier <kbd>Y</kbd>Sniper <kbd>M</kbd>Mortar <kbd>T</kbd>Tank <kbd>H</kbd>Heli <kbd>E</kbd>Engineer. Snipers, Mortars, Tanks &amp; Helis need Barracks upgrades.</dd></dl>
       <dl class="help-item"><dt>Mortars</dt><dd>Select a Mortar and <b>Entrench</b> it for +60% range &amp; damage (can't move while entrenched). Set a target area to bombard blindly. Research <b>Mortar Targeting</b> to reduce scatter.</dd></dl>
-      <dl class="help-item"><dt>Terrain</dt><dd>The field has <b>3 elevation levels</b>. Units can climb one level at a time — <b>cliffs</b> (2-level drops) block movement, so plan routes around them. <b>Water</b> can't be crossed but doesn't block line of sight. Rock walls block both.</dd></dl>
+      <dl class="help-item"><dt>Terrain</dt><dd><b>Rock walls</b> block movement and line of sight — route around them. <b>Water</b> can't be crossed but doesn't block sight, so units can fire across it. Each match rolls a random biome (grassland, desert, polar, jungle) — cycle it live with the <b>◑ style</b> button.</dd></dl>
       <dl class="help-item"><dt>Base defense</dt><dd>Your base auto-fires at nearby enemies. Upgrade its range &amp; cannons, repair buildings, and — at the top tier — call in a one-shot <b>Airstrike</b> anywhere on your side.</dd></dl>
     </div>
   </div>
@@ -284,7 +284,15 @@ const BASE_MAX_HP=500,EBASE_MAX_HP=400;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MAX_DEPOSITS=7;
-const VERSION='v0.6.0';
+const VERSION='v0.7.0';
+// Map style overlays — a colour system laid over the same terrain/mapgen.
+// floor: two base tones (jittered per-tile), wall/wallEdge, water/waterTop, grid line, labels.
+const MAP_STYLES={
+  grassland:{name:'Grassland',floor:[[96,124,66],[108,138,74]],wall:[86,70,44],wallEdge:[120,100,64],water:[64,128,162],waterTop:[104,168,198],grid:'rgba(0,0,0,.05)',bg:'#6f9550'},
+  desert:   {name:'Desert',   floor:[[204,178,128],[218,194,142]],wall:[158,120,74],wallEdge:[192,158,104],water:[92,164,182],waterTop:[132,196,210],grid:'rgba(80,50,10,.06)',bg:'#cbab74'},
+  polar:    {name:'Polar',    floor:[[206,218,232],[222,232,244]],wall:[150,164,184],wallEdge:[188,202,220],water:[120,176,208],waterTop:[168,210,234],grid:'rgba(40,60,90,.06)',bg:'#c6d6e4'},
+  jungle:   {name:'Jungle',   floor:[[58,98,52],[70,114,60]],wall:[74,68,42],wallEdge:[104,98,60],water:[44,124,120],waterTop:[80,164,156],grid:'rgba(0,0,0,.06)',bg:'#3a6236'},
+};
 
 // ── difficulty ─────────────────────────────────────────────────────────────────
 const DIFF={
@@ -384,7 +392,7 @@ function fireAirstrike(tx,ty){
 
 // ── state ──────────────────────────────────────────────────────────────────────
 let grid=[],units=[],projs=[],deposits=[],constructions=[];
-let heightMap=[],waterTiles=[],mapBaked=false; // grid:0 open,1 wall,2 base,3 water; heightMap:0/1/2 elevation
+let waterTiles=[],mapBaked=false,mapStyle='grassland'; // grid:0 open,1 wall,2 base,3 water
 let uid=0,selected=new Set();
 let gold=50,enemyGold=50,kills=0;
 let enemySpawnCd=6,eGatherCd=10,depositSpawnTimer=40;
@@ -426,7 +434,7 @@ function resizeCanvas(){
   canvas.style.height=ch+'px';
   canvas.style.marginLeft=Math.round(panelW+(availW-cw)/2)+'px';
 }
-function cxy(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/canvasScale,y:(e.clientY-r.top)/canvasScale};}
+function cxy(e){const r=canvas.getBoundingClientRect();return{x:(e.clientX-r.left)/r.width*W,y:(e.clientY-r.top)/r.height*H};}
 
 // ── map ────────────────────────────────────────────────────────────────────────
 function mkRng(s){s=s>>>0;return()=>{s=(Math.imul(s,1664525)+1013904223)>>>0;return s/0xffffffff;};}
@@ -462,41 +470,15 @@ function generateMap(){
     if(c===EB_C&&(r===GATE_R||r===GATE_R-1))continue;grid[r][c]=2;}
   // Ensure gate adjacents are open
   for(const row of[GATE_R-1,GATE_R]){grid[row][PB_C+PB_W]=0;grid[row][EB_C-1]=0;}
-  buildHeightMap();
   placeWater();
+  pickMapStyle();
   mapBaked=false;
 }
 
 const CORRIDOR_ROWS=[Math.floor(ROWS*.25),Math.floor(ROWS*.5),Math.floor(ROWS*.75)];
-function buildHeightMap(){
-  const r=mkRng((Date.now()^0x51ab3f)&0xffffff);
-  heightMap=Array.from({length:ROWS},()=>new Uint8Array(COLS)); // all lowland (0)
-  const seeds=3+Math.floor(r()*3); // 3-5 plateaus
-  for(let s=0;s<seeds;s++){
-    const cx=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
-    const cy=3+Math.floor(r()*(ROWS-6));
-    const r2=3+Math.floor(r()*4);      // high-core (level 2) radius
-    const rampBase=2+r()*2.5;           // max ramp (level 1) width
-    const a1=r()*Math.PI*2,k=1+Math.floor(r()*3); // ramp width varies by angle → cliffs where it dips to 0
-    const rad=Math.ceil(r2+rampBase+2);
-    for(let dr=-rad;dr<=rad;dr++)for(let dc=-rad;dc<=rad;dc++){
-      const rr=cy+dr,cc=cx+dc;
-      if(rr<1||rr>=ROWS-1||cc<LZ||cc>=COLS-RZ)continue;
-      const dist=Math.hypot(dc,dr),ang=Math.atan2(dr,dc);
-      const rw=Math.max(0,rampBase*(0.5+0.5*Math.sin(ang*k+a1))-0.5); // ramp width at this angle
-      if(dist<=r2)heightMap[rr][cc]=2;
-      else if(dist<=r2+rw&&heightMap[rr][cc]<1)heightMap[rr][cc]=1;
-    }
-  }
-  // Flatten protected zones to lowland so a flat, cliff-free highway always exists
-  for(let row=0;row<ROWS;row++){
-    for(let c=0;c<LZ+2;c++)heightMap[row][c]=0;
-    for(let c=COLS-RZ-2;c<COLS;c++)heightMap[row][c]=0;
-  }
-  for(const lr of CORRIDOR_ROWS)
-    for(let c=0;c<COLS;c++){heightMap[Math.max(1,lr-1)][c]=0;heightMap[lr][c]=0;heightMap[Math.min(ROWS-2,lr+1)][c]=0;}
-  for(let row=PB_R-1;row<=PB_R+PB_H;row++)for(let c=PB_C-1;c<=PB_C+PB_W+1;c++)if(row>=0&&row<ROWS&&c>=0&&c<COLS)heightMap[row][c]=0;
-  for(let row=EB_R-1;row<=EB_R+EB_H;row++)for(let c=EB_C-1;c<=EB_C+EB_W+1;c++)if(row>=0&&row<ROWS&&c>=0&&c<COLS)heightMap[row][c]=0;
+function pickMapStyle(){
+  const keys=Object.keys(MAP_STYLES);
+  mapStyle=keys[Math.floor(Math.random()*keys.length)];
 }
 function placeWater(){
   const r=mkRng((Date.now()^0x7a2e91)&0xffffff);
@@ -512,7 +494,7 @@ function placeWater(){
       const rr=cy+dr,cc=cx+dc;
       if(rr<1||rr>=ROWS-1||cc<LZ+2||cc>=COLS-RZ-2)continue;
       if(protRows.has(rr))continue;
-      if(grid[rr][cc]!==0||heightMap[rr][cc]!==0)continue; // only lowland open floor
+      if(grid[rr][cc]!==0)continue; // only open floor
       if(Math.hypot(dc,dr)+(r()-.5)<=rad){grid[rr][cc]=3;waterTiles.push({c:cc,r:rr});}
     }
   }
@@ -524,7 +506,7 @@ function placeDeposits(){
   for(let a=0;deposits.length<count&&a<600;a++){
     const col=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
     const row=2+Math.floor(r()*(ROWS-4));
-    if(grid[row][col]!==0||(heightMap[row]?.[col]||0)>1)continue;
+    if(grid[row][col]!==0)continue;
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*8))continue;
     const max=160+Math.floor(r()*120);
@@ -538,7 +520,7 @@ function trySpawnDeposit(){
   for(let a=0;a<200;a++){
     const col=LZ+5+Math.floor(r()*(COLS-LZ-RZ-10));
     const row=2+Math.floor(r()*(ROWS-4));
-    if(grid[row][col]!==0||(heightMap[row]?.[col]||0)>1)continue;
+    if(grid[row][col]!==0)continue;
     const x=col*TS+TS/2,y=row*TS+TS/2;
     if(deposits.some(d=>Math.hypot(d.x-x,d.y-y)<TS*7))continue;
     const mx=140+Math.floor(r()*100);deposits.push({id:uid++,x,y,gold:mx,max:mx,depleted:false,despawnTimer:0});return;
@@ -554,14 +536,6 @@ function tileBlocksLoS(px,py){ // blocks sight — walls & base only (water is t
   const c=Math.floor(px/TS),r=Math.floor(py/TS);
   if(c<0||c>=COLS||r<0||r>=ROWS)return true;
   const v=grid[r][c];return v===1||v===2;
-}
-function tileHeightAt(px,py){
-  const c=Math.floor(px/TS),r=Math.floor(py/TS);
-  if(c<0||c>=COLS||r<0||r>=ROWS)return 0;
-  return heightMap[r]?.[c]||0;
-}
-function heightBlocked(fx,fy,tx,ty){ // cliff — can't cross >1 elevation level
-  return Math.abs(tileHeightAt(tx,ty)-tileHeightAt(fx,fy))>1;
 }
 function inWall(u,nx,ny){
   const x=nx??u.x,y=ny??u.y,rr=u.r*.78;
@@ -587,15 +561,13 @@ function canSeeR(x0,y0,x1,y1,radius){ // line-of-sight (targeting) — water tra
   }
   return true;
 }
-function pathClearMove(x0,y0,x1,y1,radius){ // walkable straight-line (waypoint smoothing) — respects water & cliffs
+function pathClearMove(x0,y0,x1,y1,radius){ // walkable straight-line (waypoint smoothing) — respects water/walls
   const len=Math.hypot(x1-x0,y1-y0);if(len<1)return true;
   const steps=Math.ceil(len/(TS*.5))+1;
   const px=-(y1-y0)/len*(radius*.72),py=(x1-x0)/len*(radius*.72);
-  const h0=tileHeightAt(x0,y0);
   for(let i=1;i<=steps;i++){
     const t=i/steps,cx=x0+(x1-x0)*t,cy=y0+(y1-y0)*t;
     if(tileBlocked(cx,cy)||tileBlocked(cx+px,cy+py)||tileBlocked(cx-px,cy-py))return false;
-    if(Math.abs(tileHeightAt(cx,cy)-h0)>1)return false;
   }
   return true;
 }
@@ -633,11 +605,9 @@ function aStar(sc,sr,gc,gr,clearance=0){
       while(k!==sk){const n=came.get(k);path.unshift({c:n.c,r:n.r});k=n.pk;}
       return path;
     }
-    const curH=heightMap[cur.r]?.[cur.c]||0;
     for(const[dc,dr,cost]of D){
       const nc=cur.c+dc,nr=cur.r+dr;
       if(!tileSafe(nc,nr))continue;
-      if(Math.abs((heightMap[nr]?.[nc]||0)-curH)>1)continue; // cliff — can't climb >1 level
       if(cost>1&&(!tileSafe(cur.c,cur.r+dr)||!tileSafe(cur.c+dc,cur.r)))continue;
       const nk=key(nc,nr),ng=cur.g+cost;
       if((best.get(nk)??Infinity)<=ng)continue;
@@ -1111,7 +1081,10 @@ function update(dt){
       u.shotCd-=dt;
       const effRange=u.type==='mortar'&&u.entrenched?u.range*1.6:u.range;
       const effDmg=u.type==='mortar'&&u.entrenched?u.dmg*1.4:u.dmg;
-      const tgt=(u.type==='mortar'&&u.entrenched&&u.mortarTarget)
+      // Mortars can't fire while moving or transitioning (entrench/un-pit)
+      const mortarBusy=u.type==='mortar'&&(u.entrenching||u.waypoints.length>0);
+      const tgt=mortarBusy?null
+        :(u.type==='mortar'&&u.entrenched&&u.mortarTarget)
         ? {x:u.mortarTarget.x,y:u.mortarTarget.y,team:'enemy',hp:1}
         : findTargetRange(u,effRange);
       if(tgt&&u.shotCd<=0){
@@ -1170,8 +1143,7 @@ function update(dt){
         const spd=Math.min(u.speed*dt,d);u.vx=dx/d*spd;u.vy=dy/d*spd;
         if(u.canFly){u.x+=u.vx;u.y+=u.vy;}
         else{const px=u.x,py=u.y;u.x+=u.vx;u.y+=u.vy;
-          const blk=()=>inWall(u)||heightBlocked(px,py,u.x,u.y);
-          if(blk()){u.x=px;if(blk()){u.x=px+u.vx;u.y=py;if(blk()){u.x=px;u.y=py;u.waypoints=[];}}}}
+          if(inWall(u)){u.x=px;if(inWall(u)){u.x=px+u.vx;u.y=py;if(inWall(u)){u.x=px;u.y=py;u.waypoints=[];}}}}
       }
     }else{u.vx=0;u.vy=0;}
   }
@@ -1247,56 +1219,42 @@ function update(dt){
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;}
 
 // ── rendering ──────────────────────────────────────────────────────────────────
-// Bakes the static terrain (floor by elevation, cliff edges, water, walls) into an offscreen canvas.
+const clampC=v=>v<0?0:v>255?255:v|0;
+// Bakes the static terrain (floor, water, walls) into an offscreen canvas using the active map style.
 function bakeMap(){
-  const g=mctx;g.clearRect(0,0,W,H);
-  g.fillStyle='#080b05';g.fillRect(0,0,W,H);
-  const HB={0:[19,25,13],1:[30,41,20],2:[44,58,29]}; // elevation base colours
+  const g=mctx,S=MAP_STYLES[mapStyle]||MAP_STYLES.grassland;
+  g.clearRect(0,0,W,H);
+  g.fillStyle=S.bg;g.fillRect(0,0,W,H);
   // Floor + water
   for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
     const v=grid[row][col],x=col*TS,y=row*TS;
     if(v===0){
-      const h=heightMap[row][col],b=HB[h];
-      const n=(((col*2654435761)^(row*2246822519))>>>0)&7,j=n-3;
-      g.fillStyle=`rgb(${b[0]+j},${b[1]+j},${b[2]+j})`;g.fillRect(x,y,TS,TS);
+      const n=(((col*2654435761)^(row*2246822519))>>>0)&7;
+      const b=S.floor[n&1],j=(n-3)*2; // pick one of two floor tones + jitter for texture
+      g.fillStyle=`rgb(${clampC(b[0]+j)},${clampC(b[1]+j)},${clampC(b[2]+j)})`;g.fillRect(x,y,TS,TS);
     } else if(v===3){
-      g.fillStyle='#0e2c3e';g.fillRect(x,y,TS,TS);
-      g.fillStyle='#164a63';g.fillRect(x,y,TS,TS-4);
-      g.fillStyle='rgba(90,150,180,.18)';g.fillRect(x,y+3,TS,1.5);
+      const w=S.water,wt=S.waterTop;
+      g.fillStyle=`rgb(${w[0]},${w[1]},${w[2]})`;g.fillRect(x,y,TS,TS);
+      g.fillStyle=`rgb(${wt[0]},${wt[1]},${wt[2]})`;g.fillRect(x,y,TS,TS-4);
+      g.fillStyle='rgba(255,255,255,.16)';g.fillRect(x,y+3,TS,1.5);
     }
   }
-  // Cliff shading — shadow on the low side of a drop, sunlit lip on the high side
-  for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++){
-    if(grid[row][col]!==0)continue;
-    const h=heightMap[row][col],x=col*TS,y=row*TS;
-    for(const[dc,dr,side]of[[0,-1,'t'],[0,1,'b'],[-1,0,'l'],[1,0,'r']]){
-      const rr=row+dr,cc=col+dc;
-      const nh=(rr<0||rr>=ROWS||cc<0||cc>=COLS||grid[rr][cc]!==0)?h:heightMap[rr][cc];
-      if(nh<h){ // higher tile → bright lip
-        g.fillStyle=`rgba(150,185,95,${.22+.14*(h-nh)})`;
-        if(side==='t')g.fillRect(x,y,TS,2);else if(side==='b')g.fillRect(x,y+TS-2,TS,2);
-        else if(side==='l')g.fillRect(x,y,2,TS);else g.fillRect(x+TS-2,y,2,TS);
-      } else if(nh>h){ // lower tile → cast shadow
-        g.fillStyle=`rgba(0,0,0,${.32+.22*(nh-h)})`;
-        if(side==='t')g.fillRect(x,y,TS,3);else if(side==='b')g.fillRect(x,y+TS-3,TS,3);
-        else if(side==='l')g.fillRect(x,y,3,TS);else g.fillRect(x+TS-3,y,3,TS);
-      }
-    }
-  }
-  // Walls
+  // Walls — higher contrast: solid body with a lit top/left edge
+  const wl=S.wall,we=S.wallEdge;
   for(let row=0;row<ROWS;row++)for(let col=0;col<COLS;col++)if(grid[row][col]===1){
     const x=col*TS,y=row*TS;
-    g.fillStyle='#1e1a12';g.fillRect(x,y,TS,TS);
-    g.fillStyle='#2a2318';g.fillRect(x,y,TS,2);g.fillStyle='#231e15';g.fillRect(x,y,2,TS);
+    g.fillStyle=`rgb(${wl[0]},${wl[1]},${wl[2]})`;g.fillRect(x,y,TS,TS);
+    g.fillStyle=`rgb(${we[0]},${we[1]},${we[2]})`;g.fillRect(x,y,TS,2);g.fillRect(x,y,2,TS);
+    g.fillStyle='rgba(0,0,0,.22)';g.fillRect(x,y+TS-2,TS,2);g.fillRect(x+TS-2,y,2,TS);
   }
   // Grid
-  g.strokeStyle='rgba(255,255,255,.015)';g.lineWidth=.5;
+  g.strokeStyle=S.grid;g.lineWidth=.5;
   for(let c=0;c<=COLS;c++){g.beginPath();g.moveTo(c*TS,0);g.lineTo(c*TS,H);g.stroke();}
   for(let r=0;r<=ROWS;r++){g.beginPath();g.moveTo(0,r*TS);g.lineTo(W,r*TS);g.stroke();}
   // Zone labels
   g.font='9px "IBM Plex Mono",monospace';g.textAlign='center';
-  g.fillStyle='rgba(70,120,210,.22)';g.fillText('BASE',LZ/2*TS,H/2-5);g.fillText('▶',LZ/2*TS,H/2+9);
-  g.fillStyle='rgba(210,70,70,.18)';g.fillText('ENEMY',(COLS-RZ/2)*TS,H/2-5);g.fillText('◀',(COLS-RZ/2)*TS,H/2+9);
+  g.fillStyle='rgba(30,70,170,.4)';g.fillText('BASE',LZ/2*TS,H/2-5);g.fillText('▶',LZ/2*TS,H/2+9);
+  g.fillStyle='rgba(170,30,30,.36)';g.fillText('ENEMY',(COLS-RZ/2)*TS,H/2-5);g.fillText('◀',(COLS-RZ/2)*TS,H/2+9);
 }
 
 function drawMap(){
@@ -1307,7 +1265,7 @@ function drawMap(){
     const tsec=performance.now()/1000;
     for(const w of waterTiles){
       const x=w.c*TS,y=w.r*TS,sh=Math.sin(tsec*1.6+w.c*.7+w.r*.5);
-      ctx.fillStyle=`rgba(130,190,220,${.05+.05*(sh*.5+.5)})`;
+      ctx.fillStyle=`rgba(255,255,255,${.05+.06*(sh*.5+.5)})`;
       ctx.fillRect(x,y+(sh>0?2:TS-4),TS,2);
     }
   }
@@ -2298,6 +2256,11 @@ document.getElementById('side-toggle')?.addEventListener('click',()=>{
 const helpModal=document.getElementById('help-modal');
 function toggleHelp(show){helpModal.classList.toggle('open',show??!helpModal.classList.contains('open'));}
 document.getElementById('help-btn')?.addEventListener('click',()=>toggleHelp());
+document.getElementById('style-btn')?.addEventListener('click',()=>{
+  const keys=Object.keys(MAP_STYLES);mapStyle=keys[(keys.indexOf(mapStyle)+1)%keys.length];
+  mapBaked=false;
+  const b=document.getElementById('style-btn');if(b)b.textContent='◑ '+MAP_STYLES[mapStyle].name;
+});
 document.getElementById('help-close')?.addEventListener('click',()=>toggleHelp(false));
 helpModal?.addEventListener('click',e=>{if(e.target===helpModal)toggleHelp(false);});
 // Show once for first-time visitors
@@ -2331,6 +2294,12 @@ function init(){
   generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();
   resizeCanvas();updateHud();updateSidePanel();
   window.addEventListener('resize',resizeCanvas);
+  // Recompute canvas fit whenever the HUD or bottom panel changes height (prevents overflow off-screen)
+  if(window.ResizeObserver){
+    const ro=new ResizeObserver(()=>resizeCanvas());
+    ro.observe(document.getElementById('hud'));
+    ro.observe(document.getElementById('sel-panel'));
+  }
   requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(loop);});
 }
 init();
