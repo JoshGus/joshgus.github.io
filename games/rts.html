@@ -294,7 +294,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
     <button class="diff-btn" id="ailog-btn" title="Show enemy AI decision log">🧠 AI Log</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.13.0</span>
+    <span id="version-badge">v0.13.1</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="ai-log">
@@ -316,7 +316,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.13.0</div>
+    <div class="help-ver" id="help-ver">v0.13.1</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
@@ -349,7 +349,7 @@ const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120; // per-mine profit boost: +25%/lvl on gold returned to it
 const MAX_DEPOSITS=12;
-const VERSION='v0.13.0';
+const VERSION='v0.13.1';
 // Single jungle biome — floor blends two tones via smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
   jungle:{name:'Jungle',floor:[[58,98,52],[70,114,60]],wall:[74,68,42],wallEdge:[104,98,60],water:[44,124,120],waterTop:[80,164,156],grid:'rgba(0,0,0,.06)',bg:'#3a6236'},
@@ -461,6 +461,7 @@ function baseDmg(){return BASE_DMG*(BUPG.defDmg.done?1.6:1);}
 function totalRepairCost(){return Math.ceil(units.filter(u=>u.isBuilding&&u.team==='player'&&u.hp>0&&u.hp<u.maxHp).reduce((s,u)=>s+(u.maxHp-u.hp)*.5,0));}
 function repairAllBuildings(){const rc=totalRepairCost();if(Math.floor(gold)<rc||rc===0)return;gold-=rc;for(const u of units)if(u.isBuilding&&u.team==='player'&&u.hp>0)u.hp=u.maxHp;updateHud();updateSelPanel();}
 function inPlayerBase(cx,cy){return cx>=PB_C*TS&&cx<=(PB_C+PB_W)*TS&&cy>=PB_R*TS&&cy<=(PB_R+PB_H)*TS;}
+function boxHitsBase(lx,ly,rx,ry){return rx>=PB_C*TS&&lx<=(PB_C+PB_W)*TS&&ry>=PB_R*TS&&ly<=(PB_R+PB_H)*TS;}
 function engineerNear(x,y,rad){return units.some(u=>u.type==='engineer'&&u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=rad);}
 function fireAirstrike(tx,ty){
   const fp={team:'player',aoe:160*aoeRadiusMult(),dmg:220,cone:false};
@@ -2791,7 +2792,9 @@ function commitBoxSel(){
   if(Math.hypot(boxSel.x1-mxDown,boxSel.y1-myDown)>3){
     selected.clear();baseSelected=false;
     for(const u of units)if(u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry)selected.add(u.id);
-    if(selected.size)sfx('select');
+    // A drag box over the base (with no units caught) selects the base — same as clicking it
+    if(!selected.size&&boxHitsBase(lx,ly,rx,ry))baseSelected=true;
+    if(selected.size||baseSelected)sfx('select');
   }
   boxSel=null;mouseDown=false;mouseBtn=-1;updateSelPanel();updateHud();
 }
