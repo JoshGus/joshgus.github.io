@@ -296,7 +296,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
     <button class="diff-btn" id="ailog-btn" title="Show enemy AI decision log">🧠 AI Log</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.14.0</span>
+    <span id="version-badge">v0.14.1</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="ai-log">
@@ -318,7 +318,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.14.0</div>
+    <div class="help-ver" id="help-ver">v0.14.1</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
@@ -351,7 +351,7 @@ const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120; // per-mine profit boost: +25%/lvl on gold returned to it
 const MAX_DEPOSITS=12;
-const VERSION='v0.14.0';
+const VERSION='v0.14.1';
 // Single jungle biome — floor blends two tones via smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
   jungle:{name:'Jungle',floor:[[58,98,52],[70,114,60]],wall:[74,68,42],wallEdge:[104,98,60],water:[44,124,120],waterTop:[80,164,156],grid:'rgba(0,0,0,.06)',bg:'#3a6236'},
@@ -798,7 +798,11 @@ function aStar(sc,sr,gc,gr,clearance=0){
       const nc=cur.c+dc,nr=cur.r+dr;
       if(!tileSafe(nc,nr))continue;
       if(cost>1&&(!tileSafe(cur.c,cur.r+dr)||!tileSafe(cur.c+dc,cur.r)))continue;
-      const nk=key(nc,nr),ng=cur.g+cost;
+      // Wall-berth penalty: tiles hugging terrain cost a little more, so paths keep clear of edges
+      let pen=0;
+      if((grid[nr]?.[nc-1]??1)!==0)pen++;if((grid[nr]?.[nc+1]??1)!==0)pen++;
+      if((grid[nr-1]?.[nc]??1)!==0)pen++;if((grid[nr+1]?.[nc]??1)!==0)pen++;
+      const nk=key(nc,nr),ng=cur.g+cost+pen*0.45;
       if((best.get(nk)??Infinity)<=ng)continue;
       best.set(nk,ng);came.set(nk,{c:nc,r:nr,pk:curK});
       open.push({c:nc,r:nr,g:ng,f:ng+h(nc,nr)});
@@ -1590,6 +1594,30 @@ function update(dt){
 
   // Ping timer
   for(const u of units)if(u._pingTimer>0)u._pingTimer=Math.max(0,u._pingTimer-dt);
+
+  // Terrain edge steering — nudge moving ground units off adjacent wall/edge tiles so they round
+  // corners smoothly instead of snagging. In a 1-wide corridor the opposing pushes cancel (stays centred).
+  for(const u of units){
+    if(u.hp<=0||u.isBuilding||u.canFly||u.waypoints.length===0)continue;
+    const c=Math.floor(u.x/TS),r=Math.floor(u.y/TS);
+    let fx=0,fy=0;
+    for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+      if(!dc&&!dr)continue;
+      const gv=grid[r+dr]?.[c+dc];
+      if(gv===undefined||gv!==0){
+        const ox=(c+dc)*TS+TS/2,oy=(r+dr)*TS+TS/2;
+        const ddx=u.x-ox,ddy=u.y-oy,dd=Math.hypot(ddx,ddy)||1;
+        const near=(u.r+TS*0.7)-dd; // only when the edge is close to the body
+        if(near>0){fx+=ddx/dd*near;fy+=ddy/dd*near;}
+      }
+    }
+    const fm=Math.hypot(fx,fy);
+    if(fm>0.01){
+      const step=Math.min(u.speed*dt*0.4,fm),ox=u.x,oy=u.y;
+      u.x+=fx/fm*step;u.y+=fy/fm*step;
+      if(inWall(u)){u.x=ox;u.y=oy;}
+    }
+  }
 
   // Soft separation
   for(let i=0;i<units.length;i++){
