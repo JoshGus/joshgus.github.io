@@ -291,10 +291,12 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
     <button class="diff-btn" id="heat-btn" title="Toggle enemy density heat map">Heat</button>
     <button class="diff-btn" id="ally-btn" title="Toggle friendly (ally) density heat map">Ally</button>
     <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
+    <button class="diff-btn" id="pause-btn" title="Pause / resume (Space)">⏸ Pause</button>
+    <button class="diff-btn" id="speed-btn" title="Game speed (cycle)">1×</button>
     <button class="diff-btn" id="ailog-btn" title="Show enemy AI decision log">🧠 AI Log</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.13.1</span>
+    <span id="version-badge">v0.14.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="ai-log">
@@ -316,7 +318,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.13.1</div>
+    <div class="help-ver" id="help-ver">v0.14.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
@@ -349,7 +351,7 @@ const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120; // per-mine profit boost: +25%/lvl on gold returned to it
 const MAX_DEPOSITS=12;
-const VERSION='v0.13.1';
+const VERSION='v0.14.0';
 // Single jungle biome — floor blends two tones via smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
   jungle:{name:'Jungle',floor:[[58,98,52],[70,114,60]],wall:[74,68,42],wallEdge:[104,98,60],water:[44,124,120],waterTop:[80,164,156],grid:'rgba(0,0,0,.06)',bg:'#3a6236'},
@@ -489,6 +491,7 @@ let eAI={
   log:[], logSeq:0,
 };
 let aiLogOpen=false;
+let paused=false,gameSpeed=1; // speed ∈ {1,2,3}
 let difficulty='easy';
 let playerBaseHp=BASE_MAX_HP,enemyBaseHp=EBASE_MAX_HP;
 let pBaseShotCd=0,eBaseShotCd=0;
@@ -706,7 +709,9 @@ function tileBlocksLoS(px,py){ // blocks sight — walls, base, solid buildings 
 }
 // ── building footprint occupancy (grid 4 = solid building, 5 = cover) — makes buildings pathed-around ──
 function buildingFootprint(bx,by,r){
-  const rr=r*0.72;
+  // Tight footprint (≈1 tile for small buildings, up to 3 wide for the barracks) so units path
+  // cleanly around a compact core instead of snagging on an oversized blocked block.
+  const rr=r*0.5;
   const c0=Math.max(0,Math.floor((bx-rr)/TS)),c1=Math.min(COLS-1,Math.floor((bx+rr)/TS));
   const r0=Math.max(0,Math.floor((by-rr)/TS)),r1=Math.min(ROWS-1,Math.floor((by+rr)/TS));
   const t=[];for(let y=r0;y<=r1;y++)for(let x=c0;x<=c1;x++)t.push([y,x]);return t;
@@ -1078,7 +1083,7 @@ function updateEngineer(u,dt){
     if(u.waypoints.length===0){
       if(isP){
         // Delivering to a Mine applies that mine's profit-boost multiplier
-        const m=units.find(u2=>u2.type==='mine'&&u2.team==='player'&&u2.hp>0&&Math.hypot(u2.x-u.x,u2.y-u.y)<TS*2.6);
+        const m=units.find(u2=>u2.type==='mine'&&u2.team==='player'&&u2.hp>0&&Math.hypot(u2.x-u.x,u2.y-u.y)<TS*3.2);
         const mult=1+(m?(m.profitLevel||0)*0.25:0);
         gold+=Math.floor(u.carryGold*mult);
       }else{enemyGold+=Math.floor(u.carryGold);}
@@ -1558,11 +1563,29 @@ function update(dt){
       if(d<3)u.waypoints.shift();
       else{
         const spd=Math.min(u.speed*dt,d);u.vx=dx/d*spd;u.vy=dy/d*spd;
-        if(u.canFly){u.x+=u.vx;u.y+=u.vy;}
+        if(u.canFly){u.x+=u.vx;u.y+=u.vy;u._stuck=0;}
         else{const px=u.x,py=u.y;u.x+=u.vx;u.y+=u.vy;
-          if(inWall(u)){u.x=px;if(inWall(u)){u.x=px+u.vx;u.y=py;if(inWall(u)){u.x=px;u.y=py;u.waypoints=[];}}}}
+          if(!inWall(u)){u._stuck=0;}
+          else{
+            u.x=px; // slide along Y
+            if(!inWall(u)){u._stuck=0;}
+            else{
+              u.x=px+u.vx;u.y=py; // slide along X
+              if(!inWall(u)){u._stuck=0;}
+              else{
+                u.x=px;u.y=py;u._stuck=(u._stuck||0)+1;
+                // Caught on a corner/edge — re-route to the final goal instead of giving up and freezing
+                if(u._stuck>5){
+                  u._stuck=0;const goal=u.waypoints[u.waypoints.length-1];
+                  if(goal){const p=aStarForUnit(u,Math.max(0,Math.min(COLS-1,Math.floor(goal.x/TS))),Math.max(0,Math.min(ROWS-1,Math.floor(goal.y/TS))));u.waypoints=(p&&p.length)?toWp(p):[];}
+                  else u.waypoints=[];
+                }
+              }
+            }
+          }
+        }
       }
-    }else{u.vx=0;u.vy=0;}
+    }else{u.vx=0;u.vy=0;u._stuck=0;}
   }
 
   // Ping timer
@@ -2201,6 +2224,13 @@ function render(){
   drawBoxSel();drawBuildGhost();
   // Screen-space overlays (unaffected by zoom/pan)
   ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(paused&&!gameOver){
+    ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(0,0,viewW,viewH);
+    ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.92)';
+    ctx.font='bold 26px "IBM Plex Mono",monospace';ctx.fillText('⏸ PAUSED',viewW/2,viewH/2-6);
+    ctx.font='11px "IBM Plex Mono",monospace';ctx.fillStyle='rgba(255,255,255,.55)';ctx.fillText('Space to resume',viewW/2,viewH/2+16);
+    ctx.textAlign='left';
+  }
   drawGameOver();
 }
 
@@ -2976,6 +3006,9 @@ window.addEventListener('keydown',e=>{
   }
   if((e.key==='r'||e.key==='R')&&gameOver){restart();return;}
   if(gameOver)return;
+  if(e.key===' '||e.code==='Space'){e.preventDefault();setPaused(!paused);return;}
+  if(e.key==='+'||e.key==='='){if(gameSpeed<3)cycleSpeed();return;}
+  if(e.key==='-'||e.key==='_'){gameSpeed=gameSpeed<=1?1:gameSpeed-1;const b=document.getElementById('speed-btn');if(b){b.textContent=gameSpeed+'×';b.classList.toggle('active',gameSpeed>1);}return;}
   if(e.key==='.'){
     const idle=units.filter(u=>u.team==='player'&&u.type==='engineer'&&u.hp>0&&(u.gatherState==='idle'||u.gatherState==='parked'));
     if(idle.length){selected.clear();idle.forEach(u=>{selected.add(u.id);u._pingTimer=1.5;});updateSelPanel();updateHud();}
@@ -2998,6 +3031,10 @@ window.addEventListener('keydown',e=>{
 });
 
 for(const btn of document.querySelectorAll('.spawn-btn[data-type]'))btn.addEventListener('click',()=>spawnPlayer(btn.dataset.type));
+function setPaused(p){paused=p;const b=document.getElementById('pause-btn');if(b){b.textContent=p?'▶ Resume':'⏸ Pause';b.classList.toggle('active',p);}}
+function cycleSpeed(){gameSpeed=gameSpeed>=3?1:gameSpeed+1;const b=document.getElementById('speed-btn');if(b){b.textContent=gameSpeed+'×';b.classList.toggle('active',gameSpeed>1);}}
+document.getElementById('pause-btn')?.addEventListener('click',()=>setPaused(!paused));
+document.getElementById('speed-btn')?.addEventListener('click',cycleSpeed);
 for(const btn of document.querySelectorAll('.diff-btn[data-diff]'))btn.addEventListener('click',()=>{
   difficulty=btn.dataset.diff;document.querySelectorAll('.diff-btn[data-diff]').forEach(b=>b.classList.toggle('active',b===btn));updateHud();
 });
@@ -3035,7 +3072,17 @@ helpModal?.addEventListener('click',e=>{if(e.target===helpModal)toggleHelp(false
 try{if(!localStorage.getItem('rts-seen-help')){toggleHelp(true);localStorage.setItem('rts-seen-help','1');}}catch(e){}
 
 // ── loop + init ────────────────────────────────────────────────────────────────
-function loop(t){const dt=Math.min((t-lastT)/1000,.05);lastT=t;update(dt);updateCamera(dt);render();requestAnimationFrame(loop);}
+function loop(t){
+  const raw=Math.min((t-lastT)/1000,.05);lastT=t;
+  updateCamera(raw); // camera pan always responsive, even when paused
+  if(!paused){
+    // Run the sim at the chosen speed; large multipliers are split into sub-steps for stability
+    const total=raw*gameSpeed;const steps=Math.max(1,Math.ceil(gameSpeed));
+    for(let s=0;s<steps;s++)update(total/steps);
+  }
+  render();
+  requestAnimationFrame(loop);
+}
 
 function spawnStartEngineer(){
   const{c,r}=getSpawnPos('player');
@@ -3056,6 +3103,7 @@ function restart(){
   for(const k of Object.keys(UPG))UPG[k].done=false;
   for(const k of Object.keys(BUPG))BUPG[k].done=false;
   eAI={assessCd:0,microCd:0,stance:'mass',econFocus:0.6,massTarget:5,objective:{x:E_GATE_X,y:E_GATE_Y},rally:{x:E_GATE_X-TS*8,y:E_GATE_Y},raidId:null,approach:'center',upgrades:{dmg:false,hp:false,rate:false},log:[],logSeq:0};
+  setPaused(false);gameSpeed=1;{const b=document.getElementById('speed-btn');if(b){b.textContent='1×';b.classList.remove('active');}}
   if(aiLogOpen)renderAILog();
   generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();initCamera();updateHud();updateSidePanel();
 }
