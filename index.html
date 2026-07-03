@@ -47,6 +47,14 @@
     display:flex;flex-direction:column;justify-content:center;
     padding:90px clamp(28px,4vw,64px) 64px;border-right:1px solid var(--line);
   }
+  /* On screens wider than the 1600px capped layout, bleed the intro panel (and its art)
+     to the left viewport edge instead of leaving a bare background strip. */
+  @media(min-width:1601px){
+    .intro{
+      margin-left:calc((100vw - 1600px) / -2);
+      padding-left:calc(clamp(28px,4vw,64px) + (100vw - 1600px) / 2);
+    }
+  }
   .content{min-width:0;padding:62px clamp(28px,4vw,64px) 0}
 
   /* ---------- intro ---------- */
@@ -274,7 +282,7 @@
         </div>
         <h1>
           <span class="b">Joshua Gustaveson</span>
-          <span class="b out">builds &amp; sees</span>
+          <span class="b out">code &amp; stuff</span>
         </h1>
       </div>
       <!-- replace src with your headshot path, e.g. src="img/headshot.jpg" -->

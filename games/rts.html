@@ -104,8 +104,9 @@ body.build-mode #canvas{cursor:cell!important}
   color:rgba(90,130,45,.55);border-bottom:1px solid rgba(55,90,22,.2);flex-shrink:0;
 }
 #side-toggle{
-  position:absolute;right:-1px;top:50%;transform:translateY(-50%);
+  position:absolute;left:100%;top:50%;transform:translateY(-50%);
   background:rgba(6,12,3,.97);border:1px solid rgba(55,90,22,.35);border-left:none;
+  border-radius:0 5px 5px 0;
   color:rgba(150,200,80,.6);font-size:.65rem;cursor:pointer;padding:11px 4px;
   font-family:var(--mono);transition:color .15s,background .15s;z-index:6;line-height:1;
 }
@@ -114,6 +115,33 @@ body.build-mode #canvas{cursor:cell!important}
   flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 10px 10px;
   scrollbar-width:thin;scrollbar-color:rgba(100,160,50,.2) transparent;
 }
+/* ── enemy AI decision log ── */
+#ai-log{
+  position:fixed;right:10px;bottom:120px;width:300px;max-height:min(52vh,420px);z-index:30;
+  background:rgba(18,6,6,.96);border:1px solid rgba(190,70,60,.4);border-radius:6px;
+  display:none;flex-direction:column;overflow:hidden;font-family:var(--mono);
+  box-shadow:0 10px 30px -12px rgba(0,0,0,.7);
+}
+#ai-log.open{display:flex;}
+#ai-log-head{
+  padding:6px 9px;font-size:.52rem;letter-spacing:.06em;color:rgba(255,150,130,.9);
+  background:rgba(50,12,10,.9);border-bottom:1px solid rgba(190,70,60,.3);
+  display:flex;align-items:center;gap:6px;flex-shrink:0;
+}
+#ai-log-stance{color:rgba(255,200,120,.9);font-weight:700;}
+#ai-log-close{margin-left:auto;background:none;border:none;color:rgba(255,150,130,.7);cursor:pointer;font-size:.7rem;font-family:var(--mono);padding:0 2px;}
+#ai-log-close:hover{color:#ff8866;}
+#ai-log-body{
+  overflow-y:auto;padding:5px 8px 8px;display:flex;flex-direction:column-reverse;gap:2px;
+  scrollbar-width:thin;scrollbar-color:rgba(190,90,70,.3) transparent;
+}
+.ai-entry{font-size:.5rem;line-height:1.35;color:rgba(230,200,190,.8);display:flex;gap:5px;}
+.ai-tier{flex-shrink:0;font-weight:700;letter-spacing:.04em;width:52px;}
+.ai-tier.MIL{color:#ff7a55;}.ai-tier.MASTER{color:#ffcc55;}.ai-tier.ASSESS{color:#88ccff;}
+.ai-tier.WATCH{color:#cc88ff;}.ai-tier.PROGRESS{color:#88dd99;}.ai-tier.ENGI{color:#ddbb66;}.ai-tier.BUILD{color:#bbaa88;}
+html:not(.dark) #ai-log{background:rgba(250,238,232,.97);border-color:rgba(180,70,55,.4);}
+html:not(.dark) #ai-log-head{background:rgba(240,220,214,.95);color:#a5442f;border-bottom-color:rgba(180,70,55,.25);}
+html:not(.dark) .ai-entry{color:#5a4a44;}
 .sp-head{
   font-size:.41rem;letter-spacing:.14em;text-transform:uppercase;
   color:rgba(90,130,45,.55);padding:7px 0 2px;
@@ -263,11 +291,16 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
     <button class="diff-btn" id="heat-btn" title="Toggle enemy density heat map">Heat</button>
     <button class="diff-btn" id="ally-btn" title="Toggle friendly (ally) density heat map">Ally</button>
     <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
+    <button class="diff-btn" id="ailog-btn" title="Show enemy AI decision log">🧠 AI Log</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.12.0</span>
+    <span id="version-badge">v0.13.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
+  <div id="ai-log">
+    <div id="ai-log-head">🧠 Enemy AI — command log <span id="ai-log-stance"></span><button id="ai-log-close">✕</button></div>
+    <div id="ai-log-body"></div>
+  </div>
   <div id="sel-panel">
     <div id="sel-portrait"></div>
     <div id="sel-center">
@@ -283,7 +316,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.12.0</div>
+    <div class="help-ver" id="help-ver">v0.13.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
@@ -316,7 +349,7 @@ const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120; // per-mine profit boost: +25%/lvl on gold returned to it
 const MAX_DEPOSITS=12;
-const VERSION='v0.12.0';
+const VERSION='v0.13.0';
 // Single jungle biome — floor blends two tones via smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
   jungle:{name:'Jungle',floor:[[58,98,52],[70,114,60]],wall:[74,68,42],wallEdge:[104,98,60],water:[44,124,120],waterTop:[80,164,156],grid:'rgba(0,0,0,.06)',bg:'#3a6236'},
@@ -413,6 +446,15 @@ function applyUpg(def,team){
     rate: UPG.rapidFire.done  ?(def.rate*1.2):def.rate,
   };
 }
+// Enemy PROGRESSOR upgrades — applied to newly-trained enemy combat units
+function applyEnemyUpg(def){
+  const u=eAI?.upgrades;if(!u)return def;
+  return{...def,
+    dmg:  u.dmg?Math.round(def.dmg*1.2):def.dmg,
+    maxHp:u.hp ?Math.round(def.maxHp*1.25):def.maxHp,
+    rate: u.rate?(def.rate*1.2):def.rate,
+  };
+}
 
 function baseRange(){return BASE_RANGE*(BUPG.defRange.done?1.3:1);}
 function baseDmg(){return BASE_DMG*(BUPG.defDmg.done?1.6:1);}
@@ -434,6 +476,18 @@ let uid=0,selected=new Set();
 let gold=50,enemyGold=50,kills=0;
 let enemySpawnCd=6,eGatherCd=10,depositSpawnTimer=40;
 let enemyBuildCd=45,eDepRespawnTimers=[];
+// ── enemy command AI ("brains") ──────────────────────────────────────────────
+// MASTERcomm(econ split) · WATCH(map/threat digest) · ASSESSOR(econ compare) ·
+// PROGRESSOR(upgrades) · MILcomm(stance+targets) · TROOPcomm(micro) · ENGIcomm(gatherers)
+let eAI={
+  assessCd:0, microCd:0,
+  stance:'mass', econFocus:0.6, massTarget:5,
+  objective:{x:E_GATE_X,y:E_GATE_Y}, rally:{x:E_GATE_X-16*8,y:E_GATE_Y},
+  raidId:null, approach:'center',
+  upgrades:{dmg:false,hp:false,rate:false},
+  log:[], logSeq:0,
+};
+let aiLogOpen=false;
 let difficulty='easy';
 let playerBaseHp=BASE_MAX_HP,enemyBaseHp=EBASE_MAX_HP;
 let pBaseShotCd=0,eBaseShotCd=0;
@@ -766,7 +820,7 @@ function findOpenNear(c,r){
 // ── unit factory ───────────────────────────────────────────────────────────────
 function makeUnit(type,team,col,row){
   const raw=TDEFS[type];
-  const def=(team==='player'&&COMBAT_TYPES.includes(type))?applyUpg(raw,team):raw;
+  const def=!COMBAT_TYPES.includes(type)?raw:(team==='player'?applyUpg(raw,team):applyEnemyUpg(raw));
   const u={
     id:uid++,type,team,
     x:col*TS+TS/2,y:row*TS+TS/2,
@@ -932,14 +986,30 @@ function fireSpread(fx,fy,team,dmg,range,tx,ty,count,spread,opts={}){
 }
 
 // ── engineer AI (both teams) ───────────────────────────────────────────────────
-function bestDeposit(x,y){
-  let best=-1,bd=Infinity;
+function bestDeposit(x,y,team){
+  // Load-balance: penalise pockets that already have miners so engineers spread out instead of bunching
+  const load={};
+  for(const e of units){
+    if(e.type==='engineer'&&e.team===team&&(e.gatherState==='going'||e.gatherState==='mining')&&e.targetDep>=0)
+      load[e.targetDep]=(load[e.targetDep]||0)+1;
+  }
+  let best=-1,bs=Infinity;
   for(const d of deposits){
     if(d.depleted||d.gold<15)continue;
-    const dist=Math.hypot(d.x-x,d.y-y);
-    if(dist<bd){bd=dist;best=d.id;}
+    let score=Math.hypot(d.x-x,d.y-y)+(load[d.id]||0)*TS*9;
+    // ENGIcomm: enemy gatherers steer clear of pockets under player military threat
+    if(team==='enemy')score+=playerThreatAt(d.x,d.y,TS*12)*3.5;
+    if(score<bs){bs=score;best=d.id;}
   }
   return best; // returns deposit ID or -1
+}
+function nearestMine(u){
+  let best=null,bd=Infinity;
+  for(const b of units){
+    if(b.type!=='mine'||b.team!==u.team||b.hp<=0)continue;
+    const d=Math.hypot(b.x-u.x,b.y-u.y);if(d<bd){bd=d;best=b;}
+  }
+  return best;
 }
 
 const REPAIR_RATE=30, REPAIR_COST_PER_HP=0.5; // paid engineer repair: hp/s and gold per hp
@@ -988,11 +1058,10 @@ function updateEngineer(u,dt){
     }
     if(u.carryGold>=carry||!dep||dep.depleted||dep.gold<=0){
       if(u.carryGold>0){
-        // Return gold to assigned mine, nearest team mine, or spawn point
-        const mineB=isP&&u.assignedMineId>=0
-          ?units.find(ub=>ub.id===u.assignedMineId&&ub.hp>0)
-          :units.find(ub=>ub.type==='mine'&&ub.team===u.team&&ub.hp>0);
+        // Return gold to assigned mine; else the NEAREST team mine; else spawn point
+        let mineB=(isP&&u.assignedMineId>=0)?units.find(ub=>ub.id===u.assignedMineId&&ub.hp>0):null;
         if(isP&&u.assignedMineId>=0&&!mineB)u.assignedMineId=-1;
+        if(!mineB)mineB=nearestMine(u);
         const tx=mineB?Math.floor(mineB.x/TS):returnC;
         const ty=mineB?Math.floor(mineB.y/TS):returnR;
         u.gatherState='returning';
@@ -1020,9 +1089,11 @@ function updateEngineer(u,dt){
     // Abort early if deposit depleted while en route
     const dep=deposits.find(d=>d.id===u.targetDep);
     if(!dep||dep.depleted){u.gatherState='idle';u.targetDep=-1;u.waypoints=[];return;}
-    if(u.waypoints.length===0){
+    // Start mining once close enough — crowding/soft-separation can stop an engineer from reaching
+    // the exact tile, which used to leave a bunched-up group that never mined.
+    if(u.waypoints.length===0||Math.hypot(dep.x-u.x,dep.y-u.y)<TS*2.4){
       const minGold=u.assignedDepositId===u.targetDep?1:15;
-      if(dep.gold>=minGold)u.gatherState='mining';
+      if(dep.gold>=minGold){u.gatherState='mining';u.waypoints=[];}
       else{u.gatherState='idle';u.targetDep=-1;}
     }
     return;
@@ -1061,7 +1132,7 @@ function updateEngineer(u,dt){
   }
   // Only roam to bestDeposit if not a dedicated miner (or assigned deposit is gone)
   if(u.assignedDepositId<0){
-    const best=bestDeposit(u.x,u.y);
+    const best=bestDeposit(u.x,u.y,u.team);
     if(best>=0){
       u.targetDep=best;u.gatherState='going';
       const dep=deposits.find(d=>d.id===best);
@@ -1072,6 +1143,131 @@ function updateEngineer(u,dt){
 
 // ── enemy build AI ─────────────────────────────────────────────────────────────
 // Enemy build spots — relative to enemy base so they scale with map size.
+// ── AI decision log ─────────────────────────────────────────────────────────
+function aiLog(tier,msg){
+  eAI.log.push({n:++eAI.logSeq,tier,msg,t:performance.now()});
+  if(eAI.log.length>50)eAI.log.shift();
+  if(aiLogOpen)renderAILog();
+}
+// ── WATCH — battlefield digest helpers ──────────────────────────────────────
+function armyValue(team){
+  let v=0;for(const u of units)if(u.team===team&&u.hp>0&&!u.isBuilding&&u.type!=='engineer')v+=u.dmg*Math.max(.4,u.rate)*8+u.hp*0.5;
+  return v;
+}
+function centroid(pred){let sx=0,sy=0,n=0;for(const u of units)if(u.hp>0&&pred(u)){sx+=u.x;sy+=u.y;n++;}return n?{x:sx/n,y:sy/n,n}:null;}
+function playerThreatAt(x,y,rad){ // summed player combat power near a point (for ENGIcomm danger + WATCH)
+  let t=0;for(const u of units){if(u.team!=='player'||u.hp<=0||u.isBuilding||u.type==='engineer')continue;
+    const d=Math.hypot(u.x-x,u.y-y);if(d<rad)t+=(1-d/rad)*(u.dmg+u.hp*0.2);}
+  return t;
+}
+function laneDensity(y0,y1){ // player presence (units+towers) within a horizontal band → find soft spots to flank
+  let d=0;for(const u of units){if(u.team!=='player'||u.hp<=0||u.type==='engineer')continue;if(u.y>=y0&&u.y<y1)d+=u.isBuilding?(u.dmg>0?40:6):(u.dmg+20);}
+  return d;
+}
+function softSpot(){ // MILcomm: approach through the least-defended lane
+  const third=H/3;
+  const top=laneDensity(0,third),mid=laneDensity(third,2*third),bot=laneDensity(2*third,H);
+  const min=Math.min(top,mid,bot);
+  eAI.approach = min===top?'top':min===bot?'bottom':'center';
+  const ty = min===top?H*0.16 : min===bot?H*0.84 : H*0.5;
+  return {x:P_GATE_X+TS*3, y:ty};
+}
+
+// ── the commander tick — runs WATCH→ASSESSOR→MASTERcomm→MILcomm→PROGRESSOR on the
+//    assess cadence (5–30s, faster at higher difficulty), TROOPcomm on an APM cadence.
+function enemyCommander(dt){
+  const cfg=DIFF[difficulty];
+  eAI.assessCd-=dt;
+  if(eAI.assessCd<=0){
+    eAI.assessCd=(6+Math.random()*22)/Math.max(0.5,cfg.apm); // 5–30s, scaled by APM
+    assessAndPlan(cfg);
+  }
+  eAI.microCd-=dt;
+  if(eAI.microCd<=0){
+    eAI.microCd=1/Math.max(0.4,cfg.apm*1.4); // APM-limited micro cadence
+    troopMicro(cfg);
+  }
+}
+function assessAndPlan(cfg){
+  const pArmy=armyValue('player'), eArmy=armyValue('enemy');
+  const pEng=units.filter(u=>u.team==='player'&&u.type==='engineer'&&u.hp>0);
+  const pTroops=units.filter(u=>u.team==='player'&&!u.isBuilding&&u.type!=='engineer'&&u.hp>0);
+  const eTroops=units.filter(u=>u.team==='enemy'&&!u.isBuilding&&u.type!=='engineer'&&u.hp>0);
+  const eMines=units.filter(u=>u.type==='mine'&&u.team==='enemy'&&u.hp>0).length;
+  const pMines=units.filter(u=>u.type==='mine'&&u.team==='player'&&u.hp>0).length;
+  const engRatio=pEng.length/(pTroops.length+1);
+  const pcen=centroid(u=>u.team==='player'&&!u.isBuilding&&u.type!=='engineer');
+  const pushingUs=pcen&&pcen.x>W*0.55;
+
+  // ASSESSOR → MASTERcomm: how to split the budget between economy and military
+  let econFocus;
+  if(eArmy<pArmy*0.7 && eTroops.length<eAI.massTarget) econFocus=0.25;     // outgunned → build army
+  else if(eMines<2) econFocus=0.75;                                        // thin economy → expand
+  else if(pushingUs) econFocus=0.2;                                        // under pressure → military
+  else econFocus=0.5;
+  eAI.econFocus=econFocus;
+  eAI.massTarget = 4 + (cfg.awareness>=1?3:cfg.awareness>=0.8?2:0) + Math.min(6,Math.floor(pTroops.length*0.8));
+
+  // MILcomm: pick a stance from WATCH + ASSESSOR
+  const exposedEng=pEng.filter(e=>e.x>W*0.4 && playerThreatAt(e.x,e.y,TS*11)<40*cfg.awareness+5);
+  let stance;
+  if(pArmy>eArmy*1.7 && pushingUs) stance='defend';
+  else if(exposedEng.length>=2 && eTroops.length>=2 && eArmy>pArmy*0.6 && cfg.awareness>=0.8) stance='raid';
+  else if(eTroops.length>=eAI.massTarget && eArmy>=pArmy*0.95) stance='attack';
+  else stance='mass';
+  eAI.stance=stance;
+
+  if(stance==='raid'){
+    const tgt=exposedEng.sort((a,b)=>b.x-a.x)[0]; eAI.raidId=tgt?tgt.id:null;
+    eAI.objective=tgt?{x:tgt.x,y:tgt.y}:eAI.rally;
+  } else if(stance==='defend'){ eAI.objective={x:E_GATE_X-TS*7,y:E_GATE_Y}; eAI.raidId=null; }
+  else if(stance==='attack'){ eAI.objective=softSpot(); eAI.raidId=null; }
+  else { eAI.objective=eAI.rally; eAI.raidId=null; }
+
+  progressorTick(cfg);
+
+  aiLog('MIL',`stance → ${stance.toUpperCase()}${stance==='attack'?' via '+eAI.approach:''} · army e${Math.round(eArmy)}/p${Math.round(pArmy)}`);
+  aiLog('ASSESS',`econ ${Math.round(econFocus*100)}% · mines e${eMines}/p${pMines} · eng-ratio ${engRatio.toFixed(2)}`);
+  if(stance==='raid')aiLog('WATCH',`${exposedEng.length} exposed player engineer(s) — dispatching strike force`);
+}
+function progressorTick(cfg){
+  if(eAI.econFocus>0.6)return; // PROGRESSOR only spends when military-leaning
+  for(const k of ['dmg','hp','rate']){
+    if(!eAI.upgrades[k] && enemyGold>=280){enemyGold-=280;eAI.upgrades[k]=true;aiLog('PROGRESS',`researched enemy ${k==='dmg'?'weapons':k==='hp'?'armor':'drills'} (+units)`);return;}
+  }
+}
+function troopMicro(cfg){
+  let budget=Math.max(1,Math.round(cfg.apm*2.2)); // commands this tick — the APM ceiling
+  const army=units.filter(u=>u.team==='enemy'&&!u.isBuilding&&u.type!=='engineer'&&u.hp>0);
+  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
+  // Pull badly wounded units back toward home/hospital (unless holding the line)
+  if(eAI.stance!=='defend')for(const u of army){
+    if(budget<=0)break;
+    if(u.hp<u.maxHp*0.28 && !u._retreating){u._retreating=true;u.attackTarget=null;orderEnemyMove(u,E_GATE_X-TS*5,u.y);budget--;}
+    else if(u.hp>u.maxHp*0.6)u._retreating=false;
+  }
+  if(eAI.stance==='raid'){
+    const t=units.find(x=>x.id===eAI.raidId&&x.hp>0);
+    if(t){
+      const strikers=army.filter(u=>!u._retreating&&['atv','helicopter','rifleman','hmg','shotgun'].includes(u.type))
+        .sort((a,b)=>dist(a,t)-dist(b,t)).slice(0,4);
+      for(const u of strikers){if(budget<=0)break;if(u.attackTarget!==t.id){u.attackTarget=t.id;budget--;}}
+    } else eAI.stance='mass';
+  } else {
+    // Focus-fire: nudge idle units onto the nearest player unit near the objective
+    for(const u of army){
+      if(budget<=0)break;
+      if(u._retreating||u.attackTarget!=null||findTarget(u))continue;
+      const obj=eAI.objective;
+      if(Math.hypot(u.x-obj.x,u.y-obj.y)>TS*3){orderEnemyMove(u,obj.x,obj.y);budget--;}
+    }
+  }
+}
+function orderEnemyMove(u,x,y){
+  if(u.canFly){u.waypoints=[{x,y}];return;}
+  const tc=Math.max(0,Math.min(COLS-1,Math.floor(x/TS))),tr=Math.max(0,Math.min(ROWS-1,Math.floor(y/TS)));
+  const p=aStarForUnit(u,tc,tr);if(p&&p.length)u.waypoints=toWp(p);
+}
 function enemyBuildPos(type){
   const bc=EB_C,gr=GATE_R;
   const map={
@@ -1087,12 +1283,15 @@ function tryEnemyBuild(){
   const pendingE=constructions.filter(c=>c.team==='enemy');
   if(pendingE.length>=2)return;
 
+  const towerCount=units.filter(u=>u.team==='enemy'&&(u.type==='tower'||u.type==='outpost')&&u.hp>0).length;
   let buildType=null;
   if(!hasMine&&!constructions.some(c=>c.team==='enemy'&&c.type==='mine')&&enemyGold>=BDEFS['mine'].cost+TDEFS.engineer.cost){
     buildType='mine';
+  } else if(eAI.stance==='defend'&&hasMine&&enemyGold>=BDEFS['guard-tower'].cost&&pendingE.filter(c=>c.type==='guard-tower').length===0&&towerCount<5){
+    buildType='guard-tower'; // MILcomm consolidates space with towers while defending
   } else if(hasMine&&!hasBarracks&&!constructions.some(c=>c.team==='enemy'&&c.type==='barracks')&&enemyGold>=BDEFS['barracks'].cost){
     buildType='barracks';
-  } else if(hasMine&&enemyGold>=BDEFS['guard-tower'].cost*1.5&&pendingE.filter(c=>c.type==='guard-tower').length===0){
+  } else if(hasMine&&enemyGold>=BDEFS['guard-tower'].cost*1.5&&pendingE.filter(c=>c.type==='guard-tower').length===0&&towerCount<4){
     buildType='guard-tower';
   }
   if(!buildType)return;
@@ -1105,6 +1304,7 @@ function tryEnemyBuild(){
     if(constructions.some(con=>Math.hypot(con.x-x,con.y-y)<TS*4))continue;
     if(units.some(u=>u.isBuilding&&Math.hypot(u.x-x,u.y-y)<TS*4))continue;
     enemyGold-=cost;
+    aiLog('BUILD',`ENGIcomm building ${BDEFS[buildType].label}`);
     constructions.push({id:uid++,x,y,type:buildType,progress:0,buildTime:BDEFS[buildType].time,team:'enemy'});
     // Try to assign an idle enemy gatherer
     const idleG=units.find(u=>u.team==='enemy'&&u.type==='engineer'&&u.gatherState==='idle');
@@ -1143,18 +1343,23 @@ function update(dt){
     }
   }
 
-  // Enemy spawn — prioritize economy (gatherers) early
+  // Enemy command AI — assess/plan/micro
+  enemyCommander(dt);
+
+  // Enemy production — MASTERcomm's econFocus decides gatherers vs army (economy stays equal to player)
   enemySpawnCd-=dt;
   if(enemySpawnCd<=0){
     enemySpawnCd=cfg.spawnCd;
-    const minG=2; // economy is equal across difficulties — no gatherer/income advantage
     const hasG=units.filter(u=>u.team==='enemy'&&u.type==='engineer').length;
-    if(hasG<minG&&enemyGold>=TDEFS.engineer.cost){
+    const wantEcon=(hasG<2)||(hasG<4&&Math.random()<eAI.econFocus);
+    if(wantEcon&&enemyGold>=TDEFS.engineer.cost){
       enemyGold-=TDEFS.engineer.cost;
       const{c,r}=getSpawnPos('enemy');
       units.push(makeUnit('engineer','enemy',c,r));
     } else {
-      const type=cfg.pool[Math.floor(Math.random()*cfg.pool.length)];
+      // MILcomm-flavoured pick: prefer fast harassers while raiding, else the difficulty pool
+      const pool=eAI.stance==='raid'?['atv','rifleman','hmg','helicopter'].filter(t=>cfg.pool.includes(t)||t==='atv'||t==='rifleman'):cfg.pool;
+      const type=pool[Math.floor(Math.random()*pool.length)];
       if(enemyGold>=TDEFS[type].cost){
         enemyGold-=TDEFS[type].cost;
         const{c,r}=getSpawnPos('enemy');
@@ -1162,21 +1367,9 @@ function update(dt){
       }
     }
   }
-  // Enemy dedicated gatherer top-up
-  eGatherCd-=dt;
-  if(eGatherCd<=0){
-    eGatherCd=18+Math.random()*10;
-    const maxG=3; // equal economy cap regardless of difficulty
-    const hasG=units.filter(u=>u.team==='enemy'&&u.type==='engineer').length;
-    if(hasG<maxG&&enemyGold>=TDEFS.engineer.cost){
-      enemyGold-=TDEFS.engineer.cost;
-      const{c,r}=getSpawnPos('enemy');
-      units.push(makeUnit('engineer','enemy',c,r));
-    }
-  }
-  // Enemy build AI
+  // Enemy build AI — ENGIcomm/MILcomm
   enemyBuildCd-=dt;
-  if(enemyBuildCd<=0){enemyBuildCd=20+Math.random()*15;tryEnemyBuild();}
+  if(enemyBuildCd<=0){enemyBuildCd=18+Math.random()*14;tryEnemyBuild();}
 
   // Deposit depletion → fade out
   for(let i=deposits.length-1;i>=0;i--){
@@ -1329,20 +1522,20 @@ function update(dt){
         }
         u.shotCd=1/u.rate;
       }
-      // Enemy AI re-evaluate
-      if(u.team==='enemy'){
+      // Enemy AI re-evaluate — baseline flow toward the commander's objective (TROOPcomm adds smart micro).
+      // Reaction speed scales with difficulty; APM-heavy overrides live in troopMicro().
+      if(u.team==='enemy'&&u.attackTarget==null){
         u.aiCd-=dt;
         if(u.aiCd<=0){
-          u.aiCd=(cfg.react||1.5)*(0.7+Math.random()*0.6); // reaction speed scales with difficulty
+          u.aiCd=(cfg.react||1.5)*(0.7+Math.random()*0.6);
           if(!findTarget(u)){
-            let near=null,nd=Infinity;
-            for(const p of units){if(p.team!=='player'||p.hp<=0)continue;const d=Math.hypot(p.x-u.x,p.y-u.y);if(d<nd){nd=d;near=p;}}
-            if(u.canFly){u.waypoints=[{x:near?near.x:P_GATE_X,y:near?near.y:P_GATE_Y}];}
-            else{
-              const tgc=near?Math.floor(near.x/TS):P_SPAWN_C+1;
-              const tgr=near?Math.floor(near.y/TS):Math.max(1,Math.min(ROWS-2,Math.floor(u.y/TS)+Math.round((Math.random()-.5)*5)));
-              const p=aStarForUnit(u,tgc,tgr);if(p&&p.length)u.waypoints=toWp(p);
-            }
+            const obj=eAI.objective||{x:P_GATE_X,y:P_GATE_Y};
+            // Engage a nearby player unit if one is much closer than the objective; else march to objective
+            let near=null,nd=TS*9;
+            for(const p of units){if(p.team!=='player'||p.hp<=0||p.type==='engineer'&&eAI.stance!=='raid')continue;const d=Math.hypot(p.x-u.x,p.y-u.y);if(d<nd){nd=d;near=p;}}
+            const gx=near?near.x:obj.x, gy=near?near.y:obj.y;
+            if(u.canFly){u.waypoints=[{x:gx,y:gy}];}
+            else{const p=aStarForUnit(u,Math.max(0,Math.min(COLS-1,Math.floor(gx/TS))),Math.max(0,Math.min(ROWS-1,Math.floor(gy/TS))));if(p&&p.length)u.waypoints=toWp(p);}
           }
         }
       }
@@ -1450,10 +1643,15 @@ function update(dt){
   if(airstrikeCD>0)airstrikeCD=Math.max(0,airstrikeCD-dt);
   for(let i=airstrikeEffects.length-1;i>=0;i--){airstrikeEffects[i].timer-=dt;if(airstrikeEffects[i].timer<=0)airstrikeEffects.splice(i,1);}
   for(let i=explosions.length-1;i>=0;i--){explosions[i].timer-=dt;if(explosions[i].timer<=0)explosions.splice(i,1);}
-  // Upgrade queue tick
+  // Upgrade queue tick — all researches progress concurrently (a barracks can train + research at once,
+  // and separate buildings research in parallel rather than waiting in a single global line)
   if(upgradeQueue.length){
-    const cur=upgradeQueue[0];cur.timeLeft-=dt;
-    if(cur.timeLeft<=0){(cur.table==='BUPG'?BUPG:UPG)[cur.key].done=true;upgradeQueue.shift();sfx('upgrade');updateSelPanel();updateHud();}
+    let anyDone=false;
+    for(let i=upgradeQueue.length-1;i>=0;i--){
+      const cur=upgradeQueue[i];cur.timeLeft-=dt;
+      if(cur.timeLeft<=0){(cur.table==='BUPG'?BUPG:UPG)[cur.key].done=true;upgradeQueue.splice(i,1);sfx('upgrade');anyDone=true;}
+    }
+    if(anyDone){updateSelPanel();updateHud();}
   }
   sidePanelCd-=dt;
   if(sidePanelCd<=0){sidePanelCd=0.25;updateSidePanel();updateSelPanel();}
@@ -2064,6 +2262,12 @@ function updateHud(){
   tickSelPanel();
 }
 
+function renderAILog(){
+  const body=document.getElementById('ai-log-body');if(!body)return;
+  const st=document.getElementById('ai-log-stance');
+  if(st)st.textContent=`[${eAI.stance.toUpperCase()}]`;
+  body.innerHTML=eAI.log.map(e=>`<div class="ai-entry"><span class="ai-tier ${e.tier}">${e.tier}</span><span>${e.msg}</span></div>`).join('');
+}
 function updateSidePanel(){
   const sc=document.getElementById('side-content');
   if(!sc)return;
@@ -2584,7 +2788,7 @@ function commitBoxSel(){
   if(!boxSel)return;
   const lx=Math.min(boxSel.x0,boxSel.x1),rx=Math.max(boxSel.x0,boxSel.x1);
   const ly=Math.min(boxSel.y0,boxSel.y1),ry=Math.max(boxSel.y0,boxSel.y1);
-  if(Math.hypot(boxSel.x1-mxDown,boxSel.y1-myDown)>6){
+  if(Math.hypot(boxSel.x1-mxDown,boxSel.y1-myDown)>3){
     selected.clear();baseSelected=false;
     for(const u of units)if(u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry)selected.add(u.id);
     if(selected.size)sfx('select');
@@ -2612,7 +2816,7 @@ canvas.addEventListener('mousemove',e=>{
   const{x,y}=cxy(e);mousePos={x,y};
   if(!mouseDown||mouseBtn!==0||!boxSel)return;
   boxSel.x1=x;boxSel.y1=y;
-  if(Math.hypot(x-mxDown,y-myDown)>6){
+  if(Math.hypot(x-mxDown,y-myDown)>3){
     const lx=Math.min(boxSel.x0,x),rx=Math.max(boxSel.x0,x),ly=Math.min(boxSel.y0,y),ry=Math.max(boxSel.y0,y);
     selected.clear();baseSelected=false;
     for(const u of units)if(u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry)selected.add(u.id);
@@ -2740,7 +2944,11 @@ canvas.addEventListener('mouseup',e=>{
   if(!mouseDown)return;
   const{x,y}=cxy(e);
   if(e.button===0){
-    if(Math.hypot(x-mxDown,y-myDown)<=6){
+    const moved=Math.hypot(x-mxDown,y-myDown);
+    // Any real drag box-selects — even one that starts/passes over the base footprint.
+    const lx=Math.min(mxDown,x),rx=Math.max(mxDown,x),ly=Math.min(myDown,y),ry=Math.max(myDown,y);
+    const boxHasUnits=moved>3&&units.some(u=>u.team==='player'&&u.hp>0&&u.x>=lx&&u.x<=rx&&u.y>=ly&&u.y<=ry);
+    if(moved<=5&&!boxHasUnits){
       // Plain click: a unit under the cursor wins; otherwise a click on the base footprint selects the base
       const hitUnit=units.find(u=>u.team==='player'&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+3);
       if(!hitUnit&&inPlayerBase(x,y)){
@@ -2808,6 +3016,8 @@ document.getElementById('base-btn')?.addEventListener('click',()=>{selected.clea
 document.getElementById('heat-btn')?.addEventListener('click',e=>{showHeat=!showHeat;e.currentTarget.classList.toggle('active',showHeat);});
 document.getElementById('ally-btn')?.addEventListener('click',e=>{showAllyHeat=!showAllyHeat;e.currentTarget.classList.toggle('active',showAllyHeat);});
 document.getElementById('threat-btn')?.addEventListener('click',e=>{showThreat=!showThreat;e.currentTarget.classList.toggle('active',showThreat);});
+document.getElementById('ailog-btn')?.addEventListener('click',e=>{aiLogOpen=!aiLogOpen;e.currentTarget.classList.toggle('active',aiLogOpen);document.getElementById('ai-log')?.classList.toggle('open',aiLogOpen);if(aiLogOpen)renderAILog();});
+document.getElementById('ai-log-close')?.addEventListener('click',()=>{aiLogOpen=false;document.getElementById('ai-log')?.classList.remove('open');document.getElementById('ailog-btn')?.classList.remove('active');});
 document.getElementById('sound-btn')?.addEventListener('click',e=>{sfxOn=!sfxOn;initAudio();e.currentTarget.textContent=sfxOn?'🔊':'🔇';e.currentTarget.classList.toggle('active',sfxOn);});
 // Unlock audio on first user gesture (browsers require it)
 ['pointerdown','keydown'].forEach(ev=>window.addEventListener(ev,initAudio,{once:false}));
@@ -2842,6 +3052,8 @@ function restart(){
   airstrikeStock=0;airstrikeCD=0;pendingAirstrike=false;baseSelected=false;airstrikeEffects=[];
   for(const k of Object.keys(UPG))UPG[k].done=false;
   for(const k of Object.keys(BUPG))BUPG[k].done=false;
+  eAI={assessCd:0,microCd:0,stance:'mass',econFocus:0.6,massTarget:5,objective:{x:E_GATE_X,y:E_GATE_Y},rally:{x:E_GATE_X-TS*8,y:E_GATE_Y},raidId:null,approach:'center',upgrades:{dmg:false,hp:false,rate:false},log:[],logSeq:0};
+  if(aiLogOpen)renderAILog();
   generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();initCamera();updateHud();updateSidePanel();
 }
 
