@@ -296,7 +296,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
     <button class="diff-btn" id="ailog-btn" title="Show enemy AI decision log">🧠 AI Log</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.14.1</span>
+    <span id="version-badge">v0.15.1</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="ai-log">
@@ -318,7 +318,7 @@ html:not(.dark) #help-modal{background:rgba(225,215,200,.72)}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.14.1</div>
+    <div class="help-ver" id="help-ver">v0.15.1</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy the <b>enemy base</b> (right side) before they destroy yours. Build an economy, train an army, and push across the field.</dd></dl>
       <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to assign a dedicated miner, or a Mine to set a drop-off.</dd></dl>
@@ -351,7 +351,7 @@ const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120; // per-mine profit boost: +25%/lvl on gold returned to it
 const MAX_DEPOSITS=12;
-const VERSION='v0.14.1';
+const VERSION='v0.15.1';
 // Single jungle biome — floor blends two tones via smooth noise; wall/wallEdge; water/waterTop for depth.
 const MAP_STYLES={
   jungle:{name:'Jungle',floor:[[58,98,52],[70,114,60]],wall:[74,68,42],wallEdge:[104,98,60],water:[44,124,120],waterTop:[80,164,156],grid:'rgba(0,0,0,.06)',bg:'#3a6236'},
@@ -435,6 +435,12 @@ function unitUnlocked(type){
   if(req==='heavyDiv')return UPG.heavyDiv.done;
   return false;
 }
+function enemyUnlocked(type){ // enemy is gated by its own PROGRESSOR tech, same reqs as the player
+  const req=TDEFS[type]?.req;if(!req)return true;
+  if(req==='advTraining')return eAI.tech.advTraining;
+  if(req==='heavyDiv')return eAI.tech.heavyDiv;
+  return false;
+}
 function mineRate(){ return MINE_RATE_BASE*(UPG.fasterTools.done?1.3:1); }
 function carryMax(){ return CARRY_BASE+(UPG.bigCart.done?25:0); }
 function projSpeed(){ return 290*(UPG.bulletSpeed.done?1.4:1); }
@@ -488,6 +494,7 @@ let eAI={
   objective:{x:E_GATE_X,y:E_GATE_Y}, rally:{x:E_GATE_X-16*8,y:E_GATE_Y},
   raidId:null, approach:'center',
   upgrades:{dmg:false,hp:false,rate:false},
+  tech:{advTraining:false,heavyDiv:false}, // enemy is tech-gated like the player
   log:[], logSeq:0,
 };
 let aiLogOpen=false;
@@ -785,7 +792,7 @@ function aStar(sc,sr,gc,gr,clearance=0){
   const best=new Map([[sk,0]]),came=new Map([[sk,{c:sc,r:sr,pk:-1}]]);
   const D=[[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.41],[-1,1,1.41],[1,-1,1.41],[-1,-1,1.41]];
   let iter=0;
-  while(open.length&&iter++<8000){
+  while(open.length&&iter++<14000){
     let bi=0;for(let i=1;i<open.length;i++)if(open[i].f<open[bi].f)bi=i;
     const cur=open.splice(bi,1)[0],curK=key(cur.c,cur.r);
     if(cur.g>(best.get(curK)??Infinity))continue;
@@ -802,7 +809,7 @@ function aStar(sc,sr,gc,gr,clearance=0){
       let pen=0;
       if((grid[nr]?.[nc-1]??1)!==0)pen++;if((grid[nr]?.[nc+1]??1)!==0)pen++;
       if((grid[nr-1]?.[nc]??1)!==0)pen++;if((grid[nr+1]?.[nc]??1)!==0)pen++;
-      const nk=key(nc,nr),ng=cur.g+cost+pen*0.45;
+      const nk=key(nc,nr),ng=cur.g+cost+pen*0.3;
       if((best.get(nk)??Infinity)<=ng)continue;
       best.set(nk,ng);came.set(nk,{c:nc,r:nr,pk:curK});
       open.push({c:nc,r:nr,g:ng,f:ng+h(nc,nr)});
@@ -1212,9 +1219,10 @@ function assessAndPlan(cfg){
   // ASSESSOR → MASTERcomm: how to split the budget between economy and military
   let econFocus;
   if(eArmy<pArmy*0.7 && eTroops.length<eAI.massTarget) econFocus=0.25;     // outgunned → build army
-  else if(eMines<2) econFocus=0.75;                                        // thin economy → expand
+  else if(eMines<1) econFocus=0.75;                                        // no economy yet → expand first
   else if(pushingUs) econFocus=0.2;                                        // under pressure → military
-  else econFocus=0.5;
+  else if(eTroops.length<eAI.massTarget) econFocus=0.35;                   // has economy but no army → build the army
+  else econFocus=0.5;                                                      // balanced once massed
   eAI.econFocus=econFocus;
   eAI.massTarget = 4 + (cfg.awareness>=1?3:cfg.awareness>=0.8?2:0) + Math.min(6,Math.floor(pTroops.length*0.8));
 
@@ -1238,13 +1246,74 @@ function assessAndPlan(cfg){
 
   aiLog('MIL',`stance → ${stance.toUpperCase()}${stance==='attack'?' via '+eAI.approach:''} · army e${Math.round(eArmy)}/p${Math.round(pArmy)}`);
   aiLog('ASSESS',`econ ${Math.round(econFocus*100)}% · mines e${eMines}/p${pMines} · eng-ratio ${engRatio.toFixed(2)}`);
+  const dom=dominantPlayerUnit();
+  if(dom&&dom.n>=2){
+    const cb=counterBoosts();let best=null,bw=0;
+    for(const t of COMBAT_TYPES){if(enemyUnlocked(t)&&(cb[t]||0)>bw){bw=cb[t];best=t;}}
+    if(best)aiLog('WATCH',`player leans ${TDEFS[dom.type].name}×${dom.n} → countering with ${TDEFS[best].name}`);
+  }
   if(stance==='raid')aiLog('WATCH',`${exposedEng.length} exposed player engineer(s) — dispatching strike force`);
 }
 function progressorTick(cfg){
-  if(eAI.econFocus>0.6)return; // PROGRESSOR only spends when military-leaning
+  const eMines=units.filter(u=>u.type==='mine'&&u.team==='enemy'&&u.hp>0).length;
+  // Tech gates — the enemy must research these before fielding the units they unlock (like the player).
+  // Reserve some gold so teching doesn't bankrupt production; richer economies tech sooner.
+  if(!eAI.tech.advTraining && eMines>=1 && enemyGold>=200){
+    enemyGold-=180;eAI.tech.advTraining=true;aiLog('PROGRESS','researched Adv. Training → snipers & mortars');return;
+  }
+  if(eAI.tech.advTraining && !eAI.tech.heavyDiv && eMines>=2 && enemyGold>=360){
+    enemyGold-=300;eAI.tech.heavyDiv=true;aiLog('PROGRESS','researched Heavy Division → tanks & helicopters');return;
+  }
+  // Combat stat upgrades — only when military-leaning
+  if(eAI.econFocus>0.6)return;
   for(const k of ['dmg','hp','rate']){
     if(!eAI.upgrades[k] && enemyGold>=280){enemyGold-=280;eAI.upgrades[k]=true;aiLog('PROGRESS',`researched enemy ${k==='dmg'?'weapons':k==='hp'?'armor':'drills'} (+units)`);return;}
   }
+}
+// MILcomm unit composition — pick an affordable, teched unit weighted by the current stance/role.
+// Every unlocked type gets a non-zero weight, so over a game the enemy fields the whole roster.
+const ROLE_W={
+  raid:  {atv:5,rifleman:3,helicopter:5,hmg:2,shotgun:2,grenadier:1,sniper:1,mortar:0.5,tank:0.5},
+  attack:{tank:4,mortar:3,grenadier:3,hmg:3,sniper:2,rifleman:2,shotgun:2,atv:1.5,helicopter:2},
+  defend:{sniper:4,mortar:4,hmg:3,grenadier:2,tank:2,shotgun:2,rifleman:1.5,atv:1,helicopter:1},
+  mass:  {rifleman:3,hmg:3,shotgun:2,grenadier:2,atv:2,sniper:2,mortar:2,tank:2,helicopter:1.5},
+};
+// Read the player's army and return per-type counter boosts (bigger threats → bigger counters).
+function counterBoosts(){
+  const c={};let towers=0;
+  for(const u of units){
+    if(u.team!=='player'||u.hp<=0)continue;
+    if(u.type==='tower'||u.type==='outpost'){towers++;continue;}
+    if(u.isBuilding||u.type==='engineer')continue;
+    c[u.type]=(c[u.type]||0)+1;
+  }
+  const fly=c.helicopter||0, heavy=(c.tank||0), light=(c.atv||0)+(c.rifleman||0)+(c.shotgun||0);
+  const longR=(c.sniper||0)+(c.mortar||0), aoe=(c.grenadier||0)+(c.mortar||0);
+  const b={};for(const t of COMBAT_TYPES)b[t]=0;
+  if(fly){b.hmg+=fly*1.2;b.helicopter+=fly*0.9;b.sniper+=fly*0.7;b.atv+=fly*0.5;}          // vs air: fast/high-rate
+  if(heavy){b.mortar+=heavy*1.3;b.sniper+=heavy*1.0;b.grenadier+=heavy*0.9;b.tank+=heavy*0.7;} // vs armour: burst/splash
+  if(light){b.grenadier+=light*0.5;b.mortar+=light*0.5;b.shotgun+=light*0.4;b.hmg+=light*0.4;b.tank+=light*0.3;} // vs swarm: AoE
+  if(longR){b.atv+=longR*0.9;b.helicopter+=longR*1.0;b.tank+=longR*0.6;}                    // vs long-range: flankers
+  if(aoe>1){b.tank+=aoe*0.8;b.helicopter+=aoe*0.7;b.atv+=aoe*0.5;b.sniper+=aoe*0.5;b.grenadier-=aoe*0.4;b.rifleman-=aoe*0.4;} // don't feed clumped infantry to AoE
+  if(towers>1){b.mortar+=towers*1.0;b.tank+=towers*0.8;b.grenadier+=towers*0.4;}            // vs fortifications: siege
+  return b;
+}
+// Which player unit is the enemy currently teching/countering toward (for the AI log)
+function dominantPlayerUnit(){
+  const c={};for(const u of units)if(u.team==='player'&&u.hp>0&&!u.isBuilding&&u.type!=='engineer')c[u.type]=(c[u.type]||0)+1;
+  let best=null,bn=0;for(const t in c)if(c[t]>bn){bn=c[t];best=t;}
+  return best?{type:best,n:bn}:null;
+}
+function enemyArmyPick(){
+  const w=ROLE_W[eAI.stance]||ROLE_W.mass;
+  const roster=COMBAT_TYPES.filter(t=>enemyUnlocked(t)&&enemyGold>=TDEFS[t].cost);
+  if(!roster.length)return null;
+  const aware=DIFF[difficulty].awareness||0.7; // smarter AIs counter harder
+  const cb=counterBoosts();
+  let total=0;const wts=roster.map(t=>{const x=Math.max(0.15,(w[t]||1)+(cb[t]||0)*aware);total+=x;return x;});
+  let r=Math.random()*total;
+  for(let i=0;i<roster.length;i++){if((r-=wts[i])<=0)return roster[i];}
+  return roster[roster.length-1];
 }
 function troopMicro(cfg){
   let budget=Math.max(1,Math.round(cfg.apm*2.2)); // commands this tick — the APM ceiling
@@ -1294,6 +1363,7 @@ function tryEnemyBuild(){
   if(pendingE.length>=2)return;
 
   const towerCount=units.filter(u=>u.team==='enemy'&&(u.type==='tower'||u.type==='outpost')&&u.hp>0).length;
+  const mineCount=units.filter(u=>u.team==='enemy'&&u.type==='mine'&&u.hp>0).length;
   let buildType=null;
   if(!hasMine&&!constructions.some(c=>c.team==='enemy'&&c.type==='mine')&&enemyGold>=BDEFS['mine'].cost+TDEFS.engineer.cost){
     buildType='mine';
@@ -1301,6 +1371,8 @@ function tryEnemyBuild(){
     buildType='guard-tower'; // MILcomm consolidates space with towers while defending
   } else if(hasMine&&!hasBarracks&&!constructions.some(c=>c.team==='enemy'&&c.type==='barracks')&&enemyGold>=BDEFS['barracks'].cost){
     buildType='barracks';
+  } else if(hasBarracks&&mineCount<2&&!constructions.some(c=>c.team==='enemy'&&c.type==='mine')&&enemyGold>=BDEFS['mine'].cost*1.6){
+    buildType='mine'; // second mine to fund the higher-tech roster
   } else if(hasMine&&enemyGold>=BDEFS['guard-tower'].cost*1.5&&pendingE.filter(c=>c.type==='guard-tower').length===0&&towerCount<4){
     buildType='guard-tower';
   }
@@ -1353,6 +1425,9 @@ function update(dt){
     }
   }
 
+  // ── AI / production / building systems — isolated so any stray error here can NEVER freeze
+  //    the unit movement/combat loop that follows (which is what would look like a hang). ──
+  try{
   // Enemy command AI — assess/plan/micro
   enemyCommander(dt);
 
@@ -1367,10 +1442,9 @@ function update(dt){
       const{c,r}=getSpawnPos('enemy');
       units.push(makeUnit('engineer','enemy',c,r));
     } else {
-      // MILcomm-flavoured pick: prefer fast harassers while raiding, else the difficulty pool
-      const pool=eAI.stance==='raid'?['atv','rifleman','hmg','helicopter'].filter(t=>cfg.pool.includes(t)||t==='atv'||t==='rifleman'):cfg.pool;
-      const type=pool[Math.floor(Math.random()*pool.length)];
-      if(enemyGold>=TDEFS[type].cost){
+      // MILcomm composition: a teched, affordable unit weighted to the current stance/role
+      const type=enemyArmyPick();
+      if(type&&enemyGold>=TDEFS[type].cost){
         enemyGold-=TDEFS[type].cost;
         const{c,r}=getSpawnPos('enemy');
         units.push(makeUnit(type,'enemy',c,r));
@@ -1415,7 +1489,8 @@ function update(dt){
       u.towerUpgrading.elapsed+=dt;
       if(u.towerUpgrading.elapsed>=u.towerUpgrading.time){
         const tu=TOWER_UPGRADES[u.towerUpgrading.key];
-        u.towerUpg=u.towerUpgrading.key;u.range=tu.range;u.dmg=tu.dmg;u.rate=tu.rate;u.towerUpgrading=null;
+        if(tu){u.towerUpg=u.towerUpgrading.key;u.range=tu.range;u.dmg=tu.dmg;u.rate=tu.rate;}
+        u.towerUpgrading=null; // always clear so a bad key can't re-throw every frame
       }
     }
   }
@@ -1455,6 +1530,7 @@ function update(dt){
     for(const u of units){if(u.team!=='player'||u.hp<=0)continue;const d=Math.hypot(u.x-E_GATE_X,u.y-E_GATE_Y);if(d<=BASE_RANGE&&d<nd){nd=d;near=u;}}
     if(near){fireAt(E_GATE_X,E_GATE_Y,'enemy',BASE_DMG,BASE_RANGE,near.x,near.y);eBaseShotCd=1/BASE_RATE;}
   }
+  }catch(err){console.error('AI/systems error (movement continues):',err);window.__loopErr=(err&&err.message)+' :: '+((err&&err.stack||'').split('\n')[1]||'').trim();}
 
   // Units
   for(const u of units){
@@ -1577,10 +1653,11 @@ function update(dt){
               u.x=px+u.vx;u.y=py; // slide along X
               if(!inWall(u)){u._stuck=0;}
               else{
-                u.x=px;u.y=py;u._stuck=(u._stuck||0)+1;
-                // Caught on a corner/edge — re-route to the final goal instead of giving up and freezing
-                if(u._stuck>5){
-                  u._stuck=0;const goal=u.waypoints[u.waypoints.length-1];
+                u.x=px;u.y=py;u._stuck=(u._stuck||0)+1;u._reCd=(u._reCd||0)-dt;
+                // Caught on a corner/edge — re-route to the final goal. Throttled (~2/s) so a permanently
+                // blocked unit can't hammer A* every frame and tank the framerate.
+                if(u._stuck>5&&u._reCd<=0){
+                  u._stuck=0;u._reCd=0.5;const goal=u.waypoints[u.waypoints.length-1];
                   if(goal){const p=aStarForUnit(u,Math.max(0,Math.min(COLS-1,Math.floor(goal.x/TS))),Math.max(0,Math.min(ROWS-1,Math.floor(goal.y/TS))));u.waypoints=(p&&p.length)?toWp(p):[];}
                   else u.waypoints=[];
                 }
@@ -1701,7 +1778,7 @@ function update(dt){
     let anyDone=false;
     for(let i=upgradeQueue.length-1;i>=0;i--){
       const cur=upgradeQueue[i];cur.timeLeft-=dt;
-      if(cur.timeLeft<=0){(cur.table==='BUPG'?BUPG:UPG)[cur.key].done=true;upgradeQueue.splice(i,1);sfx('upgrade');anyDone=true;}
+      if(cur.timeLeft<=0){const tbl=cur.table==='BUPG'?BUPG:UPG;if(tbl[cur.key])tbl[cur.key].done=true;upgradeQueue.splice(i,1);sfx('upgrade');anyDone=true;}
     }
     if(anyDone){updateSelPanel();updateHud();}
   }
@@ -3103,12 +3180,14 @@ try{if(!localStorage.getItem('rts-seen-help')){toggleHelp(true);localStorage.set
 function loop(t){
   const raw=Math.min((t-lastT)/1000,.05);lastT=t;
   updateCamera(raw); // camera pan always responsive, even when paused
+  // Guard each stage independently so a single stray error can't kill the whole rAF loop (hard freeze).
   if(!paused){
-    // Run the sim at the chosen speed; large multipliers are split into sub-steps for stability
-    const total=raw*gameSpeed;const steps=Math.max(1,Math.ceil(gameSpeed));
-    for(let s=0;s<steps;s++)update(total/steps);
+    try{
+      const total=raw*gameSpeed;const steps=Math.max(1,Math.ceil(gameSpeed));
+      for(let s=0;s<steps;s++)update(total/steps);
+    }catch(err){console.error('update() error:',err);window.__loopErr=(err&&err.message)+' :: '+((err&&err.stack||'').split('\n')[1]||'').trim();}
   }
-  render();
+  try{render();}catch(err){console.error('render() error:',err);window.__loopErr=(err&&err.message)+' :: '+((err&&err.stack||'').split('\n')[1]||'').trim();}
   requestAnimationFrame(loop);
 }
 
@@ -3130,7 +3209,7 @@ function restart(){
   airstrikeStock=0;airstrikeCD=0;pendingAirstrike=false;baseSelected=false;airstrikeEffects=[];
   for(const k of Object.keys(UPG))UPG[k].done=false;
   for(const k of Object.keys(BUPG))BUPG[k].done=false;
-  eAI={assessCd:0,microCd:0,stance:'mass',econFocus:0.6,massTarget:5,objective:{x:E_GATE_X,y:E_GATE_Y},rally:{x:E_GATE_X-TS*8,y:E_GATE_Y},raidId:null,approach:'center',upgrades:{dmg:false,hp:false,rate:false},log:[],logSeq:0};
+  eAI={assessCd:0,microCd:0,stance:'mass',econFocus:0.6,massTarget:5,objective:{x:E_GATE_X,y:E_GATE_Y},rally:{x:E_GATE_X-TS*8,y:E_GATE_Y},raidId:null,approach:'center',upgrades:{dmg:false,hp:false,rate:false},tech:{advTraining:false,heavyDiv:false},log:[],logSeq:0};
   setPaused(false);gameSpeed=1;{const b=document.getElementById('speed-btn');if(b){b.textContent='1×';b.classList.remove('active');}}
   if(aiLogOpen)renderAILog();
   generateMap();placeDeposits();placePerimeterTowers();spawnStartEngineer();initCamera();updateHud();updateSidePanel();
