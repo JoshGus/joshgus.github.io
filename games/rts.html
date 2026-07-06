@@ -264,6 +264,31 @@ html:not(.dark) .ai-entry{color:#5a4a44;}
 #comms-btns button:hover{border-color:rgba(110,190,240,.6);color:#aaddff;background:rgba(16,40,58,.95)}
 #comms-btns button.on{border-color:rgba(255,220,90,.7);color:#ffdd66;}
 #comms-status{font-size:.44rem;color:rgba(150,200,240,.55);padding:0 9px 8px;line-height:1.4;}
+/* ── standings graph ── */
+#rank-panel{
+  position:fixed;left:50%;top:92px;transform:translateX(-50%);width:420px;max-width:92vw;z-index:32;
+  background:rgba(5,10,4,.97);border:1px solid rgba(120,170,60,.45);border-radius:6px;
+  display:none;flex-direction:column;overflow:hidden;font-family:var(--mono);
+  box-shadow:0 12px 34px -12px rgba(0,0,0,.75);
+}
+#rank-panel.open{display:flex;}
+#rank-head{padding:6px 9px;font-size:.54rem;letter-spacing:.06em;font-weight:700;color:rgba(200,240,120,.9);display:flex;align-items:center;gap:6px;flex-wrap:wrap;border-bottom:1px solid rgba(120,170,60,.25);}
+#rank-tabs{display:flex;gap:3px;margin-left:4px;}
+.rank-tab{background:rgba(18,34,9,.85);border:1px solid rgba(60,110,30,.35);color:rgba(140,200,70,.7);font-family:var(--mono);font-size:.46rem;padding:2px 7px;cursor:pointer;letter-spacing:.04em;text-transform:uppercase;}
+.rank-tab.active{background:rgba(50,85,20,.9);border-color:rgba(140,210,60,.7);color:#ccf73f;}
+#rank-close{margin-left:auto;background:none;border:none;color:rgba(200,240,120,.7);cursor:pointer;font-size:.7rem;font-family:var(--mono);padding:0 2px;}
+#rank-close:hover{color:#ccf73f;}
+#rank-canvas{display:block;width:100%;height:190px;}
+#rank-legend{display:flex;flex-wrap:wrap;gap:3px 10px;padding:6px 10px 8px;font-size:.5rem;}
+.rank-leg{display:flex;align-items:center;gap:4px;color:rgba(160,200,110,.85);}
+.rank-leg .dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+.rank-leg .rk{opacity:.5;min-width:14px;}
+.rank-leg.dead{opacity:.4;text-decoration:line-through;}
+html:not(.dark) #rank-panel{background:rgba(250,244,234,.97);border-color:rgba(90,130,40,.4);}
+html:not(.dark) #rank-head{color:#3a4d18;}
+html:not(.dark) .rank-tab{background:#efe4d2;border-color:rgba(29,23,18,.2);color:#4a6410;}
+html:not(.dark) .rank-tab.active{background:#dfe9c2;border-color:#5e7d0f;color:#33430f;}
+html:not(.dark) .rank-leg{color:#4a5a30;}
 /* ── top banner ── */
 #top-banner{
   position:fixed;left:50%;top:56px;transform:translateX(-50%);z-index:35;display:none;
@@ -399,6 +424,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn" id="ally-btn" title="Toggle friendly (ally) density heat map">Ally</button>
     <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
     <button class="diff-btn" id="aiov-btn" title="AI debug overlay — attack weights, soft spots, team comms">🧠 Overlay</button>
+    <button class="diff-btn" id="rank-btn" title="Standings graph over time">📈 Graph</button>
     <button class="diff-btn" id="pause-btn" title="Pause / resume (Space)">⏸ Pause</button>
     <button class="diff-btn" id="speed-btn" title="Game speed (cycle)">1×</button>
     <button class="diff-btn" id="ailog-btn" title="Show AI decision log">AI Log</button>
@@ -406,7 +432,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button class="diff-btn" id="menu-btn" title="Back to operation setup">☰ Menu</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.18.0</span>
+    <span id="version-badge">v0.19.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="ai-log">
@@ -426,6 +452,19 @@ html:not(.dark) #comms-status{color:#5a7a90}
       <button data-sug="rally">⚑ Rally here</button>
     </div>
     <div id="comms-status">Pick a suggestion, then click the map. Allied commanders weigh it and answer in the AI log.</div>
+  </div>
+  <div id="rank-panel">
+    <div id="rank-head">📈 Standings
+      <span id="rank-tabs">
+        <button class="rank-tab active" data-tab="overall">Overall</button>
+        <button class="rank-tab" data-tab="econ">Economy</button>
+        <button class="rank-tab" data-tab="army">Army</button>
+        <button class="rank-tab" data-tab="kills">Kills</button>
+      </span>
+      <button id="rank-close">✕</button>
+    </div>
+    <canvas id="rank-canvas" width="420" height="190"></canvas>
+    <div id="rank-legend"></div>
   </div>
   <div id="top-banner"></div>
   <div id="sel-panel">
@@ -461,6 +500,10 @@ html:not(.dark) #comms-status{color:#5a7a90}
         <div class="opt-row" id="opt-count"></div>
         <label class="chk"><input type="checkbox" id="opt-spectate"> Bots only — spectate</label>
       </div>
+      <div class="setup-sec">
+        <div class="setup-lbl">Wildlife</div>
+        <div class="opt-row" id="opt-density"></div>
+      </div>
     </div>
     <div class="setup-lbl" style="margin-top:6px">Commanders — pick teams (same team = allies)</div>
     <div id="slot-list"></div>
@@ -472,7 +515,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.18.0</div>
+    <div class="help-ver" id="help-ver">v0.19.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty — or watch an all-bot match as a spectator.</dd></dl>
       <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies — no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> in the top bar to inspect anyone's gold, research, queues and army.</dd></dl>
@@ -500,7 +543,7 @@ const BASE_MAX_HP=500;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120;
-const VERSION='v0.18.0';
+const VERSION='v0.19.0';
 
 // ── map styles (biomes) — palettes + decor flavour ─────────────────────────────
 const MAP_STYLES={
@@ -657,6 +700,7 @@ let teamCalls={};            // team → {x,y,t,by} coordinated attack blackboar
 let depositSpawnTimer=40,DEPOSIT_TARGET=16;
 let AILOG=[],aiLogSeq=0,aiLogOpen=false;
 let inspectId=-1; // commander inspect panel (click a top-bar chip)
+let rankHistory=[],rankSampleCd=0,rankTab='overall',rankOpen=false;
 let paused=false,gameSpeed=1,gameStarted=false;
 let gameOver=false,gameMsg='',gameWin=false;
 let boxSel=null,mxDown=0,myDown=0,mouseDown=false,mouseBtn=-1;
@@ -670,7 +714,7 @@ let trainQueues=new Map(); // buildingId → [{type,timeLeft,maxTime}] (human)
 let sidePanelCd=0,_selPanelSig=null;
 let pendingAirstrike=false,baseSelected=false,airstrikeEffects=[],explosions=[],pings=[];
 let upgradeQueue=[]; // human research queue [{key,timeLeft,maxTime,bldgType,table}]
-let SETTINGS={style:'jungle',size:'medium',count:2,spectate:false,
+let SETTINGS={style:'jungle',size:'medium',count:2,spectate:false,density:'normal',
   slots:[{team:1,diff:'medium'},{team:2,diff:'medium'},{team:3,diff:'medium'},{team:4,diff:'medium'},{team:5,diff:'medium'},{team:6,diff:'medium'}]};
 
 const clamp=(v,a,b)=>v<a?a:v>b?b:v;
@@ -1261,17 +1305,21 @@ function spawnStartUnits(){
 // Simple rules: gently avoid troop movement, scatter hard on gunfire/explosions,
 // then birds re-land and ground animals run off to graze somewhere new.
 const WL_BOOM=120, WL_SHOT=64, WL_TROOP=30;
+const WL_DENSITY={none:0, sparse:0.5, normal:1, abundant:2.4};
+const WL_BIRD_FRAC=0.62; // birds outnumber ground grazers
 function spawnWildlife(){
   wildlife=[];
+  const dm=WL_DENSITY[SETTINGS.density]??1;
+  if(dm<=0)return;
   const S=WILDLIFE_DEF[mapStyle]||WILDLIFE_DEF.jungle;
-  const total=clamp(Math.round(16*Math.sqrt((COLS*ROWS)/(170*100))),8,34);
+  const total=clamp(Math.round(22*dm*Math.sqrt((COLS*ROWS)/(170*100))),0,120);
   let placed=0,tries=0;
   while(placed<total&&tries++<total*40){
     const c=2+Math.floor(Math.random()*(COLS-4)),r=2+Math.floor(Math.random()*(ROWS-4));
     if(grid[r][c]!==0)continue;
     const x=c*TS+TS/2,y=r*TS+TS/2;
     if(players.some(p=>Math.hypot(p.base.cx-x,p.base.cy-y)<TS*10))continue;
-    const isBird=Math.random()<0.45,def=isBird?S.bird:S.ground;
+    const isBird=Math.random()<WL_BIRD_FRAC,def=isBird?S.bird:S.ground;
     wildlife.push({x,y,vx:0,vy:0,gx:x,gy:y,kind:isBird?'bird':'ground',col:def.col,r:def.r,name:def.name,
       state:isBird?(Math.random()<0.5?'flying':'landed'):'graze',
       timer:Math.random()*3,alt:isBird?13:0,face:Math.random()*6.28,flap:Math.random()*6,wander:Math.random()*6.28,land:null});
@@ -1308,12 +1356,15 @@ function updateWildlife(dt){
     }
     if(w.kind==='bird'){
       if(w.state==='landed'){
-        w.vx*=0.8;w.vy*=0.8;
+        w.vx*=0.82;w.vy*=0.82;
         if(startle>0.2||tn>0){
           w.state='flying';w.timer=2.5+Math.random()*3.5;w.land=null;w.alt=2;
           let a;if(tn>0)a=Math.atan2(try_,trx);else{const e=wlBoomPt(w.x,w.y);a=e?Math.atan2(w.y-e.y,w.x-e.x):Math.random()*6.28;}
           w.vx=Math.cos(a)*72;w.vy=Math.sin(a)*72;
-        } else { w.timer-=dt; if(w.timer<=0){w.timer=2+Math.random()*4;if(Math.random()<0.4){const a=Math.random()*6.28;w.vx=Math.cos(a)*14;w.vy=Math.sin(a)*14;}} }
+        } else { w.timer-=dt; if(w.timer<=0){w.timer=1.2+Math.random()*2.5;
+          const roll=Math.random();
+          if(roll<0.35){const a=Math.random()*6.28;w.vx=Math.cos(a)*18;w.vy=Math.sin(a)*18;}
+          else if(roll<0.5){w.state='flying';w.timer=1.5+Math.random()*2.5;w.land=null;w.alt=2;const a=Math.random()*6.28;w.vx=Math.cos(a)*46;w.vy=Math.sin(a)*46;} } }
       } else {
         let ax=0,ay=0;
         if(fn>1){ax+=(fcx-w.x)*0.0012;ay+=(fcy-w.y)*0.0012;ax+=(fvx-w.vx)*0.03;ay+=(fvy-w.vy)*0.03;}
@@ -1345,16 +1396,17 @@ function updateWildlife(dt){
           w.gx=clamp(w.x+Math.cos(a)*dist,TS*2,W-TS*2);w.gy=clamp(w.y+Math.sin(a)*dist,TS*2,H-TS*2);}
       } else if(w.state==='walk'){
         const dx=w.gx-w.x,dy=w.gy-w.y,d=Math.hypot(dx,dy);
-        if(d<TS*0.8){w.state='graze';w.timer=2+Math.random()*4;w.vx*=0.3;w.vy*=0.3;}
-        else{w.vx=dx/d*22;w.vy=dy/d*22;}
+        if(d<TS*0.8){w.state='graze';w.timer=1.5+Math.random()*3;w.vx*=0.3;w.vy*=0.3;}
+        else{const spd=16+Math.random()*8;w.vx=dx/d*spd+(Math.random()-.5)*5;w.vy=dy/d*spd+(Math.random()-.5)*5;}
       } else {
-        w.vx*=0.85;w.vy*=0.85;
+        w.vx*=0.9;w.vy*=0.9;
         if(tn>0){const a=Math.atan2(try_,trx),dist=TS*(4+Math.random()*5);
           w.state='walk';w.gx=clamp(w.x+Math.cos(a)*dist,TS*2,W-TS*2);w.gy=clamp(w.y+Math.sin(a)*dist,TS*2,H-TS*2);
         } else { w.timer-=dt;
-          if(w.timer<=0){w.timer=3+Math.random()*5;
-            if(Math.random()<0.6){const a=Math.random()*6.28,dist=TS*(3+Math.random()*6);w.state='walk';w.gx=clamp(w.x+Math.cos(a)*dist,TS*2,W-TS*2);w.gy=clamp(w.y+Math.sin(a)*dist,TS*2,H-TS*2);}
-            else{w.vx=(Math.random()-.5)*8;w.vy=(Math.random()-.5)*8;}}
+          w.vx+=(Math.random()-.5)*6;w.vy+=(Math.random()-.5)*6; // constant gentle drift — never fully static
+          if(w.timer<=0){w.timer=1.5+Math.random()*3;
+            if(Math.random()<0.75){const a=Math.random()*6.28,dist=TS*(3+Math.random()*8);w.state='walk';w.gx=clamp(w.x+Math.cos(a)*dist,TS*2,W-TS*2);w.gy=clamp(w.y+Math.sin(a)*dist,TS*2,H-TS*2);}
+            else{const a=Math.random()*6.28;w.vx=Math.cos(a)*14;w.vy=Math.sin(a)*14;}}
         }
       }
     }
@@ -2206,6 +2258,64 @@ function checkVictory(){
 }
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;sfx(win?'win':'lose');}
 
+// ── standings graph ─────────────────────────────────────────────────────────
+function rankVal(p,key){
+  if(key==='kills')return p.kills;
+  if(!p.alive)return 0;
+  const army=armyValueOf(p);
+  const mines=units.filter(u=>u.type==='mine'&&u.owner===p.id&&u.hp>0).length;
+  const engs=units.filter(u=>u.type==='engineer'&&u.owner===p.id&&u.hp>0).length;
+  if(key==='econ')return p.gold+mines*90+engs*25;
+  if(key==='army')return army;
+  return p.gold*0.5+army*0.15+p.kills*12+mines*60+p.base.hp*0.6; // overall power
+}
+function sampleRank(){
+  if(!players.length)return;
+  rankHistory.push({t:nowT,v:players.map(p=>({overall:rankVal(p,'overall'),econ:rankVal(p,'econ'),army:rankVal(p,'army'),kills:p.kills}))});
+  if(rankHistory.length>260)rankHistory.shift();
+}
+function renderRankGraph(){
+  if(!rankOpen)return;
+  const cv=document.getElementById('rank-canvas');if(!cv)return;
+  const g=cv.getContext('2d'),W2=cv.width,H2=cv.height;
+  g.clearRect(0,0,W2,H2);
+  const light=!document.documentElement.classList.contains('dark');
+  const key=rankTab,padL=8,padR=8,padT=8,padB=15,pw=W2-padL-padR,ph=H2-padT-padB;
+  // axes
+  g.strokeStyle=light?'rgba(0,0,0,.18)':'rgba(160,200,90,.18)';g.lineWidth=1;
+  g.beginPath();g.moveTo(padL,padT);g.lineTo(padL,padT+ph);g.lineTo(padL+pw,padT+ph);g.stroke();
+  if(rankHistory.length<1){g.fillStyle=light?'#7a8a5a':'rgba(150,190,90,.5)';g.font='9px "IBM Plex Mono",monospace';g.textAlign='center';g.fillText('gathering data…',W2/2,H2/2);return;}
+  let mx=1;for(const smp of rankHistory)for(const pv of smp.v)mx=Math.max(mx,pv[key]);
+  const tmin=rankHistory[0].t,tmax=Math.max(tmin+1,rankHistory[rankHistory.length-1].t);
+  const xOf=t=>padL+(tmax===tmin?pw:(t-tmin)/(tmax-tmin)*pw);
+  const yOf=v=>padT+ph-(v/mx)*ph;
+  // horizontal grid + max label
+  g.strokeStyle=light?'rgba(0,0,0,.06)':'rgba(160,200,90,.07)';
+  for(let i=1;i<4;i++){const y=padT+ph*i/4;g.beginPath();g.moveTo(padL,y);g.lineTo(padL+pw,y);g.stroke();}
+  g.fillStyle=light?'rgba(0,0,0,.4)':'rgba(160,200,90,.45)';g.font='7px "IBM Plex Mono",monospace';
+  g.textAlign='left';g.fillText(key==='kills'?Math.round(mx)+'':Math.round(mx)+'',padL+2,padT+7);
+  g.textAlign='right';g.fillText(Math.floor(tmax)+'s',padL+pw,padT+ph+11);
+  g.textAlign='left';g.fillText(Math.floor(tmin)+'s',padL,padT+ph+11);
+  // one line per player
+  for(let i=0;i<players.length;i++){
+    const p=players[i];
+    g.strokeStyle=p.color;g.globalAlpha=p.alive?0.95:0.4;g.lineWidth=1.8;g.beginPath();
+    let started=false;
+    for(const smp of rankHistory){const pv=smp.v[i];if(!pv)continue;const x=xOf(smp.t),y=yOf(pv[key]);if(!started){g.moveTo(x,y);started=true;}else g.lineTo(x,y);}
+    g.stroke();
+    // head dot
+    const last=rankHistory[rankHistory.length-1].v[i];
+    if(last){g.fillStyle=p.color;g.beginPath();g.arc(xOf(tmax),yOf(last[key]),2.4,0,Math.PI*2);g.fill();}
+  }
+  g.globalAlpha=1;
+  // legend — ranked by current value
+  const leg=document.getElementById('rank-legend');
+  if(leg){
+    const cur=players.map((p,i)=>({p,v:(rankHistory[rankHistory.length-1].v[i]||{})[key]||0})).sort((a,b)=>b.v-a.v);
+    leg.innerHTML=cur.map((e,idx)=>`<span class="rank-leg${e.p.alive?'':' dead'}"><span class="rk">#${idx+1}</span><span class="dot" style="background:${e.p.color}"></span>${e.p.name} · ${key==='kills'?e.v:Math.round(e.v)}</span>`).join('');
+  }
+}
+
 // ── update ─────────────────────────────────────────────────────────────────────
 function update(dt){
   if(gameOver||!gameStarted)return;
@@ -2550,6 +2660,7 @@ function update(dt){
   for(let i=explosions.length-1;i>=0;i--){explosions[i].timer-=dt;if(explosions[i].timer<=0)explosions.splice(i,1);}
   for(let i=pings.length-1;i>=0;i--){pings[i].timer-=dt;if(pings[i].timer<=0)pings.splice(i,1);}
   updateWildlife(dt);
+  rankSampleCd-=dt;if(rankSampleCd<=0){rankSampleCd=2;sampleRank();}
   // human research queue — all researches progress concurrently
   if(upgradeQueue.length){
     const h=hum();
@@ -2570,7 +2681,7 @@ function update(dt){
     if(anyDone){updateSelPanel();updateHud();}
   }
   sidePanelCd-=dt;
-  if(sidePanelCd<=0){sidePanelCd=0.25;updateSidePanel();updateSelPanel();if(inspectId>=0)renderCmdrPanel();}
+  if(sidePanelCd<=0){sidePanelCd=0.25;updateSidePanel();updateSelPanel();if(inspectId>=0)renderCmdrPanel();if(rankOpen)renderRankGraph();}
   updateHud();
 }
 function hexToRgbStr(hex){
@@ -4106,6 +4217,9 @@ document.getElementById('aiov-btn')?.addEventListener('click',e=>{showAIOverlay=
 document.getElementById('ailog-btn')?.addEventListener('click',e=>{aiLogOpen=!aiLogOpen;e.currentTarget.classList.toggle('active',aiLogOpen);document.getElementById('ai-log')?.classList.toggle('open',aiLogOpen);if(aiLogOpen)renderAILog();});
 document.getElementById('cmdr-close')?.addEventListener('click',()=>setInspect(-1));
 document.getElementById('ai-log-close')?.addEventListener('click',()=>{aiLogOpen=false;document.getElementById('ai-log')?.classList.remove('open');document.getElementById('ailog-btn')?.classList.remove('active');});
+document.getElementById('rank-btn')?.addEventListener('click',e=>{rankOpen=!rankOpen;e.currentTarget.classList.toggle('active',rankOpen);document.getElementById('rank-panel')?.classList.toggle('open',rankOpen);if(rankOpen)renderRankGraph();});
+document.getElementById('rank-close')?.addEventListener('click',()=>{rankOpen=false;document.getElementById('rank-panel')?.classList.remove('open');document.getElementById('rank-btn')?.classList.remove('active');});
+for(const tb of document.querySelectorAll('.rank-tab'))tb.addEventListener('click',()=>{rankTab=tb.dataset.tab;document.querySelectorAll('.rank-tab').forEach(t=>t.classList.toggle('active',t===tb));renderRankGraph();});
 document.getElementById('console-btn')?.addEventListener('click',()=>toggleConsole());
 document.getElementById('sound-btn')?.addEventListener('click',e=>{sfxOn=!sfxOn;initAudio();e.currentTarget.textContent=sfxOn?'🔊':'🔇';e.currentTarget.classList.toggle('active',sfxOn);});
 document.getElementById('menu-btn')?.addEventListener('click',()=>{showSetup(true);});
@@ -4152,9 +4266,13 @@ function buildSetupUI(){
   styleRow.innerHTML=styles.map(s=>`<button class="opt-btn${SETTINGS.style===s?' active':''}" data-style="${s}">${s==='random'?'Random':MAP_STYLES[s].name}</button>`).join('');
   sizeRow.innerHTML=Object.keys(SIZES).map(s=>`<button class="opt-btn${SETTINGS.size===s?' active':''}" data-size="${s}">${SIZES[s].label}</button>`).join('');
   countRow.innerHTML=[2,3,4,5,6].map(n=>`<button class="opt-btn${SETTINGS.count===n?' active':''}" data-count="${n}">${n}</button>`).join('');
+  const densRow=document.getElementById('opt-density');
+  const densOpts=[['none','None'],['sparse','Sparse'],['normal','Normal'],['abundant','Abundant']];
+  if(densRow)densRow.innerHTML=densOpts.map(([k,l])=>`<button class="opt-btn${SETTINGS.density===k?' active':''}" data-density="${k}">${l}</button>`).join('');
   for(const b of styleRow.querySelectorAll('[data-style]'))b.addEventListener('click',()=>{SETTINGS.style=b.dataset.style;buildSetupUI();});
   for(const b of sizeRow.querySelectorAll('[data-size]'))b.addEventListener('click',()=>{SETTINGS.size=b.dataset.size;buildSetupUI();});
   for(const b of countRow.querySelectorAll('[data-count]'))b.addEventListener('click',()=>{SETTINGS.count=+b.dataset.count;buildSetupUI();});
+  if(densRow)for(const b of densRow.querySelectorAll('[data-density]'))b.addEventListener('click',()=>{SETTINGS.density=b.dataset.density;buildSetupUI();});
   const spec=document.getElementById('opt-spectate');
   if(spec){spec.checked=SETTINGS.spectate;spec.onchange=()=>{SETTINGS.spectate=spec.checked;buildSetupUI();};}
   const list=document.getElementById('slot-list');
@@ -4215,6 +4333,7 @@ function startGame(){
   generateMap();placeDeposits();placePerimeterTowers();spawnStartUnits();spawnWildlife();
   gameStarted=true;
   inspectId=-1;document.getElementById('cmdr-panel')?.classList.remove('open');
+  rankHistory=[];rankSampleCd=0;sampleRank();
   resizeCanvas();initCamera();buildPchips();updateHud();updateSidePanel();updateSelPanel();
   // comms button only when the human has at least one allied bot
   const h=hum();
