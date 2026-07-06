@@ -449,7 +449,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button class="diff-btn" id="menu-btn" title="Back to operation setup">☰ Menu</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.20.0</span>
+    <span id="version-badge">v0.21.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="zoom-wrap">
@@ -555,7 +555,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.20.0</div>
+    <div class="help-ver" id="help-ver">v0.21.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty — or watch an all-bot match as a spectator.</dd></dl>
       <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies — no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> (or its row in the left panel) to inspect anyone's gold, research, queues, army and live brain state.</dd></dl>
@@ -585,7 +585,7 @@ const BASE_MAX_HP=500;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120;
-const VERSION='v0.20.0';
+const VERSION='v0.21.0';
 
 // ── map styles (biomes) — palettes + decor flavour ─────────────────────────────
 const MAP_STYLES={
@@ -605,9 +605,11 @@ const WILDLIFE_DEF={
 
 // ── difficulty (per bot) — decisiveness only, never economy ────────────────────
 const DIFF={
-  easy:  {spawnCd:13, apm:0.6, react:2.4, awareness:0.6},
-  medium:{spawnCd:9,  apm:1.2, react:1.5, awareness:0.8},
-  hard:  {spawnCd:6,  apm:2.2, react:0.9, awareness:1.0},
+  recruit:{spawnCd:20, apm:0.32,react:4.2, awareness:0.28},
+  easy:   {spawnCd:16, apm:0.45,react:3.2, awareness:0.42},
+  medium: {spawnCd:9,  apm:1.2, react:1.5, awareness:0.8},
+  hard:   {spawnCd:6,  apm:2.2, react:0.9, awareness:1.0},
+  brutal: {spawnCd:4,  apm:3.4, react:0.55,awareness:1.18},
 };
 const P_INCOME=3; // gold/s for every commander — economy is always symmetric
 
@@ -880,7 +882,7 @@ function mkAI(i){
   return{
     assessCd:1+rnd()*3, microCd:0, buildCd:20+rnd()*20, spawnCd:4+rnd()*4, strikeCd:30+rnd()*30, escortCd:0,
     stance:'mass', econFocus:0.6, massTarget:5,
-    objective:null, rally:null, raidId:null, focusFoe:-1,
+    objective:null, rally:null, raidId:null, raidCd:0, focusFoe:-1,
     approach:'direct', lastApproaches:[], flankObj:null,
     lockUntil:0, econBoostUntil:0, gatherHint:null,
     suggestions:[], lastMsg:'', lastMsgT:-99,
@@ -1639,6 +1641,15 @@ function fireSpread(fx,fy,shooter,dmg,range,tx,ty,count,spread,opts={}){
   }
 }
 
+// enemy army value within rad of a point — the real force that can contest a push there
+function foeArmyNear(p,x,y,rad){
+  let v=0;
+  for(const u of units){
+    if(u.team===p.team||u.hp<=0||u.isBuilding||u.type==='engineer'||u.type==='medic')continue;
+    if(Math.hypot(u.x-x,u.y-y)<=rad)v+=u.dmg*Math.max(.4,u.rate)*8+u.hp*0.5;
+  }
+  return v;
+}
 // summed foe combat power near a point, from player p's perspective
 function foeThreatAt(p,x,y,rad){
   let t=0;
@@ -1950,6 +1961,19 @@ function counterBoosts(p){
   if((cat.siege||0)+(cat.towers||0)>2){b.rifleman-=1;b.shotgun-=0.5;} // don't feed soft infantry to AoE
   return b;
 }
+// an ally whose base is under serious threat (losing a teammate puts the whole team behind)
+function endangeredAlly(p){
+  let best=null,bs=0;
+  for(const a of players){
+    if(!a.alive||a.id===p.id||a.team!==p.team)continue;
+    const thr=foeThreatAt(a,a.base.cx,a.base.cy,TS*24); // hostiles bearing down on the ally base
+    if(thr<80)continue;
+    const hpFrac=a.base.hp/a.base.maxHp;
+    const sev=thr*(hpFrac<0.6?1.7:1)+(1-hpFrac)*260;
+    if(sev>bs){bs=sev;best=a;}
+  }
+  return best;
+}
 // the most successful rival (bots slightly favour ganging the frontrunner)
 function leadingFoe(p){
   let best=-1,bv=-1;
@@ -1962,11 +1986,12 @@ function dominantFoeUnit(p){
   return best?{type:best,n:bn}:null;
 }
 const ROLE_W={
-  raid:  {atv:5,rifleman:3,helicopter:5,hmg:2,shotgun:2,flamer:2,grenadier:1,sniper:1,rocketeer:1,mortar:0.5,tank:0.5,apc:2,gunship:2,medic:0.3},
-  attack:{tank:4,mortar:3,grenadier:3,hmg:3,sniper:2,rocketeer:2,rifleman:2,shotgun:2,flamer:2,atv:1.5,helicopter:2,apc:2.5,gunship:3,medic:1.2},
-  defend:{sniper:4,mortar:4,hmg:3,rocketeer:3,grenadier:2,tank:2,shotgun:2,flamer:2,rifleman:1.5,atv:1,helicopter:1,apc:1.5,gunship:1,medic:1},
-  mass:  {rifleman:3,hmg:3,shotgun:2,flamer:2,grenadier:2,atv:2,sniper:2,rocketeer:2,mortar:2,tank:2,apc:2,helicopter:1.5,gunship:1.5,medic:0.8},
-  siege: {tank:5,mortar:4,grenadier:3,apc:3,gunship:3,hmg:2.5,rocketeer:2,sniper:1.5,rifleman:1.5,shotgun:1.5,flamer:1.5,helicopter:2,atv:1,medic:1.5},
+  raid:  {atv:5,rifleman:3,helicopter:5,hmg:2,shotgun:2,flamer:2,grenadier:1,sniper:1,rocketeer:1,mortar:0.5,tank:0.5,apc:2,aagun:1,gunship:2,jet:3,medic:0.3},
+  attack:{tank:4,mortar:3,grenadier:3,hmg:3,sniper:2,rocketeer:2,rifleman:2,shotgun:2,flamer:2,atv:1.5,helicopter:2,apc:2.5,aagun:1.5,gunship:3,jet:3,medic:1.2},
+  defend:{sniper:4,mortar:4,hmg:3,rocketeer:3,grenadier:2,tank:2,shotgun:2,flamer:2,rifleman:1.5,atv:1,helicopter:1,apc:1.5,aagun:2.5,gunship:1,jet:1.5,medic:1},
+  mass:  {rifleman:3,hmg:3,shotgun:2,flamer:2,grenadier:2,atv:2,sniper:2,rocketeer:2,mortar:2,tank:2,apc:2,aagun:1.2,helicopter:1.5,gunship:1.5,jet:1.5,medic:0.8},
+  siege: {tank:5,mortar:4,grenadier:3,apc:3,gunship:3,hmg:2.5,rocketeer:2,sniper:1.5,rifleman:1.5,shotgun:1.5,flamer:1.5,helicopter:2,atv:1,aagun:1,jet:3.5,medic:1.5},
+  assist:{atv:4,helicopter:4,jet:4,hmg:3,rifleman:2.5,shotgun:2,flamer:2,rocketeer:2,gunship:2,tank:2,apc:2,grenadier:2,sniper:1.5,mortar:1,aagun:1.5,medic:1.2},
 };
 function botArmyPick(p){
   const ai=p.ai,cfg=DIFF[p.diff];
@@ -2061,14 +2086,16 @@ function botCommander(p,dt){
     const liveDeps=deposits.filter(d=>!d.depleted).length;
     const engTarget=clamp(Math.round(2+mineN*1.5+liveDeps*0.15),2,8);
     const econFocus=nowT<ai.econBoostUntil?Math.max(ai.econFocus,0.7):ai.econFocus;
-    const wantEcon=(nGath<2)||(nGath<engTarget&&Math.random()<econFocus*ai.persona.econ);
+    const save=ai.saveTarget; // banking for a strategic building?
+    // economy keeps flowing while saving (engineers grow income to afford the tech); army waits
+    const wantEcon=(nGath<2)||(nGath<engTarget&&(save?true:Math.random()<econFocus*ai.persona.econ));
     if(wantEcon&&p.gold>=TDEFS.engineer.cost){
       p.gold-=TDEFS.engineer.cost;
       const{c,r}=getSpawnPos(p);
       units.push(makeUnit('engineer',p.id,c,r));
     } else if(troopCount(p)<troopCap(p)){
       const type=botArmyPick(p);
-      if(type&&p.gold>=TDEFS[type].cost){
+      if(type&&p.gold>=TDEFS[type].cost+(save?save.cost:0)){ // bank the building cost before more army
         p.gold-=TDEFS[type].cost;
         const{c,r}=getSpawnPos(p);
         units.push(makeUnit(type,p.id,c,r));
@@ -2078,6 +2105,21 @@ function botCommander(p,dt){
   // build AI
   ai.buildCd-=dt;
   if(ai.buildCd<=0){ai.buildCd=(18+Math.random()*14)/ai.persona.aggr;botBuild(p);}
+  // repairs — assign an idle engineer to the most-damaged building
+  ai.repairCd=(ai.repairCd||0)-dt;
+  if(ai.repairCd<=0){
+    ai.repairCd=2.5;
+    let dmg=null,dw=0;
+    for(const u of units){if(u.owner!==p.id||!u.isBuilding||u.hp<=0||u.type==='cover')continue;const miss=u.maxHp-u.hp;if(miss>u.maxHp*0.3&&miss>dw){dw=miss;dmg=u;}}
+    if(dmg&&p.gold>70){
+      const eng=units.find(u=>u.owner===p.id&&u.type==='engineer'&&u.hp>0&&u.carryGold===0&&u.repairTargetId==null&&(u.gatherState==='idle'||u.gatherState==='going'||u.gatherState==='mining'));
+      if(eng){eng.repairTargetId=dmg.id;eng.gatherState='parked';eng.targetDep=-1;eng.targetConId=-1;eng.waypoints=[];}
+    }
+  }
+  // base self-repair when flush and not under pressure
+  if(p.base.hp<p.base.maxHp&&p.gold>220&&foeThreatAt(p,p.base.cx,p.base.cy,TS*20)<55){
+    const heal=Math.min(16*dt,p.base.maxHp-p.base.hp);p.base.hp+=heal;p.gold-=heal*0.4;
+  }
   // airstrike (hard-leaning bots invest in one when flush) — own cadence, never frame-spammed
   ai.strikeCd-=dt;
   if(ai.strikeCd<=0&&cfg.awareness>=0.8&&p.airstrikeCD<=0){
@@ -2134,6 +2176,7 @@ function assessAndPlan(p,cfg){
   ai.massTarget=Math.min(cap,Math.round((4+(cfg.awareness>=1?3:cfg.awareness>=0.8?2:0)+Math.min(7,Math.floor(focusTroops.length*0.7)))*ai.persona.aggr));
 
   if(!ai.rally||nowT>ai.lockUntil)ai.rally={x:p.base.gateX+p.base.fx*TS*8,y:p.base.gateY+p.base.fy*TS*8};
+  ai.holdPoint={x:p.base.gateX+(W/2-p.base.gateX)*0.28,y:p.base.gateY+(H/2-p.base.gateY)*0.28}; // forward line to fortify
   if(nowT<ai.lockUntil&&!pushingUs){progressorTick(p,cfg);return;}
 
   const exposedEng=foeEng.filter(e=>{
@@ -2141,13 +2184,21 @@ function assessAndPlan(p,cfg){
     return dHome>TS*18&&foeThreatAt(p,e.x,e.y,TS*11)<40*cfg.awareness+5;
   });
   const foeDef=foeThreatAt(p,focus.base.gateX,focus.base.gateY,TS*18);
+  // the force that can actually contest a push on the focus = its army + nearby allied enemies
+  const localFoe=Math.max(focusArmy,foeArmyNear(p,focus.base.gateX,focus.base.gateY,TS*40));
+  const ally=endangeredAlly(p);
+  const allyThreat=ally?foeThreatAt(ally,ally.base.cx,ally.base.cy,TS*24):0;
   // Decisive strength is judged against the INDIVIDUAL focus foe (+ base defence),
   // not the whole enemy team — this is what breaks the endless amass-vs-team stalemate.
-  const canBeat=myArmy>=focusArmy*0.85+foeDef*0.8+80;
-  const teamCanBeat=teamMine>=teamFoe*0.9;
+  // Judge a push against BOTH the individual foe and the wider enemy team that can respond.
+  const canBeat=myArmy>=localFoe*0.9+foeDef*0.75+80;
+  const teamCanBeat=teamMine>=teamFoe*0.95;
   let stance;
   if(pushingUs&&focusArmy>myArmy*1.4)stance='defend';
-  else if(exposedEng.length>=1&&myTroops.length>=3&&myArmy>focusArmy*0.45&&cfg.awareness>=0.7)stance='raid';
+  else if(ally&&myTroops.length>=3&&hostileNear<allyThreat*1.1)stance='assist'; // a teammate is in trouble — help
+  // Raids are occasional harassment, not a constant drain: needs a real army edge, a cooldown,
+  // some ramp-up time, and an exposed target that isn't hugging its base.
+  else if(nowT>90&&nowT>ai.raidCd&&exposedEng.length>=1&&myTroops.length>=6&&myArmy>localFoe*0.8&&cfg.awareness>=0.8)stance='raid';
   else if((canBeat||distracted||focus.base.hp<focus.base.maxHp*0.45||atCap)&&myTroops.length>=Math.max(4,Math.floor(ai.massTarget*0.55)))stance='siege';
   else if((canBeat||(teamCanBeat&&myTroops.length>=ai.massTarget*0.7))&&myTroops.length>=Math.floor(ai.massTarget*0.7))stance='attack';
   else stance='mass';
@@ -2162,6 +2213,10 @@ function assessAndPlan(p,cfg){
     ai.objective=tgt?{x:tgt.x,y:tgt.y}:ai.rally;
   } else if(stance==='defend'){
     ai.objective={x:p.base.gateX+p.base.fx*TS*6,y:p.base.gateY+p.base.fy*TS*6};ai.raidId=null;
+  } else if(stance==='assist'&&ally){
+    ai.objective={x:ally.base.gateX+ally.base.fx*TS*3,y:ally.base.gateY+ally.base.fy*TS*3};ai.raidId=null;
+    commsMsg(p,`defending ally ${ally.name} — inbound`);
+    for(const tm of players)if(tm.alive&&!tm.human&&tm.team===p.team&&tm.id!==p.id)tm.ai.assessCd=Math.min(tm.ai.assessCd,DIFF[tm.diff].react); // rally the rest of the team fast
   } else if(stance==='siege'){
     softSpot(p,focus);
     ai.objective={x:focus.base.gateX,y:focus.base.gateY};ai.raidId=null;
@@ -2172,6 +2227,7 @@ function assessAndPlan(p,cfg){
     postTeamCall(p,ai.objective.x,ai.objective.y);
     commsMsg(p,`pushing ${focus.name} via ${ai.approach}`);
   } else { ai.objective=ai.rally;ai.raidId=null; }
+  if(stance==='assist'&&!ally){stance='mass';ai.objective=ai.rally;}
   ai.stance=stance;
   assignRoles(p,focus);
 
@@ -2192,6 +2248,7 @@ function assessAndPlan(p,cfg){
 // PROGRESSOR — tech + upgrades, gated by owned buildings, one research at a time
 function progressorTick(p,cfg){
   const ai=p.ai;if(ai.research)return;
+  if(ai.saveTarget)return; // banking for a building — buildings before upgrades
   const cat=ai._threat||{};
   const aggressive=ai.stance==='attack'||ai.stance==='siege'||ai.persona.aggr>1.05;
   const tryRes=(key)=>{
@@ -2199,7 +2256,7 @@ function progressorTick(p,cfg){
     const d=UPGD[key];
     if(d.req&&!p.upg[d.req])return false;
     if(!hasBldgP(p,d.bldg))return false;
-    const buffer=aggressive?40:110; // research readily — don't hoard gold
+    const buffer=Math.round((aggressive?60:150)/Math.max(0.6,ai.persona.tech)); // all bots research all; tech persona sets eagerness vs army
     if(p.gold<d.cost+buffer)return false;
     p.gold-=d.cost;const time=Math.max(8,Math.ceil(d.cost*.1));
     ai.research={key,timeLeft:time,maxTime:time};
@@ -2222,6 +2279,8 @@ function progressorTick(p,cfg){
   order.push('fasterTools','autoDrill','bigCart','logistics','buildTeam','engSpeed');
   // remaining combat as a fallback
   order.push('ironBlades','forgedArmor','rapidFire','optics','flakJacket','expRange','bombRuns','rotorBlades');
+  // completeness — a flush bot eventually researches its whole tree (engineer-hall & the rest)
+  for(const k of Object.keys(UPGD))order.push(k);
   for(const k of order)if(tryRes(k))return;
 }
 
@@ -2232,15 +2291,16 @@ function assignRoles(p,focus){
   const army=troopsOf(p).filter(u=>!u._retreating&&u.type!=='medic');
   for(const u of army)u._role='main';
   ai.flankObj=null;
-  if((ai.stance!=='attack'&&ai.stance!=='siege')||!ai.objective||!focus)return;
+  const committing=ai.stance==='attack'||ai.stance==='siege'||ai.stance==='assist';
+  if(!committing||!ai.objective||!focus)return;
   const myArmy=armyValueOf(p);
   const foeDef=foeThreatAt(p,focus.base.gateX,focus.base.gateY,TS*18)+armyValueTeam(focus.team)*0.35;
-  const needFrac=clamp((foeDef*1.4+140)/Math.max(myArmy,1),0.5,0.85); // always keep ~15% back to answer counterattacks
+  const needFrac=ai.stance==='assist'?0.9:clamp((foeDef*1.4+140)/Math.max(myArmy,1),0.5,0.85); // relieving an ally → commit hard
   const nCommit=Math.max(3,Math.round(army.length*needFrac));
   const sorted=[...army].sort((a,b)=>Math.hypot(a.x-ai.objective.x,a.y-ai.objective.y)-Math.hypot(b.x-ai.objective.x,b.y-ai.objective.y));
   for(let i=nCommit;i<sorted.length;i++)sorted[i]._role='reserve';
   const committed=sorted.slice(0,Math.min(nCommit,sorted.length));
-  if(committed.length>=8&&DIFF[p.diff].awareness>=0.8&&ai.lastApproaches&&ai.lastApproaches.length===3){
+  if(ai.stance!=='assist'&&committed.length>=8&&DIFF[p.diff].awareness>=0.8&&ai.lastApproaches&&ai.lastApproaches.length===3){
     const alt=[...ai.lastApproaches].sort((a,b)=>a.score-b.score)[1];
     if(alt){
       ai.flankObj={x:alt.x,y:alt.y};
@@ -2284,44 +2344,55 @@ function troopMicro(p,cfg){
       if(guards.length&&ai.escortCd<=0){ai.escortCd=10;aiLog(p,'ENGI',`raiders near our miners — ${guards.length} escort(s) dispatched`);}
     }
   }
-  // mortar ability micro — entrench at standoff range, bombard sieged bases, un-pit to advance
+  // mortar micro — dig in eagerly (entrenching is budget-free; only marching costs APM):
+  //   entrench at the hold line, whenever an enemy is in reach, or if they can't advance.
   const focus=(ai.focusFoe>=0&&players[ai.focusFoe]&&players[ai.focusFoe].alive)?players[ai.focusFoe]:null;
   for(const u of army){
-    if(budget<=0)break;
     if(u.type!=='mortar'||u._retreating||u.entrenching)continue;
-    const siegePt=(ai.stance==='siege'&&focus)?{x:focus.base.gateX,y:focus.base.gateY}:ai.objective;
-    if(!siegePt)continue;
-    const d=Math.hypot(u.x-siegePt.x,u.y-siegePt.y);
-    const eRange=u.range*1.6;
-    const wantEntrench=(ai.stance==='siege'||ai.stance==='attack'||ai.stance==='defend')&&d<=eRange*0.9&&d>TS*4;
-    if(wantEntrench&&!u.entrenched){
-      u.entrenching=true;u.entrenchTimer=2;u.waypoints=[];
-      if(ai.stance==='siege'&&focus)u.mortarTarget={x:focus.base.gateX,y:focus.base.gateY};
-      budget--;
-    } else if(u.entrenched&&d>eRange*1.05&&!findTargetRange(u,eRange)){
-      u.entrenching=true;u.entrenchTimer=2;u.mortarTarget=null;budget--; // un-pit and move up
-    } else if(u.entrenched&&ai.stance==='siege'&&focus&&d<=eRange&&(!u.mortarTarget||Math.hypot(u.mortarTarget.x-focus.base.gateX,u.mortarTarget.y-focus.base.gateY)>TS*2)){
-      u.mortarTarget={x:focus.base.gateX,y:focus.base.gateY};budget--;
+    const refPt=(ai.stance==='siege'&&focus)?{x:focus.base.gateX,y:focus.base.gateY}
+      :(ai.stance==='attack'||ai.stance==='assist')?ai.objective
+      :(ai.holdPoint||ai.rally);
+    if(!refPt)continue;
+    const d=Math.hypot(u.x-refPt.x,u.y-refPt.y),eRange=u.range*1.6;
+    if(!u.entrenched){
+      const foeInReach=findTargetRange(u,eRange);
+      if(foeInReach||d<=eRange){
+        u.entrenching=true;u.entrenchTimer=2;u.waypoints=[]; // in range → stop marching and dig in at standoff
+        if(ai.stance==='siege'&&focus)u.mortarTarget={x:focus.base.gateX,y:focus.base.gateY};
+      } else if(u.waypoints.length===0&&budget>0){
+        orderBotMove(u,refPt.x,refPt.y);budget--;
+        if(u.waypoints.length===0){u.entrenching=true;u.entrenchTimer=2;} // can't advance → dig in here
+      }
+    } else {
+      if(d>eRange*1.2&&!findTargetRange(u,eRange)&&budget>0){u.entrenching=true;u.entrenchTimer=2;u.mortarTarget=null;budget--;} // line moved → relocate
+      else if(ai.stance==='siege'&&focus&&budget>0&&(!u.mortarTarget||Math.hypot(u.mortarTarget.x-focus.base.gateX,u.mortarTarget.y-focus.base.gateY)>TS*2)){u.mortarTarget={x:focus.base.gateX,y:focus.base.gateY};budget--;}
     }
   }
   if(ai.stance==='raid'){
+    const myArmyV=armyValueOf(p);
     let t=units.find(x=>x.id===ai.raidId&&x.hp>0);
-    if(!t){ // hunt the next vulnerable hostile engineer instead of giving up
-      const cand=units.filter(e=>e.team!==p.team&&e.type==='engineer'&&e.hp>0&&foeThreatAt(p,e.x,e.y,TS*11)<40*cfg.awareness+5)
+    // abort if the quarry fled home or the area is getting hot (stop feeding units to their defence)
+    const hot=t&&(Math.hypot(t.x-players[t.owner].base.cx,t.y-players[t.owner].base.cy)<TS*16||foeArmyNear(p,t.x,t.y,TS*14)>myArmyV*0.5);
+    if(!t){ // only chase genuinely exposed engineers — not deep, not covered
+      const cand=units.filter(e=>e.team!==p.team&&e.type==='engineer'&&e.hp>0
+          &&Math.hypot(e.x-players[e.owner].base.cx,e.y-players[e.owner].base.cy)>TS*16
+          &&foeArmyNear(p,e.x,e.y,TS*14)<myArmyV*0.35)
         .sort((a,b)=>(Math.hypot(a.x-p.base.cx,a.y-p.base.cy))-(Math.hypot(b.x-p.base.cx,b.y-p.base.cy)));
-      t=cand[0]||null;
-      ai.raidId=t?t.id:null;
-      if(t)ai.objective={x:t.x,y:t.y};
+      t=cand[0]||null;ai.raidId=t?t.id:null;if(t)ai.objective={x:t.x,y:t.y};
     }
-    if(t){
-      const strikers=army.filter(u=>!u._retreating&&u.type!=='medic'&&['atv','helicopter','rifleman','hmg','shotgun','flamer','apc'].includes(u.type))
-        .sort((a,b)=>dist(a,t)-dist(b,t)).slice(0,4);
+    if(t&&!hot){
+      const strikers=army.filter(u=>!u._retreating&&u.type!=='medic'&&u.type!=='mortar'&&['atv','helicopter','rifleman','hmg','shotgun','flamer'].includes(u.type))
+        .sort((a,b)=>dist(a,t)-dist(b,t)).slice(0,3); // small, cheap strike group
       for(const u of strikers){if(budget<=0)break;if(u.attackTarget!==t.id){u.attackTarget=t.id;budget--;}}
-    } else ai.stance='mass';
+    } else {
+      const old=ai.raidId;
+      for(const u of army)if(u.attackTarget===old)u.attackTarget=null; // recall the strikers
+      ai.raidId=null;ai.stance='mass';ai.raidCd=nowT+30;                // cool down before raiding again
+    }
   } else {
     for(const u of army){
       if(budget<=0)break;
-      if(u._retreating||u.attackTarget!=null||u.type==='medic'||(u.type==='mortar'&&(u.entrenched||u.entrenching)))continue;
+      if(u._retreating||u.attackTarget!=null||u.type==='medic'||u.type==='mortar')continue;
       if(ai.stance!=='siege'&&findTarget(u))continue;
       const obj=botUnitGoal(p,u);
       if(obj&&Math.hypot(u.x-obj.x,u.y-obj.y)>TS*3){
@@ -2336,7 +2407,7 @@ function troopMicro(p,cfg){
 function botUnitGoal(p,u){
   const ai=p.ai;
   let obj=ai.objective||ai.rally||{x:p.base.gateX,y:p.base.gateY};
-  if((ai.stance==='attack'||ai.stance==='siege')&&u._role==='reserve')
+  if((ai.stance==='attack'||ai.stance==='siege'||ai.stance==='assist')&&u._role==='reserve')
     return ai.rally||{x:p.base.gateX+p.base.fx*TS*8,y:p.base.gateY+p.base.fy*TS*8}; // reserves hold at home
   if(u._role==='flank'&&ai.flankObj)obj=ai.flankObj;
   if((ai.stance==='attack'||ai.stance==='siege')&&ai.focusFoe>=0){
@@ -2361,10 +2432,68 @@ function botBuildPos(p,type){
     'research-station':[[2,13],[2,-13]],
     'hospital':        [[6,8],[6,-8]],
     'guard-tower':     [[8,-5],[8,5],[10,0],[6,-2]],
+    'artillery-tower': [[7,-6],[7,6],[9,-2]],
     'flak-tower':      [[6,4],[6,-4]],
     'mg-nest':         [[9,-3],[9,3]],
+    'airstrip':        [[3,-17],[3,16]],
+    'engineer-hall':   [[3,10],[3,-10],[5,7]],
   };
   return(spots[type]||[]).map(([f,s])=>basePos(p,f,s));
+}
+function oreClusterSpot(p){
+  let best=null,bs=0;
+  for(const d of deposits){
+    if(d.depleted)continue;
+    let conc=0;for(const e of deposits)if(!e.depleted&&Math.hypot(e.x-d.x,e.y-d.y)<TS*10)conc+=e.gold;
+    if(conc<220)continue;
+    const distBase=Math.hypot(d.x-p.base.cx,d.y-p.base.cy)/TS;
+    const threat=foeThreatAt(p,d.x,d.y,TS*12);
+    const near=units.some(u=>u.type==='mine'&&u.owner===p.id&&u.hp>0&&Math.hypot(u.x-d.x,u.y-d.y)<TS*8);
+    if(near)continue;
+    const score=conc-distBase*3-threat*5;
+    if(score>bs){bs=score;best=d;}
+  }
+  if(!best)return null;
+  const spots=[];
+  for(let rad=2;rad<=4;rad++)for(let a=0;a<8;a++){
+    const x=best.x+Math.cos(a/8*6.28)*rad*TS,y=best.y+Math.sin(a/8*6.28)*rad*TS;
+    const c=Math.floor(x/TS),r=Math.floor(y/TS);
+    if(c>=2&&c<COLS-2&&r>=2&&r<ROWS-2&&grid[r][c]===0)spots.push({c,r,x:c*TS+TS/2,y:r*TS+TS/2});
+  }
+  return spots.length?spots:null;
+}
+function botForwardSpots(p){
+  const bx=p.base.cx,by=p.base.cy,cx=W/2,cy=H/2;
+  const dx=cx-bx,dy=cy-by,dd=Math.hypot(dx,dy)||1,px=-dy/dd,py=dx/dd;
+  const spots=[];
+  for(const f of[0.34,0.42,0.28,0.5])for(const off of[0,-1,1,-2,2]){
+    const x=bx+dx*f+px*off*TS*7, y=by+dy*f+py*off*TS*7;
+    const c=Math.floor(x/TS),r=Math.floor(y/TS);
+    if(c<2||c>=COLS-2||r<2||r>=ROWS-2)continue;
+    spots.push({c,r,x:c*TS+TS/2,y:r*TS+TS/2});
+  }
+  return spots;
+}
+function doBotBuild(p,buildType,spots){
+  const positions=spots||botBuildPos(p,buildType);
+  for(const pos of positions){
+    const{c:fc,r:fr}=findOpenNear(pos.c,pos.r);
+    const x=fc*TS+TS/2,y=fr*TS+TS/2;
+    if(constructions.some(con=>Math.hypot(con.x-x,con.y-y)<TS*4))continue;
+    if(units.some(u=>u.isBuilding&&Math.hypot(u.x-x,u.y-y)<TS*4))continue;
+    p.gold-=BDEFS[buildType].cost;
+    aiLog(p,'BUILD',`ENGIcomm building ${BDEFS[buildType].label}`);
+    constructions.push({id:uid++,x,y,type:buildType,progress:0,buildTime:BDEFS[buildType].time,owner:p.id});
+    const idleG=units.find(u=>u.owner===p.id&&u.type==='engineer'&&u.gatherState==='idle');
+    if(idleG){
+      const con=constructions[constructions.length-1];
+      idleG.gatherState='going-build';idleG.targetConId=con.id;
+      const pth=aStar(Math.floor(idleG.x/TS),Math.floor(idleG.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));
+      if(pth)idleG.waypoints=toWp(pth);
+    }
+    return true;
+  }
+  return false;
 }
 function botBuild(p){
   if(!p.alive)return;
@@ -2380,42 +2509,63 @@ function botBuild(p){
   const th=ai._threat||{};
   const foeSiege=(th.mortar||0)+(th.siege||0)+(th.armor||0);
   const hasAir=has('airbase')||has('airstrip');
-  const rich=p.gold>620;
-  let buildType=null;
-  if(!has('mine')&&!pendType('mine')&&p.gold>=BDEFS['mine'].cost+TDEFS.engineer.cost)buildType='mine';
-  else if(has('mine')&&!has('barracks')&&!pendType('barracks')&&p.gold>=BDEFS['barracks'].cost)buildType='barracks';
-  else if(has('barracks')&&mineCount<2&&!pendType('mine')&&p.gold>=BDEFS['mine'].cost*1.6)buildType='mine';
-  else if(foeAir>=2&&!has('flak')&&!pendType('flak')&&p.gold>=BDEFS['flak-tower'].cost)buildType='flak-tower';
-  else if(foeSiege>=2&&!hasAir&&p.upg.advTraining&&!pendType('airbase')&&p.gold>=BDEFS['airbase'].cost*1.05)buildType='airbase'; // air answers enemy siege
-  else if(ai.stance==='defend'&&has('mine')&&p.gold>=BDEFS['guard-tower'].cost&&!pendType('tower')&&towerN<6)buildType='guard-tower';
-  else if(has('barracks')&&!has('research')&&!pendType('research')&&ai.persona.tech>1&&p.gold>=BDEFS['research-station'].cost*1.3)buildType='research-station';
-  else if(has('barracks')&&!has('depot')&&!pendType('depot')&&p.upg.advTraining&&p.gold>=BDEFS['vehicle-depot'].cost*1.2)buildType='vehicle-depot';
-  else if(rich&&has('barracks')&&barracksN<3&&troopCount(p)<troopCap(p)*0.95&&!pendType('barracks')&&p.gold>=BDEFS['barracks'].cost*2.5)buildType='barracks'; // more barracks → parallel queues
-  else if(has('depot')&&!has('airbase')&&!pendType('airbase')&&p.upg.heavyDiv&&cfg.awareness>=0.8&&p.gold>=BDEFS['airbase'].cost*1.2)buildType='airbase';
-  else if(has('airbase')&&p.upg.flightTech&&!has('airstrip')&&!pendType('airstrip')&&cfg.awareness>=1&&p.gold>=BDEFS['airstrip'].cost*1.2)buildType='airstrip';
-  else if(has('barracks')&&!has('hospital')&&!pendType('hospital')&&cfg.awareness>=0.8&&p.gold>=BDEFS['hospital'].cost*1.4)buildType='hospital';
-  else if((ai.stance==='defend'||rich)&&has('research')&&p.gold>=BDEFS['artillery-tower'].cost*1.2&&!pendType('arttower')&&towerN<8)buildType='artillery-tower'; // fortify & hold territory
-  else if(has('mine')&&p.gold>=BDEFS['guard-tower'].cost*1.5&&!pendType('tower')&&towerN<4)buildType='guard-tower';
-  if(!buildType)return;
-  const cost=BDEFS[buildType].cost;
-  const positions=botBuildPos(p,buildType);
-  for(const pos of positions){
-    const{c:fc,r:fr}=findOpenNear(pos.c,pos.r);
-    const x=fc*TS+TS/2,y=fr*TS+TS/2;
-    if(constructions.some(con=>Math.hypot(con.x-x,con.y-y)<TS*4))continue;
-    if(units.some(u=>u.isBuilding&&Math.hypot(u.x-x,u.y-y)<TS*4))continue;
-    p.gold-=cost;
-    aiLog(p,'BUILD',`ENGIcomm building ${BDEFS[buildType].label}`);
-    constructions.push({id:uid++,x,y,type:buildType,progress:0,buildTime:BDEFS[buildType].time,owner:p.id});
-    const idleG=units.find(u=>u.owner===p.id&&u.type==='engineer'&&u.gatherState==='idle');
-    if(idleG){
-      const con=constructions[constructions.length-1];
-      idleG.gatherState='going-build';idleG.targetConId=con.id;
-      const pth=aStar(Math.floor(idleG.x/TS),Math.floor(idleG.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));
-      if(pth)idleG.waypoints=toWp(pth);
-    }
+  const rich=p.gold>500;
+  // ── TECH LADDER — the strategic backbone. Save toward the next building rather
+  //    than fritter gold on cheap filler; production banks the saveTarget cost. ──
+  const tN=troopCount(p);
+  const ladder=[
+    {t:'mine',            want:!has('mine'), min:0},
+    {t:'barracks',        want:has('mine')&&!has('barracks'), min:0},
+    {t:'mine',            want:has('barracks')&&mineCount<2, min:0, spots:()=>oreClusterSpot(p)}, // extra mines cut travel near ore
+    {t:'vehicle-depot',   want:has('barracks')&&!has('depot')&&p.upg.advTraining, min:4},
+    {t:'research-station',want:has('barracks')&&!has('research'), min:4},          // every bot researches
+    {t:'airbase',         want:has('depot')&&!hasAir&&p.upg.heavyDiv, min:6},
+    {t:'hospital',        want:has('barracks')&&!has('hospital')&&cfg.awareness>=0.7, min:5},
+    {t:'airstrip',        want:has('airbase')&&!has('airstrip')&&p.upg.flightTech, min:8},
+    {t:'engineer-hall',   want:has('research')&&!has('enghall')&&rich, min:6},
+  ];
+  ai.saveTarget=null;
+  for(const step of ladder){
+    if(!step.want)continue;
+    if(pendType(BDEFS[step.t].spawnAs))return; // already building it
+    if((step.min||0)>tN)continue;              // build an army before saving for advanced buildings
+    const cost=BDEFS[step.t].cost;
+    if(p.gold>=cost*1.05){doBotBuild(p,step.t,step.spots?step.spots():null);return;}
+    ai.saveTarget={type:step.t,cost}; // bank for it — army production holds (economy keeps flowing)
     return;
   }
+  // ── TERRITORY — plant forward towers to hold ground; artillery dominates a wide zone ──
+  const myTroopN=troopCount(p);
+  const fwdTowers=units.filter(u=>u.owner===p.id&&TOWER_TYPES.includes(u.type)&&u.hp>0&&Math.hypot(u.x-p.base.cx,u.y-p.base.cy)>TS*18).length;
+  if(rich&&has('research')&&myTroopN>=4&&fwdTowers<3&&!pendType('arttower')&&p.gold>=BDEFS['artillery-tower'].cost*1.2){
+    const spots=botForwardSpots(p).filter(sp=>grid[sp.r]&&grid[sp.r][sp.c]===0&&foeThreatAt(p,sp.x,sp.y,TS*11)<80);
+    if(spots.length&&doBotBuild(p,'artillery-tower',spots)){aiLog(p,'BUILD','forward Artillery — claiming ground');return;}
+  }
+  if(rich&&myTroopN>=5&&fwdTowers<4&&!pendType('mgnest')&&!pendType('sniptower')&&p.gold>=BDEFS['sniper-tower'].cost*1.2){
+    const wantSnipe=(th.longrange||0)<1;const bt=wantSnipe?'sniper-tower':'mg-nest';
+    const spots=botForwardSpots(p).filter(sp=>grid[sp.r]&&grid[sp.r][sp.c]===0&&foeThreatAt(p,sp.x,sp.y,TS*10)<60);
+    if(spots.length&&doBotBuild(p,bt,spots)){aiLog(p,'BUILD',`forward ${BDEFS[bt].label} — holding the line`);return;}
+  }
+  // expansion mine at another ore concentration (cuts miner travel time)
+  if(rich&&mineCount<3&&!pendType('mine')&&p.gold>=BDEFS['mine'].cost*1.4){
+    const spots=oreClusterSpot(p);
+    if(spots&&doBotBuild(p,'mine',spots)){aiLog(p,'BUILD','expansion mine at ore cluster');return;}
+  }
+  // defend a forward mine that's under threat
+  const fwdMine=units.find(u=>u.owner===p.id&&u.type==='mine'&&u.hp>0&&Math.hypot(u.x-p.base.cx,u.y-p.base.cy)>TS*16&&foeThreatAt(p,u.x,u.y,TS*12)>45);
+  if(fwdMine&&p.gold>=BDEFS['guard-tower'].cost&&!pendType('tower')){
+    const spots=[];
+    for(let rad=2;rad<=3;rad++)for(let a=0;a<8;a++){const x=fwdMine.x+Math.cos(a/8*6.28)*rad*TS,y=fwdMine.y+Math.sin(a/8*6.28)*rad*TS;const c=Math.floor(x/TS),r=Math.floor(y/TS);if(c>=2&&c<COLS-2&&r>=2&&r<ROWS-2&&grid[r][c]===0)spots.push({c,r,x:c*TS+TS/2,y:r*TS+TS/2});}
+    if(spots.length&&doBotBuild(p,'guard-tower',spots)){aiLog(p,'BUILD','defending forward mine');return;}
+  }
+  // ── SITUATIONAL — counters & fortification once the ladder is complete ──
+  let buildType=null;
+  if(foeAir>=2&&!has('flak')&&!pendType('flak')&&p.gold>=BDEFS['flak-tower'].cost)buildType='flak-tower';
+  else if(rich&&has('barracks')&&barracksN<3&&troopCount(p)<troopCap(p)*0.95&&!pendType('barracks')&&p.gold>=BDEFS['barracks'].cost*2)buildType='barracks';
+  else if((ai.stance==='defend'||rich)&&has('research')&&p.gold>=BDEFS['artillery-tower'].cost*1.2&&!pendType('arttower')&&towerN<8)buildType='artillery-tower';
+  else if(ai.stance==='defend'&&has('mine')&&p.gold>=BDEFS['guard-tower'].cost&&!pendType('tower')&&towerN<6)buildType='guard-tower';
+  else if(has('mine')&&p.gold>=BDEFS['guard-tower'].cost*1.5&&!pendType('tower')&&towerN<4)buildType='guard-tower';
+  if(buildType)doBotBuild(p,buildType);
 }
 
 // human → ally suggestion dispatch
@@ -2714,7 +2864,7 @@ function update(dt){
         u.shotCd=1/u.rate;
       }
       // bot baseline flow toward the commander's objective
-      if(uOwner&&!uOwner.human&&uOwner.ai&&u.attackTarget==null&&u.type!=='medic'){
+      if(uOwner&&!uOwner.human&&uOwner.ai&&u.attackTarget==null&&u.type!=='medic'&&u.type!=='mortar'){
         u.aiCd-=dt;
         if(u.aiCd<=0){
           const cfg=DIFF[uOwner.diff];
@@ -4265,7 +4415,7 @@ canvas.addEventListener('wheel',e=>{
   const r=canvas.getBoundingClientRect();
   const sx=e.clientX-r.left,sy=e.clientY-r.top;
   const w=screenToWorld(sx,sy);
-  cam.zoom=clamp(cam.zoom*(e.deltaY<0?1.15:1/1.15),camMinZoom,camMaxZoom);
+  cam.zoom=clamp(cam.zoom*(e.deltaY<0?1.07:1/1.07),camMinZoom,camMaxZoom); // gentle zoom step
   cam.x=w.x-sx/cam.zoom;cam.y=w.y-sy/cam.zoom;
   clampCam();syncZoomSlider();
 },{passive:false});
@@ -4648,7 +4798,7 @@ function buildSetupUI(){
       <span class="slot-dot" style="background:${pal.col}"></span>
       <span class="slot-name" style="color:${pal.col}">${isHuman?'You':'Bot '+(i+1)}</span>
       <span class="slot-kind">${isHuman?'human':'bot'}</span>
-      ${isHuman?'<span class="slot-sp"></span>':`<select data-diff="${i}">${['easy','medium','hard'].map(d=>`<option value="${d}"${slot.diff===d?' selected':''}>${d[0].toUpperCase()+d.slice(1)}</option>`).join('')}</select>`}
+      ${isHuman?'<span class="slot-sp"></span>':`<select data-diff="${i}">${['recruit','easy','medium','hard','brutal'].map(d=>`<option value="${d}"${slot.diff===d?' selected':''}>${d[0].toUpperCase()+d.slice(1)}</option>`).join('')}</select>`}
       <select data-team="${i}">${Array.from({length:SETTINGS.count},(_,t)=>t+1).map(t=>`<option value="${t}"${slot.team===t?' selected':''}>Team ${t}</option>`).join('')}</select>
     </div>`;
   }
