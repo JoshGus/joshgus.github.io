@@ -446,10 +446,11 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn" id="speed-btn" title="Game speed (cycle)">1×</button>
     <button class="diff-btn" id="ailog-btn" title="Show AI decision log">AI Log</button>
     <button class="diff-btn" id="console-btn" title="Dev console (`)">&gt;_</button>
+    <button class="diff-btn active" id="fx-btn" title="Toggle decorative extras (wildlife &amp; desire paths) — turn off to save CPU">✨ FX</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button class="diff-btn" id="menu-btn" title="Back to operation setup">☰ Menu</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.21.0</span>
+    <span id="version-badge">v0.21.1</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="zoom-wrap">
@@ -555,7 +556,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.21.0</div>
+    <div class="help-ver" id="help-ver">v0.21.1</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty — or watch an all-bot match as a spectator.</dd></dl>
       <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies — no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> (or its row in the left panel) to inspect anyone's gold, research, queues, army and live brain state.</dd></dl>
@@ -585,7 +586,7 @@ const BASE_MAX_HP=500;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120;
-const VERSION='v0.21.0';
+const VERSION='v0.21.1';
 
 // ── map styles (biomes) — palettes + decor flavour ─────────────────────────────
 const MAP_STYLES={
@@ -802,6 +803,7 @@ let lastT=0,nowT=0; // nowT = game-time seconds (advances with speed, pauses)
 let cam={x:0,y:0,zoom:1},viewW=800,viewH=600,camMinZoom=.2,camMaxZoom=2.6,camDrag=null;
 let panKeys=new Set();
 let showHeat=false,showThreat=false,showAllyHeat=false,showAIOverlay=false;
+let fxOn=true; // decorative extras (wildlife + desire paths) — toggle off to save CPU
 let trainQueues=new Map(); // buildingId → [{type,timeLeft,maxTime}] (human)
 let sidePanelCd=0,_selPanelSig=null;
 let pendingAirstrike=false,baseSelected=false,airstrikeEffects=[],explosions=[],pings=[];
@@ -3034,9 +3036,11 @@ function update(dt){
   for(let i=airstrikeEffects.length-1;i>=0;i--){airstrikeEffects[i].timer-=dt;if(airstrikeEffects[i].timer<=0)airstrikeEffects.splice(i,1);}
   for(let i=explosions.length-1;i>=0;i--){explosions[i].timer-=dt;if(explosions[i].timer<=0)explosions.splice(i,1);}
   for(let i=pings.length-1;i>=0;i--){pings[i].timer-=dt;if(pings[i].timer<=0)pings.splice(i,1);}
-  updateWildlife(dt);
-  for(const u of units){if(u.hp<=0||u.isBuilding||u.canFly||u.type==='engineer')continue;if((u.vx||u.vy)&&(u.vx*u.vx+u.vy*u.vy)>1){const idx=Math.floor(u.y/TS)*COLS+Math.floor(u.x/TS);trample.set(idx,Math.min(1,(trample.get(idx)||0)+dt*0.9));}}
-  trampleCd-=dt;if(trampleCd<=0){trampleCd=0.5;for(const[k,v]of trample){const nv=v-0.02;if(nv<=0.02)trample.delete(k);else trample.set(k,nv);}}
+  if(fxOn){
+    updateWildlife(dt);
+    for(const u of units){if(u.hp<=0||u.isBuilding||u.canFly||u.type==='engineer')continue;if((u.vx||u.vy)&&(u.vx*u.vx+u.vy*u.vy)>1){const idx=Math.floor(u.y/TS)*COLS+Math.floor(u.x/TS);trample.set(idx,Math.min(1,(trample.get(idx)||0)+dt*0.9));}}
+    trampleCd-=dt;if(trampleCd<=0){trampleCd=0.5;for(const[k,v]of trample){const nv=v-0.02;if(nv<=0.02)trample.delete(k);else trample.set(k,nv);}}
+  }
   rankSampleCd-=dt;if(rankSampleCd<=0){rankSampleCd=2;sampleRank();}
   // human research queue — all researches progress concurrently
   if(upgradeQueue.length){
@@ -3736,16 +3740,16 @@ function render(){
   ctx.imageSmoothingEnabled=cam.zoom*dpr<1;
   ctx.setTransform(dpr*cam.zoom,0,0,dpr*cam.zoom,-cam.x*dpr*cam.zoom,-cam.y*dpr*cam.zoom);
   drawMap();
-  drawTrample();
+  if(fxOn)drawTrample();
   for(const p of players)drawBase(p);
   if(showAllyHeat)drawHeatOverlay('ally');
   if(showHeat)drawTeamHeat();
   if(showThreat)drawThreatOverlay();
-  drawDeposits();drawConstructions();drawWildlife('ground');
+  drawDeposits();drawConstructions();if(fxOn)drawWildlife('ground');
   for(const u of units)if(u.hp>0)drawAttackRing(u);
   drawPaths();drawProjs();
   for(const u of units)if(u.hp>0)drawUnit(u);
-  drawWildlife('air');
+  if(fxOn)drawWildlife('air');
   drawExplosions();drawAirstrikeEffects();drawAirstrikeTargeting();drawPings();
   drawAIOverlay();
   drawBoxSel();drawBuildGhost();drawZones();
@@ -4716,6 +4720,7 @@ document.getElementById('cmdr-close')?.addEventListener('click',()=>setInspect(-
 document.getElementById('ai-log-close')?.addEventListener('click',()=>{aiLogOpen=false;document.getElementById('ai-log')?.classList.remove('open');document.getElementById('ailog-btn')?.classList.remove('active');});
 document.getElementById('rank-btn')?.addEventListener('click',e=>{rankOpen=!rankOpen;e.currentTarget.classList.toggle('active',rankOpen);document.getElementById('rank-panel')?.classList.toggle('open',rankOpen);if(rankOpen)renderRankGraph();});
 document.getElementById('rank-close')?.addEventListener('click',()=>{rankOpen=false;document.getElementById('rank-panel')?.classList.remove('open');document.getElementById('rank-btn')?.classList.remove('active');});
+document.getElementById('fx-btn')?.addEventListener('click',e=>{fxOn=!fxOn;e.currentTarget.classList.toggle('active',fxOn);if(!fxOn){trample.clear();wildlife=[];}else if(gameStarted&&SETTINGS.density!=='none'){spawnWildlife();}});
 for(const tb of document.querySelectorAll('.rank-tab[data-tab]'))tb.addEventListener('click',()=>{rankTab=tb.dataset.tab;document.querySelectorAll('.rank-tab[data-tab]').forEach(t=>t.classList.toggle('active',t===tb));renderRankGraph();});
 (function(){
   const sl=document.getElementById('zoom-slider');
