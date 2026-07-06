@@ -406,7 +406,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button class="diff-btn" id="menu-btn" title="Back to operation setup">☰ Menu</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.17.0</span>
+    <span id="version-badge">v0.18.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="ai-log">
@@ -472,7 +472,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.17.0</div>
+    <div class="help-ver" id="help-ver">v0.18.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty — or watch an all-bot match as a spectator.</dd></dl>
       <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies — no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> in the top bar to inspect anyone's gold, research, queues and army.</dd></dl>
@@ -500,7 +500,7 @@ const BASE_MAX_HP=500;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120;
-const VERSION='v0.17.0';
+const VERSION='v0.18.0';
 
 // ── map styles (biomes) — palettes + decor flavour ─────────────────────────────
 const MAP_STYLES={
@@ -510,6 +510,13 @@ const MAP_STYLES={
   grassland:{name:'Grassland',floor:[[112,150,66],[134,170,78]],wall:[110,104,84],wallEdge:[148,142,116],water:[52,120,160],waterTop:[100,170,205],bg:'#7a9a48',wallDensity:.30,waterBlobs:2,decor:'flowers'},
 };
 const STYLE_KEYS=['jungle','desert','polar','grassland'];
+// Ambient wildlife — decorative boids. Per biome: a ground grazer and a bird.
+const WILDLIFE_DEF={
+  jungle:   {ground:{col:'#9a7038',name:'Tapir',  r:4.2},bird:{col:'#e6b53a',name:'Parrot', r:3}},
+  desert:   {ground:{col:'#c8a866',name:'Camel',  r:4.4},bird:{col:'#4a3f32',name:'Vulture',r:3.6}},
+  polar:    {ground:{col:'#26262e',name:'Penguin',r:3.4},bird:{col:'#dadde4',name:'Gull',   r:3}},
+  grassland:{ground:{col:'#a86e3c',name:'Deer',   r:4.2},bird:{col:'#8a6a44',name:'Sparrow',r:2.6}},
+};
 
 // ── difficulty (per bot) — decisiveness only, never economy ────────────────────
 const DIFF={
@@ -643,6 +650,7 @@ const ROSTERS={
 // ── state ──────────────────────────────────────────────────────────────────────
 let grid=[],units=[],projs=[],deposits=[],constructions=[];
 let waterTiles=[],mapBaked=false,mapStyle='jungle',mapSeed=1; // grid:0 open,1 wall,2 base,3 water,4 bldg,5 cover
+let wildlife=[]; // ambient boid-like fauna (purely decorative)
 let uid=0,selected=new Set();
 let players=[],HUMAN=0;      // HUMAN=-1 → spectator
 let teamCalls={};            // team → {x,y,t,by} coordinated attack blackboard
@@ -1246,6 +1254,143 @@ function spawnStartUnits(){
     const eng=makeUnit('engineer',p.id,c,r);
     eng.gatherState='idle';
     units.push(eng);
+  }
+}
+
+// ── ambient wildlife (boids) ─────────────────────────────────────────────────
+// Simple rules: gently avoid troop movement, scatter hard on gunfire/explosions,
+// then birds re-land and ground animals run off to graze somewhere new.
+const WL_BOOM=120, WL_SHOT=64, WL_TROOP=30;
+function spawnWildlife(){
+  wildlife=[];
+  const S=WILDLIFE_DEF[mapStyle]||WILDLIFE_DEF.jungle;
+  const total=clamp(Math.round(16*Math.sqrt((COLS*ROWS)/(170*100))),8,34);
+  let placed=0,tries=0;
+  while(placed<total&&tries++<total*40){
+    const c=2+Math.floor(Math.random()*(COLS-4)),r=2+Math.floor(Math.random()*(ROWS-4));
+    if(grid[r][c]!==0)continue;
+    const x=c*TS+TS/2,y=r*TS+TS/2;
+    if(players.some(p=>Math.hypot(p.base.cx-x,p.base.cy-y)<TS*10))continue;
+    const isBird=Math.random()<0.45,def=isBird?S.bird:S.ground;
+    wildlife.push({x,y,vx:0,vy:0,gx:x,gy:y,kind:isBird?'bird':'ground',col:def.col,r:def.r,name:def.name,
+      state:isBird?(Math.random()<0.5?'flying':'landed'):'graze',
+      timer:Math.random()*3,alt:isBird?13:0,face:Math.random()*6.28,flap:Math.random()*6,wander:Math.random()*6.28,land:null});
+    placed++;
+  }
+}
+function wlBoom(x,y){let b=0;for(const e of explosions){const R=WL_BOOM+e.radius,d=Math.hypot(e.x-x,e.y-y);if(d<R)b=Math.max(b,1-d/R);}for(const e of airstrikeEffects){const R=WL_BOOM+90,d=Math.hypot(e.x-x,e.y-y);if(d<R)b=Math.max(b,1.4*(1-d/R));}return b;}
+function wlBoomPt(x,y){let best=null,bd=Infinity;for(const e of explosions){const d=Math.hypot(e.x-x,e.y-y);if(d<WL_BOOM+e.radius&&d<bd){bd=d;best=e;}}for(const e of airstrikeEffects){const d=Math.hypot(e.x-x,e.y-y);if(d<WL_BOOM+90&&d<bd){bd=d;best=e;}}return best;}
+function wlShot(x,y){let b=0;for(const pr of projs){const d=Math.hypot(pr.x-x,pr.y-y);if(d<WL_SHOT)b=Math.max(b,(1-d/WL_SHOT)*0.6);}return b;}
+function wlLandSpot(x,y){
+  for(let t=0;t<12;t++){
+    const a=Math.random()*6.28,dist=TS*(2+Math.random()*8);
+    const nx=x+Math.cos(a)*dist,ny=y+Math.sin(a)*dist;
+    const c=Math.floor(nx/TS),r=Math.floor(ny/TS);
+    if(c<1||c>=COLS-1||r<1||r>=ROWS-1||grid[r][c]!==0)continue;
+    if(players.some(p=>Math.hypot(p.base.cx-nx,p.base.cy-ny)<TS*8))continue;
+    return{x:c*TS+TS/2,y:r*TS+TS/2};
+  }
+  return null;
+}
+function updateWildlife(dt){
+  if(!wildlife.length)return;
+  let fcx=0,fcy=0,fvx=0,fvy=0,fn=0;
+  for(const w of wildlife)if(w.kind==='bird'&&w.state==='flying'){fcx+=w.x;fcy+=w.y;fvx+=w.vx;fvy+=w.vy;fn++;}
+  if(fn){fcx/=fn;fcy/=fn;fvx/=fn;fvy/=fn;}
+  for(const w of wildlife){
+    w.flap+=dt*(w.state==='flying'?16:7);
+    const boom=wlBoom(w.x,w.y),shot=wlShot(w.x,w.y),startle=Math.max(boom,shot);
+    let trx=0,try_=0,tn=0;
+    for(const u of units){
+      if(u.isBuilding||u.hp<=0)continue;
+      const dx=w.x-u.x,dy=w.y-u.y,d2=dx*dx+dy*dy;
+      if(d2<WL_TROOP*WL_TROOP&&d2>1){const d=Math.sqrt(d2);trx+=dx/d;try_+=dy/d;tn++;}
+    }
+    if(w.kind==='bird'){
+      if(w.state==='landed'){
+        w.vx*=0.8;w.vy*=0.8;
+        if(startle>0.2||tn>0){
+          w.state='flying';w.timer=2.5+Math.random()*3.5;w.land=null;w.alt=2;
+          let a;if(tn>0)a=Math.atan2(try_,trx);else{const e=wlBoomPt(w.x,w.y);a=e?Math.atan2(w.y-e.y,w.x-e.x):Math.random()*6.28;}
+          w.vx=Math.cos(a)*72;w.vy=Math.sin(a)*72;
+        } else { w.timer-=dt; if(w.timer<=0){w.timer=2+Math.random()*4;if(Math.random()<0.4){const a=Math.random()*6.28;w.vx=Math.cos(a)*14;w.vy=Math.sin(a)*14;}} }
+      } else {
+        let ax=0,ay=0;
+        if(fn>1){ax+=(fcx-w.x)*0.0012;ay+=(fcy-w.y)*0.0012;ax+=(fvx-w.vx)*0.03;ay+=(fvy-w.vy)*0.03;}
+        for(const o of wildlife){if(o===w||o.kind!=='bird'||o.state!=='flying')continue;const dx=w.x-o.x,dy=w.y-o.y,d2=dx*dx+dy*dy;if(d2<24*24&&d2>1){const d=Math.sqrt(d2);ax+=dx/d*4;ay+=dy/d*4;}}
+        w.wander+=(Math.random()-.5)*0.6;ax+=Math.cos(w.wander)*5;ay+=Math.sin(w.wander)*5;
+        if(boom>0){const e=wlBoomPt(w.x,w.y);if(e){const dx=w.x-e.x,dy=w.y-e.y,d=Math.hypot(dx,dy)||1;ax+=dx/d*30;ay+=dy/d*30;}}
+        w.timer-=dt;let landing=false;
+        if(w.timer<=0&&startle<0.05){
+          if(!w.land)w.land=wlLandSpot(w.x,w.y);
+          if(w.land){landing=true;const dx=w.land.x-w.x,dy=w.land.y-w.y,d=Math.hypot(dx,dy)||1;ax+=dx/d*8;ay+=dy/d*8;
+            if(d<TS*0.9&&w.alt<3){w.state='landed';w.x=w.land.x;w.y=w.land.y;w.vx=0;w.vy=0;w.land=null;w.timer=2+Math.random()*3;}}
+        } else w.land=null;
+        w.vx+=ax;w.vy+=ay;
+        const sp=Math.hypot(w.vx,w.vy),mx=startle>0.05?116:58,mn=landing?12:28;
+        if(sp>mx){w.vx=w.vx/sp*mx;w.vy=w.vy/sp*mx;}
+        else if(sp<mn){if(sp<1){const a=Math.random()*6.28;w.vx=Math.cos(a)*mn;w.vy=Math.sin(a)*mn;}else{w.vx=w.vx/sp*mn;w.vy=w.vy/sp*mn;}}
+        w.alt+=((landing?0:13)-w.alt)*Math.min(1,dt*2.2);
+      }
+    } else {
+      if(startle>0.2){
+        w.state='flee';w.timer=Math.max(w.timer,1.2+Math.random()*1.5);
+        let ax=trx,ay=try_;
+        if(tn===0){const e=wlBoomPt(w.x,w.y);if(e){ax=w.x-e.x;ay=w.y-e.y;}}
+        const a=(ax||ay)?Math.atan2(ay,ax):Math.random()*6.28,spd=50+startle*40;
+        w.vx=Math.cos(a)*spd;w.vy=Math.sin(a)*spd;
+      } else if(w.state==='flee'){
+        w.timer-=dt;
+        if(w.timer<=0){w.state='walk';const a=w.face+(Math.random()-.5)*1.5,dist=TS*(6+Math.random()*8);
+          w.gx=clamp(w.x+Math.cos(a)*dist,TS*2,W-TS*2);w.gy=clamp(w.y+Math.sin(a)*dist,TS*2,H-TS*2);}
+      } else if(w.state==='walk'){
+        const dx=w.gx-w.x,dy=w.gy-w.y,d=Math.hypot(dx,dy);
+        if(d<TS*0.8){w.state='graze';w.timer=2+Math.random()*4;w.vx*=0.3;w.vy*=0.3;}
+        else{w.vx=dx/d*22;w.vy=dy/d*22;}
+      } else {
+        w.vx*=0.85;w.vy*=0.85;
+        if(tn>0){const a=Math.atan2(try_,trx),dist=TS*(4+Math.random()*5);
+          w.state='walk';w.gx=clamp(w.x+Math.cos(a)*dist,TS*2,W-TS*2);w.gy=clamp(w.y+Math.sin(a)*dist,TS*2,H-TS*2);
+        } else { w.timer-=dt;
+          if(w.timer<=0){w.timer=3+Math.random()*5;
+            if(Math.random()<0.6){const a=Math.random()*6.28,dist=TS*(3+Math.random()*6);w.state='walk';w.gx=clamp(w.x+Math.cos(a)*dist,TS*2,W-TS*2);w.gy=clamp(w.y+Math.sin(a)*dist,TS*2,H-TS*2);}
+            else{w.vx=(Math.random()-.5)*8;w.vy=(Math.random()-.5)*8;}}
+        }
+      }
+    }
+    if(w.kind==='ground'||w.state==='landed'){
+      const nx=w.x+w.vx*dt,ny=w.y+w.vy*dt;
+      if(!tileBlocked(nx,ny)){w.x=nx;w.y=ny;}
+      else{w.vx=-w.vx*0.3+(Math.random()-.5)*10;w.vy=-w.vy*0.3+(Math.random()-.5)*10;
+        if(w.state==='flee'||w.state==='walk'){w.state='graze';w.timer=1+Math.random()*2;}}
+    } else { w.x+=w.vx*dt;w.y+=w.vy*dt; }
+    w.x=clamp(w.x,TS,W-TS);w.y=clamp(w.y,TS,H-TS);
+    if(Math.hypot(w.vx,w.vy)>1)w.face=Math.atan2(w.vy,w.vx);
+  }
+}
+function drawWildlife(phase){
+  const air=phase==='air';
+  for(const w of wildlife){
+    const flying=w.kind==='bird'&&w.state==='flying';
+    if(flying!==air)continue;
+    if(flying){
+      ctx.fillStyle='rgba(0,0,0,.12)';ctx.beginPath();ctx.ellipse(w.x,w.y,w.r*.8,w.r*.3,0,0,Math.PI*2);ctx.fill();
+      const bx=w.x,by=w.y-w.alt,flap=Math.sin(w.flap)*0.5+0.5;
+      ctx.strokeStyle=w.col;ctx.lineWidth=1.4;ctx.lineJoin='round';
+      ctx.beginPath();
+      ctx.moveTo(bx-w.r*1.3,by+(1-flap)*w.r*0.5);
+      ctx.lineTo(bx,by-flap*w.r*0.5);
+      ctx.lineTo(bx+w.r*1.3,by+(1-flap)*w.r*0.5);
+      ctx.stroke();
+      ctx.fillStyle=w.col;ctx.beginPath();ctx.arc(bx,by,w.r*0.5,0,Math.PI*2);ctx.fill();
+    } else {
+      ctx.fillStyle='rgba(0,0,0,.16)';ctx.beginPath();ctx.ellipse(w.x,w.y+w.r*.4,w.r*.9,w.r*.32,0,0,Math.PI*2);ctx.fill();
+      ctx.save();ctx.translate(w.x,w.y);ctx.rotate(w.face);
+      ctx.fillStyle=w.col;
+      ctx.beginPath();ctx.ellipse(0,0,w.r,w.r*.6,0,0,Math.PI*2);ctx.fill();
+      ctx.beginPath();ctx.arc(w.r*.9,0,w.r*.42,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+    }
   }
 }
 
@@ -2404,6 +2549,7 @@ function update(dt){
   for(let i=airstrikeEffects.length-1;i>=0;i--){airstrikeEffects[i].timer-=dt;if(airstrikeEffects[i].timer<=0)airstrikeEffects.splice(i,1);}
   for(let i=explosions.length-1;i>=0;i--){explosions[i].timer-=dt;if(explosions[i].timer<=0)explosions.splice(i,1);}
   for(let i=pings.length-1;i>=0;i--){pings[i].timer-=dt;if(pings[i].timer<=0)pings.splice(i,1);}
+  updateWildlife(dt);
   // human research queue — all researches progress concurrently
   if(upgradeQueue.length){
     const h=hum();
@@ -3037,10 +3183,11 @@ function render(){
   if(showAllyHeat)drawHeatOverlay('ally');
   if(showHeat)drawHeatOverlay('foe');
   if(showThreat)drawThreatOverlay();
-  drawDeposits();drawConstructions();
+  drawDeposits();drawConstructions();drawWildlife('ground');
   for(const u of units)if(u.hp>0)drawAttackRing(u);
   drawPaths();drawProjs();
   for(const u of units)if(u.hp>0)drawUnit(u);
+  drawWildlife('air');
   drawExplosions();drawAirstrikeEffects();drawAirstrikeTargeting();drawPings();
   drawAIOverlay();
   drawBoxSel();drawBuildGhost();
@@ -4065,7 +4212,7 @@ function startGame(){
   window._pendingMortarTarget=null;sidePanelCd=0;_selPanelSig=null;
   pendingAirstrike=false;baseSelected=false;
   setPaused(false);gameSpeed=1;{const b=document.getElementById('speed-btn');if(b){b.textContent='1×';b.classList.remove('active');}}
-  generateMap();placeDeposits();placePerimeterTowers();spawnStartUnits();
+  generateMap();placeDeposits();placePerimeterTowers();spawnStartUnits();spawnWildlife();
   gameStarted=true;
   inspectId=-1;document.getElementById('cmdr-panel')?.classList.remove('open');
   resizeCanvas();initCamera();buildPchips();updateHud();updateSidePanel();updateSelPanel();
