@@ -91,6 +91,8 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
   letter-spacing:.06em;padding:4px 8px;border-radius:20px;background:var(--accent);color:#1d1712}
 .card .pct{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:.66rem;font-weight:600;
   padding:4px 9px;border-radius:20px;background:rgba(10,10,9,.62);color:#fff;backdrop-filter:blur(4px)}
+.card .src{position:absolute;bottom:8px;left:8px;font-family:var(--mono);font-size:.52rem;letter-spacing:.09em;
+  text-transform:uppercase;padding:3px 8px;border-radius:20px;background:rgba(10,10,9,.58);color:rgba(255,255,255,.9);backdrop-filter:blur(4px)}
 .card .body{padding:14px 15px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
 .card .body h3{font-family:var(--disp);font-weight:520;font-size:1.05rem;line-height:1.15;letter-spacing:-.01em}
 .card .body .meta{font-family:var(--mono);font-size:.62rem;letter-spacing:.03em;color:var(--dim);line-height:1.5}
@@ -126,8 +128,8 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
   <div class="head">
     <h1>Art <em>Match</em></h1>
     <p>Drop, upload, or paste any image. It reads the palette and composition, then finds
-       paintings from the Art Institute of Chicago that share the same look. No AI captions &mdash;
-       just color and layout, measured in the browser.</p>
+       public-domain paintings &mdash; from the Art Institute of Chicago and Wikimedia Commons &mdash;
+       that share the same look. No AI captions, just color and layout measured in the browser.</p>
   </div>
 
   <div class="layout">
@@ -179,7 +181,8 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
         <div class="empty">Your matches will appear here.<br>Try a landscape photo, a screenshot, or a favorite painting.</div>
       </div>
       <div class="credit">
-        Artwork data &amp; images &mdash; <a href="https://api.artic.edu/docs/" target="_blank" rel="noopener">Art Institute of Chicago API</a> (CC0 / public domain).
+        Artwork data &amp; images &mdash; <a href="https://api.artic.edu/docs/" target="_blank" rel="noopener">Art Institute of Chicago API</a>
+        and <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> (public domain).
         All analysis runs locally in your browser; your image is never uploaded.
       </div>
     </div>
@@ -198,10 +201,12 @@ try{var clk=document.getElementById('clock');var t=function(){clk.textContent=ne
 const GRID = 5;              // NxN composition grid
 const SAMPLE = 72;           // px the input is downscaled to for palette
 const N_PALETTE = 5;         // dominant colors
-const FETCH_LIMIT = 55;      // candidates pulled from the API
-const ANALYZE_TOP = 24;      // candidates we actually pixel-analyze
-const SHOW = 8;              // results shown
+const FETCH_LIMIT = 55;      // AIC candidates pulled per color query
+const ANALYZE_TOP = 22;      // AIC candidates we keep after color pre-rank
+const COMMONS_POOL = 48;     // Wikimedia paintings pulled per search
+const SHOW = 12;             // results shown
 const IIIF = 'https://www.artic.edu/iiif/2';
+const COMMONS_CAT = 'Google Art Project paintings';
 
 const $ = id => document.getElementById(id);
 const drop=$('drop'), fileInput=$('file'), preview=$('preview'),
@@ -342,7 +347,7 @@ function hueClauses(h,spread){
   return [{bool:{should:[{range:{'color.h':{gte:lo,lte:360}}},{range:{'color.h':{gte:0,lte:hi}}}],minimum_should_match:1}}];
 }
 
-async function fetchCandidates(){
+async function fetchAIC(){
   const fields=['id','title','artist_title','date_display','image_id','color','thumbnail'];
   const base=[{exists:{field:'image_id'}},{exists:{field:'color'}},{term:{is_public_domain:true}}];
   // chromatic palette colors, most-saturated first
@@ -372,8 +377,15 @@ async function fetchCandidates(){
   }
   return [...seen.values()];
 }
+function aicDisplay(a){
+  return {source:'aic',sourceLabel:'Art Institute',
+    title:a.title||'Untitled',artist:a.artist_title||'Unknown artist',date:a.date_display||'',
+    link:`https://www.artic.edu/artworks/${a.id}`,
+    imgSrc:`${IIIF}/${a.image_id}/full/400,/0/default.jpg`,
+    fallback:(a.thumbnail&&a.thumbnail.lqip)||''};
+}
 
-/* pre-rank by API color metadata (cheap) so we only pixel-analyze the best */
+/* pre-rank AIC by API color metadata (cheap) so we only analyze the best */
 function prerank(cands){
   const ip=inputFeatures.palette[0].lab;     // dominant input color
   const sec=inputFeatures.palette[1]?inputFeatures.palette[1].lab:ip;
@@ -391,47 +403,81 @@ function hsl2rgb(h,s,l){
   return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
 }
 
-/* Analyze the base64 `thumbnail.lqip` placeholder embedded in the API JSON.
-   It's a data: URI — same-origin, so the canvas is never tainted (unlike the
-   cross-origin IIIF images, whose CDN serves CORS headers unreliably). Tiny,
-   but enough for a dominant palette + coarse composition, and needs no network. */
+/* ── Wikimedia Commons: a live pool of public-domain paintings ───────
+   Commons has no color search, so we pull a randomized batch of famous
+   paintings and analyze the REAL image (upload.wikimedia.org sends CORS
+   headers, so the canvas is readable) — true palette + composition. */
+async function fetchCommons(){
+  const url='https://commons.wikimedia.org/w/api.php?'+new URLSearchParams({
+    action:'query',format:'json',origin:'*',
+    generator:'search',gsrsearch:`incategory:"${COMMONS_CAT}"`,
+    gsrnamespace:'6',gsrlimit:String(COMMONS_POOL),gsrsort:'random',
+    prop:'imageinfo',iiprop:'url|extmetadata',iiurlwidth:'340'
+  });
+  const res=await fetch(url).then(r=>r.json()).catch(()=>null);
+  const pages=res&&res.query&&res.query.pages;
+  if(!pages)return [];
+  const strip=v=>v?String(v.value).replace(/<[^>]+>/g,'').replace(/\s+/g,' ').trim():'';
+  const items=[];
+  for(const k in pages){
+    const p=pages[k],ii=p.imageinfo&&p.imageinfo[0];
+    if(!ii||!ii.thumburl)continue;
+    const em=ii.extmetadata||{};
+    const title=p.title.replace(/^File:/,'').replace(/\.[^.]+$/,'')
+      .replace(/\s*-\s*Google Art Project.*$/i,'').replace(/_/g,' ').trim();
+    items.push({thumburl:ii.thumburl,_display:{
+      source:'commons',sourceLabel:'Wikimedia',
+      title:title||'Untitled',artist:strip(em.Artist)||'Unknown artist',date:strip(em.DateTimeOriginal),
+      link:`https://commons.wikimedia.org/wiki/${encodeURIComponent(p.title)}`,
+      imgSrc:ii.thumburl,fallback:''}});
+  }
+  return items;
+}
+
 const anaCanvas=document.createElement('canvas');
 const anaCtx=anaCanvas.getContext('2d',{willReadFrequently:true});
+function featuresFromImage(img){
+  anaCanvas.width=SAMPLE;anaCanvas.height=SAMPLE;anaCtx.imageSmoothingEnabled=true;
+  anaCtx.drawImage(img,0,0,SAMPLE,SAMPLE);
+  return extractFeatures(anaCtx,SAMPLE,SAMPLE);
+}
+/* AIC: analyze the base64 thumbnail.lqip data-URI (same-origin, always
+   readable — the full IIIF images serve CORS headers unreliably). Coarse
+   but reliable; falls back to the single dominant color if absent. */
 function analyzeArtwork(a){
   return new Promise(resolve=>{
+    const done=f=>resolve(f&&{...a,...f,_display:aicDisplay(a)});
     const lqip=a.thumbnail&&a.thumbnail.lqip;
-    if(!lqip){resolve(fallbackFeatures(a));return;}
+    if(!lqip){done(fallbackFeatures(a));return;}
     const img=new Image();
-    img.onload=()=>{
-      try{
-        anaCanvas.width=SAMPLE;anaCanvas.height=SAMPLE;
-        anaCtx.imageSmoothingEnabled=true;
-        anaCtx.drawImage(img,0,0,SAMPLE,SAMPLE);
-        resolve({...a,...extractFeatures(anaCtx,SAMPLE,SAMPLE)});
-      }catch(e){resolve(fallbackFeatures(a));}
-    };
-    img.onerror=()=>resolve(fallbackFeatures(a));
+    img.onload=()=>{try{done(featuresFromImage(img));}catch(e){done(fallbackFeatures(a));}};
+    img.onerror=()=>done(fallbackFeatures(a));
     img.src=lqip;
   });
 }
-/* no usable placeholder → score on the API's single dominant color only */
 function fallbackFeatures(a){
   if(!a.color)return null;
   const rgb=hsl2rgb(a.color.h,a.color.s,a.color.l), lab=rgb2lab(...rgb);
-  return {...a,
-    grid:Array(GRID*GRID).fill(lab),
+  return {grid:Array(GRID*GRID).fill(lab),
     palette:[{rgb,lab,hsl:[a.color.h,a.color.s,a.color.l],w:1}],
     stats:{lightness:lab[0],saturation:a.color.s,warmth:lab[1],contrast:0}};
 }
-async function analyzeAll(cands,onProgress){
-  const out=[];let done=0;
-  const BATCH=6;
+/* Commons: analyze the real cross-origin image (readable → full detail). */
+function analyzeCommons(a){
+  return new Promise(resolve=>{
+    const img=new Image();img.crossOrigin='anonymous';
+    img.onload=()=>{try{resolve({...a,...featuresFromImage(img)});}catch(e){resolve(null);}};
+    img.onerror=()=>resolve(null);
+    img.src=a.thumburl;
+  });
+}
+async function analyzeBatch(cands,fn,tick,BATCH=8){
+  const out=[];
   for(let i=0;i<cands.length;i+=BATCH){
-    const batch=await Promise.all(cands.slice(i,i+BATCH).map(analyzeArtwork));
-    for(const r of batch)if(r)out.push(r);
-    done+=batch.length;onProgress(done/cands.length);
+    const batch=await Promise.all(cands.slice(i,i+BATCH).map(fn));
+    for(const r of batch){out.push(r);tick&&tick();}
   }
-  return out;
+  return out.filter(Boolean);
 }
 
 /* ── run ─────────────────────────────────────────────────────────── */
@@ -440,24 +486,23 @@ async function run(){
   busy=true;goBtn.disabled=true;resultsEl.innerHTML='';
   progbar.classList.add('show');progInner.style.width='0%';
   try{
-    setStatus('Searching the collection by color&hellip;');
-    const cands=await fetchCandidates();
-    if(!cands.length){
-      setStatus('');resultsEl.innerHTML='<div class="empty">No candidates came back. Try a different image.</div>';
-      return;
-    }
-    const top=prerank(cands);
-    setStatus(`Analyzing ${top.length} artworks&hellip;`);
-    const analyzed=await analyzeAll(top,p=>progInner.style.width=(p*100).toFixed(0)+'%');
+    setStatus('Searching by color across collections&hellip;');
+    const [aicCands,commonsItems]=await Promise.all([fetchAIC(),fetchCommons()]);
+    const aicTop=prerank(aicCands);
+    const total=aicTop.length+commonsItems.length;
+    if(!total){setStatus('');resultsEl.innerHTML='<div class="empty">No candidates came back. Try another image.</div>';return;}
+    let done=0;const tick=()=>{progInner.style.width=(++done/total*100).toFixed(0)+'%';};
+    setStatus(`Analyzing ${total} paintings — color &amp; composition&hellip;`);
+    const [aicF,commonsF]=await Promise.all([
+      analyzeBatch(aicTop,analyzeArtwork,tick),
+      analyzeBatch(commonsItems,analyzeCommons,tick)
+    ]);
+    const all=[...aicF,...commonsF];
+    if(!all.length){setStatus('');resultsEl.innerHTML='<div class="empty">Could not analyze any candidates. Try again.</div>';return;}
     const wColor=(100-(+weightEl.value))/100, wComp=(+weightEl.value)/100;
-    analyzed.forEach(c=>{
-      const s=score(c);
-      c._colorSim=s.colorSim;c._compSim=s.compSim;
-      c._final=wColor*s.colorSim+wComp*s.compSim;
-    });
-    analyzed.sort((a,b)=>b._final-a._final);
-    render(analyzed.slice(0,SHOW));
-    setStatus(`Top ${Math.min(SHOW,analyzed.length)} of ${cands.length} candidates.`);
+    all.forEach(c=>{const s=score(c);c._colorSim=s.colorSim;c._compSim=s.compSim;c._final=wColor*s.colorSim+wComp*s.compSim;});
+    render(pickResults(all));
+    setStatus(`Top ${Math.min(SHOW,all.length)} of ${all.length} &mdash; <b>${aicF.length}</b> Art Institute, <b>${commonsF.length}</b> Wikimedia.`);
   }catch(e){
     console.error(e);setStatus('Something went wrong — try again.');
   }finally{
@@ -466,29 +511,47 @@ async function run(){
 }
 function setStatus(html){statusEl.innerHTML=html;}
 
+/* rank by score, but guarantee both sources appear (AIC's coarse placeholder
+   features score lower than Wikimedia's full-image ones, so reserve a few slots) */
+function pickResults(all){
+  all.sort((a,b)=>b._final-a._final);
+  const MINP=3, by={aic:[],commons:[]};
+  all.forEach(c=>by[c._display.source].push(c));
+  const picked=new Set();
+  for(const s of ['aic','commons'])by[s].slice(0,MINP).forEach(c=>picked.add(c));
+  for(const c of all){if(picked.size>=SHOW)break;picked.add(c);}
+  return [...picked].sort((a,b)=>b._final-a._final).slice(0,SHOW);
+}
+
 function render(list){
   if(!list.length){resultsEl.innerHTML='<div class="empty">No matches found.</div>';return;}
   resultsEl.innerHTML='';
   list.forEach((c,i)=>{
+    const d=c._display;
     const pct=Math.round(c._final*100);
     const col=Math.round(c._colorSim*100), comp=Math.round(c._compSim*100);
+    const dom=c.palette&&c.palette[0]?`rgb(${c.palette[0].rgb.join(',')})`:'#0e0d0b';
     const el=document.createElement('a');
-    el.className='card';el.href=`https://www.artic.edu/artworks/${c.id}`;
-    el.target='_blank';el.rel='noopener';
-    el.style.animationDelay=(i*45)+'ms';
+    el.className='card';el.href=d.link;el.target='_blank';el.rel='noopener';
+    el.style.animationDelay=(i*40)+'ms';
     el.innerHTML=`
-      <div class="imgwrap">
+      <div class="imgwrap" style="background:${dom}">
         <span class="rank">#${i+1}</span><span class="pct">${pct}%</span>
-        <img loading="lazy" src="${IIIF}/${c.image_id}/full/400,/0/default.jpg" alt="${escapeHtml(c.title||'')}">
+        <span class="src">${escapeHtml(d.sourceLabel)}</span>
+        <img loading="lazy" ${d.source==='commons'?'crossorigin="anonymous"':''} src="${escapeHtml(d.imgSrc)}" alt="${escapeHtml(d.title)}">
       </div>
       <div class="body">
-        <h3>${escapeHtml(c.title||'Untitled')}</h3>
-        <div class="meta">${escapeHtml(c.artist_title||'Unknown artist')}${c.date_display?' &middot; '+escapeHtml(c.date_display):''}</div>
+        <h3>${escapeHtml(d.title)}</h3>
+        <div class="meta">${escapeHtml(d.artist)}${d.date?' &middot; '+escapeHtml(d.date):''}</div>
         <div class="breakdown">
           <div class="bd-row"><span>Color</span><span class="track color"><i style="width:${col}%"></i></span><span class="v">${col}</span></div>
           <div class="bd-row"><span>Comp</span><span class="track comp"><i style="width:${comp}%"></i></span><span class="v">${comp}</span></div>
         </div>
       </div>`;
+    // robust preview: on load error, fall back to the placeholder, else reveal the dominant-color tile
+    const im=el.querySelector('img');
+    if(d.fallback)im._fb=d.fallback;
+    im.addEventListener('error',()=>{if(im._fb){im.src=im._fb;im._fb=null;}else im.style.display='none';});
     resultsEl.appendChild(el);
   });
 }
