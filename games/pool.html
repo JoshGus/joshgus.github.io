@@ -338,8 +338,8 @@ a.mini:hover{color:#ccf73f}
     <h2>How to play</h2>
     <div class="sub" style="margin-bottom:16px">Aim · Power · Spin · Shoot</div>
     <div class="help-list">
-      <b>Aim</b> — move your pointer over the table, or drag back from the cue ball.<br>
-      <b>Power</b> — drag the power bar (or the pull-back distance).<br>
+      <b>Aim</b> — drag on the table to set the angle, or drag back from the cue ball.<br>
+      <b>Power</b> — drag the power bar (or drag back further from the cue ball).<br>
       <b>Spin</b> — drag the dot on the white ball for follow / draw / english.<br>
       <b>Shoot</b> — fire the shot. <b>Cancel</b> resets power without shooting.<br>
       Arrow keys nudge the aim; <b>Space</b> shoots.
@@ -548,7 +548,7 @@ let feltPattern=null;
 (function buildFelt(){
   var o=document.createElement('canvas');o.width=W;o.height=H;var g=o.getContext('2d');
   var grad=g.createRadialGradient(CXt,CYt,60,CXt,CYt,W*0.62);
-  grad.addColorStop(0,'#1a7d46');grad.addColorStop(0.6,'#136437');grad.addColorStop(1,'#0d4c29');
+  grad.addColorStop(0,'#1c8a4d');grad.addColorStop(0.6,'#167a41');grad.addColorStop(1,'#106235');
   g.fillStyle=grad;g.fillRect(0,0,W,H);
   // faint nap speckle
   var r=prng(12345);
@@ -572,7 +572,11 @@ function drawTable(){
   // felt inset shadow
   ctx.strokeStyle='rgba(0,0,0,.28)';ctx.lineWidth=3;
   ctx.strokeRect(PL-2,PT-2,PR-PL+4,PB-PT+4);
-  // cushions (bevelled dark-green nose)
+  // cushion base band (lighter, distinct from felt) framing the play area
+  ctx.fillStyle='#0a3d22';
+  ctx.fillRect(PL-8,PT-8,PR-PL+16,8); ctx.fillRect(PL-8,PB,PR-PL+16,8);
+  ctx.fillRect(PL-8,PT,8,PB-PT); ctx.fillRect(PR,PT,8,PB-PT);
+  // cushions (bevelled nose)
   drawCushions();
   // sights (diamonds)
   drawSights();
@@ -585,9 +589,9 @@ function drawTable(){
   ctx.fillStyle='rgba(255,255,255,.12)';ctx.beginPath();ctx.arc(FOOT_X,CYt,2.2,0,TAU);ctx.fill();
 }
 function drawCushions(){
-  ctx.fillStyle='#0e5a30';
+  ctx.fillStyle='#2aa15c';
   // four rails drawn as thin bands just inside the felt edge, broken at mouths
-  var t=6;
+  var t=7;
   // top & bottom
   ctx.fillRect(PL+MOUTH_C,PT-t,CXt-MOUTH_S-(PL+MOUTH_C),t);
   ctx.fillRect(CXt+MOUTH_S,PT-t,(PR-MOUTH_C)-(CXt+MOUTH_S),t);
@@ -663,27 +667,44 @@ function drawAimAndCue(){
   }
   var dir=aim.dir, dx=Math.cos(dir), dy=Math.sin(dir);
   var pred=predictShot(c.x,c.y,dx,dy);
+  var DIAGP=hypot(PR-PL,PB-PT);
+  var v0=MAXV*Math.max(aim.power,0);
+  // always-visible short direction guide from the cue
+  ctx.strokeStyle='rgba(255,255,255,.3)';ctx.lineWidth=1;
+  ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+dx*36,c.y+dy*36);ctx.stroke();
   if(showAssist){
-    // aim line to contact
-    ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.4;ctx.setLineDash([7,6]);
-    ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(pred.hx,pred.hy);ctx.stroke();ctx.setLineDash([]);
     if(pred.type==='ball'){
-      // ghost ball
+      // aim line to the contact point
+      ctx.strokeStyle='rgba(255,255,255,.5)';ctx.lineWidth=1.4;ctx.setLineDash([7,6]);
+      ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(pred.hx,pred.hy);ctx.stroke();ctx.setLineDash([]);
+      // ghost ball at contact
       ctx.strokeStyle='rgba(255,255,255,.6)';ctx.lineWidth=1;
       ctx.beginPath();ctx.arc(pred.hx,pred.hy,R,0,TAU);ctx.stroke();
-      // object projected line
-      ctx.strokeStyle='rgba(255,240,150,.55)';ctx.lineWidth=1.6;
-      ctx.beginPath();ctx.moveTo(pred.ox,pred.oy);
-      ctx.lineTo(pred.ox+pred.odx*46,pred.oy+pred.ody*46);ctx.stroke();
+      // object projected travel — length scales with power & cut angle
+      var vc2=Math.max(0, v0*v0 - 2*ROLL_DECEL*pred.dist);
+      var dot=Math.max(0, dx*pred.odx+dy*pred.ody);
+      var vobj=Math.sqrt(vc2)*dot;
+      var objLen=clamp(vobj*vobj/(2*ROLL_DECEL),0,DIAGP*1.25);
+      if(objLen>2){
+        var ex2=pred.ox+pred.odx*objLen, ey2=pred.oy+pred.ody*objLen;
+        ctx.strokeStyle='rgba(255,240,150,.65)';ctx.lineWidth=1.8;
+        ctx.beginPath();ctx.moveTo(pred.ox,pred.oy);ctx.lineTo(ex2,ey2);ctx.stroke();
+        ctx.fillStyle='rgba(255,240,150,.7)';ctx.beginPath();ctx.arc(ex2,ey2,2.3,0,TAU);ctx.fill();
+      }
     } else {
-      // reflection stub
-      ctx.strokeStyle='rgba(255,255,255,.25)';ctx.lineWidth=1;ctx.setLineDash([4,5]);
-      ctx.beginPath();ctx.moveTo(pred.hx,pred.hy);
-      ctx.lineTo(pred.hx+pred.rdx*44,pred.hy+pred.rdy*44);ctx.stroke();ctx.setLineDash([]);
+      // no ball in the way — cue rolls until friction stops it (scales with power)
+      var stop=clamp(v0*v0/(2*ROLL_DECEL),0,DIAGP*2);
+      ctx.setLineDash([6,6]);ctx.strokeStyle='rgba(255,255,255,.42)';ctx.lineWidth=1.3;
+      if(stop<=pred.dist){
+        ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+dx*stop,c.y+dy*stop);ctx.stroke();
+      } else {
+        ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(pred.hx,pred.hy);ctx.stroke();
+        var rem=Math.min(stop-pred.dist,DIAGP);
+        ctx.strokeStyle='rgba(255,255,255,.28)';
+        ctx.beginPath();ctx.moveTo(pred.hx,pred.hy);ctx.lineTo(pred.hx+pred.rdx*rem,pred.hy+pred.rdy*rem);ctx.stroke();
+      }
+      ctx.setLineDash([]);
     }
-  } else {
-    ctx.strokeStyle='rgba(255,255,255,.35)';ctx.lineWidth=1.2;
-    ctx.beginPath();ctx.moveTo(c.x,c.y);ctx.lineTo(c.x+dx*54,c.y+dy*54);ctx.stroke();
   }
   // cue stick (pulled back by power)
   var pull=8+aim.power*46;
@@ -795,11 +816,19 @@ function onShotComplete(){
   if(curResolver) curResolver(shot);
 }
 
+/* point the cue at the nearest object ball so there's a sensible starting angle */
+function setDefaultAim(){
+  var c=cueBall(); if(!c)return;
+  var a=activeBalls(), best=null, bd=1e9;
+  for(var i=0;i<a.length;i++){var b=a[i]; if(b.n===0)continue;
+    var d=hypot(b.x-c.x,b.y-c.y); if(d<bd){bd=d;best=b;}}
+  aim.dir=best?Math.atan2(best.y-c.y,best.x-c.x):Math.atan2(CYt-c.y,CXt-c.x);
+}
 /* begin a human's aiming turn */
 function beginTurnInput(){
   interaction=true; aim.canShoot=true; aim.ballInHand=false;
   aim.power=0; aim.spin={x:0,y:0};
-  updatePowerUI(); updateSpinUI(); enableControls(true);
+  updatePowerUI(); updateSpinUI(); enableControls(true); setDefaultAim();
 }
 function attemptShoot(){
   if(!interaction||animating||aim.ballInHand)return;
@@ -841,7 +870,7 @@ function legalCuePos(p){
 function finishBallInHand(){
   aim.ballInHand=false; toast('');
   interaction=true; aim.canShoot=true; aim.power=0; aim.spin={x:0,y:0};
-  updatePowerUI(); updateSpinUI(); enableControls(true);
+  updatePowerUI(); updateSpinUI(); enableControls(true); setDefaultAim();
 }
 
 /* ── pointer handling ── */
@@ -872,8 +901,6 @@ function canvasMove(cx,cy){
     aim.power=clamp(dist/(R*15),0,1); updatePowerUI();
   } else if(dragMode==='aim'&&pDown){
     aim.dir=Math.atan2(p.y-c.y,p.x-c.x);
-  } else if(!pDown){
-    aim.dir=Math.atan2(p.y-c.y,p.x-c.x);   // desktop hover-aim
   }
 }
 function canvasUp(){
@@ -971,7 +998,7 @@ function startDaily(){
   CAP_C=R*1.72; CAP_S=R*1.5; ROLL_DECEL=340; showAssist=true;
   syncDay(); buildDailyBoard();
   curResolver=resolveDaily; game=null; lastShot=null;
-  showChrome(['hud','chip-left','menu-btn2','restart-btn','controls']);
+  showChrome(['hud','menu-btn2','restart-btn','controls']);
   fitCanvas(); updateDailyHUD();
   var best=getDailyBest(SEED);
   if(best){ toast('Best today: '+best.s+'/7'+(best.w?' ✓':''),2400); }
@@ -980,19 +1007,17 @@ function startDaily(){
 
 function updateDailyHUD(){
   var gName=daily.group==='solid'?'Solids':'Stripes';
+  var best=getDailyBest(SEED);
   el('hud-main').innerHTML=
     '<button class="day-btn" id="btn-prev">‹</button>'+
     '<span id="hud-date">'+dateStr+'</span>'+
     '<button class="day-btn" id="btn-next">›</button>'+
     '<span class="sep"></span>'+
-    '<span class="grouptag">'+gName+'</span>'+
+    '<span class="sl">YOUR GROUP</span> <span class="grouptag">'+gName+'</span>'+
     '<span class="sep"></span>'+
-    '<span><span class="sv">'+daily.score+'</span> <span class="sl">/7 POTTED</span></span>';
-  var best=getDailyBest(SEED);
-  var chip=el('chip-left');
-  chip.classList.remove('hidden');
-  chip.innerHTML='Your group<span class="big">'+gName+'</span>'+
-    (best?'<div style="margin-top:6px;font-size:.5rem;opacity:.7">BEST '+best.s+'/7'+(best.w?' ✓':'')+'</div>':'');
+    '<span><span class="sv">'+daily.score+'</span> <span class="sl">/7 POTTED</span></span>'+
+    (best?'<span class="sep"></span><span class="dv">BEST '+best.s+'/7'+(best.w?' ✓':'')+'</span>':'');
+  el('chip-left').classList.add('hidden');
   el('btn-next').disabled=(dayOffset>=0);
   el('btn-prev').onclick=function(){dayOffset--;startDaily();};
   el('btn-next').onclick=function(){if(dayOffset<0){dayOffset++;startDaily();}};
@@ -1530,14 +1555,15 @@ function showAIReview(pl,dec){
 
 /* ═══════════════════════ BOOT ═══════════════════════ */
 function maybeTutorial(){
+  if(location.hash.indexOf('notut')>=0)return;
   try{ if(!localStorage.getItem('pool_seen')){ el('help').classList.remove('hidden'); localStorage.setItem('pool_seen','1'); } }catch(e){}
 }
 var _startDaily=startDaily, _startClassic=startClassic;
 startDaily=function(){_startDaily();maybeTutorial();};
 startClassic=function(){_startClassic();maybeTutorial();};
 
-if(location.hash==='#daily') startDaily();
-else if(location.hash==='#classic') openSetup();
+if(location.hash.indexOf('daily')>=0) startDaily();
+else if(location.hash.indexOf('classic')>=0) openSetup();
 else openMenu();
 fitCanvas();
 </script>
