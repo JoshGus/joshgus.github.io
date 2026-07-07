@@ -235,6 +235,28 @@ const POOL_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;he
   <line x1="58" y1="60" x2="18" y2="60" stroke="#caa25e" stroke-width="3" stroke-linecap="round"/>
 </svg>`;
 
+const ARTMATCH_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" xmlns="http://www.w3.org/2000/svg">
+  <!-- source frame -->
+  <rect x="14" y="30" width="56" height="60" rx="3" fill="#1c1916" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+  <rect x="20" y="36" width="44" height="30" fill="#c86a3a"/>
+  <rect x="20" y="66" width="44" height="18" fill="#3a6ea5"/>
+  <circle cx="34" cy="50" r="6" fill="#f0c419"/>
+  <!-- palette dots being read -->
+  <circle cx="88" cy="42" r="4" fill="#c86a3a"/>
+  <circle cx="88" cy="56" r="4" fill="#3a6ea5"/>
+  <circle cx="88" cy="70" r="4" fill="#f0c419"/>
+  <!-- match arrow -->
+  <path d="M100 56 h18" stroke="#ccf73f" stroke-width="2" stroke-linecap="round"/>
+  <path d="M113 51 l6 5 -6 5" fill="none" stroke="#ccf73f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- matched frames -->
+  <rect x="128" y="24" width="52" height="40" rx="3" fill="#1c1916" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+  <rect x="133" y="29" width="42" height="18" fill="#cf7440"/>
+  <rect x="133" y="47" width="42" height="12" fill="#3f74aa"/>
+  <rect x="128" y="72" width="52" height="34" rx="3" fill="#1c1916" stroke="rgba(255,255,255,.12)" stroke-width="1"/>
+  <rect x="133" y="77" width="42" height="14" fill="#bf6338"/>
+  <rect x="133" y="91" width="42" height="10" fill="#356699"/>
+</svg>`;
+
 export const CARDS = [
   {
     id: 'pool',
@@ -327,6 +349,21 @@ export const CARDS = [
     stack: ['Canvas', 'JS'],
     category: 'component',
     ctaFull: 'Open sim',
+    ctaShort: 'Open'
+  },
+  {
+    id: 'art-match',
+    type: 'game',
+    title: 'Art Match',
+    descShort: 'Drop an image, find paintings with the same palette and composition.',
+    descFull: 'Paste, drop, or upload any image. It reads the dominant palette and 5×5 composition in the browser, then finds public-domain paintings from the Art Institute of Chicago that share the same look. Slide between color and composition weighting.',
+    href: 'art-match.html',
+    thumbBg: 'linear-gradient(160deg,#1a1512,#2a1f18)',
+    thumbSvg: ARTMATCH_SVG,
+    stack: ['Canvas', 'AIC API', 'JS'],
+    category: 'component',
+    credit: 'Data & images from the <a href="https://api.artic.edu/docs/" target="_blank" rel="noopener">Art Institute of Chicago API</a>',
+    ctaFull: 'Open',
     ctaShort: 'Open'
   },
   {

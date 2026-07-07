@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Art Match &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<script src="../dark-mode.js"></script>
+<style>
+body{background:var(--bg);color:var(--fg);font-family:var(--body);min-height:100vh;
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.wrap{flex:1;width:100%;max-width:1180px;margin:0 auto;
+  padding:clamp(28px,5vw,56px) clamp(18px,4vw,40px) 90px}
+.head h1{font-family:var(--disp);font-weight:460;font-size:clamp(2.2rem,6vw,3.6rem);
+  line-height:.92;letter-spacing:-.03em}
+.head h1 em{font-style:italic;color:var(--accent-ink)}
+.head p{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;color:var(--dim);
+  margin-top:14px;max-width:64ch;line-height:1.7}
+
+.layout{display:grid;grid-template-columns:minmax(300px,380px) 1fr;gap:clamp(28px,4vw,52px);
+  margin-top:clamp(28px,4vw,44px);align-items:start}
+@media(max-width:820px){.layout{grid-template-columns:1fr}}
+
+/* ── input side ─────────────────────────────────────── */
+.side{position:sticky;top:16px;display:flex;flex-direction:column;gap:18px}
+@media(max-width:820px){.side{position:static}}
+
+.drop{position:relative;border:1.5px dashed var(--line-strong);border-radius:16px;
+  background:var(--surface);min-height:280px;display:grid;place-items:center;
+  text-align:center;padding:28px;cursor:pointer;transition:.2s;overflow:hidden}
+.drop:hover,.drop.over{border-color:var(--accent-ink);background:color-mix(in srgb,var(--accent) 8%,var(--surface))}
+.drop.has-img{cursor:default;padding:0;border-style:solid}
+.drop .prompt{display:flex;flex-direction:column;gap:12px;align-items:center;pointer-events:none}
+.drop .prompt svg{opacity:.5}
+.drop .prompt b{font-family:var(--disp);font-weight:520;font-size:1.2rem}
+.drop .prompt span{font-family:var(--mono);font-size:.66rem;letter-spacing:.08em;color:var(--dim);line-height:1.7}
+.drop.has-img .prompt{display:none}
+#preview{display:none;width:100%;max-height:420px;object-fit:contain;background:#0e0d0b}
+.drop.has-img #preview{display:block}
+.reset-btn{position:absolute;top:10px;right:10px;z-index:3;display:none;
+  font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:6px 11px;border-radius:30px;border:1px solid rgba(255,255,255,.35);
+  background:rgba(10,10,9,.55);color:#fff;backdrop-filter:blur(4px);cursor:pointer}
+.drop.has-img .reset-btn{display:block}
+
+button,.btn{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:12px 18px;border:1px solid var(--line-strong);border-radius:30px;background:transparent;
+  color:var(--fg);cursor:pointer;transition:.2s}
+button:hover:not(:disabled){border-color:var(--accent-ink);color:var(--accent-ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712;font-weight:500}
+button.primary:hover:not(:disabled){filter:brightness(1.05);color:#1d1712}
+button:disabled{opacity:.4;cursor:not-allowed}
+
+.controls{display:flex;flex-direction:column;gap:16px}
+.weight{font-family:var(--mono);font-size:.62rem;letter-spacing:.08em;color:var(--dim)}
+.weight .lbl{display:flex;justify-content:space-between;margin-bottom:8px;text-transform:uppercase}
+.weight .lbl b{color:var(--accent-ink);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
+
+/* extracted fingerprint */
+.finger{display:none;flex-direction:column;gap:12px;border-top:1px solid var(--line);padding-top:16px}
+.finger.show{display:flex}
+.finger .cap{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.pal{display:flex;height:34px;border-radius:8px;overflow:hidden;border:1px solid var(--line)}
+.pal>span{flex:1}
+.fpgrid{display:grid;grid-template-columns:repeat(5,1fr);gap:2px;width:90px;border-radius:6px;overflow:hidden}
+.fpgrid>span{aspect-ratio:1}
+.stats{display:flex;gap:14px;flex-wrap:wrap;font-family:var(--mono);font-size:.62rem;color:var(--dim)}
+.stats b{color:var(--fg);font-weight:600}
+
+/* ── results side ───────────────────────────────────── */
+.status-line{font-family:var(--mono);font-size:.68rem;letter-spacing:.06em;color:var(--dim);
+  min-height:20px;display:flex;align-items:center;gap:10px}
+.status-line b{color:var(--accent-ink)}
+.bar{flex:1;max-width:180px;height:4px;border-radius:3px;background:var(--line);overflow:hidden;display:none}
+.bar.show{display:block}
+.bar>i{display:block;height:100%;width:0;background:var(--accent-ink);transition:width .25s}
+
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:clamp(16px,2vw,24px);margin-top:22px}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden;
+  display:flex;flex-direction:column;text-decoration:none;color:inherit;
+  transition:transform .35s cubic-bezier(.2,.7,.3,1),border-color .35s,box-shadow .35s;opacity:0;animation:pop .5s forwards}
+@keyframes pop{to{opacity:1}}
+.card:hover{transform:translateY(-6px);border-color:var(--line-strong);box-shadow:0 18px 36px -22px rgba(29,23,18,.4)}
+.card .imgwrap{position:relative;background:#0e0d0b;aspect-ratio:1;display:grid;place-items:center;overflow:hidden}
+.card .imgwrap img{width:100%;height:100%;object-fit:cover}
+.card .rank{position:absolute;top:8px;left:8px;font-family:var(--mono);font-size:.6rem;font-weight:600;
+  letter-spacing:.06em;padding:4px 8px;border-radius:20px;background:var(--accent);color:#1d1712}
+.card .pct{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:.66rem;font-weight:600;
+  padding:4px 9px;border-radius:20px;background:rgba(10,10,9,.62);color:#fff;backdrop-filter:blur(4px)}
+.card .body{padding:14px 15px 16px;display:flex;flex-direction:column;gap:8px;flex:1}
+.card .body h3{font-family:var(--disp);font-weight:520;font-size:1.05rem;line-height:1.15;letter-spacing:-.01em}
+.card .body .meta{font-family:var(--mono);font-size:.62rem;letter-spacing:.03em;color:var(--dim);line-height:1.5}
+.breakdown{margin-top:auto;display:flex;flex-direction:column;gap:6px}
+.bd-row{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.56rem;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--dim)}
+.bd-row .track{flex:1;height:3px;border-radius:3px;background:var(--line);overflow:hidden}
+.bd-row .track>i{display:block;height:100%;border-radius:3px}
+.bd-row .track.color>i{background:#d97b3a}
+.bd-row .track.comp>i{background:#4a86c4}
+.bd-row .v{width:30px;text-align:right;color:var(--fg)}
+
+.empty{grid-column:1/-1;font-family:var(--mono);font-size:.72rem;color:var(--dim);
+  border:1px dashed var(--line);border-radius:14px;padding:44px 24px;text-align:center;line-height:1.8}
+.credit{margin-top:38px;font-family:var(--mono);font-size:.6rem;letter-spacing:.04em;color:var(--dimmer);line-height:1.7}
+.credit a{color:var(--dim);text-decoration:underline}
+</style>
+</head>
+<body class="noise">
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+    <a href="../colormap.html">Color Space</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <h1>Art <em>Match</em></h1>
+    <p>Drop, upload, or paste any image. It reads the palette and composition, then finds
+       paintings from the Art Institute of Chicago that share the same look. No AI captions &mdash;
+       just color and layout, measured in the browser.</p>
+  </div>
+
+  <div class="layout">
+    <!-- input -->
+    <div class="side">
+      <div class="drop" id="drop" tabindex="0">
+        <button class="reset-btn" id="reset">Clear</button>
+        <img id="preview" alt="your image">
+        <div class="prompt">
+          <svg width="42" height="42" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+            <rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.6"/>
+            <path d="M21 15l-5-5L5 21"/></svg>
+          <b>Drop an image here</b>
+          <span>click to browse &middot; or paste with &#8984;V / Ctrl&#8203;+V<br>photo, screenshot, or another artwork</span>
+        </div>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+
+      <div class="controls">
+        <button class="primary" id="go" disabled>Find matches</button>
+        <div class="weight">
+          <div class="lbl"><span>Color</span><b id="wlabel">50 / 50</b><span>Composition</span></div>
+          <input type="range" id="weight" min="0" max="100" value="50">
+        </div>
+      </div>
+
+      <div class="finger" id="finger">
+        <div>
+          <div class="cap">Palette</div>
+          <div class="pal" id="palOut"></div>
+        </div>
+        <div style="display:flex;gap:18px;align-items:flex-end">
+          <div>
+            <div class="cap">Composition</div>
+            <div class="fpgrid" id="gridOut"></div>
+          </div>
+          <div class="stats" id="statsOut"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- results -->
+    <div>
+      <div class="status-line">
+        <span id="status">Waiting for an image&hellip;</span>
+        <div class="bar" id="progbar"><i></i></div>
+      </div>
+      <div class="results" id="results">
+        <div class="empty">Your matches will appear here.<br>Try a landscape photo, a screenshot, or a favorite painting.</div>
+      </div>
+      <div class="credit">
+        Artwork data &amp; images &mdash; <a href="https://api.artic.edu/docs/" target="_blank" rel="noopener">Art Institute of Chicago API</a> (CC0 / public domain).
+        All analysis runs locally in your browser; your image is never uploaded.
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+try{var clk=document.getElementById('clock');var t=function(){clk.textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+' EST'};t();setInterval(t,30000)}catch(e){}
+</script>
+
+<script type="module">
+/* ═══════════════════════════════════════════════════════════════════
+   Art Match — color + composition fingerprint → Art Institute matches
+   ═══════════════════════════════════════════════════════════════════ */
+
+const GRID = 5;              // NxN composition grid
+const SAMPLE = 72;           // px the input is downscaled to for palette
+const N_PALETTE = 5;         // dominant colors
+const FETCH_LIMIT = 55;      // candidates pulled from the API
+const ANALYZE_TOP = 24;      // candidates we actually pixel-analyze
+const SHOW = 8;              // results shown
+const IIIF = 'https://www.artic.edu/iiif/2';
+
+const $ = id => document.getElementById(id);
+const drop=$('drop'), fileInput=$('file'), preview=$('preview'),
+      goBtn=$('go'), statusEl=$('status'), resultsEl=$('results'),
+      fingerEl=$('finger'), weightEl=$('weight'), wlabel=$('wlabel'),
+      progbar=$('progbar'), progInner=progbar.querySelector('i');
+
+let inputFeatures = null;   // {grid, palette, stats}
+let busy = false;
+
+/* ── color math ──────────────────────────────────────────────────── */
+function rgb2lab(r,g,b){
+  r/=255;g/=255;b/=255;
+  r=r>.04045?Math.pow((r+.055)/1.055,2.4):r/12.92;
+  g=g>.04045?Math.pow((g+.055)/1.055,2.4):g/12.92;
+  b=b>.04045?Math.pow((b+.055)/1.055,2.4):b/12.92;
+  let x=(r*.4124+g*.3576+b*.1805)/.95047;
+  let y=(r*.2126+g*.7152+b*.0722);
+  let z=(r*.0193+g*.1192+b*.9505)/1.08883;
+  const f=v=>v>.008856?Math.cbrt(v):7.787*v+16/116;
+  x=f(x);y=f(y);z=f(z);
+  return [116*y-16, 500*(x-y), 200*(y-z)];
+}
+const labDist=(a,b)=>Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+
+function rgb2hsl(r,g,b){
+  r/=255;g/=255;b/=255;
+  const mx=Math.max(r,g,b),mn=Math.min(r,g,b),d=mx-mn;
+  let h=0;const l=(mx+mn)/2;
+  const s=d===0?0:d/(1-Math.abs(2*l-1));
+  if(d!==0){
+    if(mx===r)h=((g-b)/d)%6;else if(mx===g)h=(b-r)/d+2;else h=(r-g)/d+4;
+    h*=60;if(h<0)h+=360;
+  }
+  return [h,s*100,l*100];
+}
+
+/* ── feature extraction from a canvas 2d context ─────────────────── */
+function extractFeatures(ctx,w,h){
+  const {data}=ctx.getImageData(0,0,w,h);
+  // grid: average Lab of each cell (image stretched to square grid)
+  const grid=[];
+  for(let gy=0;gy<GRID;gy++)for(let gx=0;gx<GRID;gx++){
+    const x0=Math.floor(gx*w/GRID),x1=Math.floor((gx+1)*w/GRID);
+    const y0=Math.floor(gy*h/GRID),y1=Math.floor((gy+1)*h/GRID);
+    let R=0,G=0,B=0,n=0;
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      const i=(y*w+x)*4;R+=data[i];G+=data[i+1];B+=data[i+2];n++;
+    }
+    grid.push(rgb2lab(R/n,G/n,B/n));
+  }
+  // gather pixels for palette + global stats
+  const pixels=[];
+  let sumL=0,sumS=0,sumWarm=0,sumL2=0,n=0;
+  for(let i=0;i<data.length;i+=4){
+    const r=data[i],g=data[i+1],b=data[i+2];
+    pixels.push([r,g,b]);
+    const lab=rgb2lab(r,g,b);
+    const [,s]=rgb2hsl(r,g,b);
+    sumL+=lab[0];sumL2+=lab[0]*lab[0];sumS+=s;sumWarm+=lab[1];n++;
+  }
+  const meanL=sumL/n;
+  const stats={
+    lightness:meanL,
+    saturation:sumS/n,
+    warmth:sumWarm/n,                          // mean a* (>0 warm, <0 cool)
+    contrast:Math.sqrt(Math.max(0,sumL2/n-meanL*meanL))
+  };
+  const palette=medianCut(pixels,N_PALETTE);
+  return {grid,palette,stats};
+}
+
+/* median-cut quantization → [{rgb, lab, hsl, w}] sorted by weight */
+function medianCut(pixels,count){
+  let boxes=[pixels];
+  while(boxes.length<count){
+    // split the box with the largest color range
+    let bi=-1,bestRange=-1,bestChan=0;
+    boxes.forEach((box,idx)=>{
+      if(box.length<2)return;
+      for(let c=0;c<3;c++){
+        let mn=255,mx=0;
+        for(const p of box){if(p[c]<mn)mn=p[c];if(p[c]>mx)mx=p[c];}
+        const r=mx-mn;
+        if(r>bestRange){bestRange=r;bi=idx;bestChan=c;}
+      }
+    });
+    if(bi<0)break;
+    const box=boxes[bi];
+    box.sort((a,b)=>a[bestChan]-b[bestChan]);
+    const mid=box.length>>1;
+    boxes.splice(bi,1,box.slice(0,mid),box.slice(mid));
+  }
+  const total=pixels.length;
+  return boxes.filter(b=>b.length).map(box=>{
+    let R=0,G=0,B=0;
+    for(const p of box){R+=p[0];G+=p[1];B+=p[2];}
+    const n=box.length;const rgb=[Math.round(R/n),Math.round(G/n),Math.round(B/n)];
+    return {rgb,lab:rgb2lab(...rgb),hsl:rgb2hsl(...rgb),w:n/total};
+  }).sort((a,b)=>b.w-a.w);
+}
+
+/* ── distance / scoring ──────────────────────────────────────────── */
+// asymmetric palette distance, weighted by source weights
+function palDistOneWay(pa,pb){
+  let sum=0,ws=0;
+  for(const c of pa){
+    let best=Infinity;
+    for(const d of pb)best=Math.min(best,labDist(c.lab,d.lab));
+    sum+=best*c.w;ws+=c.w;
+  }
+  return sum/(ws||1);
+}
+const palDist=(a,b)=>(palDistOneWay(a,b)+palDistOneWay(b,a))/2;
+const gridDist=(a,b)=>{let s=0;for(let i=0;i<a.length;i++)s+=labDist(a[i],b[i]);return s/a.length;};
+function statsDist(a,b){
+  return Math.abs(a.warmth-b.warmth)*.6
+       + Math.abs(a.saturation-b.saturation)*.35
+       + Math.abs(a.contrast-b.contrast)*.4;
+}
+const sim=(d,scale)=>1/(1+d/scale);   // 0..1, larger d → smaller similarity
+
+function score(cand){
+  const colorD = palDist(inputFeatures.palette,cand.palette)
+               + statsDist(inputFeatures.stats,cand.stats)*.5;
+  const compD  = gridDist(inputFeatures.grid,cand.grid);
+  const colorSim = sim(colorD,30);
+  const compSim  = sim(compD,32);
+  return {colorSim,compSim};
+}
+
+/* ── AIC candidate fetching ──────────────────────────────────────── */
+function hueClauses(h,spread){
+  let lo=h-spread,hi=h+spread;
+  if(lo>=0&&hi<=360)return [{range:{'color.h':{gte:lo,lte:hi}}}];
+  // wrap-around → two ranges joined by OR
+  if(lo<0)lo+=360;if(hi>360)hi-=360;
+  return [{bool:{should:[{range:{'color.h':{gte:lo,lte:360}}},{range:{'color.h':{gte:0,lte:hi}}}],minimum_should_match:1}}];
+}
+
+async function fetchCandidates(){
+  const fields=['id','title','artist_title','date_display','image_id','color'];
+  const base=[{exists:{field:'image_id'}},{exists:{field:'color'}},{term:{is_public_domain:true}}];
+  // chromatic palette colors, most-saturated first
+  const chromatic=inputFeatures.palette
+    .filter(c=>c.hsl[1]>14 && c.lab[0]>8 && c.lab[0]<95)
+    .sort((a,b)=>b.hsl[1]*b.w-a.hsl[1]*a.w);
+  const queries=[];
+  if(chromatic.length){
+    for(const c of chromatic.slice(0,2)){
+      queries.push({limit:FETCH_LIMIT,fields,
+        query:{bool:{must:[...base,{range:{'color.s':{gte:10}}},...hueClauses(c.hsl[0],24)]}}});
+    }
+  }else{
+    // near-grayscale input → match by low saturation + lightness band
+    const L=inputFeatures.stats.lightness;
+    queries.push({limit:FETCH_LIMIT,fields,
+      query:{bool:{must:[...base,{range:{'color.s':{lte:16}}},{range:{'color.l':{gte:Math.max(0,L-22),lte:Math.min(100,L+22)}}}]}}});
+  }
+  const seen=new Map();
+  const responses=await Promise.all(queries.map(q=>
+    fetch('https://api.artic.edu/api/v1/artworks/search',{
+      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q)
+    }).then(r=>r.json()).catch(()=>({data:[]}))
+  ));
+  for(const res of responses)for(const a of (res.data||[])){
+    if(a.image_id && !seen.has(a.id))seen.set(a.id,a);
+  }
+  return [...seen.values()];
+}
+
+/* pre-rank by API color metadata (cheap) so we only pixel-analyze the best */
+function prerank(cands){
+  const ip=inputFeatures.palette[0].lab;     // dominant input color
+  const sec=inputFeatures.palette[1]?inputFeatures.palette[1].lab:ip;
+  cands.forEach(c=>{
+    const lab=rgb2lab(...hsl2rgb(c.color.h,c.color.s,c.color.l));
+    c._pre=Math.min(labDist(lab,ip),labDist(lab,sec));
+  });
+  return cands.sort((a,b)=>a._pre-b._pre).slice(0,ANALYZE_TOP);
+}
+function hsl2rgb(h,s,l){
+  s/=100;l/=100;
+  const k=n=>(n+h/30)%12;
+  const a=s*Math.min(l,1-l);
+  const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));
+  return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
+}
+
+/* load a thumbnail and extract its features (crossOrigin for canvas read) */
+const anaCanvas=document.createElement('canvas');
+const anaCtx=anaCanvas.getContext('2d',{willReadFrequently:true});
+function analyzeArtwork(a){
+  return new Promise(resolve=>{
+    const img=new Image();
+    img.crossOrigin='anonymous';
+    img.onload=()=>{
+      try{
+        anaCanvas.width=SAMPLE;anaCanvas.height=SAMPLE;
+        anaCtx.drawImage(img,0,0,SAMPLE,SAMPLE);
+        resolve({...a,...extractFeatures(anaCtx,SAMPLE,SAMPLE)});
+      }catch(e){resolve(null);}
+    };
+    img.onerror=()=>resolve(null);
+    img.src=`${IIIF}/${a.image_id}/full/200,/0/default.jpg`;
+  });
+}
+async function analyzeAll(cands,onProgress){
+  const out=[];let done=0;
+  const BATCH=6;
+  for(let i=0;i<cands.length;i+=BATCH){
+    const batch=await Promise.all(cands.slice(i,i+BATCH).map(analyzeArtwork));
+    for(const r of batch)if(r)out.push(r);
+    done+=batch.length;onProgress(done/cands.length);
+  }
+  return out;
+}
+
+/* ── run ─────────────────────────────────────────────────────────── */
+async function run(){
+  if(!inputFeatures||busy)return;
+  busy=true;goBtn.disabled=true;resultsEl.innerHTML='';
+  progbar.classList.add('show');progInner.style.width='0%';
+  try{
+    setStatus('Searching the collection by color&hellip;');
+    const cands=await fetchCandidates();
+    if(!cands.length){
+      setStatus('');resultsEl.innerHTML='<div class="empty">No candidates came back. Try a different image.</div>';
+      return;
+    }
+    const top=prerank(cands);
+    setStatus(`Analyzing ${top.length} artworks&hellip;`);
+    const analyzed=await analyzeAll(top,p=>progInner.style.width=(p*100).toFixed(0)+'%');
+    const wColor=(100-(+weightEl.value))/100, wComp=(+weightEl.value)/100;
+    analyzed.forEach(c=>{
+      const s=score(c);
+      c._colorSim=s.colorSim;c._compSim=s.compSim;
+      c._final=wColor*s.colorSim+wComp*s.compSim;
+    });
+    analyzed.sort((a,b)=>b._final-a._final);
+    render(analyzed.slice(0,SHOW));
+    setStatus(`Top ${Math.min(SHOW,analyzed.length)} of ${cands.length} candidates.`);
+  }catch(e){
+    console.error(e);setStatus('Something went wrong — try again.');
+  }finally{
+    progbar.classList.remove('show');goBtn.disabled=false;busy=false;
+  }
+}
+function setStatus(html){statusEl.innerHTML=html;}
+
+function render(list){
+  if(!list.length){resultsEl.innerHTML='<div class="empty">No matches found.</div>';return;}
+  resultsEl.innerHTML='';
+  list.forEach((c,i)=>{
+    const pct=Math.round(c._final*100);
+    const col=Math.round(c._colorSim*100), comp=Math.round(c._compSim*100);
+    const el=document.createElement('a');
+    el.className='card';el.href=`https://www.artic.edu/artworks/${c.id}`;
+    el.target='_blank';el.rel='noopener';
+    el.style.animationDelay=(i*45)+'ms';
+    el.innerHTML=`
+      <div class="imgwrap">
+        <span class="rank">#${i+1}</span><span class="pct">${pct}%</span>
+        <img loading="lazy" src="${IIIF}/${c.image_id}/full/400,/0/default.jpg" alt="${escapeHtml(c.title||'')}">
+      </div>
+      <div class="body">
+        <h3>${escapeHtml(c.title||'Untitled')}</h3>
+        <div class="meta">${escapeHtml(c.artist_title||'Unknown artist')}${c.date_display?' &middot; '+escapeHtml(c.date_display):''}</div>
+        <div class="breakdown">
+          <div class="bd-row"><span>Color</span><span class="track color"><i style="width:${col}%"></i></span><span class="v">${col}</span></div>
+          <div class="bd-row"><span>Comp</span><span class="track comp"><i style="width:${comp}%"></i></span><span class="v">${comp}</span></div>
+        </div>
+      </div>`;
+    resultsEl.appendChild(el);
+  });
+}
+const escapeHtml=s=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ── input handling ──────────────────────────────────────────────── */
+function loadImage(src){
+  const img=new Image();
+  img.onload=()=>{
+    preview.src=src;drop.classList.add('has-img');
+    // fingerprint the input
+    const c=document.createElement('canvas');c.width=SAMPLE;c.height=SAMPLE;
+    const ctx=c.getContext('2d',{willReadFrequently:true});
+    ctx.drawImage(img,0,0,SAMPLE,SAMPLE);
+    inputFeatures=extractFeatures(ctx,SAMPLE,SAMPLE);
+    showFingerprint();
+    goBtn.disabled=false;
+    setStatus('Ready — hit <b>Find matches</b>.');
+    run();
+  };
+  img.onerror=()=>setStatus('Could not read that image.');
+  img.src=src;
+}
+function handleFile(f){
+  if(!f||!f.type.startsWith('image/'))return;
+  const r=new FileReader();r.onload=e=>loadImage(e.target.result);r.readAsDataURL(f);
+}
+function showFingerprint(){
+  const palOut=$('palOut');palOut.innerHTML='';
+  inputFeatures.palette.forEach(c=>{
+    const s=document.createElement('span');
+    s.style.flex=c.w;s.style.background=`rgb(${c.rgb.join(',')})`;
+    palOut.appendChild(s);
+  });
+  const gridOut=$('gridOut');gridOut.innerHTML='';
+  inputFeatures.grid.forEach(lab=>{
+    const rgb=lab2rgbApprox(lab);
+    const s=document.createElement('span');s.style.background=`rgb(${rgb.join(',')})`;
+    gridOut.appendChild(s);
+  });
+  const st=inputFeatures.stats;
+  $('statsOut').innerHTML=
+    `<div>Warmth <b>${st.warmth>0?'warm':'cool'}</b></div>`+
+    `<div>Sat <b>${Math.round(st.saturation)}</b></div>`+
+    `<div>Contrast <b>${Math.round(st.contrast)}</b></div>`;
+  fingerEl.classList.add('show');
+}
+// quick Lab→RGB just for the swatch preview
+function lab2rgbApprox(lab){
+  let y=(lab[0]+16)/116,x=lab[1]/500+y,z=y-lab[2]/200;
+  const g=v=>{const v3=v*v*v;return v3>.008856?v3:(v-16/116)/7.787;};
+  x=g(x)*.95047;y=g(y);z=g(z)*1.08883;
+  let r= x*3.2406-y*1.5372-z*.4986;
+  let gg=-x*.9689+y*1.8758+z*.0415;
+  let b= x*.0557-y*.2040+z*1.0570;
+  const c=v=>{v=v>.0031308?1.055*Math.pow(v,1/2.4)-.055:12.92*v;return Math.max(0,Math.min(255,Math.round(v*255)));};
+  return [c(r),c(gg),c(b)];
+}
+
+drop.addEventListener('click',()=>{if(!drop.classList.contains('has-img'))fileInput.click();});
+drop.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!drop.classList.contains('has-img')){e.preventDefault();fileInput.click();}});
+fileInput.addEventListener('change',e=>handleFile(e.target.files[0]));
+$('reset').addEventListener('click',e=>{
+  e.stopPropagation();drop.classList.remove('has-img');preview.src='';
+  fileInput.value='';inputFeatures=null;goBtn.disabled=true;
+  fingerEl.classList.remove('show');resultsEl.innerHTML='<div class="empty">Your matches will appear here.</div>';
+  setStatus('Waiting for an image&hellip;');
+});
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();if(ev==='dragleave'&&drop.contains(e.relatedTarget))return;drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0];if(f)handleFile(f);else{const u=e.dataTransfer.getData('text/uri-list')||e.dataTransfer.getData('text/plain');if(u)loadImage(u);}});
+window.addEventListener('paste',e=>{
+  for(const it of e.clipboardData.items){
+    if(it.type.startsWith('image/')){handleFile(it.getAsFile());return;}
+  }
+  const txt=e.clipboardData.getData('text');
+  if(txt&&/^https?:\/\/\S+\.(png|jpe?g|gif|webp|bmp)/i.test(txt.trim()))loadImage(txt.trim());
+});
+goBtn.addEventListener('click',run);
+weightEl.addEventListener('input',()=>{
+  const v=+weightEl.value;wlabel.textContent=`${100-v} / ${v}`;
+  if(inputFeatures&&!busy)run();
+});
+</script>
+</body>
+</html>
