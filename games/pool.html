@@ -391,7 +391,7 @@ a.mini:hover{color:#ccf73f}
 
 <script>
 'use strict';
-const VERSION='v0.4.1';
+const VERSION='v0.4.2';
 
 /* ── clock ── */
 (function(){var clk=document.getElementById('clock');
@@ -484,6 +484,7 @@ const RAIL_WZ_K=0.55;       // english -> tangential kick at rails
 let balls=[];               // {n,x,y,vx,vy,potted,color,grp}
 let animating=false, lastT=0;
 let SIM=false;              // true while the AI is running headless simulations
+let SIMFINE=false;          // fine sim (matches live physics) for final validation
 let shot=null;              // events accumulator for current shot
 function cueBall(){for(var i=0;i<balls.length;i++)if(balls[i].n===0)return balls[i];return null;}
 function activeBalls(){return balls.filter(function(b){return !b.potted;});}
@@ -546,7 +547,7 @@ function rollBall(b,dx,dy,ang){
 /* ── one physics substep ── */
 function subStep(h){
   var act=activeBalls(),i,b;
-  var stopV=SIM?8:STOP;
+  var stopV=(SIM&&!SIMFINE)?8:STOP;           // fine sims settle exactly like live play
   for(i=0;i<act.length;i++){
     b=act[i];
     b.x+=b.vx*h; b.y+=b.vy*h;
@@ -584,7 +585,7 @@ function subStep(h){
   // ball-ball: accurate pass (exact contact normals) then relaxation passes so
   // momentum propagates fully through a tight pack in one substep (crisp breaks)
   for(i=0;i<act.length;i++)for(var j=i+1;j<act.length;j++) ballCollide(act[i],act[j]);
-  var relaxN=SIM?0:3;                         // relaxation matters for live breaks, not AI sims
+  var relaxN=SIM?(SIMFINE?3:0):3;             // fine sim identical to live; coarse skips for speed
   for(var it=0;it<relaxN;it++)
     for(i=0;i<act.length;i++)for(var j2=i+1;j2<act.length;j2++) ballRelax(act[i],act[j2]);
   // pockets
@@ -696,7 +697,8 @@ function allStopped(){
 function stepWorld(dt){
   var maxSp=0,a=activeBalls();
   for(var i=0;i<a.length;i++){var s=hypot(a[i].vx,a[i].vy);if(s>maxSp)maxSp=s;}
-  var steps=clamp(Math.ceil(maxSp*dt/(R*(SIM?0.4:0.33))),1,48), h=dt/steps;
+  var div = SIM ? (SIMFINE?0.33:0.5) : 0.33;    // coarse broad search vs fine/live
+  var steps=clamp(Math.ceil(maxSp*dt/(R*div)),1,48), h=dt/steps;
   for(var s=0;s<steps;s++) subStep(h);
 }
 
@@ -1010,12 +1012,16 @@ function drawCalledPocket(){
 }
 
 /* ── main loop ── */
+let physAcc=0; const FIXED_DT=1/60;
 function frame(t){
-  var dt=Math.min(0.033,(t-lastT)/1000||0);lastT=t;
+  var dt=Math.min(0.05,(t-lastT)/1000||0);lastT=t;
   if(animating){
-    stepWorld(dt);
-    if(allStopped()){animating=false; if(typeof onShotComplete==='function')onShotComplete();}
-  }
+    // FIXED timestep so live play is deterministic and exactly matches the AI's
+    // simulation (which steps at 1/60) — frame-rate no longer changes outcomes
+    physAcc+=dt; var iter=0;
+    while(physAcc>=FIXED_DT && iter<8){ stepWorld(FIXED_DT); physAcc-=FIXED_DT; iter++; if(allStopped())break; }
+    if(allStopped()){physAcc=0;animating=false; if(typeof onShotComplete==='function')onShotComplete();}
+  } else physAcc=0;
   // aim swing: after release the cue keeps rotating a little, then friction settles it
   if(typeof interaction!=='undefined' && interaction && !animating && !pDown && !aim.ballInHand && Math.abs(aimVel)>0.0003){
     aim.dir+=aimVel; aimVel*=0.9;
@@ -1759,17 +1765,17 @@ function shotCandidates(pl){
 }
 
 /* run a shot to rest on a clone of current state */
-function simulateShot(dir,power,spin){
-  var sb=balls, ss=shot, sa=animating, sm=SIM;
-  balls=cloneBalls(); SIM=true;
+function simulateShot(dir,power,spin,fine){
+  var sb=balls, ss=shot, sa=animating, sm=SIM, sf=SIMFINE;
+  balls=cloneBalls(); SIM=true; SIMFINE=!!fine;
   shot={firstHit:null,potted:[],railAfterHit:false,cueScratch:false,cushions:0};
   initStrike(cueBall(),dir,power,spin);
-  var guard=0;
-  while(!allStopped()&&guard<420){ stepWorld(1/55); guard++; }
+  var guard=0, maxG=fine?900:340, dtv=fine?1/60:1/50;
+  while(!allStopped()&&guard<maxG){ stepWorld(dtv); guard++; }
   var res={potted:shot.potted.slice(),scratch:shot.cueScratch,firstHit:shot.firstHit,
     cue:{x:cueBall().x,y:cueBall().y},
     balls:balls.map(function(b){return {n:b.n,x:b.x,y:b.y,potted:b.potted};})};
-  balls=sb; shot=ss; animating=sa; SIM=sm;
+  balls=sb; shot=ss; animating=sa; SIM=sm; SIMFINE=sf;
   return res;
 }
 /* position play: from the post-shot cue position, how good is the BEST
@@ -1838,23 +1844,28 @@ function simSearchShot(pl,dense){
   // long, useless empty-table rolls that dominate the cost)
   var N=dense?150:100;
   for(var k=0;k<N;k++){ var ang=k/N*TAU; if(predictShot(c.x,c.y,Math.cos(ang),Math.sin(ang)).type==='ball') addDir(sweepDirs,ang); }
-  var best=null,bestSc=-1e18, spin0={x:0,y:0};
-  function tryShot(d,pw,sp){
-    var res=simulateShot(d,pw,sp), sc=evalShot(res,pl);
-    if(sc>bestSc){bestSc=sc;best={dir:d,power:pw,spin:sp,res:res};}
-  }
+  var spin0={x:0,y:0}, list=[];
+  function coarse(d,pw,sp){ var res=simulateShot(d,pw,sp,false); list.push({dir:d,power:pw,spin:sp,csc:evalShot(res,pl)}); }
   // seeds get multiple powers (pots need pace control); the sweep gets one
   var seedPow=dense?[0.5,0.75,1]:[0.62,0.9];
-  for(var si2=0;si2<seedDirs.length;si2++)for(var pi=0;pi<seedPow.length;pi++) tryShot(seedDirs[si2],seedPow[pi],spin0);
-  for(var di=0;di<sweepDirs.length;di++) tryShot(sweepDirs[di],0.75,spin0);
-  if(best){                                      // refine around the frozen winner (+ spin for position)
-    var base={dir:best.dir,power:best.power};
-    var rSpins=dense?[{x:0,y:0},{x:0,y:0.6},{x:0,y:-0.6}]:[{x:0,y:0}];
-    var aStep=dense?0.005:0.008, aRange=dense?3:2;
-    for(var a=-aRange;a<=aRange;a++)for(var p=-1;p<=1;p++)for(var s2=0;s2<rSpins.length;s2++){
-      if(a===0&&p===0&&s2===0)continue;
-      tryShot(base.dir+a*aStep, clamp(base.power+p*0.08,0.1,1), rSpins[s2]);
-    }
+  for(var si2=0;si2<seedDirs.length;si2++)for(var pi=0;pi<seedPow.length;pi++) coarse(seedDirs[si2],seedPow[pi],spin0);
+  for(var di=0;di<sweepDirs.length;di++) coarse(sweepDirs[di],0.75,spin0);
+  if(!list.length) return null;
+  list.sort(function(a,b){return b.csc-a.csc;});
+  // refine around the coarse winner (still coarse & cheap), adding spin options
+  var b0=list[0], rSpins=dense?[{x:0,y:0},{x:0,y:0.6},{x:0,y:-0.6}]:[{x:0,y:0}];
+  var aStep=dense?0.005:0.008, aRange=dense?3:2;
+  for(var a=-aRange;a<=aRange;a++)for(var p=-1;p<=1;p++)for(var s2=0;s2<rSpins.length;s2++){
+    if(a===0&&p===0&&s2===0)continue;
+    coarse(b0.dir+a*aStep, clamp(b0.power+p*0.08,0.1,1), rSpins[s2]);
+  }
+  list.sort(function(a,b){return b.csc-a.csc;});
+  // ── FINE-validate the top candidates against live-matching physics ──
+  // (coarse search ranks fast; fine sim commits to a shot that truly works)
+  var topK=Math.min(list.length, dense?14:6), best=null,bestF=-1e18;
+  for(var t=0;t<topK;t++){
+    var cn=list[t], fres=simulateShot(cn.dir,cn.power,cn.spin,true), f=evalShot(fres,pl);
+    if(f>bestF){bestF=f;best={dir:cn.dir,power:cn.power,spin:cn.spin,res:fres};}
   }
   return best;
 }
