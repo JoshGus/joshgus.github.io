@@ -391,7 +391,7 @@ a.mini:hover{color:#ccf73f}
 
 <script>
 'use strict';
-const VERSION='v0.4.2';
+const VERSION='v0.4.3';
 
 /* ── clock ── */
 (function(){var clk=document.getElementById('clock');
@@ -555,8 +555,9 @@ function subStep(h){
     var ux=b.vx-R*b.wy, uy=b.vy+R*b.wx, u=hypot(ux,uy);
     if(u>2){
       // sliding: friction decelerates v and torques ω toward pure rolling.
-      // slip magnitude decays at (7/2)·SLIDE_DECEL — fast grab, then roll.
-      var du=Math.min(SLIDE_DECEL*h,u), nux=ux/u, nuy=uy/u;
+      // slip decays at (7/2)·du; cap du at u/3.5 so it lands exactly on rolling
+      // instead of overshooting past zero (which caused an endless slip wobble).
+      var du=Math.min(SLIDE_DECEL*h, u/3.5), nux=ux/u, nuy=uy/u;
       b.vx-=du*nux; b.vy-=du*nuy;
       var dw=(2.5/R)*du;                       // (5/2R)·μg·h
       b.wx-=dw*nuy;                            // dωx = −(5/2R)μg·ûy·h  (cloth torque)
@@ -682,6 +683,7 @@ function pocketCheck(b){
   }
 }
 
+function forceSettle(){var a=activeBalls();for(var i=0;i<a.length;i++){var b=a[i];b.vx=b.vy=b.wx=b.wy=b.wz=0;}}
 /* a ball still counts as moving while its contact point slips (e.g. a stunned
    cue with backspin about to draw), not just while v is nonzero */
 function allStopped(){
@@ -1012,15 +1014,16 @@ function drawCalledPocket(){
 }
 
 /* ── main loop ── */
-let physAcc=0; const FIXED_DT=1/60;
+let physAcc=0, animSteps=0; const FIXED_DT=1/60;
 function frame(t){
   var dt=Math.min(0.05,(t-lastT)/1000||0);lastT=t;
   if(animating){
     // FIXED timestep so live play is deterministic and exactly matches the AI's
     // simulation (which steps at 1/60) — frame-rate no longer changes outcomes
     physAcc+=dt; var iter=0;
-    while(physAcc>=FIXED_DT && iter<8){ stepWorld(FIXED_DT); physAcc-=FIXED_DT; iter++; if(allStopped())break; }
-    if(allStopped()){physAcc=0;animating=false; if(typeof onShotComplete==='function')onShotComplete();}
+    while(physAcc>=FIXED_DT && iter<8){ stepWorld(FIXED_DT); physAcc-=FIXED_DT; iter++; animSteps++; if(allStopped())break; }
+    if(animSteps>1500) forceSettle();       // safety: never let a shot hang the turn
+    if(allStopped()){physAcc=0;animSteps=0;animating=false; if(typeof onShotComplete==='function')onShotComplete();}
   } else physAcc=0;
   // aim swing: after release the cue keeps rotating a little, then friction settles it
   if(typeof interaction!=='undefined' && interaction && !animating && !pDown && !aim.ballInHand && Math.abs(aimVel)>0.0003){
