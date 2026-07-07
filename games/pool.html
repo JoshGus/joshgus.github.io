@@ -391,7 +391,7 @@ a.mini:hover{color:#ccf73f}
 
 <script>
 'use strict';
-const VERSION='v0.4.0';
+const VERSION='v0.4.1';
 
 /* ── clock ── */
 (function(){var clk=document.getElementById('clock');
@@ -472,11 +472,11 @@ function groupOf(n){return n===0?'cue':n===8?'eight':n<8?'solid':'stripe';}
    spins the ball up/down; once slip vanishes the ball rolls with light rolling
    resistance. Draw, follow, stun and post-bounce grab all emerge naturally. */
 let ROLL_DECEL=80;          // rolling resistance px/s^2 (mutable: felt modifiers)
-const SLIDE_DECEL=170;      // sliding friction on v (slip decays at 3.5x this)
-const MAXV=1500, STOP=4;
-const BALL_E=0.96;          // ball-ball restitution — lively
-const BALL_FRICT=0.06;      // tangential contact friction (throw)
-const RAIL_E=0.75;          // cushion restitution
+const SLIDE_DECEL=150;      // sliding friction on v (slip decays at 3.5x this)
+const MAXV=1720, STOP=4;
+const BALL_E=0.965;         // ball-ball restitution — lively
+const BALL_FRICT=0.045;     // tangential contact friction (throw)
+const RAIL_E=0.78;          // cushion restitution
 const WZ_DECAY=1.1;         // english decay /s
 const RAIL_WZ_K=0.55;       // english -> tangential kick at rails
 
@@ -581,10 +581,28 @@ function subStep(h){
   }
   // walls
   for(i=0;i<act.length;i++) wallCollide(act[i]);
-  // ball-ball
+  // ball-ball: accurate pass (exact contact normals) then relaxation passes so
+  // momentum propagates fully through a tight pack in one substep (crisp breaks)
   for(i=0;i<act.length;i++)for(var j=i+1;j<act.length;j++) ballCollide(act[i],act[j]);
+  var relaxN=SIM?0:3;                         // relaxation matters for live breaks, not AI sims
+  for(var it=0;it<relaxN;it++)
+    for(i=0;i<act.length;i++)for(var j2=i+1;j2<act.length;j2++) ballRelax(act[i],act[j2]);
   // pockets
   for(i=0;i<act.length;i++) pocketCheck(act[i]);
+}
+/* impulse-only resolver for the relaxation passes (no time backtracking) */
+function ballRelax(a,b){
+  var dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy, D=2*R;
+  if(d2>=D*D||d2===0)return;
+  var d=Math.sqrt(d2), nx=dx/d, ny=dy/d, ov=(D-d)/2;
+  a.x-=nx*ov;a.y-=ny*ov;b.x+=nx*ov;b.y+=ny*ov;
+  var rvx=b.vx-a.vx, rvy=b.vy-a.vy, vn=rvx*nx+rvy*ny;
+  if(vn<0){
+    var imp=-(1+BALL_E)*vn/2;
+    a.vx-=imp*nx; a.vy-=imp*ny; b.vx+=imp*nx; b.vy+=imp*ny;
+    var tx=-ny, ty=nx, vt=rvx*tx+rvy*ty, jt=-vt*BALL_FRICT*0.5;
+    a.vx-=jt*tx; a.vy-=jt*ty; b.vx+=jt*tx; b.vy+=jt*ty;
+  }
 }
 
 function nearPocketMouth(b,side){
@@ -644,6 +662,7 @@ function ballCollide(a,b){
       if(cue && shot.firstHit===null) shot.firstHit=(cue===a?b:a).n;
     }
     sfx('clack',Math.abs(vn));
+    if(Math.abs(vn)>700) addShake(Math.abs(vn));
   }
   // re-advance the borrowed time with post-collision velocities so time is conserved
   a.x+=a.vx*tau; a.y+=a.vy*tau; b.x+=b.vx*tau; b.y+=b.vy*tau;
@@ -951,6 +970,8 @@ function predictShot(x,y,dx,dy){
 }
 
 /* main render */
+let shake=0;
+function addShake(mag){ if(SIM)return; shake=Math.min(6, Math.max(shake, mag/380)); }
 function drawSinkFX(){
   if(!sinkFX.length)return;
   var now=performance.now();
@@ -967,6 +988,9 @@ function drawSinkFX(){
 }
 function render(){
   ctx.clearRect(0,0,W,H);
+  ctx.save();
+  if(shake>0.1){ ctx.translate((Math.random()*2-1)*shake,(Math.random()*2-1)*shake); shake*=0.86; }
+  else shake=0;
   drawTable();
   drawSinkFX();
   var a=activeBalls();
@@ -975,6 +999,7 @@ function render(){
   var c=cueBall();if(c&&!c.potted)drawBall(c);
   drawCalledPocket();
   if(!animating && (aim.canShoot||aim.ballInHand)) drawAimAndCue();
+  ctx.restore();
 }
 function drawCalledPocket(){
   if(typeof game==='undefined'||!game||!game.calledPocket)return;
@@ -1444,12 +1469,12 @@ function buildRack(){
   slots[10]=solids.pop(); slots[14]=stripes.pop();     // back corners: one of each
   var rest=shuffle(solids.concat(stripes),rand), ri=0;
   for(var i=0;i<15;i++){if(slots[i]===undefined)slots[i]=rest[ri++];}
-  // slightly loose rack + tiny per-ball variance so no two breaks are identical
-  // (a perfectly packed, symmetric rack breaks sterilely)
-  var s=2*R+1.7, rowDX=s*0.87, idx=0;
+  // TIGHT rack (balls touching) so the break energy chains through the pack and
+  // sprays out, with only a hair of variance to break the perfect symmetry
+  var s=2*R+0.15, rowDX=s*0.866, idx=0;
   for(var row=0;row<5;row++){
     for(var j=0;j<=row;j++){
-      var x=FOOT_X+row*rowDX+(rand()*2-1)*0.6, y=CYt+(j-row/2)*s+(rand()*2-1)*0.6;
+      var x=FOOT_X+row*rowDX+(rand()*2-1)*0.25, y=CYt+(j-row/2)*s+(rand()*2-1)*0.25;
       balls.push(mkBall(slots[idx++],x,y));
     }
   }
@@ -1604,17 +1629,26 @@ function resolveClassic(ev){
 
 function endClassic(winnerIdx,msg){
   game.over=true; interaction=false; enableControls(false); aim.canShoot=false;
-  el('win-sub').textContent='Classic 8-Ball';
+  game.winMsg=game.players[winnerIdx].name+' wins'+(msg?' — '+msg:'');
+  el('win-sub').textContent='Classic 8-Ball · '+game.history.length+' shots';
   el('win-title').textContent=game.players[winnerIdx].name+' wins';
   el('win-score').textContent='🎱';
   el('win-best').textContent=msg||'';
   el('win-best').className='wb';
   el('win-btns').innerHTML=
     '<button class="pbtn primary" id="w-again">Rematch</button>'+
-    '<button class="pbtn" id="w-setup">Change setup</button>'+
+    '<button class="pbtn" id="w-review">Review shots</button>'+
+    '<button class="pbtn" id="w-setup">Setup</button>'+
     '<button class="pbtn ghost" id="w-menu">Menu</button>';
   el('win').classList.remove('hidden');
   el('w-again').onclick=function(){el('win').classList.add('hidden');startClassic();};
+  el('w-review').onclick=function(){
+    el('win').classList.add('hidden');
+    el('tl-btn').classList.remove('hidden');
+    el('timeline').classList.remove('hidden'); el('tl-btn').classList.add('open');
+    renderTimeline();
+    toast(game.winMsg+' · click a shot to replay',3200);
+  };
   el('w-setup').onclick=function(){el('win').classList.add('hidden');openSetup();};
   el('w-menu').onclick=function(){el('win').classList.add('hidden');openMenu();};
 }
