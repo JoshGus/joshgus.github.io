@@ -652,7 +652,7 @@ if (scGrid) {
 
 const gamesList = document.getElementById('games-list');
 if (gamesList) {
-  const SHOW_IDS = ['minigolf', 'darts', 'pixel-sim'];
+  const SHOW_IDS = ['minigolf', 'darts', 'rts'];
   CARDS.filter(g => g.type === 'game' && SHOW_IDS.includes(g.id)).forEach(g => {
     const stack = g.stack.map(s => `<b>${s}</b>`).join('');
     const cs = g.comingSoon ? ' coming-soon' : '';
