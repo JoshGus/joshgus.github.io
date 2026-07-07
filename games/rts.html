@@ -450,7 +450,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button class="diff-btn" id="menu-btn" title="Back to operation setup">☰ Menu</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.21.1</span>
+    <span id="version-badge">v0.22.0</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="zoom-wrap">
@@ -556,7 +556,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.21.1</div>
+    <div class="help-ver" id="help-ver">v0.22.0</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty — or watch an all-bot match as a spectator.</dd></dl>
       <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies — no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> (or its row in the left panel) to inspect anyone's gold, research, queues, army and live brain state.</dd></dl>
@@ -586,7 +586,7 @@ const BASE_MAX_HP=500;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120;
-const VERSION='v0.21.1';
+const VERSION='v0.22.0';
 
 // ── map styles (biomes) — palettes + decor flavour ─────────────────────────────
 const MAP_STYLES={
@@ -632,10 +632,10 @@ const TDEFS={
   shotgun:   {name:'Shotgun',   cost:60, maxHp:90, speed:40,range:80, dmg:20,rate:.8, r:7, at:['barracks'],spread:true},
   flamer:    {name:'Flamer',    cost:75, maxHp:95, speed:42,range:70, dmg:26,rate:1.1,r:7, at:['barracks'],spread:true},
   grenadier: {name:'Grenadier', cost:80, maxHp:85, speed:36,range:150,dmg:38,rate:.5, r:7, at:['barracks'],aoe:60},
-  medic:     {name:'Medic',     cost:90, maxHp:70, speed:46,range:0,  dmg:0, rate:0,  r:6, at:['barracks'],heal:12,healRange:75},
+  medic:     {name:'Medic',     cost:90, maxHp:70, speed:46,range:0,  dmg:0, rate:0,  r:6, at:['hospital'],heal:12,healRange:75},
   sniper:    {name:'Sniper',    cost:110,maxHp:55, speed:28,range:320,dmg:75,rate:.25,r:6, at:['barracks'],los:true,req:'advTraining'},
   rocketeer: {name:'Rocketeer', cost:120,maxHp:70, speed:34,range:200,dmg:44,rate:.45,r:7, at:['barracks'],req:'advTraining',aoe:34},
-  mortar:    {name:'Mortar',    cost:130,maxHp:65, speed:22,range:170,dmg:60,rate:.3, r:7, at:['barracks'],aoe:55,req:'advTraining'},
+  mortar:    {name:'Mortar',    cost:130,maxHp:65, speed:22,range:170,dmg:60,rate:.3, r:7, at:['barracks'],aoe:55,req:'advTraining',noAir:true},
   atv:       {name:'ATV',       cost:40, maxHp:50, speed:80,range:85, dmg:8, rate:1.6,r:5, at:['base','depot']},
   apc:       {name:'APC',       cost:140,maxHp:240,speed:46,range:110,dmg:10,rate:1.8,r:10,at:['depot'],vehicle:true},
   tank:      {name:'Tank',      cost:200,maxHp:320,speed:20,range:210,dmg:70,rate:.35,r:12,at:['depot'],aoe:65,cone:true,req:'heavyDiv',vehicle:true},
@@ -648,7 +648,7 @@ const TDEFS={
   tower:     {name:'Guard Tower',cost:0, maxHp:280,speed:0, range:165,dmg:22,rate:.75,r:12},
   mgnest:    {name:'MG Nest',   cost:0,  maxHp:250,speed:0, range:100,dmg:16,rate:4.5,r:10},
   flak:      {name:'Flak Tower',cost:0,  maxHp:260,speed:0, range:260,dmg:42,rate:.8, r:11,airOnly:true},
-  arttower:  {name:'Artillery', cost:0,  maxHp:260,speed:0, range:440,dmg:74,rate:.16,r:12,aoe:85,arc:true,inaccurate:true},
+  arttower:  {name:'Artillery', cost:0,  maxHp:260,speed:0, range:440,dmg:74,rate:.16,r:12,aoe:85,arc:true,inaccurate:true,noAir:true},
   sniptower: {name:'Sniper Post',cost:0, maxHp:220,speed:0, range:350,dmg:95,rate:.25,r:11,los:true},
   outpost:   {name:'Outpost',   cost:0,  maxHp:160,speed:0, range:145,dmg:14,rate:.6, r:9},
   barracks:  {name:'Barracks',  cost:0,  maxHp:360,speed:0, range:0,  dmg:0, rate:0,  r:19},
@@ -738,7 +738,7 @@ const BLD_UPGS={
 // building panel → trainable roster
 const ROSTERS={
   base:['rifleman','atv','engineer'],
-  barracks:['rifleman','hmg','shotgun','flamer','grenadier','medic','sniper','rocketeer','mortar'],
+  barracks:['rifleman','hmg','shotgun','flamer','grenadier','sniper','rocketeer','mortar'],
   depot:['atv','apc','aagun','tank'],
   airbase:['helicopter','gunship'],
   airstrip:['jet'],
@@ -797,7 +797,7 @@ let paused=false,gameSpeed=1,gameStarted=false;
 let gameOver=false,gameMsg='',gameWin=false;
 let boxSel=null,mxDown=0,myDown=0,mouseDown=false,mouseBtn=-1;
 let buildMode=null,pingMode=null; // pingMode={kind} — ally suggestion targeting
-let zoneMode=false,mineZones=[]; // human engineer mining zones (empty = whole map)
+let zoneMode=false,mineZones=[],zonePainting=false; // human engineer mining zones (empty = whole map)
 let mousePos={x:0,y:0},mouseScreen={x:-1,y:-1};
 let lastT=0,nowT=0; // nowT = game-time seconds (advances with speed, pauses)
 let cam={x:0,y:0,zoom:1},viewW=800,viewH=600,camMinZoom=.2,camMaxZoom=2.6,camDrag=null;
@@ -1583,13 +1583,41 @@ function damageUnit(u,dmg,byOwner){
   if(u.hp<=0)creditKill(byOwner,u);
 }
 function findTarget(u){return findTargetRange(u,u.range);}
+// ── spatial grid ───────────────────────────────────────────────────────────────
+// Bucket live units into fixed cells once per frame so the hot loops (separation,
+// target acquisition, projectile hits, threat queries) scan only nearby units
+// instead of the whole army — turns several O(units^2) passes into ~O(units).
+let unitGrid=new Map(), GCELL=48, _gq=[];
+function buildUnitGrid(){
+  unitGrid.clear();
+  for(let i=0;i<units.length;i++){
+    const u=units[i];if(u.hp<=0)continue;
+    const k=(Math.floor(u.y/GCELL)*4096)+Math.floor(u.x/GCELL);
+    let a=unitGrid.get(k);if(a===undefined){a=[];unitGrid.set(k,a);}a.push(u);
+  }
+}
+// Fills & returns the shared scratch buffer with units in cells overlapping the
+// box [x±rad, y±rad]. Single shared buffer: finish iterating before the next query.
+function gridQuery(x,y,rad){
+  _gq.length=0;
+  const c0=Math.max(0,Math.floor((x-rad)/GCELL)),c1=Math.floor((x+rad)/GCELL);
+  const r0=Math.max(0,Math.floor((y-rad)/GCELL)),r1=Math.floor((y+rad)/GCELL);
+  for(let cy=r0;cy<=r1;cy++){const base=cy*4096;for(let cx=c0;cx<=c1;cx++){
+    const a=unitGrid.get(base+cx);if(a===undefined)continue;
+    for(let i=0;i<a.length;i++)_gq.push(a[i]);
+  }}
+  return _gq;
+}
 function findTargetRange(u,range){
   let best=null,bd=Infinity;
   const losOnly=TDEFS[u.type]?.los;
-  for(const e of units){
+  const noAir=TDEFS[u.type]?.noAir;
+  const cand=gridQuery(u.x,u.y,range);
+  for(let i=0;i<cand.length;i++){const e=cand[i];
     if(e.team===u.team||e.hp<=0)continue;
     if(e.type==='cover'&&!e.targetable)continue;
     if(u.airOnly&&!e.canFly)continue; // flak towers: anti-air only
+    if(noAir&&e.canFly)continue;      // mortars/artillery can't reach aircraft
     const d=Math.hypot(e.x-u.x,e.y-u.y);
     if(d<=range&&d<bd){
       if(losOnly&&!canSeeLine(u.x,u.y,e.x,e.y))continue;
@@ -1608,6 +1636,15 @@ function applyAoe(p,cx,cy){
       if(dist<=p.aoe&&angDiff<Math.PI/3)damageUnit(u,p.dmg*(1-dist/p.aoe*.4)*fm,p.owner);
     } else {
       if(dist<=p.aoe)damageUnit(u,p.dmg*(1-dist/p.aoe*.5)*fm,p.owner);
+    }
+  }
+  // enemy bases take splash too
+  for(const fp of players){
+    if(!fp.alive||fp.team===p.team)continue;
+    const d=distToBaseRect(fp.base,cx,cy);
+    if(d<=p.aoe){
+      fp.base.hp=Math.max(0,fp.base.hp-p.dmg*(1-d/p.aoe*.5)*.5);
+      if(fp.base.hp<=0){eliminatePlayer(fp.id,p.owner);}
     }
   }
 }
@@ -1645,8 +1682,8 @@ function fireSpread(fx,fy,shooter,dmg,range,tx,ty,count,spread,opts={}){
 
 // enemy army value within rad of a point — the real force that can contest a push there
 function foeArmyNear(p,x,y,rad){
-  let v=0;
-  for(const u of units){
+  let v=0;const cand=gridQuery(x,y,rad);
+  for(let i=0;i<cand.length;i++){const u=cand[i];
     if(u.team===p.team||u.hp<=0||u.isBuilding||u.type==='engineer'||u.type==='medic')continue;
     if(Math.hypot(u.x-x,u.y-y)<=rad)v+=u.dmg*Math.max(.4,u.rate)*8+u.hp*0.5;
   }
@@ -1654,8 +1691,8 @@ function foeArmyNear(p,x,y,rad){
 }
 // summed foe combat power near a point, from player p's perspective
 function foeThreatAt(p,x,y,rad){
-  let t=0;
-  for(const u of units){
+  let t=0;const cand=gridQuery(x,y,rad);
+  for(let i=0;i<cand.length;i++){const u=cand[i];
     if(u.team===p.team||u.hp<=0||u.type==='engineer')continue;
     if(u.isBuilding&&u.dmg<=0)continue;
     const d=Math.hypot(u.x-x,u.y-y);
@@ -1688,6 +1725,12 @@ function bestDeposit(x,y,p,hint){
   }
   return best;
 }
+const ZONE_BRUSH=TS*4;
+function paintMineZone(x,y){
+  if(mineZones.length>=300)return;
+  for(const z of mineZones)if(Math.hypot(z.x-x,z.y-y)<ZONE_BRUSH*0.6)return; // don't stack brush dabs
+  mineZones.push({x,y,r:ZONE_BRUSH});
+}
 function forceReturnGold(ids){
   for(const id of ids){
     const u=units.find(x=>x.id===id&&x.type==='engineer');if(!u)continue;
@@ -1709,6 +1752,8 @@ function nearestMine(u){
 }
 
 const REPAIR_RATE=30, REPAIR_COST_PER_HP=0.5;
+const DROP_REACH=TS*3.4; // mine-central drop-off berth (spreads engineers out)
+const BUILD_REACH=TS*4.6; // how close an engineer must get to a build site to contribute
 function updateRepair(u,dt){
   const p=players[u.owner];
   const b=units.find(x=>x.id===u.repairTargetId&&x.hp>0);
@@ -1763,7 +1808,7 @@ function updateEngineer(u,dt){
   if(u.gatherState==='going-build'){
     if(u.waypoints.length===0){
       const con=constructions.find(c=>c.id===u.targetConId);
-      if(con&&Math.hypot(u.x-con.x,u.y-con.y)<TS*2.5)u.gatherState='building';
+      if(con&&Math.hypot(u.x-con.x,u.y-con.y)<BUILD_REACH)u.gatherState='building'; // wide berth so a crew builds together
       else if(!con){u.gatherState='idle';u.targetConId=-1;}
       else{const pth=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));if(pth)u.waypoints=toWp(pth);}
     }
@@ -1792,12 +1837,20 @@ function updateEngineer(u,dt){
     return;
   }
   if(u.gatherState==='returning'){
-    if(u.waypoints.length===0){
-      // Delivering to a Mine applies that mine's profit-boost multiplier
-      const m=units.find(u2=>u2.type==='mine'&&u2.owner===u.owner&&u2.hp>0&&Math.hypot(u2.x-u.x,u2.y-u.y)<TS*3.2);
+    // Deposit as soon as we're within a wide berth of a friendly mine (or the base spawn),
+    // instead of crowding onto the exact drop tile.
+    const m=units.find(u2=>u2.type==='mine'&&u2.owner===u.owner&&u2.hp>0&&Math.hypot(u2.x-u.x,u2.y-u.y)<DROP_REACH);
+    const atBase=Math.hypot(u.x-(returnC*TS+TS/2),u.y-(returnR*TS+TS/2))<DROP_REACH;
+    if(m||atBase){
       const mult=1+(m?(m.profitLevel||0)*0.25:0);
       p.gold+=Math.floor(u.carryGold*mult);
-      u.carryGold=0;u.gatherState='idle';u.targetDep=-1;
+      u.carryGold=0;u.gatherState='idle';u.targetDep=-1;u.waypoints=[];
+    } else if(u.waypoints.length===0){ // arrived at path end without a drop point nearby — re-route
+      const mb=nearestMine(u);
+      const tc=mb?Math.floor(mb.x/TS):returnC,tr=mb?Math.floor(mb.y/TS):returnR;
+      const pth=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),tc,tr);
+      if(pth&&pth.length)u.waypoints=toWp(pth);
+      else{p.gold+=Math.floor(u.carryGold);u.carryGold=0;u.gatherState='idle';u.targetDep=-1;}
     }
     return;
   }
@@ -2118,9 +2171,11 @@ function botCommander(p,dt){
       if(eng){eng.repairTargetId=dmg.id;eng.gatherState='parked';eng.targetDep=-1;eng.targetConId=-1;eng.waypoints=[];}
     }
   }
-  // base self-repair when flush and not under pressure
-  if(p.base.hp<p.base.maxHp&&p.gold>220&&foeThreatAt(p,p.base.cx,p.base.cy,TS*20)<55){
-    const heal=Math.min(16*dt,p.base.maxHp-p.base.hp);p.base.hp+=heal;p.gold-=heal*0.4;
+  // base repair — high priority: patch readily, and even under fire when the base is hurt
+  if(p.base.hp<p.base.maxHp&&p.gold>120){
+    const hurt=p.base.hp<p.base.maxHp*0.6;
+    const threat=foeThreatAt(p,p.base.cx,p.base.cy,TS*20);
+    if(threat<90||hurt){const rate=hurt?32:16;const heal=Math.min(rate*dt,p.base.maxHp-p.base.hp,p.gold*2.5);p.base.hp+=heal;p.gold-=heal*0.4;}
   }
   // airstrike (hard-leaning bots invest in one when flush) — own cadence, never frame-spammed
   ai.strikeCd-=dt;
@@ -2196,7 +2251,7 @@ function assessAndPlan(p,cfg){
   const canBeat=myArmy>=localFoe*0.9+foeDef*0.75+80;
   const teamCanBeat=teamMine>=teamFoe*0.95;
   let stance;
-  if(pushingUs&&focusArmy>myArmy*1.4)stance='defend';
+  if(pushingUs&&(focusArmy>myArmy*1.05||hostileNear>150))stance='defend'; // real threat at home → drop everything and defend
   else if(ally&&myTroops.length>=3&&hostileNear<allyThreat*1.1)stance='assist'; // a teammate is in trouble — help
   // Raids are occasional harassment, not a constant drain: needs a real army edge, a cooldown,
   // some ramp-up time, and an exposed target that isn't hugging its base.
@@ -2333,7 +2388,8 @@ function troopMicro(p,cfg){
     for(const g of units){
       if(g.owner!==p.id||g.type!=='engineer'||g.hp<=0)continue;
       let nr=null,nd2=TS*11;
-      for(const e of units){
+      const cand=gridQuery(g.x,g.y,TS*11);
+      for(let ci=0;ci<cand.length;ci++){const e=cand[ci];
         if(e.team===p.team||e.hp<=0||e.isBuilding||e.type==='engineer')continue;
         const d=dist(g,e);if(d<nd2){nd2=d;nr=e;}
       }
@@ -2694,6 +2750,7 @@ function renderRankGraph(){
 function update(dt){
   if(gameOver||!gameStarted)return;
   nowT+=dt;
+  buildUnitGrid(); // spatial index for this frame's hot loops
   // symmetric incomes + per-player passive drills
   for(const p of players){
     if(!p.alive)continue;
@@ -2776,7 +2833,8 @@ function update(dt){
     if(b.shotCd<=0){
       const rng=baseRangeOf(p);
       let near=null,nd=Infinity;
-      for(const u of units){
+      const cand=gridQuery(b.gateX,b.gateY,rng);
+      for(let i=0;i<cand.length;i++){const u=cand[i];
         if(u.team===p.team||u.hp<=0)continue;
         if(u.type==='cover'&&!u.targetable)continue;
         const d=Math.hypot(u.x-b.gateX,u.y-b.gateY);
@@ -2840,8 +2898,8 @@ function update(dt){
       const mortarBusy=u.type==='mortar'&&(u.entrenching||u.waypoints.length>0);
       const losOK=(ft)=>!(TDEFS[u.type]?.los)||canSeeLine(u.x,u.y,ft.x,ft.y);
       const tgt=(u.dmg<=0||mortarBusy)?null
-        :(forced&&Math.hypot(forced.x-u.x,forced.y-u.y)<=effRange&&losOK(forced))?forced
-        :(u.type==='mortar'&&u.entrenched&&u.mortarTarget)
+        :(forced&&Math.hypot(forced.x-u.x,forced.y-u.y)<=effRange&&losOK(forced)&&!(TDEFS[u.type]?.noAir&&forced.canFly))?forced
+        :(u.type==='mortar'&&u.entrenched&&u.mortarTarget&&Math.hypot(u.mortarTarget.x-u.x,u.mortarTarget.y-u.y)<=effRange)
         ? {x:u.mortarTarget.x,y:u.mortarTarget.y,team:-1,hp:1}
         : findTargetRange(u,effRange);
       if(tgt&&u.shotCd<=0){
@@ -2961,11 +3019,13 @@ function update(dt){
     }
   }
 
-  // soft separation (same team only)
-  for(let i=0;i<units.length;i++){
-    const a=units[i];if(a.hp<=0||a.isBuilding)continue;
-    for(let j=i+1;j<units.length;j++){
-      const b=units[j];if(b.hp<=0||b.isBuilding||a.team!==b.team)continue;
+  // soft separation (same team only) — grid-accelerated, each pair handled once
+  for(const a of units){
+    if(a.hp<=0||a.isBuilding)continue;
+    const cand=gridQuery(a.x,a.y,a.r+24);
+    for(let k=0;k<cand.length;k++){
+      const b=cand[k];
+      if(b.id<=a.id||b.hp<=0||b.isBuilding||a.team!==b.team)continue;
       const dx=b.x-a.x,dy=b.y-a.y,d=Math.hypot(dx,dy),minD=a.r+b.r+1;
       if(d<minD&&d>.01){
         const push=(minD-d)*.3;
@@ -3013,7 +3073,8 @@ function update(dt){
       }
     }
     if(!p.arc){
-      for(const u of units){
+      const cand=gridQuery(p.x,p.y,26);
+      for(let k=0;k<cand.length;k++){const u=cand[k];
         if(u.team===p.team||u.hp<=0)continue;
         if(u.type==='cover'&&!u.targetable)continue;
         if(p.airOnly&&!u.canFly)continue;
@@ -3539,7 +3600,7 @@ function drawZones(){
   }
   if(zoneMode){
     ctx.strokeStyle='rgba(220,190,40,.7)';ctx.lineWidth=1.4;ctx.setLineDash([4,4]);
-    ctx.beginPath();ctx.arc(mousePos.x,mousePos.y,TS*7,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+    ctx.beginPath();ctx.arc(mousePos.x,mousePos.y,ZONE_BRUSH,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
   }
   // medic patrol areas (selected medics)
   for(const id of selected){const u=units.find(x=>x.id===id);if(u&&u.type==='medic'&&u.medicArea){
@@ -4190,7 +4251,10 @@ function updateSelPanel(){
       body.textContent=`Heals nearby troops · RAD ${Math.round(HOSP_RADIUS*scale)} · ${(HOSP_RATE*scale).toFixed(0)} hp/s`;
       if(u.wardUpgrading){const p2=Math.round(u.wardUpgrading.elapsed/u.wardUpgrading.time*100);status.textContent=`Expanding ward (${p2}%)`;}else status.textContent='';
       const wMax=wl>=HOSP_WARD_MAX,wCost=HOSP_WARD_BASE*(wl+1),wBusy=!!u.wardUpgrading,wLocked=wMax||wBusy;
-      cmd.innerHTML=`<button class="cmd-btn${wLocked?' owned':' upg'}"${(!wLocked&&Math.floor(h.gold)>=wCost&&!gameOver)?'':' disabled'} data-ward="${u.id}"${wLocked?'':` data-cost="${wCost}" data-locked="0"`}>${wMax?'✓ Max Ward':wBusy?'⏳ Expanding…':'Expand Ward '+wCost+'g'}<br><span style="font-size:.36rem;opacity:.7">+50% heal radius &amp; rate</span></button>`;
+      const mq=trainQueues.get(u.id)||[];const medOk=Math.floor(h.gold)>=TDEFS.medic.cost&&!gameOver&&mq.length<5;
+      cmd.innerHTML=`<button class="cmd-btn"${medOk?'':' disabled'} data-train-medic="${u.id}" data-cost="${TDEFS.medic.cost}" data-locked="0">Train Medic ${TDEFS.medic.cost}g${mq.length?' ['+mq.length+']':''}</button>`+
+        `<button class="cmd-btn${wLocked?' owned':' upg'}"${(!wLocked&&Math.floor(h.gold)>=wCost&&!gameOver)?'':' disabled'} data-ward="${u.id}"${wLocked?'':` data-cost="${wCost}" data-locked="0"`}>${wMax?'✓ Max Ward':wBusy?'⏳ Expanding…':'Expand Ward '+wCost+'g'}<br><span style="font-size:.36rem;opacity:.7">+50% heal radius &amp; rate</span></button>`;
+      cmd.querySelector('[data-train-medic]')?.addEventListener('click',()=>{trainAtBuilding(u.id,'medic');});
       cmd.querySelector('[data-ward]')?.addEventListener('click',()=>{
         if(u.wardUpgrading||(u.wardLevel||0)>=HOSP_WARD_MAX)return;
         const cost=HOSP_WARD_BASE*((u.wardLevel||0)+1);if(Math.floor(h.gold)<cost)return;
@@ -4326,7 +4390,7 @@ function renderMortarCmds(cmd,mids){
     updateSelPanel();
   });
 }
-const BUILD_CYCLE=['guard-tower','mg-nest','flak-tower','artillery-tower','sniper-tower','barracks','vehicle-depot','airbase','engineer-hall','mine','research-station','hospital','cover'];
+const BUILD_CYCLE=['guard-tower','mg-nest','flak-tower','artillery-tower','sniper-tower','barracks','vehicle-depot','airbase','airstrip','engineer-hall','mine','research-station','hospital','cover'];
 function renderEngineerCmds(cmd,gids){
   const h=hum();if(!h)return;
   const bm=buildMode;
@@ -4431,6 +4495,7 @@ canvas.addEventListener('mousemove',e=>{
     cam.y=camDrag.cy-(e.clientY-camDrag.sy)/cam.zoom;clampCam();return;
   }
   const{x,y}=cxy(e);mousePos={x,y};
+  if(zonePainting&&zoneMode){paintMineZone(x,y);return;}
   if(!mouseDown||mouseBtn!==0||!boxSel)return;
   boxSel.x1=x;boxSel.y1=y;
   if(Math.hypot(x-mxDown,y-myDown)>3){
@@ -4453,9 +4518,7 @@ canvas.addEventListener('mousedown',e=>{
     return;
   }
   if(zoneMode&&e.button===0){
-    mineZones.push({x,y,r:TS*7});
-    if(!e.ctrlKey){zoneMode=false;document.body.classList.remove('ping-mode');}
-    updateSelPanel();return;
+    zonePainting=true;paintMineZone(x,y);return; // brush — drag to paint, stays on until toggled
   }
   if(pendingAirstrike&&e.button===0&&h){
     if(h.airstrikeStock>0)fireAirstrike(h,x,y);
@@ -4557,6 +4620,7 @@ canvas.addEventListener('mousedown',e=>{
   } else if(e.button===0){boxSel={x0:x,y0:y,x1:x,y1:y};}
 });
 canvas.addEventListener('mouseup',e=>{
+  if(zonePainting){zonePainting=false;updateSelPanel();return;}
   if(!mouseDown)return;
   const{x,y}=cxy(e);
   if(e.button===0){
@@ -4579,7 +4643,7 @@ canvas.addEventListener('mouseup',e=>{
   } else{mouseDown=false;mouseBtn=-1;}
 });
 canvas.addEventListener('mouseleave',()=>{mouseScreen={x:-1,y:-1};if(mouseDown&&mouseBtn===0&&boxSel)commitBoxSel();});
-window.addEventListener('mouseup',e=>{if(e.button===1)camDrag=null;if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
+window.addEventListener('mouseup',e=>{if(e.button===1)camDrag=null;if(zonePainting&&e.button===0)zonePainting=false;if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
 
 // hotkeys spawn at base or route to the right building automatically
 function hotkeySpawn(type){
@@ -4843,7 +4907,7 @@ function startGame(){
   buildMode=null;document.body.classList.remove('build-mode');
   pingMode=null;document.body.classList.remove('ping-mode');
   trainQueues=new Map();upgradeQueue=[];explosions=[];pings=[];airstrikeEffects=[];
-  zoneMode=false;mineZones=[];trample=new Map();trampleCd=0;
+  zoneMode=false;mineZones=[];zonePainting=false;trample=new Map();trampleCd=0;
   teamCalls={};AILOG=[];aiLogSeq=0;nowT=0;
   gameOver=false;gameWin=false;gameMsg='';mapBaked=false;
   window._pendingMortarTarget=null;sidePanelCd=0;_selPanelSig=null;
