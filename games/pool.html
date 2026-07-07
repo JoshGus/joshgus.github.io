@@ -391,7 +391,7 @@ a.mini:hover{color:#ccf73f}
 
 <script>
 'use strict';
-const VERSION='v0.4.3';
+const VERSION='v0.4.4';
 
 /* ── clock ── */
 (function(){var clk=document.getElementById('clock');
@@ -807,18 +807,21 @@ function buildPocket(g,p){
   var ox=0,oy=0;
   if(corner){ ox=(p.x<CXt?-1:1)*Math.SQRT1_2; oy=(p.y<CYt?-1:1)*Math.SQRT1_2; }
   else { oy=(p.y<CYt?-1:1); }
-  var off=R*0.75, hx=p.x+ox*off, hy=p.y+oy*off, rr=corner?R*1.5:R*1.32;
+  // hole = the actual capture opening (what you see is what pots);
+  // pad = a thin leather lip framing it (not an oversized dark blob)
+  var rr=(corner?CAP_C:CAP_S), pad=rr+R*0.42;
+  var off=R*0.34, hx=p.x+ox*off, hy=p.y+oy*off;
   g.save();
-  // dark leather corner cover (no grey halo)
-  g.fillStyle='#0e0a06';
-  g.beginPath();g.arc(hx,hy,rr*1.5,0,TAU);g.fill();
-  // the hole: deep black well with a faint inner rim of light for depth
+  g.fillStyle='#1a1108';                          // leather lip
+  g.beginPath();g.arc(hx,hy,pad,0,TAU);g.fill();
+  g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=1;g.beginPath();g.arc(hx,hy,pad,0,TAU);g.stroke();
+  // deep hole
   var hole=g.createRadialGradient(hx-rr*0.3,hy-rr*0.3,1,hx,hy,rr*1.05);
-  hole.addColorStop(0,'#000');hole.addColorStop(0.72,'#000');hole.addColorStop(1,'#050505');
+  hole.addColorStop(0,'#000');hole.addColorStop(0.72,'#000');hole.addColorStop(1,'#070707');
   g.fillStyle=hole;g.beginPath();g.arc(hx,hy,rr,0,TAU);g.fill();
-  // subtle top catch of light on the near lip
-  g.strokeStyle='rgba(255,255,255,.06)';g.lineWidth=1.5;
-  g.beginPath();g.arc(hx,hy,rr-0.8,Math.PI*0.85,Math.PI*1.7);g.stroke();
+  // subtle light catch on the near lip
+  g.strokeStyle='rgba(255,255,255,.06)';g.lineWidth=1.4;
+  g.beginPath();g.arc(hx,hy,rr-0.7,Math.PI*0.85,Math.PI*1.7);g.stroke();
   g.restore();
 }
 function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
