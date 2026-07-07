@@ -15,12 +15,12 @@ html,body{height:100%;overflow:hidden;background:#0c1512;-webkit-font-smoothing:
 
 .game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;
   align-items:center;justify-content:center;
-  background-color:#2b1c0e;
+  background-color:#2a1b0f;
   background-image:
-    repeating-linear-gradient(0deg, rgba(0,0,0,.34) 0 2px, rgba(0,0,0,0) 2px 4px, rgba(0,0,0,0) 4px 58px),
-    repeating-linear-gradient(0deg, rgba(150,104,54,.10) 0 29px, rgba(70,44,22,.12) 29px 58px),
-    repeating-linear-gradient(90deg, rgba(255,225,180,.028) 0 3px, rgba(0,0,0,0) 3px 9px),
-    linear-gradient(107deg,#3d2915,#2a1a0c 48%,#3a2614 78%,#27180b)}
+    repeating-linear-gradient(0deg, rgba(0,0,0,.5) 0 2px, rgba(200,150,90,.06) 3px 5px, rgba(0,0,0,0) 6px 104px),
+    repeating-linear-gradient(0deg, rgba(122,84,46,.17) 0 52px, rgba(56,35,18,.19) 52px 104px),
+    repeating-linear-gradient(90deg, rgba(255,225,175,.03) 0 3px, rgba(0,0,0,0) 3px 8px, rgba(0,0,0,.04) 8px 13px),
+    linear-gradient(101deg,#3d2816,#231607 52%,#35200f 80%,#22150a)}
 canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%;max-height:100%}
 
 /* ── HUD ── */
@@ -356,7 +356,7 @@ a.mini:hover{color:#ccf73f}
 
 <script>
 'use strict';
-const VERSION='v0.2.1';
+const VERSION='v0.3.0';
 
 /* ── clock ── */
 (function(){var clk=document.getElementById('clock');
@@ -381,7 +381,7 @@ const W=960,H=540;
 const RAIL=42;
 const PL=RAIL,PT=RAIL,PR=W-RAIL,PB=H-RAIL;      // felt (cushion nose) rectangle
 const CXt=(PL+PR)/2, CYt=(PT+PB)/2;
-const R=9;                                      // ball radius
+const R=10;                                     // ball radius (~regulation: 2.25" ball on 100" table)
 let CAP_C=R*1.5, CAP_S=R*1.3;                   // pocket capture radii (mutable: big-pockets modifier)
 const MOUTH_C=R*1.85, MOUTH_S=R*1.55;           // rail gaps near pockets
 const POCKETS=[
@@ -411,6 +411,7 @@ const FOLLOW_K=0.9, DRAW_K=1.15, SIDE_K=0.55, RAIL_SIDE_K=0.5, THROW_K=0.18;
 /* ── world state ── */
 let balls=[];               // {n,x,y,vx,vy,potted,color,grp}
 let animating=false, lastT=0;
+let SIM=false;              // true while the AI is running headless simulations
 let shot=null;              // events accumulator for current shot
 function cueBall(){for(var i=0;i<balls.length;i++)if(balls[i].n===0)return balls[i];return null;}
 function activeBalls(){return balls.filter(function(b){return !b.potted;});}
@@ -470,8 +471,8 @@ function subStep(h){
     var sp=hypot(b.vx,b.vy);
     if(sp<STOP){b.vx=0;b.vy=0;continue;}
     b.x+=b.vx*h; b.y+=b.vy*h;
-    // roll the ball's surface about the axis perpendicular to travel
-    var ang=sp*h/R; if(ang>1e-5) rollBall(b,b.vx/sp,b.vy/sp,ang);
+    // roll the ball's surface about the axis perpendicular to travel (skip in sims)
+    if(!SIM){ var ang=sp*h/R; if(ang>1e-5) rollBall(b,b.vx/sp,b.vy/sp,ang); }
     var ns=sp-ROLL_DECEL*h;
     if(ns<STOP){b.vx=0;b.vy=0;} else {var k=ns/sp;b.vx*=k;b.vy*=k;}
   }
@@ -573,111 +574,137 @@ function allStopped(){var a=activeBalls();for(var i=0;i<a.length;i++)if(a[i].vx|
 function stepWorld(dt){
   var maxSp=0,a=activeBalls();
   for(var i=0;i<a.length;i++){var s=hypot(a[i].vx,a[i].vy);if(s>maxSp)maxSp=s;}
-  var steps=clamp(Math.ceil(maxSp*dt/(R*0.33)),1,48), h=dt/steps;
+  var steps=clamp(Math.ceil(maxSp*dt/(R*(SIM?0.4:0.33))),1,48), h=dt/steps;
   for(var s=0;s<steps;s++) subStep(h);
 }
 
 /* ─────────────────────────── RENDERING ─────────────────────────── */
 const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
 canvas.width=W; canvas.height=H;
-let feltPattern=null;
-(function buildFelt(){
-  var o=document.createElement('canvas');o.width=W;o.height=H;var g=o.getContext('2d');
-  var grad=g.createRadialGradient(CXt,CYt,60,CXt,CYt,W*0.62);
-  grad.addColorStop(0,'#1c8a4d');grad.addColorStop(0.6,'#167a41');grad.addColorStop(1,'#106235');
-  g.fillStyle=grad;g.fillRect(0,0,W,H);
-  // faint nap speckle
-  var r=prng(12345);
-  for(var i=0;i<5200;i++){var x=r()*W,y=r()*H,a=r()*0.05;
-    g.fillStyle='rgba('+(r()<0.5?'0,0,0':'255,255,255')+','+a+')';g.fillRect(x,y,1,1);}
-  feltPattern=o;
-})();
 
-function drawTable(){
-  // outer wood rail
-  ctx.fillStyle='#3a2415';
-  roundRect(ctx,6,6,W-12,H-12,14);ctx.fill();
-  var wg=ctx.createLinearGradient(0,0,0,H);
-  wg.addColorStop(0,'#5b3a1e');wg.addColorStop(0.5,'#472c16');wg.addColorStop(1,'#35200f');
-  ctx.fillStyle=wg;roundRect(ctx,10,10,W-20,H-20,12);ctx.fill();
-  // rail sheen line
-  ctx.strokeStyle='rgba(255,220,160,.12)';ctx.lineWidth=1.5;
-  roundRect(ctx,14,14,W-28,H-28,10);ctx.stroke();
-  // felt
-  ctx.drawImage(feltPattern,0,0);
-  // felt inset shadow
-  ctx.strokeStyle='rgba(0,0,0,.28)';ctx.lineWidth=3;
-  ctx.strokeRect(PL-2,PT-2,PR-PL+4,PB-PT+4);
-  // cushion base band (lighter, distinct from felt) framing the play area
-  ctx.fillStyle='#0a3d22';
-  ctx.fillRect(PL-8,PT-8,PR-PL+16,8); ctx.fillRect(PL-8,PB,PR-PL+16,8);
-  ctx.fillRect(PL-8,PT,8,PB-PT); ctx.fillRect(PR,PT,8,PB-PT);
-  // cushions (bevelled nose)
-  drawCushions();
-  // sights (diamonds)
-  drawSights();
-  // pockets
-  for(var i=0;i<POCKETS.length;i++)drawPocket(POCKETS[i]);
-  // head string
-  ctx.strokeStyle='rgba(255,255,255,.08)';ctx.lineWidth=1;ctx.setLineDash([4,5]);
-  ctx.beginPath();ctx.moveTo(HEAD_X,PT);ctx.lineTo(HEAD_X,PB);ctx.stroke();ctx.setLineDash([]);
-  // foot spot
-  ctx.fillStyle='rgba(255,255,255,.12)';ctx.beginPath();ctx.arc(FOOT_X,CYt,2.2,0,TAU);ctx.fill();
+/* ── the whole static table is baked once to an offscreen image ── */
+let tableImg=null;
+const TM=3;                                   // table footprint margin (floor peeks past this)
+function buildTable(){
+  var o=document.createElement('canvas');o.width=W;o.height=H;var g=o.getContext('2d');
+  var rr;
+
+  // drop shadow onto the floor
+  g.save();g.shadowColor='rgba(0,0,0,.55)';g.shadowBlur=36;g.shadowOffsetY=18;
+  g.fillStyle='#1a1109';roundRect(g,TM,TM,W-2*TM,H-2*TM,22);g.fill();g.restore();
+
+  // ── dark-wood outer frame (rail) ──
+  var wf=g.createLinearGradient(0,0,W*0.5,H);
+  wf.addColorStop(0,'#4a2f18');wf.addColorStop(0.5,'#301d0d');wf.addColorStop(1,'#20130a');
+  g.fillStyle=wf;roundRect(g,TM,TM,W-2*TM,H-2*TM,22);g.fill();
+  // wood grain streaks
+  g.save();roundRect(g,TM,TM,W-2*TM,H-2*TM,22);g.clip();
+  var wr=prng(4242);
+  for(var i=0;i<70;i++){
+    var gx=wr()*W, wdt=1+wr()*3, dark=wr()<0.55;
+    g.strokeStyle=(dark?'rgba(0,0,0,':'rgba(150,110,66,')+(0.04+wr()*0.08)+')';
+    g.lineWidth=wdt;g.beginPath();
+    g.moveTo(gx,0);g.bezierCurveTo(gx+ (wr()*30-15),H*0.33, gx+(wr()*30-15),H*0.66, gx+(wr()*20-10),H);
+    g.stroke();
+  }
+  // directional light across the frame (top-left brighter)
+  var fl=g.createLinearGradient(0,0,W,H);
+  fl.addColorStop(0,'rgba(255,225,175,.10)');fl.addColorStop(0.4,'rgba(255,225,175,0)');
+  fl.addColorStop(1,'rgba(0,0,0,.22)');
+  g.fillStyle=fl;g.fillRect(0,0,W,H);
+  g.restore();
+  // inner bevel: highlight then shadow toward the felt
+  g.strokeStyle='rgba(255,225,175,.15)';g.lineWidth=2;roundRect(g,TM+5,TM+5,W-2*TM-10,H-2*TM-10,18);g.stroke();
+
+  // ── felt (directionally shaded) ──
+  var fx=PL-9,fy=PT-9,fw=(PR-PL)+18,fh=(PB-PT)+18;
+  g.fillStyle='#0a3d22';g.fillRect(fx,fy,fw,fh);          // dark sub-rail under cushions
+  var fg=g.createLinearGradient(PL,PT,PR,PB);
+  fg.addColorStop(0,'#219a58');fg.addColorStop(0.5,'#178046');fg.addColorStop(1,'#0d5c32');
+  g.fillStyle=fg;g.fillRect(PL,PT,PR-PL,PB-PT);
+  // corner vignette for depth
+  var vg=g.createRadialGradient(CXt,CYt,80,CXt,CYt,W*0.6);
+  vg.addColorStop(0,'rgba(255,255,255,.05)');vg.addColorStop(0.6,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.28)');
+  g.save();g.beginPath();g.rect(PL,PT,PR-PL,PB-PT);g.clip();g.fillStyle=vg;g.fillRect(PL,PT,PR-PL,PB-PT);
+  // nap speckle
+  var r=prng(12345);
+  for(var s=0;s<6000;s++){g.fillStyle='rgba('+(r()<0.5?'0,0,0':'255,255,255')+','+(r()*0.045)+')';g.fillRect(PL+r()*(PR-PL),PT+r()*(PB-PT),1,1);}
+  g.restore();
+  // felt inset shadow at the cushion line
+  g.strokeStyle='rgba(0,0,0,.32)';g.lineWidth=3;g.strokeRect(PL-1.5,PT-1.5,PR-PL+3,PB-PT+3);
+
+  // ── cushions (bevelled 3D rubber) ──
+  buildCushions(g);
+
+  // sights, pockets, markings
+  buildSights(g);
+  for(var p=0;p<POCKETS.length;p++)buildPocket(g,POCKETS[p]);
+  g.strokeStyle='rgba(255,255,255,.07)';g.lineWidth=1;g.setLineDash([4,5]);
+  g.beginPath();g.moveTo(HEAD_X,PT);g.lineTo(HEAD_X,PB);g.stroke();g.setLineDash([]);
+  g.fillStyle='rgba(255,255,255,.12)';g.beginPath();g.arc(FOOT_X,CYt,2.2,0,TAU);g.fill();
+
+  tableImg=o;
 }
-function drawCushions(){
-  ctx.fillStyle='#2aa15c';
-  // four rails drawn as thin bands just inside the felt edge, broken at mouths
-  var t=7;
-  // top & bottom
-  ctx.fillRect(PL+MOUTH_C,PT-t,CXt-MOUTH_S-(PL+MOUTH_C),t);
-  ctx.fillRect(CXt+MOUTH_S,PT-t,(PR-MOUTH_C)-(CXt+MOUTH_S),t);
-  ctx.fillRect(PL+MOUTH_C,PB,CXt-MOUTH_S-(PL+MOUTH_C),t);
-  ctx.fillRect(CXt+MOUTH_S,PB,(PR-MOUTH_C)-(CXt+MOUTH_S),t);
-  // left & right
-  ctx.fillRect(PL-t,PT+MOUTH_C,t,(PB-MOUTH_C)-(PT+MOUTH_C));
-  ctx.fillRect(PR,PT+MOUTH_C,t,(PB-MOUTH_C)-(PT+MOUTH_C));
-  ctx.fillStyle='rgba(255,255,255,.06)';
-  ctx.fillRect(PL+MOUTH_C,PT-t,CXt-MOUTH_S-(PL+MOUTH_C),1.5);
-  ctx.fillRect(CXt+MOUTH_S,PT-t,(PR-MOUTH_C)-(CXt+MOUTH_S),1.5);
+function drawTable(){ if(tableImg) ctx.drawImage(tableImg,0,0); }
+
+function buildCushions(g){
+  var t=8;
+  function band(x,y,w,h,horiz){
+    var grad = horiz ? g.createLinearGradient(0,y,0,y+h) : g.createLinearGradient(x,0,x+w,0);
+    grad.addColorStop(0,'#2fae62');grad.addColorStop(0.5,'#218a4c');grad.addColorStop(1,'#125d33');
+    g.fillStyle=grad;g.fillRect(x,y,w,h);
+  }
+  band(PL+MOUTH_C,PT-t,CXt-MOUTH_S-(PL+MOUTH_C),t,true);
+  band(CXt+MOUTH_S,PT-t,(PR-MOUTH_C)-(CXt+MOUTH_S),t,true);
+  band(PL+MOUTH_C,PB,CXt-MOUTH_S-(PL+MOUTH_C),t,true);
+  band(CXt+MOUTH_S,PB,(PR-MOUTH_C)-(CXt+MOUTH_S),t,true);
+  band(PL-t,PT+MOUTH_C,t,(PB-MOUTH_C)-(PT+MOUTH_C),false);
+  band(PR,PT+MOUTH_C,t,(PB-MOUTH_C)-(PT+MOUTH_C),false);
+  // bright nose highlight on the felt-facing edge
+  g.fillStyle='rgba(200,255,210,.22)';
+  g.fillRect(PL+MOUTH_C,PT-1.5,CXt-MOUTH_S-(PL+MOUTH_C),1.5);
+  g.fillRect(CXt+MOUTH_S,PT-1.5,(PR-MOUTH_C)-(CXt+MOUTH_S),1.5);
+  g.fillRect(PL+MOUTH_C,PB,CXt-MOUTH_S-(PL+MOUTH_C),1.5);
+  g.fillRect(CXt+MOUTH_S,PB,(PR-MOUTH_C)-(CXt+MOUTH_S),1.5);
+  g.fillRect(PL-1.5,PT+MOUTH_C,1.5,(PB-MOUTH_C)-(PT+MOUTH_C));
+  g.fillRect(PR,PT+MOUTH_C,1.5,(PB-MOUTH_C)-(PT+MOUTH_C));
 }
-function drawSights(){
-  ctx.fillStyle='rgba(240,230,205,.5)';
-  var xs=[PL+(PR-PL)*0.25,CXt,PL+(PR-PL)*0.75], ys=[PT+(PB-PT)*0.5];
-  function dia(x,y){ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI/4);ctx.fillRect(-2.2,-2.2,4.4,4.4);ctx.restore();}
-  for(var i=0;i<xs.length;i++){dia(xs[i],PT-t2());dia(xs[i],PB+t2());}
-  var yy=[PT+(PB-PT)*0.5];for(var j=0;j<yy.length;j++){dia(PL-t2(),yy[j]);dia(PR+t2(),yy[j]);}
-  function t2(){return 20;}
+function buildSights(g){
+  g.fillStyle='rgba(240,230,205,.55)';
+  var xs=[PL+(PR-PL)*0.25,CXt,PL+(PR-PL)*0.75];
+  function dia(x,y){g.save();g.translate(x,y);g.rotate(Math.PI/4);g.fillRect(-2.4,-2.4,4.8,4.8);g.restore();}
+  for(var i=0;i<xs.length;i++){dia(xs[i],PT-21);dia(xs[i],PB+21);}
+  dia(PL-21,CYt);dia(PR+21,CYt);
 }
-function drawPocket(p){
+function buildPocket(g,p){
   var corner=p.type==='corner';
-  // push the hole outward into the rail so it reads as cut in
   var ox=0,oy=0;
   if(corner){ ox=(p.x<CXt?-1:1)*Math.SQRT1_2; oy=(p.y<CYt?-1:1)*Math.SQRT1_2; }
   else { oy=(p.y<CYt?-1:1); }
-  var off=R*0.7, hx=p.x+ox*off, hy=p.y+oy*off;
-  var rr=corner?R*1.55:R*1.35;
-  ctx.save();
-  // soft depth shadow on the felt around the mouth
-  ctx.fillStyle='rgba(0,0,0,.4)';
-  ctx.beginPath();ctx.arc(p.x,p.y,rr*1.35,0,TAU);ctx.fill();
-  // the leather well — deep, offset into the rail
-  var g=ctx.createRadialGradient(hx-rr*0.25,hy-rr*0.25,1,hx,hy,rr*1.3);
-  g.addColorStop(0,'#000');g.addColorStop(0.5,'#000');g.addColorStop(0.82,'#08070a');g.addColorStop(1,'#1a130b');
-  ctx.fillStyle=g;ctx.beginPath();ctx.arc(hx,hy,rr,0,TAU);ctx.fill();
-  // dark rim + faint chrome catch on the felt side
-  ctx.strokeStyle='rgba(8,6,4,.95)';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(hx,hy,rr,0,TAU);ctx.stroke();
-  ctx.strokeStyle='rgba(210,200,170,.14)';ctx.lineWidth=1.4;
-  ctx.beginPath();ctx.arc(p.x,p.y,rr*1.02,0,TAU);ctx.stroke();
-  ctx.restore();
+  var off=R*0.75, hx=p.x+ox*off, hy=p.y+oy*off, rr=corner?R*1.5:R*1.32;
+  g.save();
+  // dark leather corner cover (no grey halo)
+  g.fillStyle='#0e0a06';
+  g.beginPath();g.arc(hx,hy,rr*1.5,0,TAU);g.fill();
+  // the hole: deep black well with a faint inner rim of light for depth
+  var hole=g.createRadialGradient(hx-rr*0.3,hy-rr*0.3,1,hx,hy,rr*1.05);
+  hole.addColorStop(0,'#000');hole.addColorStop(0.72,'#000');hole.addColorStop(1,'#050505');
+  g.fillStyle=hole;g.beginPath();g.arc(hx,hy,rr,0,TAU);g.fill();
+  // subtle top catch of light on the near lip
+  g.strokeStyle='rgba(255,255,255,.06)';g.lineWidth=1.5;
+  g.beginPath();g.arc(hx,hy,rr-0.8,Math.PI*0.85,Math.PI*1.7);g.stroke();
+  g.restore();
 }
 function roundRect(c,x,y,w,h,r){c.beginPath();c.moveTo(x+r,y);c.arcTo(x+w,y,x+w,y+h,r);
   c.arcTo(x+w,y+h,x,y+h,r);c.arcTo(x,y+h,x,y,r);c.arcTo(x,y,x+w,y,r);c.closePath();}
+buildTable();
 
 function drawBall(b){
   if(b.potted)return;
   var m=b.ori||IDENT;
-  // shadow
-  ctx.fillStyle='rgba(0,0,0,.3)';ctx.beginPath();ctx.ellipse(b.x+2,b.y+2.6,R*1.0,R*0.9,0,0,TAU);ctx.fill();
+  // contact shadow (soft, offset toward the light's opposite corner)
+  ctx.fillStyle='rgba(0,0,0,.18)';ctx.beginPath();ctx.ellipse(b.x+3.5,b.y+4.5,R*1.05,R*0.9,0,0,TAU);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.beginPath();ctx.ellipse(b.x+2.5,b.y+3.2,R*0.95,R*0.82,0,0,TAU);ctx.fill();
   ctx.save();ctx.beginPath();ctx.arc(b.x,b.y,R,0,TAU);ctx.clip();
   if(b.grp==='stripe'){
     ctx.fillStyle='#f4efe2';ctx.fillRect(b.x-R,b.y-R,2*R,2*R);
@@ -686,13 +713,24 @@ function drawBall(b){
     ctx.fillStyle=b.color;ctx.fillRect(b.x-R,b.y-R,2*R,2*R);
   }
   if(b.n!==0) drawNumberPatch(b,m); else drawCueSpot(b,m);
-  // gloss (fixed light — stays put while the surface rolls beneath it)
+  // form shading: dark terminator on the lower-right, lifting toward the light
+  var sg=ctx.createRadialGradient(b.x-R*0.34,b.y-R*0.4,R*0.2,b.x+R*0.5,b.y+R*0.55,R*1.5);
+  sg.addColorStop(0,'rgba(0,0,0,0)');sg.addColorStop(0.55,'rgba(0,0,0,0)');
+  sg.addColorStop(1,'rgba(0,0,0,.5)');
+  ctx.fillStyle=sg;ctx.fillRect(b.x-R,b.y-R,2*R,2*R);
+  // broad soft sheen
   var gg=ctx.createRadialGradient(b.x-R*0.36,b.y-R*0.42,1,b.x,b.y,R*1.25);
-  gg.addColorStop(0,'rgba(255,255,255,.65)');gg.addColorStop(0.25,'rgba(255,255,255,.15)');
-  gg.addColorStop(0.7,'rgba(0,0,0,0)');gg.addColorStop(1,'rgba(0,0,0,.34)');
+  gg.addColorStop(0,'rgba(255,255,255,.5)');gg.addColorStop(0.28,'rgba(255,255,255,.1)');
+  gg.addColorStop(0.7,'rgba(0,0,0,0)');gg.addColorStop(1,'rgba(0,0,0,.12)');
   ctx.fillStyle=gg;ctx.fillRect(b.x-R,b.y-R,2*R,2*R);
+  // tight specular highlight
+  var sp=ctx.createRadialGradient(b.x-R*0.4,b.y-R*0.46,0,b.x-R*0.4,b.y-R*0.46,R*0.42);
+  sp.addColorStop(0,'rgba(255,255,255,.92)');sp.addColorStop(1,'rgba(255,255,255,0)');
+  ctx.fillStyle=sp;ctx.beginPath();ctx.arc(b.x-R*0.4,b.y-R*0.46,R*0.42,0,TAU);ctx.fill();
   ctx.restore();
-  ctx.strokeStyle='rgba(0,0,0,.25)';ctx.lineWidth=0.8;ctx.beginPath();ctx.arc(b.x,b.y,R-0.4,0,TAU);ctx.stroke();
+  // rim: dark on shadow side, faint light on the lit edge
+  ctx.strokeStyle='rgba(0,0,0,.3)';ctx.lineWidth=0.9;ctx.beginPath();ctx.arc(b.x,b.y,R-0.45,0,TAU);ctx.stroke();
+  ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=0.9;ctx.beginPath();ctx.arc(b.x,b.y,R-0.45,Math.PI*1.05,Math.PI*1.75);ctx.stroke();
 }
 /* stripe = colored band around the ball's equator (pole = local +Y).
    Trace the equator's front-hemisphere arc and stroke it thick — robust for
@@ -835,6 +873,11 @@ function frame(t){
     stepWorld(dt);
     if(allStopped()){animating=false; if(typeof onShotComplete==='function')onShotComplete();}
   }
+  // aim swing: after release the cue keeps rotating a little, then friction settles it
+  if(typeof interaction!=='undefined' && interaction && !animating && !pDown && !aim.ballInHand && Math.abs(aimVel)>0.0003){
+    aim.dir+=aimVel; aimVel*=0.9;
+    if(Math.abs(aimVel)<0.0004) aimVel=0;
+  }
   render();
   requestAnimationFrame(frame);
 }
@@ -843,8 +886,8 @@ requestAnimationFrame(frame);
 /* ── responsive canvas scaling ── */
 function fitCanvas(){
   var wrap=document.querySelector('.game-wrap');
-  var availW=wrap.clientWidth-24, availH=wrap.clientHeight-24;
-  var scale=Math.min(availW/W, availH/H, 1.15);
+  var availW=wrap.clientWidth-72, availH=wrap.clientHeight-64;   // leave a wood-floor border
+  var scale=Math.min(availW/W, availH/H, 1.12);
   canvas.style.width=(W*scale)+'px'; canvas.style.height=(H*scale)+'px';
 }
 window.addEventListener('resize',fitCanvas); fitCanvas();
@@ -939,7 +982,7 @@ function finishBallInHand(){
 /* ── pointer handling ──
    Aiming is RELATIVE: dragging rotates the aim by however far the pointer
    sweeps around the cue ball, so pressing down never snaps the cue. */
-let dragMode=null, pDown=false, dragPrevAng=0;
+let dragMode=null, pDown=false, dragPrevAng=0, aimVel=0;
 function angDiff(x){ return ((x+Math.PI)%TAU+TAU)%TAU-Math.PI; }
 function canvasDown(cx,cy){
   var p=toTable(cx,cy);
@@ -952,7 +995,7 @@ function canvasDown(cx,cy){
   }
   if(!interaction||animating)return;
   var c=cueBall();
-  pDown=true; dragMode='aim';
+  pDown=true; dragMode='aim'; aimVel=0;
   dragPrevAng=Math.atan2(p.y-c.y,p.x-c.x);   // reference only — no snap
 }
 function canvasMove(cx,cy){
@@ -962,8 +1005,9 @@ function canvasMove(cx,cy){
   if(dragMode==='aim'&&pDown){
     var c=cueBall();
     var ang=Math.atan2(p.y-c.y,p.x-c.x);
-    aim.dir+=angDiff(ang-dragPrevAng);       // rotate by the swept delta
-    dragPrevAng=ang;
+    var delta=angDiff(ang-dragPrevAng);      // rotate by the swept delta
+    aim.dir+=delta; dragPrevAng=ang;
+    aimVel=clamp(delta,-0.18,0.18);          // remember the swing for release momentum
   }
 }
 function canvasUp(){
@@ -1337,7 +1381,8 @@ function classicShotStart(){
   aim.spin={x:0,y:0}; updateSpinUI();
   if(pl.isAI){
     interaction=false; aim.canShoot=false; enableControls(false);
-    setTimeout(function(){ if(!game.over) aiTakeShot(); }, 680);
+    toast(pl.name+' is lining up a shot…',2000);
+    setTimeout(function(){ if(!game.over) aiTakeShot(); }, pl.diff>=2?560:460);
   } else {
     if(game.ballInHand){ beginBallInHand(game.bihKitchen); game.ballInHand=false; game.bihKitchen=false; }
     else beginTurnInput();
@@ -1512,17 +1557,17 @@ function shotCandidates(pl){
 
 /* run a shot to rest on a clone of current state */
 function simulateShot(dir,power,spin){
-  var sb=balls, ss=shot, sa=animating;
-  balls=cloneBalls();
+  var sb=balls, ss=shot, sa=animating, sm=SIM;
+  balls=cloneBalls(); SIM=true;
   shot={firstHit:null,potted:[],railAfterHit:false,cueScratch:false,cushions:0};
   var c=cueBall(), v=MAXV*power; c.vx=Math.cos(dir)*v; c.vy=Math.sin(dir)*v;
   c.spin={side:spin.x,vert:spin.y,live:true};
   var guard=0;
-  while(!allStopped()&&guard<900){ stepWorld(1/90); guard++; }
+  while(!allStopped()&&guard<420){ stepWorld(1/55); guard++; }
   var res={potted:shot.potted.slice(),scratch:shot.cueScratch,firstHit:shot.firstHit,
     cue:{x:cueBall().x,y:cueBall().y},
     balls:balls.map(function(b){return {n:b.n,x:b.x,y:b.y,potted:b.potted};})};
-  balls=sb; shot=ss; animating=sa;
+  balls=sb; shot=ss; animating=sa; SIM=sm;
   return res;
 }
 function positionBonus(res,pl){
@@ -1536,25 +1581,71 @@ function positionBonus(res,pl){
     if(clear)return 1;}
   return 0;
 }
-function evaluateResult(res,targetN,pl){
-  var s=0;
-  if(res.scratch)s-=900;
-  if(res.potted.indexOf(targetN)>=0)s+=1000;
-  var onEight=pl.group&&groupRemaining(pl.group)===0;
+/* score a simulated outcome — rewards multi-pots, punishes fouls/scratch/early-8 */
+function evalShot(res,pl){
+  var s=0, g=pl.group, onEight=g&&groupRemaining(g)===0;
   for(var i=0;i<res.potted.length;i++){var n=res.potted[i];
-    if(n===8){ s+= onEight?1500:-1600; }
-    else if(pl.group){ s+= groupOf(n)===pl.group?120:-170; }
-    else s+=60;
+    if(n===8){ s+= onEight?4000:-3200; }
+    else if(!g){ s+=460; }                       // open table: any pot is good
+    else if(groupOf(n)===g){ s+=560; }           // own ball (multi-pot stacks)
+    else { s-=280; }                             // opponent's ball
   }
-  if(res.firstHit===null)s-=700;
-  else if(pl.group){ if(onEight){ if(res.firstHit!==8)s-=500; }
-    else if(groupOf(res.firstHit)!==pl.group||res.firstHit===8)s-=500; }
-  if(!res.scratch){
+  if(res.scratch) s-=1500;
+  if(res.firstHit===null) s-=900;
+  else if(g && !onEight && groupOf(res.firstHit)!==g) s-=650;
+  else if(g && onEight && res.firstHit!==8) s-=650;
+  else s+=45;                                     // legal first contact
+  if(!res.scratch){                              // position play
     var minP=1e9;for(var q=0;q<POCKETS.length;q++)minP=Math.min(minP,hypot(res.cue.x-POCKETS[q].x,res.cue.y-POCKETS[q].y));
-    s+=clamp(minP,0,60)*0.3;
+    s+=clamp(minP,0,55)*0.25;
     s+=positionBonus(res,pl)*45;
   }
   return s;
+}
+
+/* brute-force many simulations and keep the best real outcome.
+   Because it evaluates the actual physics, it naturally finds multi-pot,
+   bank and spin shots the ghost-ball geometry can't reason about. */
+function simSearchShot(pl,dense){
+  var c=cueBall(), dirs=[], seen={};
+  function addDir(d){ var k=Math.round(d*260); if(!seen[k]){seen[k]=1;dirs.push(d);} }
+  var cands=shotCandidates(pl);                  // precise pot lines as seeds (always kept)
+  for(var i=0;i<cands.length;i++) addDir(cands[i].dir);
+  // fine sweep, but only directions that actually point at a ball (prunes the
+  // long, useless empty-table rolls that dominate the cost)
+  var N=dense?200:120;
+  for(var k=0;k<N;k++){ var ang=k/N*TAU; if(predictShot(c.x,c.y,Math.cos(ang),Math.sin(ang)).type==='ball') addDir(ang); }
+  var powers=dense?[0.55,0.8]:[0.62,0.9], spins=[{x:0,y:0}];
+  var best=null,bestSc=-1e18;
+  for(var di=0;di<dirs.length;di++)for(var pi=0;pi<powers.length;pi++)for(var si=0;si<spins.length;si++){
+    var res=simulateShot(dirs[di],powers[pi],spins[si]), sc=evalShot(res,pl);
+    if(sc>bestSc){bestSc=sc;best={dir:dirs[di],power:powers[pi],spin:spins[si],res:res};}
+  }
+  if(best){                                      // refine the winner (+ spin for position)
+    var rSpins=dense?[{x:0,y:0},{x:0,y:0.55},{x:0,y:-0.55}]:[{x:0,y:0}];
+    var aStep=dense?0.005:0.008, aRange=dense?3:2;
+    for(var a=-aRange;a<=aRange;a++)for(var p=-2;p<=2;p++)for(var s2=0;s2<rSpins.length;s2++){
+      var d=best.dir+a*aStep, pw=clamp(best.power+p*0.06,0.1,1);
+      var r2=simulateShot(d,pw,rSpins[s2]), sc2=evalShot(r2,pl);
+      if(sc2>bestSc){bestSc=sc2;best={dir:d,power:pw,spin:rSpins[s2],res:r2};}
+    }
+  }
+  return best;
+}
+
+/* summarize a chosen sim result for the review panel */
+function describeShot(best,pl){
+  var res=best.res, potted=res.potted, pick=null, g=pl.group, multi=0;
+  if(potted.indexOf(8)>=0) pick=8;
+  else { for(var i=0;i<potted.length;i++){ if(!g||groupOf(potted[i])===g){pick=potted[i];break;} }
+    if(pick==null && potted.length) pick=potted[0]; }
+  for(var k=0;k<potted.length;k++){ if(potted[k]!==8 && (!g||groupOf(potted[k])===g)) multi++; }
+  var pocketName='—';
+  if(pick!=null){
+    var bb=null;for(var j=0;j<res.balls.length;j++)if(res.balls[j].n===pick)bb=res.balls[j];
+    if(bb){var bp=null,bd=1e9;for(var q=0;q<POCKETS.length;q++){var d=hypot(bb.x-POCKETS[q].x,bb.y-POCKETS[q].y);if(d<bd){bd=d;bp=POCKETS[q];}}if(bp)pocketName=bp.name;}
+  } else pick=res.firstHit;
+  return {targetN:pick,pocketName:pocketName,multi:multi,safety:multi===0&&potted.indexOf(8)<0};
 }
 function safetyShot(pl){
   var c=cueBall(), ts=legalTargets(pl);
@@ -1569,33 +1660,27 @@ function safetyShot(pl){
 }
 
 function chooseAIShot(pl){
-  var cands=shotCandidates(pl), diff=pl.diff;
-  if(cands.length===0) return safetyShot(pl);
-  var pick;
-  if(diff===0) pick=cands[Math.floor(Math.random()*Math.min(5,cands.length))];
-  else if(diff===1) pick=cands[Math.floor(Math.random()*Math.min(3,cands.length))];
-  else pick=cands[0];
-  var dir=pick.dir, power=pick.power, spin={x:0,y:0};
-  var baseErr=[0.085,0.045,0.018,0.0035][diff];
-  var errScale=1+(1-pick.cut)*1.2+(pick.cd+pick.od)/DIAG*0.6;
-  var err=baseErr*errScale, powErr=[0.13,0.08,0.035,0.01][diff];
-
-  if(diff>=2){
-    var best=null,bestSc=-1e9;
-    var angJ=diff===3?[-0.015,-0.006,0,0.006,0.015]:[-0.02,0,0.02];
-    var powJ=diff===3?[-0.05,0,0.05]:[-0.04,0,0.04];
-    var spinO=diff===3?[{x:0,y:0},{x:0,y:0.55},{x:0,y:-0.55}]:[{x:0,y:0}];
-    for(var a=0;a<angJ.length;a++)for(var p=0;p<powJ.length;p++)for(var si=0;si<spinO.length;si++){
-      var d=dir+angJ[a], pw=clamp(power+powJ[p],0.1,1), sp=spinO[si];
-      var sc=evaluateResult(simulateShot(d,pw,sp),pick.targetN,pl);
-      if(sc>bestSc){bestSc=sc;best={dir:d,power:pw,spin:sp};}
-    }
-    if(best){dir=best.dir;power=best.power;spin=best.spin;}
-    err=diff===3?0.0022:0.012; powErr=diff===3?0.005:0.03;
+  var diff=pl.diff;
+  // ── low tiers: fast geometry heuristic with human-like error ──
+  if(diff<=1){
+    var cands=shotCandidates(pl);
+    if(cands.length===0) return safetyShot(pl);
+    var pick = diff===0 ? cands[Math.floor(Math.random()*Math.min(6,cands.length))]
+                        : cands[Math.floor(Math.random()*Math.min(3,cands.length))];
+    var errScale=1+(1-pick.cut)*1.3+(pick.cd+pick.od)/DIAG*0.7;
+    var dir=pick.dir+(Math.random()*2-1)*(diff===0?0.09:0.05)*errScale;
+    var power=clamp(pick.power+(Math.random()*2-1)*(diff===0?0.13:0.08),0.1,1);
+    return {dir:dir,power:power,spin:{x:0,y:0},targetN:pick.targetN,pocketName:pick.pocketName,multi:1};
   }
-  dir+=(Math.random()*2-1)*err;
-  power=clamp(power+(Math.random()*2-1)*powErr,0.1,1);
-  return {dir:dir,power:power,spin:spin,targetN:pick.targetN,pocketName:pick.pocketName,cut:pick.cut,quality:pick.q};
+  // ── high tiers: broad physics simulation search ──
+  var best=simSearchShot(pl, diff===3);
+  if(!best) return safetyShot(pl);
+  var info=describeShot(best,pl);
+  var dir=best.dir, power=best.power, spin=best.spin;
+  var err=diff===3?0:0.011, powErr=diff===3?0:0.028;   // insane executes flawlessly
+  if(err) dir+=(Math.random()*2-1)*err;
+  if(powErr) power=clamp(power+(Math.random()*2-1)*powErr,0.1,1);
+  return {dir:dir,power:power,spin:spin,targetN:info.targetN,pocketName:info.pocketName,multi:info.multi,safety:info.safety};
 }
 
 function aiPlaceCue(pl){
