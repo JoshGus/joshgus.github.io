@@ -128,8 +128,8 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
   <div class="head">
     <h1>Art <em>Match</em></h1>
     <p>Drop, upload, or paste any image. It reads the palette and composition, then finds
-       public-domain paintings &mdash; from the Art Institute of Chicago and Wikimedia Commons &mdash;
-       that share the same look. No AI captions, just color and layout measured in the browser.</p>
+       public-domain paintings from Wikimedia Commons that share the same look. No AI captions,
+       just color and layout measured in the browser. Hit <em>Find matches</em> again for a fresh set.</p>
   </div>
 
   <div class="layout">
@@ -181,9 +181,8 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
         <div class="empty">Your matches will appear here.<br>Try a landscape photo, a screenshot, or a favorite painting.</div>
       </div>
       <div class="credit">
-        Artwork data &amp; images &mdash; <a href="https://api.artic.edu/docs/" target="_blank" rel="noopener">Art Institute of Chicago API</a>
-        and <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> (public domain).
-        All analysis runs locally in your browser; your image is never uploaded.
+        Paintings &amp; images &mdash; <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> (public domain,
+        drawn from the Google Art Project). All analysis runs locally in your browser; your image is never uploaded.
       </div>
     </div>
   </div>
@@ -201,11 +200,8 @@ try{var clk=document.getElementById('clock');var t=function(){clk.textContent=ne
 const GRID = 5;              // NxN composition grid
 const SAMPLE = 72;           // px the input is downscaled to for palette
 const N_PALETTE = 5;         // dominant colors
-const FETCH_LIMIT = 55;      // AIC candidates pulled per color query
-const ANALYZE_TOP = 22;      // AIC candidates we keep after color pre-rank
-const COMMONS_POOL = 48;     // Wikimedia paintings pulled per search
+const COMMONS_POOL = 64;     // Wikimedia paintings pulled & analyzed per search
 const SHOW = 12;             // results shown
-const IIIF = 'https://www.artic.edu/iiif/2';
 const COMMONS_CAT = 'Google Art Project paintings';
 
 const $ = id => document.getElementById(id);
@@ -215,6 +211,7 @@ const drop=$('drop'), fileInput=$('file'), preview=$('preview'),
       progbar=$('progbar'), progInner=progbar.querySelector('i');
 
 let inputFeatures = null;   // {grid, palette, stats}
+let lastPool = null;        // analyzed candidates from the last search (re-scored on weight change)
 let busy = false;
 
 /* ── color math ──────────────────────────────────────────────────── */
@@ -338,71 +335,6 @@ function score(cand){
   return {colorSim,compSim};
 }
 
-/* ── AIC candidate fetching ──────────────────────────────────────── */
-function hueClauses(h,spread){
-  let lo=h-spread,hi=h+spread;
-  if(lo>=0&&hi<=360)return [{range:{'color.h':{gte:lo,lte:hi}}}];
-  // wrap-around → two ranges joined by OR
-  if(lo<0)lo+=360;if(hi>360)hi-=360;
-  return [{bool:{should:[{range:{'color.h':{gte:lo,lte:360}}},{range:{'color.h':{gte:0,lte:hi}}}],minimum_should_match:1}}];
-}
-
-async function fetchAIC(){
-  const fields=['id','title','artist_title','date_display','image_id','color','thumbnail'];
-  const base=[{exists:{field:'image_id'}},{exists:{field:'color'}},{term:{is_public_domain:true}}];
-  // chromatic palette colors, most-saturated first
-  const chromatic=inputFeatures.palette
-    .filter(c=>c.hsl[1]>14 && c.lab[0]>8 && c.lab[0]<95)
-    .sort((a,b)=>b.hsl[1]*b.w-a.hsl[1]*a.w);
-  const queries=[];
-  if(chromatic.length){
-    for(const c of chromatic.slice(0,2)){
-      queries.push({limit:FETCH_LIMIT,fields,
-        query:{bool:{must:[...base,{range:{'color.s':{gte:10}}},...hueClauses(c.hsl[0],24)]}}});
-    }
-  }else{
-    // near-grayscale input → match by low saturation + lightness band
-    const L=inputFeatures.stats.lightness;
-    queries.push({limit:FETCH_LIMIT,fields,
-      query:{bool:{must:[...base,{range:{'color.s':{lte:16}}},{range:{'color.l':{gte:Math.max(0,L-22),lte:Math.min(100,L+22)}}}]}}});
-  }
-  const seen=new Map();
-  const responses=await Promise.all(queries.map(q=>
-    fetch('https://api.artic.edu/api/v1/artworks/search',{
-      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(q)
-    }).then(r=>r.json()).catch(()=>({data:[]}))
-  ));
-  for(const res of responses)for(const a of (res.data||[])){
-    if(a.image_id && !seen.has(a.id))seen.set(a.id,a);
-  }
-  return [...seen.values()];
-}
-function aicDisplay(a){
-  return {source:'aic',sourceLabel:'Art Institute',
-    title:a.title||'Untitled',artist:a.artist_title||'Unknown artist',date:a.date_display||'',
-    link:`https://www.artic.edu/artworks/${a.id}`,
-    imgSrc:`${IIIF}/${a.image_id}/full/400,/0/default.jpg`,
-    fallback:(a.thumbnail&&a.thumbnail.lqip)||''};
-}
-
-/* pre-rank AIC by API color metadata (cheap) so we only analyze the best */
-function prerank(cands){
-  const ip=inputFeatures.palette[0].lab;     // dominant input color
-  const sec=inputFeatures.palette[1]?inputFeatures.palette[1].lab:ip;
-  cands.forEach(c=>{
-    const lab=rgb2lab(...hsl2rgb(c.color.h,c.color.s,c.color.l));
-    c._pre=Math.min(labDist(lab,ip),labDist(lab,sec));
-  });
-  return cands.sort((a,b)=>a._pre-b._pre).slice(0,ANALYZE_TOP);
-}
-function hsl2rgb(h,s,l){
-  s/=100;l/=100;
-  const k=n=>(n+h/30)%12;
-  const a=s*Math.min(l,1-l);
-  const f=n=>l-a*Math.max(-1,Math.min(k(n)-3,9-k(n),1));
-  return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
-}
-
 /* ── Wikimedia Commons: a live pool of public-domain paintings ───────
    Commons has no color search, so we pull a randomized batch of famous
    paintings and analyze the REAL image (upload.wikimedia.org sends CORS
@@ -412,7 +344,7 @@ async function fetchCommons(){
     action:'query',format:'json',origin:'*',
     generator:'search',gsrsearch:`incategory:"${COMMONS_CAT}"`,
     gsrnamespace:'6',gsrlimit:String(COMMONS_POOL),gsrsort:'random',
-    prop:'imageinfo',iiprop:'url|extmetadata',iiurlwidth:'340'
+    prop:'imageinfo',iiprop:'url|extmetadata',iiurlwidth:'360'
   });
   const res=await fetch(url).then(r=>r.json()).catch(()=>null);
   const pages=res&&res.query&&res.query.pages;
@@ -441,28 +373,7 @@ function featuresFromImage(img){
   anaCtx.drawImage(img,0,0,SAMPLE,SAMPLE);
   return extractFeatures(anaCtx,SAMPLE,SAMPLE);
 }
-/* AIC: analyze the base64 thumbnail.lqip data-URI (same-origin, always
-   readable — the full IIIF images serve CORS headers unreliably). Coarse
-   but reliable; falls back to the single dominant color if absent. */
-function analyzeArtwork(a){
-  return new Promise(resolve=>{
-    const done=f=>resolve(f&&{...a,...f,_display:aicDisplay(a)});
-    const lqip=a.thumbnail&&a.thumbnail.lqip;
-    if(!lqip){done(fallbackFeatures(a));return;}
-    const img=new Image();
-    img.onload=()=>{try{done(featuresFromImage(img));}catch(e){done(fallbackFeatures(a));}};
-    img.onerror=()=>done(fallbackFeatures(a));
-    img.src=lqip;
-  });
-}
-function fallbackFeatures(a){
-  if(!a.color)return null;
-  const rgb=hsl2rgb(a.color.h,a.color.s,a.color.l), lab=rgb2lab(...rgb);
-  return {grid:Array(GRID*GRID).fill(lab),
-    palette:[{rgb,lab,hsl:[a.color.h,a.color.s,a.color.l],w:1}],
-    stats:{lightness:lab[0],saturation:a.color.s,warmth:lab[1],contrast:0}};
-}
-/* Commons: analyze the real cross-origin image (readable → full detail). */
+/* Analyze the real cross-origin image (readable → full detail). */
 function analyzeCommons(a){
   return new Promise(resolve=>{
     const img=new Image();img.crossOrigin='anonymous';
@@ -481,28 +392,22 @@ async function analyzeBatch(cands,fn,tick,BATCH=8){
 }
 
 /* ── run ─────────────────────────────────────────────────────────── */
+// Fetch a fresh random pool of paintings and analyze each (color + composition).
 async function run(){
   if(!inputFeatures||busy)return;
-  busy=true;goBtn.disabled=true;resultsEl.innerHTML='';
+  busy=true;goBtn.disabled=true;lastPool=null;resultsEl.innerHTML='';
   progbar.classList.add('show');progInner.style.width='0%';
   try{
-    setStatus('Searching by color across collections&hellip;');
-    const [aicCands,commonsItems]=await Promise.all([fetchAIC(),fetchCommons()]);
-    const aicTop=prerank(aicCands);
-    const total=aicTop.length+commonsItems.length;
-    if(!total){setStatus('');resultsEl.innerHTML='<div class="empty">No candidates came back. Try another image.</div>';return;}
-    let done=0;const tick=()=>{progInner.style.width=(++done/total*100).toFixed(0)+'%';};
-    setStatus(`Analyzing ${total} paintings — color &amp; composition&hellip;`);
-    const [aicF,commonsF]=await Promise.all([
-      analyzeBatch(aicTop,analyzeArtwork,tick),
-      analyzeBatch(commonsItems,analyzeCommons,tick)
-    ]);
-    const all=[...aicF,...commonsF];
-    if(!all.length){setStatus('');resultsEl.innerHTML='<div class="empty">Could not analyze any candidates. Try again.</div>';return;}
-    const wColor=(100-(+weightEl.value))/100, wComp=(+weightEl.value)/100;
-    all.forEach(c=>{const s=score(c);c._colorSim=s.colorSim;c._compSim=s.compSim;c._final=wColor*s.colorSim+wComp*s.compSim;});
-    render(pickResults(all));
-    setStatus(`Top ${Math.min(SHOW,all.length)} of ${all.length} &mdash; <b>${aicF.length}</b> Art Institute, <b>${commonsF.length}</b> Wikimedia.`);
+    setStatus('Gathering paintings from Wikimedia&hellip;');
+    const items=await fetchCommons();
+    if(!items.length){setStatus('');resultsEl.innerHTML='<div class="empty">Couldn&rsquo;t reach the collection. Try again in a moment.</div>';return;}
+    let done=0;const tick=()=>{progInner.style.width=(++done/items.length*100).toFixed(0)+'%';};
+    setStatus(`Analyzing ${items.length} paintings &mdash; color &amp; composition&hellip;`);
+    const analyzed=await analyzeBatch(items,analyzeCommons,tick);
+    if(!analyzed.length){setStatus('');resultsEl.innerHTML='<div class="empty">Could not read any images. Try again.</div>';return;}
+    analyzed.forEach(c=>{const s=score(c);c._colorSim=s.colorSim;c._compSim=s.compSim;});
+    lastPool=analyzed;
+    rescore();
   }catch(e){
     console.error(e);setStatus('Something went wrong — try again.');
   }finally{
@@ -511,16 +416,14 @@ async function run(){
 }
 function setStatus(html){statusEl.innerHTML=html;}
 
-/* rank by score, but guarantee both sources appear (AIC's coarse placeholder
-   features score lower than Wikimedia's full-image ones, so reserve a few slots) */
-function pickResults(all){
-  all.sort((a,b)=>b._final-a._final);
-  const MINP=3, by={aic:[],commons:[]};
-  all.forEach(c=>by[c._display.source].push(c));
-  const picked=new Set();
-  for(const s of ['aic','commons'])by[s].slice(0,MINP).forEach(c=>picked.add(c));
-  for(const c of all){if(picked.size>=SHOW)break;picked.add(c);}
-  return [...picked].sort((a,b)=>b._final-a._final).slice(0,SHOW);
+// Re-rank the current pool with the color/composition weight — no re-fetch.
+function rescore(){
+  if(!lastPool||!lastPool.length)return;
+  const wColor=(100-(+weightEl.value))/100, wComp=(+weightEl.value)/100;
+  lastPool.forEach(c=>c._final=wColor*c._colorSim+wComp*c._compSim);
+  lastPool.sort((a,b)=>b._final-a._final);
+  render(lastPool.slice(0,SHOW));
+  setStatus(`Top ${Math.min(SHOW,lastPool.length)} of ${lastPool.length} paintings. Hit <b>Find matches</b> for a fresh set.`);
 }
 
 function render(list){
@@ -616,7 +519,7 @@ drop.addEventListener('keydown',e=>{if((e.key==='Enter'||e.key===' ')&&!drop.cla
 fileInput.addEventListener('change',e=>handleFile(e.target.files[0]));
 $('reset').addEventListener('click',e=>{
   e.stopPropagation();drop.classList.remove('has-img');preview.src='';
-  fileInput.value='';inputFeatures=null;goBtn.disabled=true;
+  fileInput.value='';inputFeatures=null;lastPool=null;goBtn.disabled=true;
   fingerEl.classList.remove('show');resultsEl.innerHTML='<div class="empty">Your matches will appear here.</div>';
   setStatus('Waiting for an image&hellip;');
 });
@@ -633,7 +536,7 @@ window.addEventListener('paste',e=>{
 goBtn.addEventListener('click',run);
 weightEl.addEventListener('input',()=>{
   const v=+weightEl.value;wlabel.textContent=`${100-v} / ${v}`;
-  if(inputFeatures&&!busy)run();
+  if(!busy)rescore();   // re-rank the existing pool; no re-fetch
 });
 </script>
 </body>
