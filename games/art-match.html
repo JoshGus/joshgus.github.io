@@ -343,7 +343,7 @@ function hueClauses(h,spread){
 }
 
 async function fetchCandidates(){
-  const fields=['id','title','artist_title','date_display','image_id','color'];
+  const fields=['id','title','artist_title','date_display','image_id','color','thumbnail'];
   const base=[{exists:{field:'image_id'}},{exists:{field:'color'}},{term:{is_public_domain:true}}];
   // chromatic palette colors, most-saturated first
   const chromatic=inputFeatures.palette
@@ -391,23 +391,37 @@ function hsl2rgb(h,s,l){
   return [Math.round(f(0)*255),Math.round(f(8)*255),Math.round(f(4)*255)];
 }
 
-/* load a thumbnail and extract its features (crossOrigin for canvas read) */
+/* Analyze the base64 `thumbnail.lqip` placeholder embedded in the API JSON.
+   It's a data: URI — same-origin, so the canvas is never tainted (unlike the
+   cross-origin IIIF images, whose CDN serves CORS headers unreliably). Tiny,
+   but enough for a dominant palette + coarse composition, and needs no network. */
 const anaCanvas=document.createElement('canvas');
 const anaCtx=anaCanvas.getContext('2d',{willReadFrequently:true});
 function analyzeArtwork(a){
   return new Promise(resolve=>{
+    const lqip=a.thumbnail&&a.thumbnail.lqip;
+    if(!lqip){resolve(fallbackFeatures(a));return;}
     const img=new Image();
-    img.crossOrigin='anonymous';
     img.onload=()=>{
       try{
         anaCanvas.width=SAMPLE;anaCanvas.height=SAMPLE;
+        anaCtx.imageSmoothingEnabled=true;
         anaCtx.drawImage(img,0,0,SAMPLE,SAMPLE);
         resolve({...a,...extractFeatures(anaCtx,SAMPLE,SAMPLE)});
-      }catch(e){resolve(null);}
+      }catch(e){resolve(fallbackFeatures(a));}
     };
-    img.onerror=()=>resolve(null);
-    img.src=`${IIIF}/${a.image_id}/full/200,/0/default.jpg`;
+    img.onerror=()=>resolve(fallbackFeatures(a));
+    img.src=lqip;
   });
+}
+/* no usable placeholder → score on the API's single dominant color only */
+function fallbackFeatures(a){
+  if(!a.color)return null;
+  const rgb=hsl2rgb(a.color.h,a.color.s,a.color.l), lab=rgb2lab(...rgb);
+  return {...a,
+    grid:Array(GRID*GRID).fill(lab),
+    palette:[{rgb,lab,hsl:[a.color.h,a.color.s,a.color.l],w:1}],
+    stats:{lightness:lab[0],saturation:a.color.s,warmth:lab[1],contrast:0}};
 }
 async function analyzeAll(cands,onProgress){
   const out=[];let done=0;
