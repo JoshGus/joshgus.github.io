@@ -127,9 +127,9 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
 <div class="wrap">
   <div class="head">
     <h1>Art <em>Match</em></h1>
-    <p>Drop, upload, or paste any image. It reads the palette and composition, then finds
-       public-domain paintings from Wikimedia Commons that share the same look. No AI captions,
-       just color and layout measured in the browser. Hit <em>Find matches</em> again for a fresh set.</p>
+    <p>Drop, upload, or paste any image. It reads the palette and composition, then ranks it against
+       a local library of public-domain paintings to find the closest matches. No AI captions,
+       just color and layout measured in the browser &mdash; slide between color and composition weighting.</p>
   </div>
 
   <div class="layout">
@@ -213,6 +213,8 @@ const drop=$('drop'), fileInput=$('file'), preview=$('preview'),
 let inputFeatures = null;   // {grid, palette, stats}
 let lastPool = null;        // analyzed candidates from the last search (re-scored on weight change)
 let busy = false;
+let CORPUS = null;          // precomputed painting fingerprints (data/artmatch-index.json)
+let IDX = null;             // index header {base, w}
 
 /* ── color math ──────────────────────────────────────────────────── */
 function rgb2lab(r,g,b){
@@ -391,28 +393,87 @@ async function analyzeBatch(cands,fn,tick,BATCH=8){
   return out.filter(Boolean);
 }
 
+/* Build the pipeline uses to the crawler (scratchpad script). Exposes the
+   page's OWN feature extraction so the cached index can never drift from
+   what the client computes at match time. Harmless in normal use. */
+window.__AM_analyze = url => new Promise(res=>{
+  const img=new Image();img.crossOrigin='anonymous';
+  img.onload=()=>{try{const f=featuresFromImage(img);
+    res({grid:f.grid,palette:f.palette.map(c=>({lab:c.lab,w:c.w})),stats:f.stats});}catch(e){res(null);}};
+  img.onerror=()=>res(null);
+  img.src=url;
+});
+window.__AM_batch = async (urls,conc=10)=>{
+  const out=new Array(urls.length);let i=0;
+  const worker=async()=>{while(i<urls.length){const k=i++;out[k]=await window.__AM_analyze(urls[k]);}};
+  await Promise.all(Array.from({length:conc},worker));
+  return out;
+};
+
+/* ── precomputed corpus (data/artmatch-index.json) ───────────────── */
+function b64ToBytes(b64){const s=atob(b64),a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;}
+function decodeFeatures(d){
+  const b=b64ToBytes(d);let o=0;
+  const grid=[];for(let i=0;i<GRID*GRID;i++)grid.push([b[o++],b[o++]-128,b[o++]-128]);
+  const palette=[];for(let i=0;i<5;i++){const lab=[b[o++],b[o++]-128,b[o++]-128];palette.push({lab,w:b[o++]/255,rgb:lab2rgbApprox(lab)});}
+  const stats={lightness:b[o++],saturation:b[o++],warmth:b[o++]-128,contrast:b[o++]};
+  return {grid,palette,stats};
+}
+function commonsDisplay(raw){
+  const enc=encodeURIComponent(raw.f);
+  const title=raw.f.replace(/\.[^.]+$/,'').replace(/\s*-\s*Google Art Project.*$/i,'').replace(/_/g,' ').trim();
+  // Special:FilePath?width= redirects to the correct thumbnail (widths are
+  // bucketed per-image, so a hand-built /NNNpx- URL 400s). Display only —
+  // no pixel read, so CORS doesn't matter here.
+  return {source:'commons',sourceLabel:'Wikimedia',title:title||'Untitled',
+    artist:raw.a||'Unknown artist',date:'',
+    link:`https://commons.wikimedia.org/wiki/File:${enc}`,
+    imgSrc:`https://commons.wikimedia.org/wiki/Special:FilePath/${enc}?width=${IDX.w}`,fallback:''};
+}
+async function loadCorpus(){
+  try{
+    const idx=await fetch('../data/artmatch-index.json').then(r=>r.ok?r.json():null);
+    if(!idx||idx.grid!==GRID||!Array.isArray(idx.items)||!idx.items.length)return;
+    IDX={base:idx.base,w:idx.w};
+    CORPUS=idx.items.map(it=>{const f=decodeFeatures(it.d);f._raw=it;return f;});
+  }catch(e){console.warn('corpus load failed, using live pool',e);}
+}
+const corpusReady=loadCorpus();
+
 /* ── run ─────────────────────────────────────────────────────────── */
-// Fetch a fresh random pool of paintings and analyze each (color + composition).
 async function run(){
   if(!inputFeatures||busy)return;
   busy=true;goBtn.disabled=true;lastPool=null;resultsEl.innerHTML='';
   progbar.classList.add('show');progInner.style.width='0%';
   try{
-    setStatus('Gathering paintings from Wikimedia&hellip;');
-    const items=await fetchCommons();
-    if(!items.length){setStatus('');resultsEl.innerHTML='<div class="empty">Couldn&rsquo;t reach the collection. Try again in a moment.</div>';return;}
-    let done=0;const tick=()=>{progInner.style.width=(++done/items.length*100).toFixed(0)+'%';};
-    setStatus(`Analyzing ${items.length} paintings &mdash; color &amp; composition&hellip;`);
-    const analyzed=await analyzeBatch(items,analyzeCommons,tick);
-    if(!analyzed.length){setStatus('');resultsEl.innerHTML='<div class="empty">Could not read any images. Try again.</div>';return;}
-    analyzed.forEach(c=>{const s=score(c);c._colorSim=s.colorSim;c._compSim=s.compSim;});
-    lastPool=analyzed;
-    rescore();
+    await corpusReady;
+    if(CORPUS&&CORPUS.length){
+      setStatus(`Comparing against <b>${CORPUS.length.toLocaleString()}</b> paintings&hellip;`);
+      progInner.style.width='100%';
+      // features are precomputed — scoring the whole corpus is pure math
+      CORPUS.forEach(c=>{const s=score(c);c._colorSim=s.colorSim;c._compSim=s.compSim;});
+      lastPool=CORPUS;
+      rescore();
+    }else{
+      await runLive();   // fallback: live random Wikimedia pool
+    }
   }catch(e){
     console.error(e);setStatus('Something went wrong — try again.');
   }finally{
     progbar.classList.remove('show');goBtn.disabled=false;busy=false;
   }
+}
+// Fallback when the cached index is unavailable: fetch a random pool and analyze live.
+async function runLive(){
+  setStatus('Gathering paintings from Wikimedia&hellip;');
+  const items=await fetchCommons();
+  if(!items.length){setStatus('');resultsEl.innerHTML='<div class="empty">Couldn&rsquo;t reach the collection. Try again in a moment.</div>';return;}
+  let done=0;const tick=()=>{progInner.style.width=(++done/items.length*100).toFixed(0)+'%';};
+  setStatus(`Analyzing ${items.length} paintings &mdash; color &amp; composition&hellip;`);
+  const analyzed=await analyzeBatch(items,analyzeCommons,tick);
+  if(!analyzed.length){setStatus('');resultsEl.innerHTML='<div class="empty">Could not read any images. Try again.</div>';return;}
+  analyzed.forEach(c=>{const s=score(c);c._colorSim=s.colorSim;c._compSim=s.compSim;});
+  lastPool=analyzed;rescore();
 }
 function setStatus(html){statusEl.innerHTML=html;}
 
@@ -423,14 +484,14 @@ function rescore(){
   lastPool.forEach(c=>c._final=wColor*c._colorSim+wComp*c._compSim);
   lastPool.sort((a,b)=>b._final-a._final);
   render(lastPool.slice(0,SHOW));
-  setStatus(`Top ${Math.min(SHOW,lastPool.length)} of ${lastPool.length} paintings. Hit <b>Find matches</b> for a fresh set.`);
+  setStatus(`Best ${Math.min(SHOW,lastPool.length)} matches from <b>${lastPool.length.toLocaleString()}</b> paintings.`);
 }
 
 function render(list){
   if(!list.length){resultsEl.innerHTML='<div class="empty">No matches found.</div>';return;}
   resultsEl.innerHTML='';
   list.forEach((c,i)=>{
-    const d=c._display;
+    const d=c._display||(c._display=commonsDisplay(c._raw));
     const pct=Math.round(c._final*100);
     const col=Math.round(c._colorSim*100), comp=Math.round(c._compSim*100);
     const dom=c.palette&&c.palette[0]?`rgb(${c.palette[0].rgb.join(',')})`:'#0e0d0b';
@@ -441,7 +502,7 @@ function render(list){
       <div class="imgwrap" style="background:${dom}">
         <span class="rank">#${i+1}</span><span class="pct">${pct}%</span>
         <span class="src">${escapeHtml(d.sourceLabel)}</span>
-        <img loading="lazy" ${d.source==='commons'?'crossorigin="anonymous"':''} src="${escapeHtml(d.imgSrc)}" alt="${escapeHtml(d.title)}">
+        <img loading="lazy" src="${escapeHtml(d.imgSrc)}" alt="${escapeHtml(d.title)}">
       </div>
       <div class="body">
         <h3>${escapeHtml(d.title)}</h3>
