@@ -222,19 +222,32 @@ const COLORMAP_SVG = `<svg viewBox="0 0 200 112" style="width:80%;opacity:.55" f
   <circle cx="118" cy="62" r="2" fill="#1abc9c" opacity=".7"/><circle cx="104" cy="80" r="2" fill="#16a085" opacity=".6"/>
 </svg>`;
 
+const POOL_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" xmlns="http://www.w3.org/2000/svg">
+  <rect x="10" y="14" width="180" height="92" rx="10" fill="#0d4c29"/>
+  <rect x="10" y="14" width="180" height="92" rx="10" fill="none" stroke="#3a2415" stroke-width="7"/>
+  <circle cx="20" cy="24" r="6" fill="#0a0a0a"/><circle cx="100" cy="21" r="6" fill="#0a0a0a"/><circle cx="180" cy="24" r="6" fill="#0a0a0a"/>
+  <circle cx="20" cy="96" r="6" fill="#0a0a0a"/><circle cx="100" cy="99" r="6" fill="#0a0a0a"/><circle cx="180" cy="96" r="6" fill="#0a0a0a"/>
+  <circle cx="132" cy="46" r="8" fill="#f4c400"/><circle cx="150" cy="60" r="8" fill="#123f9e"/>
+  <circle cx="132" cy="74" r="8" fill="#c41e1e"/><circle cx="150" cy="88" r="8" fill="#5a2a86"/>
+  <circle cx="114" cy="60" r="8" fill="#141414"/>
+  <circle cx="60" cy="60" r="8" fill="#f7f3e8" stroke="rgba(0,0,0,.15)" stroke-width="1"/>
+  <line x1="60" y1="60" x2="150" y2="60" stroke="rgba(255,255,255,.35)" stroke-width="1" stroke-dasharray="4 4"/>
+  <line x1="58" y1="60" x2="18" y2="60" stroke="#caa25e" stroke-width="3" stroke-linecap="round"/>
+</svg>`;
+
 export const CARDS = [
   {
-    id: 'colormap',
-    type: 'tool',
-    title: 'Color Space',
-    descShort: 'Photographs plotted in 3D RGB color space.',
-    descFull: 'Your photo library plotted in RGB color space. Each dot is a dominant color — see how colors cluster by subject, season, and light.',
-    href: 'colormap.html',
-    thumbBg: 'radial-gradient(ellipse at 28% 55%,rgba(231,76,60,.38) 0,transparent 48%),radial-gradient(ellipse at 72% 38%,rgba(46,204,113,.32) 0,transparent 45%),radial-gradient(ellipse at 50% 18%,rgba(52,152,219,.3) 0,transparent 40%),radial-gradient(ellipse at 82% 78%,rgba(243,156,18,.28) 0,transparent 32%),radial-gradient(ellipse at 18% 78%,rgba(155,89,182,.26) 0,transparent 32%),#0e0d0b',
-    thumbSvg: COLORMAP_SVG,
-    stack: ['WebGL', 'JS'],
-    ctaFull: 'Explore',
-    ctaShort: 'Explore'
+    id: 'pool',
+    type: 'game',
+    title: 'Daily Break',
+    descShort: 'Seeded top-down pool. Run your group, sink the 8, one rack a day.',
+    descFull: 'Top-down pool with real physics, spin and English. A seeded daily challenge — run your assigned group and finish on the 8 — plus classic 8-ball versus a friend or an AI you can crank up to insane.',
+    href: 'pool.html',
+    thumbBg: 'linear-gradient(160deg,#0a120e,#123a24)',
+    thumbSvg: POOL_SVG,
+    stack: ['Canvas', 'Physics', 'JS'],
+    ctaFull: "Play today's rack",
+    ctaShort: 'Play'
   },
   {
     id: 'minigolf',
@@ -274,6 +287,19 @@ export const CARDS = [
     stack: ['Canvas', 'A*', 'JS'],
     ctaFull: 'Play',
     ctaShort: 'Play'
+  },
+  {
+    id: 'colormap',
+    type: 'tool',
+    title: 'Color Space',
+    descShort: 'Photographs plotted in 3D RGB color space.',
+    descFull: 'Your photo library plotted in RGB color space. Each dot is a dominant color — see how colors cluster by subject, season, and light.',
+    href: 'colormap.html',
+    thumbBg: 'radial-gradient(ellipse at 28% 55%,rgba(231,76,60,.38) 0,transparent 48%),radial-gradient(ellipse at 72% 38%,rgba(46,204,113,.32) 0,transparent 45%),radial-gradient(ellipse at 50% 18%,rgba(52,152,219,.3) 0,transparent 40%),radial-gradient(ellipse at 82% 78%,rgba(243,156,18,.28) 0,transparent 32%),radial-gradient(ellipse at 18% 78%,rgba(155,89,182,.26) 0,transparent 32%),#0e0d0b',
+    thumbSvg: COLORMAP_SVG,
+    stack: ['WebGL', 'JS'],
+    ctaFull: 'Explore',
+    ctaShort: 'Explore'
   },
   {
     id: 'pixel-sim',
