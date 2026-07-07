@@ -263,6 +263,19 @@ export const CARDS = [
     ctaShort: 'Play'
   },
   {
+    id: 'rts',
+    type: 'game',
+    title: 'Frontline',
+    descShort: 'Procedural-map RTS. Spawn units, command them through ruins, wipe the enemy base.',
+    descFull: 'Mini top-down RTS with procedurally generated wall maps. Spawn soldiers, archers, tanks, and scouts — select and right-click to move. Enemies advance when you get close. Each map is freshly generated.',
+    href: 'rts.html',
+    thumbBg: 'linear-gradient(160deg,#0b0e07,#141c0a)',
+    thumbSvg: RTS_SVG,
+    stack: ['Canvas', 'A*', 'JS'],
+    ctaFull: 'Play',
+    ctaShort: 'Play'
+  },
+  {
     id: 'pixel-sim',
     type: 'game',
     title: 'Pixel Sim',
@@ -275,19 +288,6 @@ export const CARDS = [
     credit: 'Inspired by <a href="https://dan-ball.jp/en/javagame/dust/" target="_blank" rel="noopener">Powder Game</a> and Noita',
     ctaFull: 'Open sim',
     ctaShort: 'Open'
-  },
-  {
-    id: 'rts',
-    type: 'game',
-    title: 'Frontline',
-    descShort: 'Procedural-map RTS. Spawn units, command them through ruins, wipe the enemy base.',
-    descFull: 'Mini top-down RTS with procedurally generated wall maps. Spawn soldiers, archers, tanks, and scouts — select and right-click to move. Enemies advance when you get close. Each map is freshly generated.',
-    href: 'rts.html',
-    thumbBg: 'linear-gradient(160deg,#0b0e07,#141c0a)',
-    thumbSvg: RTS_SVG,
-    stack: ['Canvas', 'A*', 'JS'],
-    ctaFull: 'Play',
-    ctaShort: 'Play'
   },
   {
     id: 'boids',
