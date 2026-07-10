@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Word Hunt Solver &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<script src="../dark-mode.js"></script>
+<style>
+body{background:var(--bg);color:var(--fg);font-family:var(--body);min-height:100vh;
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.wrap{flex:1;width:100%;max-width:1080px;margin:0 auto;
+  padding:clamp(28px,5vw,56px) clamp(18px,4vw,40px) 80px}
+.head h1{font-family:var(--disp);font-weight:460;font-size:clamp(2.2rem,6vw,3.6rem);
+  line-height:.92;letter-spacing:-.03em}
+.head h1 em{font-style:italic;color:var(--accent-ink)}
+.head p{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;color:var(--dim);
+  margin-top:14px;max-width:60ch}
+.status-line{font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;color:var(--dim);margin-top:10px}
+.status-line b{color:var(--accent-ink)}
+
+.layout{display:grid;grid-template-columns:minmax(280px,360px) 1fr;gap:clamp(28px,4vw,52px);
+  margin-top:clamp(28px,4vw,44px);align-items:start}
+@media(max-width:720px){.layout{grid-template-columns:1fr}}
+
+/* board */
+.board-panel{position:sticky;top:16px}
+.grid{position:relative;display:grid;grid-template-columns:repeat(4,1fr);gap:10px;
+  aspect-ratio:1;background:var(--surface);padding:14px;border:1px solid var(--line);border-radius:14px}
+.cell{position:relative;display:grid;place-items:center;border:1px solid var(--line-strong);
+  border-radius:10px;background:linear-gradient(150deg,#e9dcc9,#d8c3a6);z-index:2}
+html.dark .cell{background:linear-gradient(150deg,#2a2521,#221e1a)}
+.cell input{width:100%;height:100%;border:0;background:transparent;text-align:center;
+  font-family:var(--disp);font-weight:700;font-size:clamp(1.4rem,5vw,2.3rem);color:#2a2016;
+  text-transform:uppercase;caret-color:var(--accent-ink);outline:none}
+html.dark .cell input{color:var(--fg)}
+.cell input::selection{background:var(--accent)}
+.cell.lit{outline:3px solid var(--accent);outline-offset:-1px}
+.cell .ord{position:absolute;top:3px;left:5px;font-family:var(--mono);font-size:.6rem;
+  color:var(--accent-ink);font-weight:600}
+svg.paths{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3}
+svg.paths path{fill:none;stroke:var(--accent-ink);stroke-width:2.5;stroke-linejoin:round;
+  stroke-linecap:round;opacity:.9}
+svg.paths circle{fill:var(--accent-ink)}
+
+.controls{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}
+button,.btn{font-family:var(--mono);font-size:.66rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:10px 16px;border:1px solid var(--line-strong);border-radius:30px;background:transparent;
+  color:var(--fg);cursor:pointer;transition:.2s}
+button:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712}
+button.primary:hover{filter:brightness(1.05);color:#1d1712}
+.paste{margin-top:12px;width:100%;font-family:var(--mono);font-size:.8rem;letter-spacing:.16em;
+  text-transform:uppercase;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);color:var(--fg);outline:none}
+.paste:focus{border-color:var(--accent-ink)}
+.paste::placeholder{color:var(--dimmer);letter-spacing:.1em}
+
+/* results */
+.stats{display:flex;gap:22px;flex-wrap:wrap;font-family:var(--mono);margin-bottom:16px}
+.stat b{display:block;font-size:1.9rem;font-weight:600;color:var(--fg);font-family:var(--disp)}
+.stat span{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+.sortbar{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap}
+.sortbar button{padding:7px 12px;font-size:.6rem}
+.sortbar button.active{background:var(--accent);border-color:var(--accent);color:#1d1712}
+.words{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:7px}
+.word{display:flex;justify-content:space-between;align-items:center;gap:10px;
+  padding:8px 12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+  cursor:pointer;transition:.15s;font-family:var(--mono)}
+.word:hover,.word.active{border-color:var(--accent-ink);background:rgba(204,247,63,.1)}
+.word .w{font-weight:600;letter-spacing:.08em;font-size:.9rem}
+.word .p{font-size:.62rem;color:var(--dim)}
+.empty{font-family:var(--mono);font-size:.75rem;color:var(--dim);padding:30px 0}
+.hint{font-family:var(--mono);font-size:.64rem;color:var(--dimmer);margin-top:10px;line-height:1.7}
+</style>
+</head>
+<body>
+
+<div class="status dark">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav><a href="index.html">Games</a></nav>
+  <span id="clock"></span>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <h1>Word Hunt <em>Solver</em></h1>
+    <p>Enter the 4&times;4 board. Get every word, ranked by GamePigeon score, with the path drawn on the grid. Tab moves to the next tile; or paste all 16 letters at once.</p>
+    <div class="status-line">dictionary: <b id="dictStatus">loading&hellip;</b></div>
+  </div>
+
+  <div class="layout">
+    <div class="board-panel">
+      <div class="grid" id="grid">
+        <svg class="paths" id="paths" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
+      </div>
+      <input class="paste" id="paste" maxlength="40" placeholder="or paste 16 letters — e.g. LBSBSEWIRARKMAOF">
+      <textarea class="paste" id="link" rows="2" placeholder="or paste the GamePigeon link — data:?ver=52&data=…  (auto-decodes the board)"></textarea>
+      <div class="controls">
+        <button class="primary" id="solveBtn">Solve</button>
+        <button id="decodeBtn">Decode link</button>
+        <button id="clearBtn">Clear</button>
+        <button id="sampleBtn">Sample board</button>
+      </div>
+      <div class="status-line" id="decodeStatus"></div>
+      <div class="hint">Scoring: 3&rarr;100 · 4&rarr;400 · 5&rarr;800 · 6&rarr;1400 · 7&rarr;1800 · 8+&rarr;2200. Hover or tap a word to trace it.</div>
+    </div>
+
+    <div class="results">
+      <div class="stats">
+        <div class="stat"><b id="stWords">0</b><span>words</span></div>
+        <div class="stat"><b id="stScore">0</b><span>max score</span></div>
+        <div class="stat"><b id="stBest">&mdash;</b><span>longest</span></div>
+      </div>
+      <div class="sortbar" id="sortbar">
+        <button data-sort="score" class="active">By score</button>
+        <button data-sort="length">By length</button>
+        <button data-sort="alpha">A–Z</button>
+      </div>
+      <div class="words" id="words"><div class="empty">Enter a board and hit Solve.</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── clock ───────────────────────────────────────────────────────────
+setInterval(()=>{const c=document.getElementById('clock');if(c)c.textContent=
+  new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});},1000);
+
+// ── grid setup ──────────────────────────────────────────────────────
+const N=4, SIZE=N*N;
+const grid=document.getElementById('grid');
+const inputs=[];
+for(let i=0;i<SIZE;i++){
+  const cell=document.createElement('div');
+  cell.className='cell';
+  const ord=document.createElement('span');ord.className='ord';ord.dataset.i=i;
+  const inp=document.createElement('input');
+  inp.maxLength=1; inp.dataset.i=i; inp.autocomplete='off'; inp.spellcheck=false;
+  cell.appendChild(ord); cell.appendChild(inp); grid.appendChild(cell);
+  inputs.push(inp);
+  inp.addEventListener('input',e=>{
+    inp.value=inp.value.toUpperCase().replace(/[^A-Z]/g,'');
+    if(inp.value && i<SIZE-1) inputs[i+1].focus();
+  });
+  inp.addEventListener('keydown',e=>{
+    if(e.key==='Backspace' && !inp.value && i>0){inputs[i-1].focus();inputs[i-1].value='';e.preventDefault();}
+    const nav={ArrowRight:1,ArrowLeft:-1,ArrowUp:-N,ArrowDown:N}[e.key];
+    if(nav!==undefined){const t=i+nav;if(t>=0&&t<SIZE){inputs[t].focus();e.preventDefault();}}
+  });
+}
+// keep the SVG overlay as first child
+grid.insertBefore(document.getElementById('paths'), grid.firstChild);
+
+function readBoard(){return inputs.map(x=>x.value.trim().toUpperCase());}
+function setBoard(str){
+  const L=str.toUpperCase().replace(/[^A-Z]/g,'').slice(0,SIZE).split('');
+  for(let i=0;i<SIZE;i++) inputs[i].value=L[i]||'';
+}
+document.getElementById('paste').addEventListener('input',e=>setBoard(e.target.value));
+document.getElementById('clearBtn').onclick=()=>{setBoard('');clearPaths();renderWords([]);
+  document.getElementById('paste').value='';inputs[0].focus();};
+document.getElementById('sampleBtn').onclick=()=>{setBoard('LBSBSEWIRARKMAOF');solve();};
+
+// ── GamePigeon link decoder ─────────────────────────────────────────
+// Mirrors -[MessagesViewController decryptStringNew:] (ver>=1): a POSIX
+// drand48 seeded reverse-shuffle, no key. Reversed out of the decrypted
+// MessagesExtension binary and validated against real boards.
+function makeRand48(seed){
+  const M=(1n<<48n)-1n, TWO48=Number(1n<<48n);
+  let x=(((BigInt(seed)&M)<<16n)|0x330En)&M;
+  return function(){ x=(0x5DEECE66Dn*x+0xBn)&M; return Number(x)/TWO48; };
+}
+function decryptStringNew(s){
+  const L=s.length, rnd=makeRand48(L*0xef), idx=new Array(L);
+  for(let i=0;i<L;i++) idx[i]=Math.trunc(rnd()*(L-i));
+  const out=[];
+  for(let pos=L-1;pos>=0;pos--) out.splice(idx[pos],0,s[pos]);
+  return out.join('');
+}
+// letters= field is row-major but BOTTOM row first → reverse the 4 rows
+function lettersToBoard(letters){
+  const rows=[letters.slice(0,4),letters.slice(4,8),letters.slice(8,12),letters.slice(12,16)];
+  return rows.reverse().join('');
+}
+function decodeLink(raw){
+  raw=(raw||'').trim();
+  if(!raw) return {err:'Paste a link or blob first.'};
+  // pull the data= value if a full URL was pasted, else treat input as the blob
+  let blob=raw;
+  const m=raw.match(/[?&]data=([^&]*)/);
+  if(m){ try{ blob=decodeURIComponent(m[1]); }catch(e){ blob=m[1]; } }
+  else if(/%[0-9A-Fa-f]{2}/.test(raw)){ try{ blob=decodeURIComponent(raw); }catch(e){} }
+  let query;
+  try{ query=decryptStringNew(blob); }catch(e){ return {err:'Decode failed: '+e.message}; }
+  const params=new URLSearchParams(query.replace(/^\?/,''));
+  const letters=(params.get('letters')||'').toUpperCase().replace(/[^A-Z]/g,'');
+  const game=params.get('game')||'';
+  if(letters.length!==16)
+    return {err:'No 16-letter board found'+(game?(' (game="'+game+'")'):'')+'. This may not be a Word Hunt link.', game};
+  return {board:lettersToBoard(letters), game};
+}
+function runDecode(){
+  const st=document.getElementById('decodeStatus');
+  const res=decodeLink(document.getElementById('link').value);
+  if(res.err){ st.innerHTML='<b style="color:#d9584b">'+res.err+'</b>'; return; }
+  setBoard(res.board);
+  st.innerHTML='decoded board <b>'+res.board+'</b>';
+  solve();
+}
+document.getElementById('decodeBtn').onclick=runDecode;
+document.getElementById('link').addEventListener('paste',()=>setTimeout(runDecode,0));
+
+// ── dictionary ──────────────────────────────────────────────────────
+let DICT=null;                       // Set of valid words
+const dictStatus=document.getElementById('dictStatus');
+fetch('wordlist.txt').then(r=>{
+  if(!r.ok) throw new Error(r.status); return r.text();
+}).then(t=>{
+  DICT=new Set(t.split(/\r?\n/).map(w=>w.trim().toUpperCase()).filter(w=>/^[A-Z]{3,16}$/.test(w)));
+  dictStatus.textContent=DICT.size.toLocaleString()+' words';
+}).catch(err=>{
+  dictStatus.textContent='failed to load wordlist.txt ('+err.message+') — serve over http';
+});
+
+// ── scoring ─────────────────────────────────────────────────────────
+function scoreOf(len){
+  if(len<3) return 0;
+  if(len===3) return 100;
+  if(len===4) return 400;
+  if(len===5) return 800;
+  if(len===6) return 1400;
+  if(len===7) return 1800;
+  return 2200;
+}
+
+// ── neighbors (8-directional) ───────────────────────────────────────
+const NB=[];
+for(let i=0;i<SIZE;i++){
+  const r=Math.floor(i/N), c=i%N, list=[];
+  for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){
+    if(!dr&&!dc)continue;
+    const nr=r+dr,nc=c+dc;
+    if(nr>=0&&nr<N&&nc>=0&&nc<N) list.push(nr*N+nc);
+  }
+  NB.push(list);
+}
+
+// ── solver ──────────────────────────────────────────────────────────
+let RESULTS=[];   // {word, score, path:[idx...]}
+function solve(){
+  clearPaths();
+  const board=readBoard();
+  if(board.some(x=>!x)){renderWords([],'Fill all 16 tiles first.');return;}
+  if(!DICT){renderWords([],'Dictionary still loading…');return;}
+
+  // per-board candidate prefixes/words to prune DFS cheaply
+  const avail={}; board.forEach(ch=>avail[ch]=(avail[ch]||0)+1);
+  const prefixSet=new Set(), wordSet=new Set();
+  for(const w of DICT){
+    if(w.length<3||w.length>SIZE) continue;
+    let ok=true; const need={};
+    for(const ch of w){need[ch]=(need[ch]||0)+1;if(!avail[ch]||need[ch]>avail[ch]){ok=false;break;}}
+    if(!ok) continue;
+    wordSet.add(w);
+    for(let k=1;k<=w.length;k++) prefixSet.add(w.slice(0,k));
+  }
+
+  const found=new Map();   // word -> path (first/shortest found)
+  const path=new Array(SIZE);
+  const used=new Array(SIZE).fill(false);
+  function dfs(i,depth,str){
+    if(!prefixSet.has(str)) return;
+    if(depth>=3 && wordSet.has(str) && !found.has(str)) found.set(str,path.slice(0,depth));
+    for(const j of NB[i]){
+      if(used[j]) continue;
+      used[j]=true; path[depth]=j;
+      dfs(j,depth+1,str+board[j]);
+      used[j]=false;
+    }
+  }
+  for(let i=0;i<SIZE;i++){used[i]=true;path[0]=i;dfs(i,1,board[i]);used[i]=false;}
+
+  RESULTS=[...found.entries()].map(([word,p])=>({word,path:p,score:scoreOf(word.length)}));
+  renderWords(RESULTS);
+}
+document.getElementById('solveBtn').onclick=solve;
+
+// ── rendering ───────────────────────────────────────────────────────
+let sortMode='score';
+document.getElementById('sortbar').addEventListener('click',e=>{
+  const b=e.target.closest('button'); if(!b) return;
+  sortMode=b.dataset.sort;
+  [...e.currentTarget.children].forEach(x=>x.classList.toggle('active',x===b));
+  renderWords(RESULTS);
+});
+function sortResults(list){
+  const a=[...list];
+  if(sortMode==='alpha') a.sort((x,y)=>x.word.localeCompare(y.word));
+  else if(sortMode==='length') a.sort((x,y)=>y.word.length-x.word.length||x.word.localeCompare(y.word));
+  else a.sort((x,y)=>y.score-x.score||y.word.length-x.word.length||x.word.localeCompare(y.word));
+  return a;
+}
+function renderWords(list,msg){
+  const box=document.getElementById('words');
+  const total=list.reduce((s,r)=>s+r.score,0);
+  const longest=list.reduce((m,r)=>r.word.length>m.length?r.word:m,'');
+  document.getElementById('stWords').textContent=list.length;
+  document.getElementById('stScore').textContent=total.toLocaleString();
+  document.getElementById('stBest').textContent=longest||'—';
+  if(!list.length){box.innerHTML='<div class="empty">'+(msg||'No words found.')+'</div>';return;}
+  box.innerHTML='';
+  for(const r of sortResults(list)){
+    const el=document.createElement('div');el.className='word';
+    el.innerHTML='<span class="w">'+r.word+'</span><span class="p">'+r.score+'</span>';
+    el.onmouseenter=()=>tracePath(r.path);
+    el.onclick=()=>{document.querySelectorAll('.word.active').forEach(x=>x.classList.remove('active'));
+      el.classList.add('active');tracePath(r.path);};
+    box.appendChild(el);
+  }
+}
+
+// ── path drawing ────────────────────────────────────────────────────
+const svg=document.getElementById('paths');
+function cellCenter(idx){const r=Math.floor(idx/N),c=idx%N;
+  return {x:(c+0.5)/N*100, y:(r+0.5)/N*100};}
+function clearPaths(){svg.innerHTML='';inputs.forEach((_,i)=>markLit(i,0));}
+function markLit(i,ord){const cell=grid.children[i+1]; // +1: svg is child 0
+  if(!cell)return; cell.classList.toggle('lit',ord>0);
+  const o=cell.querySelector('.ord'); o.textContent=ord>0?ord:'';}
+function tracePath(path){
+  clearPaths();
+  let d='';
+  path.forEach((idx,k)=>{const p=cellCenter(idx);
+    d+=(k?'L':'M')+p.x.toFixed(1)+' '+p.y.toFixed(1)+' ';markLit(idx,k+1);});
+  const el=document.createElementNS('http://www.w3.org/2000/svg','path');
+  el.setAttribute('d',d.trim()); svg.appendChild(el);
+  const s=cellCenter(path[0]);const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
+  dot.setAttribute('cx',s.x);dot.setAttribute('cy',s.y);dot.setAttribute('r',2.2);svg.appendChild(dot);
+}
+
+inputs[0].focus();
+</script>
+</body>
+</html>

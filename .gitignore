@@ -4,3 +4,6 @@
 photos-original/
 data/photos.json
 data/embeddings.json
+
+# reverse-engineering artifacts (do not commit)
+*.ipa

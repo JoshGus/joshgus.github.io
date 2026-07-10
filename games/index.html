@@ -116,6 +116,10 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
     <div class="games-grid" id="games-grid"></div>
   </div>
   <div>
+    <div class="section-label">Solvers</div>
+    <div class="games-grid" id="solvers-grid"></div>
+  </div>
+  <div>
     <div class="section-label">Game Components</div>
     <div class="games-grid" id="components-grid"></div>
   </div>
@@ -156,12 +160,15 @@ function renderCards(target, items) {
   });
 }
 
-const games      = CARDS.filter(g => g.type === 'game' && g.category !== 'component');
+const games      = CARDS.filter(g => g.type === 'game' && !g.category);
+const solvers    = CARDS.filter(g => g.type === 'game' && g.category === 'solver');
 const components = CARDS.filter(g => g.type === 'game' && g.category === 'component');
 const grid      = document.getElementById('games-grid');
+const solversGrid = document.getElementById('solvers-grid');
 const compGrid  = document.getElementById('components-grid');
-if (grid)     renderCards(grid, games);
-if (compGrid) renderCards(compGrid, components);
+if (grid)        renderCards(grid, games);
+if (solversGrid) renderCards(solversGrid, solvers);
+if (compGrid)    renderCards(compGrid, components);
 
 // ── Multiplayer hub: any game flagged `mp` gets a host/join tile. Both links
 // open the game with ?mp=host / ?mp=join so the game boots straight into the

@@ -257,6 +257,22 @@ const ARTMATCH_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200p
   <rect x="133" y="91" width="42" height="10" fill="#356699"/>
 </svg>`;
 
+const WORDHUNT_SVG = `<svg viewBox="0 0 200 120" style="width:82%;max-width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg" font-family="'Bricolage Grotesque',sans-serif" text-anchor="middle">
+  <g stroke="rgba(150,210,110,.18)" stroke-width="1">
+    <rect x="48" y="8" width="22" height="22" rx="4"/><rect x="75" y="8" width="22" height="22" rx="4"/><rect x="102" y="8" width="22" height="22" rx="4"/><rect x="129" y="8" width="22" height="22" rx="4"/>
+    <rect x="48" y="35" width="22" height="22" rx="4"/><rect x="75" y="35" width="22" height="22" rx="4"/><rect x="102" y="35" width="22" height="22" rx="4"/><rect x="129" y="35" width="22" height="22" rx="4"/>
+    <rect x="48" y="62" width="22" height="22" rx="4"/><rect x="75" y="62" width="22" height="22" rx="4"/><rect x="102" y="62" width="22" height="22" rx="4"/><rect x="129" y="62" width="22" height="22" rx="4"/>
+    <rect x="48" y="89" width="22" height="22" rx="4"/><rect x="75" y="89" width="22" height="22" rx="4"/><rect x="102" y="89" width="22" height="22" rx="4"/><rect x="129" y="89" width="22" height="22" rx="4"/>
+  </g>
+  <g fill="rgba(150,210,110,.28)" font-size="12">
+    <text x="59" y="23">T</text><text x="140" y="23">I</text><text x="86" y="50">U</text><text x="140" y="50">W</text><text x="59" y="77">R</text><text x="113" y="77">K</text><text x="86" y="104">O</text>
+  </g>
+  <polyline points="86,19 59,46 86,73 113,100 140,73" stroke="#ccf73f" stroke-width="2.4" opacity=".9" stroke-linejoin="round" stroke-linecap="round"/>
+  <g fill="#ccf73f" font-size="12" font-weight="700">
+    <text x="86" y="23">L</text><text x="59" y="50">E</text><text x="86" y="77">A</text><text x="113" y="104">D</text><text x="140" y="77">S</text>
+  </g>
+</svg>`;
+
 export const CARDS = [
   {
     id: 'pool',
@@ -312,6 +328,20 @@ export const CARDS = [
     ctaFull: 'Play',
     ctaShort: 'Play',
     mp: { max: 6, blurb: 'Host a battle; rival commanders join and fight live.' }
+  },
+  {
+    id: 'wordhunt-solver',
+    type: 'game',
+    category: 'solver',
+    title: 'Word Hunt Solver',
+    descShort: 'Paste a GamePigeon Word Hunt link — it decodes the board and finds every word.',
+    descFull: "Paste a GamePigeon Word Hunt link (or just type the 4×4 board) and it finds every word, ranked by the game's scoring, tracing each path on the grid. The board is decoded straight from the message, and it validates against GamePigeon's exact dictionary — both reverse-engineered from the app.",
+    href: 'wordhunt-solver.html',
+    thumbBg: 'linear-gradient(160deg,#12200f,#1c3a17)',
+    thumbSvg: WORDHUNT_SVG,
+    stack: ['DFS', 'Reverse-eng', 'JS'],
+    ctaFull: 'Open solver',
+    ctaShort: 'Open'
   },
   {
     id: 'colormap',
