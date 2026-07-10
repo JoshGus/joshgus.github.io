@@ -803,7 +803,8 @@ let paused=false,gameSpeed=1,gameStarted=false;
 let gameOver=false,gameMsg='',gameWin=false;
 let boxSel=null,mxDown=0,myDown=0,mouseDown=false,mouseBtn=-1;
 let buildMode=null,pingMode=null; // pingMode={kind} — ally suggestion targeting
-let zoneMode=false,mineZones=[],zonePainting=false; // human engineer mining zones (empty = whole map)
+let zoneMode=false,mineZones=[],zonePainting=false; // local human engineer mining zones (empty = whole map)
+let mineZonesByOwner={};   // online: remote commanders' mining zones, keyed by player id
 let mousePos={x:0,y:0},mouseScreen={x:-1,y:-1};
 let lastT=0,nowT=0; // nowT = game-time seconds (advances with speed, pauses)
 let cam={x:0,y:0,zoom:1},viewW=800,viewH=600,camMinZoom=.2,camMaxZoom=2.6,camDrag=null;
@@ -1750,22 +1751,23 @@ function foeThreatAt(p,x,y,rad){
 }
 
 // ── engineer AI (all players) ──────────────────────────────────────────────────
-function inMineZone(x,y){
-  if(!mineZones.length)return true;
-  for(const z of mineZones)if(Math.hypot(x-z.x,y-z.y)<=z.r)return true;
+function inMineZone(zones,x,y){
+  if(!zones||!zones.length)return true;
+  for(const z of zones)if(Math.hypot(x-z.x,y-z.y)<=z.r)return true;
   return false;
 }
+function zonesFor(p){ return p.id===HUMAN?mineZones:(mineZonesByOwner[p.id]||[]); }
 function bestDeposit(x,y,p,hint){
   const load={};
   for(const e of units){
     if(e.type==='engineer'&&e.owner===p.id&&(e.gatherState==='going'||e.gatherState==='mining')&&e.targetDep>=0)
       load[e.targetDep]=(load[e.targetDep]||0)+1;
   }
-  const useZones=p.human&&mineZones.length>0;
+  const zones=zonesFor(p),useZones=zones.length>0;
   let best=-1,bs=Infinity;
   for(const d of deposits){
     if(d.depleted||d.gold<15)continue;
-    if(useZones&&!inMineZone(d.x,d.y))continue; // human restricted their miners to chosen zones
+    if(useZones&&!inMineZone(zones,d.x,d.y))continue; // commander restricted their miners to chosen zones
     let score=Math.hypot(d.x-x,d.y-y)+(load[d.id]||0)*TS*9;
     if(!p.human)score+=foeThreatAt(p,d.x,d.y,TS*12)*3.5;
     if(hint)score+=Math.hypot(d.x-hint.x,d.y-hint.y)*0.6;
@@ -4296,7 +4298,9 @@ function updateSelPanel(){
       cmd.innerHTML=html;
       cmd.querySelector('[data-mprofit]')?.addEventListener('click',()=>{
         const m=units.find(x=>x.id===+cmd.querySelector('[data-mprofit]').dataset.mprofit);
-        if(!m||m.profitUpgrading||(m.profitLevel||0)>=MINE_PROFIT_MAX)return;
+        if(!m)return;
+        if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'mprofit',mineId:m.id}); return; }
+        if(m.profitUpgrading||(m.profitLevel||0)>=MINE_PROFIT_MAX)return;
         const cost=MINE_PROFIT_BASE*((m.profitLevel||0)+1);if(Math.floor(h.gold)<cost)return;
         h.gold-=cost;m.profitUpgrading={elapsed:0,time:Math.max(10,Math.round(cost*.06))};
         updateSelPanel();updateHud();
@@ -4312,6 +4316,7 @@ function updateSelPanel(){
         `<button class="cmd-btn${wLocked?' owned':' upg'}"${(!wLocked&&Math.floor(h.gold)>=wCost&&!gameOver)?'':' disabled'} data-ward="${u.id}"${wLocked?'':` data-cost="${wCost}" data-locked="0"`}>${wMax?'✓ Max Ward':wBusy?'⏳ Expanding…':'Expand Ward '+wCost+'g'}<br><span style="font-size:.36rem;opacity:.7">+50% heal radius &amp; rate</span></button>`;
       cmd.querySelector('[data-train-medic]')?.addEventListener('click',()=>{trainAtBuilding(u.id,'medic');});
       cmd.querySelector('[data-ward]')?.addEventListener('click',()=>{
+        if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'ward',bid:u.id}); return; }
         if(u.wardUpgrading||(u.wardLevel||0)>=HOSP_WARD_MAX)return;
         const cost=HOSP_WARD_BASE*((u.wardLevel||0)+1);if(Math.floor(h.gold)<cost)return;
         h.gold-=cost;u.wardUpgrading={elapsed:0,time:Math.max(12,Math.round(cost*.08))};updateSelPanel();updateHud();
@@ -4321,8 +4326,11 @@ function updateSelPanel(){
       status.textContent=u.deconstructing?'Deconstructing (needs engineer nearby)…':u.targetable?'Targetable by any team':'Not targeted (soaks stray fire)';
       cmd.innerHTML=`<button class="cmd-btn${u.targetable?' on':''}" id="cmd-cover-tgt">${u.targetable?'Untarget':'Make Targetable'}</button>`+
         `<button class="cmd-btn red" id="cmd-cover-deco">${u.deconstructing?'Cancel Deconstruct':'Deconstruct'}</button>`;
-      cmd.querySelector('#cmd-cover-tgt')?.addEventListener('click',()=>{u.targetable=!u.targetable;updateSelPanel();});
+      cmd.querySelector('#cmd-cover-tgt')?.addEventListener('click',()=>{
+        if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'coverTarget',bid:u.id}); return; }
+        u.targetable=!u.targetable;updateSelPanel();});
       cmd.querySelector('#cmd-cover-deco')?.addEventListener('click',()=>{
+        if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'coverDeco',bid:u.id,ids:[...selected]}); return; }
         u.deconstructing=!u.deconstructing;u.decoTimer=null;
         if(u.deconstructing){const eng=[...selected].map(id=>units.find(x=>x.id===id)).find(x=>x&&x.type==='engineer');
           const e2=eng||units.find(x=>x.type==='engineer'&&x.owner===HUMAN&&x.hp>0);
@@ -4365,10 +4373,13 @@ function updateSelPanel(){
       if(u.mortarTarget){html+=`<button class="cmd-btn red" id="cmd-cleartgt">Clear Target</button>`;}
       cmd.innerHTML=html;
       cmd.querySelector('#cmd-entrench')?.addEventListener('click',()=>{
+        if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'entrench',ids:[u.id]}); return; }
         if(!u.entrenching){u.entrenching=true;u.entrenchTimer=2;u.waypoints=[];}
         updateSelPanel();
       });
-      cmd.querySelector('#cmd-cleartgt')?.addEventListener('click',()=>{u.mortarTarget=null;updateSelPanel();});
+      cmd.querySelector('#cmd-cleartgt')?.addEventListener('click',()=>{
+        if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'mortarClear',id:u.id}); return; }
+        u.mortarTarget=null;updateSelPanel();});
       cmd.querySelector('#cmd-target')?.addEventListener('click',()=>{
         status.textContent='Right-click map to set target area';
         window._pendingMortarTarget=u.id;
@@ -4438,10 +4449,12 @@ function renderMortarCmds(cmd,mids){
   if(!html)html='<span style="font-size:.44rem;opacity:.4">All transitioning…</span>';
   cmd.innerHTML=html;
   cmd.querySelector('#cmd-entrench-all')?.addEventListener('click',()=>{
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'entrench',ids:mids}); return; }
     for(const id of mids){const u=units.find(u=>u.id===id);if(u&&!u.entrenched&&!u.entrenching){u.entrenching=true;u.entrenchTimer=2;u.waypoints=[];}}
     updateSelPanel();
   });
   cmd.querySelector('#cmd-unpit-all')?.addEventListener('click',()=>{
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'entrench',ids:mids}); return; }
     for(const id of mids){const u=units.find(u=>u.id===id);if(u&&u.entrenched&&!u.entrenching){u.entrenching=true;u.entrenchTimer=2;}}
     updateSelPanel();
   });
@@ -4503,7 +4516,9 @@ function renderEngineerCmds(cmd,gids){
     if(zoneMode)buildMode=null;
     updateSelPanel();
   });
-  cmd.querySelector('#cmd-mzone-clear')?.addEventListener('click',()=>{mineZones=[];zoneMode=false;document.body.classList.remove('ping-mode');updateSelPanel();});
+  cmd.querySelector('#cmd-mzone-clear')?.addEventListener('click',()=>{mineZones=[];zoneMode=false;document.body.classList.remove('ping-mode');
+    if(rtsOnline==='guest'&&rtsNet)rtsNet.sendCmd({k:'mzoneSet',zones:[]});
+    updateSelPanel();});
 }
 function renderMedicCmds(cmd,mids){
   const ms=mids.map(id=>units.find(u=>u.id===id)).filter(Boolean);if(!ms.length)return;
@@ -4578,8 +4593,7 @@ canvas.addEventListener('mousedown',e=>{
     return;
   }
   if(zoneMode&&e.button===0){
-    if(rtsOnline==='guest')return;   // mine-zone painting is host-only for now
-    zonePainting=true;paintMineZone(x,y);return; // brush — drag to paint, stays on until toggled
+    zonePainting=true;paintMineZone(x,y);return; // brush — drag to paint (guest paints locally, syncs on release)
   }
   if(pendingAirstrike&&e.button===0&&h){
     if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'airstrike',x,y}); }
@@ -4710,7 +4724,9 @@ canvas.addEventListener('mousedown',e=>{
   } else if(e.button===0){boxSel={x0:x,y0:y,x1:x,y1:y};}
 });
 canvas.addEventListener('mouseup',e=>{
-  if(zonePainting){zonePainting=false;updateSelPanel();return;}
+  if(zonePainting){zonePainting=false;
+    if(rtsOnline==='guest'&&rtsNet)rtsNet.sendCmd({k:'mzoneSet',zones:mineZones.map(z=>({x:z.x,y:z.y}))});
+    updateSelPanel();return;}
   if(!mouseDown)return;
   const{x,y}=cxy(e);
   if(e.button===0){
@@ -4733,7 +4749,7 @@ canvas.addEventListener('mouseup',e=>{
   } else{mouseDown=false;mouseBtn=-1;}
 });
 canvas.addEventListener('mouseleave',()=>{mouseScreen={x:-1,y:-1};if(mouseDown&&mouseBtn===0&&boxSel)commitBoxSel();});
-window.addEventListener('mouseup',e=>{if(e.button===1)camDrag=null;if(zonePainting&&e.button===0)zonePainting=false;if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
+window.addEventListener('mouseup',e=>{if(e.button===1)camDrag=null;if(zonePainting&&e.button===0){zonePainting=false;if(rtsOnline==='guest'&&rtsNet)rtsNet.sendCmd({k:'mzoneSet',zones:mineZones.map(z=>({x:z.x,y:z.y}))});}if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
 
 // hotkeys spawn at base or route to the right building automatically
 function hotkeySpawn(type){
@@ -5007,7 +5023,7 @@ function startGame(){
   buildMode=null;document.body.classList.remove('build-mode');
   pingMode=null;document.body.classList.remove('ping-mode');
   trainQueues=new Map();upgradeQueue=[];explosions=[];pings=[];airstrikeEffects=[];
-  zoneMode=false;mineZones=[];zonePainting=false;trample=new Map();trampleCd=0;
+  zoneMode=false;mineZones=[];mineZonesByOwner={};zonePainting=false;trample=new Map();trampleCd=0;
   teamCalls={};AILOG=[];aiLogSeq=0;nowT=0;
   gameOver=false;gameWin=false;gameMsg='';mapBaked=false;
   window._pendingMortarTarget=null;sidePanelCd=0;_selPanelSig=null;
@@ -5205,6 +5221,39 @@ function sendSuggestionForPlayer(p,kind,x,y){
   }
   pings.push({x,y,kind,timer:3,maxTimer:3});
 }
+// Mortar entrench/un-pit (the tick flips entrenched when the timer ends), mine
+// profit & hospital ward upgrades, cover toggles, and per-commander mine zones.
+function netEntrench(ownerId,ids){
+  for(const id of ids){const u=units.find(u=>u.id===id&&u.type==='mortar'&&u.owner===ownerId&&u.hp>0);
+    if(u&&!u.entrenching){u.entrenching=true;u.entrenchTimer=2;u.waypoints=[];}}
+}
+function netMortarClear(ownerId,id){const u=units.find(u=>u.id===id&&u.type==='mortar'&&u.owner===ownerId);if(u)u.mortarTarget=null;}
+function netMineProfit(ownerId,mineId){
+  const p=players.find(pp=>pp.id===ownerId),m=units.find(u=>u.id===mineId&&u.type==='mine'&&u.owner===ownerId&&u.hp>0);
+  if(!p||!m||m.profitUpgrading||(m.profitLevel||0)>=MINE_PROFIT_MAX)return;
+  const cost=MINE_PROFIT_BASE*((m.profitLevel||0)+1);if(Math.floor(p.gold)<cost)return;
+  p.gold-=cost;m.profitUpgrading={elapsed:0,time:Math.max(10,Math.round(cost*.06))};
+}
+function netWard(ownerId,bid){
+  const p=players.find(pp=>pp.id===ownerId),u=units.find(x=>x.id===bid&&x.type==='hospital'&&x.owner===ownerId&&x.hp>0);
+  if(!p||!u||u.wardUpgrading||(u.wardLevel||0)>=HOSP_WARD_MAX)return;
+  const cost=HOSP_WARD_BASE*((u.wardLevel||0)+1);if(Math.floor(p.gold)<cost)return;
+  p.gold-=cost;u.wardUpgrading={elapsed:0,time:Math.max(12,Math.round(cost*.08))};
+}
+function netCoverTarget(ownerId,bid){const u=units.find(x=>x.id===bid&&x.type==='cover'&&x.owner===ownerId&&x.hp>0);if(u)u.targetable=!u.targetable;}
+function netCoverDeco(ownerId,bid,ids){
+  const u=units.find(x=>x.id===bid&&x.type==='cover'&&x.owner===ownerId&&x.hp>0);if(!u)return;
+  u.deconstructing=!u.deconstructing;u.decoTimer=null;
+  if(u.deconstructing){
+    const eng=(ids||[]).map(id=>units.find(x=>x.id===id)).find(x=>x&&x.type==='engineer'&&x.owner===ownerId)
+      ||units.find(x=>x.type==='engineer'&&x.owner===ownerId&&x.hp>0);
+    if(eng){eng.gatherState='parked';eng.attackTarget=null;const p2=aStar(Math.floor(eng.x/TS),Math.floor(eng.y/TS),Math.floor(u.x/TS),Math.floor(u.y/TS));if(p2)eng.waypoints=toWp(p2);}
+  }
+}
+function netSetMineZones(ownerId,zones){
+  mineZonesByOwner[ownerId]=(Array.isArray(zones)?zones:[]).slice(0,300)
+    .filter(z=>z&&isFinite(+z.x)&&isFinite(+z.y)).map(z=>({x:+z.x,y:+z.y,r:ZONE_BRUSH}));
+}
 function rtsValidate(player,cmd){
   if(!cmd||typeof cmd.k!=='string')return false;
   const IDS=a=>Array.isArray(a)?a.slice(0,240).map(Number).filter(Number.isFinite):null;
@@ -5228,6 +5277,13 @@ function rtsValidate(player,cmd){
     case 'healzone':  { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'healzone',ids,x:+cmd.x,y:+cmd.y}; }
     case 'medicmode': { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'medicmode',ids,mode:String(cmd.mode)}; }
     case 'ping':      return {k:'ping',kind:String(cmd.kind),x:+cmd.x,y:+cmd.y};
+    case 'entrench':  { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'entrench',ids}; }
+    case 'mortarClear': return {k:'mortarClear',id:+cmd.id};
+    case 'mprofit':   return {k:'mprofit',mineId:+cmd.mineId};
+    case 'ward':      return {k:'ward',bid:+cmd.bid};
+    case 'coverTarget': return {k:'coverTarget',bid:+cmd.bid};
+    case 'coverDeco': return {k:'coverDeco',bid:+cmd.bid,ids:IDS(cmd.ids)||[]};
+    case 'mzoneSet':  return {k:'mzoneSet',zones:Array.isArray(cmd.zones)?cmd.zones.slice(0,300):[]};
   }
   return false;
 }
@@ -5254,6 +5310,13 @@ function rtsOnCommand(player,cmd){
     case 'healzone':    netHealZone(pid,cmd.ids,cmd.x,cmd.y); break;
     case 'medicmode':   netMedicMode(pid,cmd.ids,cmd.mode); break;
     case 'ping':        if(p)sendSuggestionForPlayer(p,cmd.kind,cmd.x,cmd.y); break;
+    case 'entrench':    netEntrench(pid,cmd.ids); break;
+    case 'mortarClear': netMortarClear(pid,cmd.id); break;
+    case 'mprofit':     netMineProfit(pid,cmd.mineId); break;
+    case 'ward':        netWard(pid,cmd.bid); break;
+    case 'coverTarget': netCoverTarget(pid,cmd.bid); break;
+    case 'coverDeco':   netCoverDeco(pid,cmd.bid,cmd.ids); break;
+    case 'mzoneSet':    netSetMineZones(pid,cmd.zones); break;
   }
 }
 // Host: after the lobby, open the normal setup screen (teams / bot difficulty /

@@ -171,9 +171,13 @@ How it works:
   `upgradeQueue` is **owner-aware** (`owner` field) so a commander's research applies
   to their own player.
 
-**Still host-only (minor):** mine-zone painting and a few unit micro-toggles
-(entrench, ward, cover decoy, per-mine profit). Everything gameplay-significant —
-build/tech/economy/army/abilities/comms — is networked.
+**Full commander parity:** every action a solo commander has is networked — including
+mortar entrench/un-pit (`entrench`), hospital ward and per-mine profit upgrades
+(`ward`/`mprofit`), cover targetable/deconstruct toggles (`coverTarget`/`coverDeco`),
+and **per-commander mining zones** (`mzoneSet` — mine-zone painting was refactored from
+a single human-only global to `mineZonesByOwner[pid]`, read via `zonesFor(p)` in
+`bestDeposit`). The only things a guest can't do are host-machine conveniences
+(pause/game-speed/dev-console), which are inherently local.
 
 ---
 
