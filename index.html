@@ -150,6 +150,15 @@
   a.game.coming-soon{opacity:.5;pointer-events:none}
   a.see-more-card:hover .play .arr{transform:translateX(5px)}
   a.see-more-card:hover h3{color:var(--accent-ink)}
+  /* host-a-game card */
+  .host-card{cursor:default}
+  .host-list{display:flex;flex-direction:column;gap:7px;margin-top:8px}
+  .host-list a{display:flex;align-items:center;justify-content:space-between;gap:10px;text-decoration:none;
+    font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--fg);
+    border:1px solid var(--line-strong);border-radius:7px;padding:9px 12px;transition:transform .25s,background .2s,color .2s,border-color .2s}
+  .host-list a:hover{background:var(--accent-ink);color:#fff;border-color:var(--accent-ink);transform:translateY(-2px)}
+  .host-list a .arr{transition:transform .3s}
+  .host-list a:hover .arr{transform:translateX(4px)}
 
   /* ---------- featured showcase ---------- */
   .sc-grid{display:grid;grid-template-columns:1fr 1fr;gap:clamp(14px,2vw,22px)}
@@ -670,6 +679,30 @@ if (gamesList) {
         </div>
       </a>`);
   });
+  // Host-a-game card — lists every multiplayer-capable game; each opens its
+  // peer-to-peer lobby to host (invite a friend by code).
+  const hostable = CARDS.filter(g => g.type === 'game' && g.mp);
+  if (hostable.length) {
+    const links = hostable.map(g =>
+      `<a href="games/${g.href}?mp=host">${g.title} <span class="arr">&#x2192;</span></a>`).join('');
+    gamesList.insertAdjacentHTML('beforeend', `
+      <div class="game host-card">
+        <div class="game-thumb" style="background:linear-gradient(135deg,#eef7d8,#dfeeb0);padding:22px">
+          <svg width="88" height="52" viewBox="0 0 88 52" fill="none" stroke="#3a4a12" stroke-width="2.4" stroke-linecap="round">
+            <circle cx="44" cy="12" r="8" fill="#ccf73f"/>
+            <circle cx="16" cy="40" r="7" fill="#f3e8da"/>
+            <circle cx="72" cy="40" r="7" fill="#f3e8da"/>
+            <path d="M39 18 L20 34 M49 18 L68 34"/>
+            <path d="M31 6 A18 18 0 0 1 57 6" stroke-dasharray="2 4" opacity=".6"/>
+          </svg>
+        </div>
+        <div class="game-body">
+          <h3>Host a game</h3>
+          <p>Start a peer-to-peer match on your machine and invite a friend with a join code.</p>
+          <div class="host-list">${links}</div>
+        </div>
+      </div>`);
+  }
   const hidden = CARDS.filter(g => g.type === 'game' && !SHOW_IDS.includes(g.id));
   const peeks = hidden.map(g => `
     <div style="flex:1;display:grid;place-items:center;background:${g.thumbBg};padding:14px;overflow:hidden;transition:flex .4s cubic-bezier(.2,.7,.3,1)">
