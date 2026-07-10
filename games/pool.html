@@ -1060,6 +1060,15 @@ let curResolver=null;       // function(shotEvents) run when a shot settles
 let lastShot=null;          // {snap,dir,power,spin,byAI} for rewatch
 let postSnap=null, replaying=false;
 
+// ── Online (P2P) multiplayer state ──────────────────────────────────────────
+// Host (seat 0) owns the authoritative game + physics + resolveClassic; the
+// guest (seat 1) sends {dir,power,spin} intents, replays the shot cosmetically,
+// and snaps to the host's broadcast state. See games/net/README.md.
+let poolOnline=false, poolRole=null, poolNet=null, poolSeat=0, poolNames=['P1','P2'];
+let onlineReplaying=false, pendingOnlineState=null;
+let hostBihSeat=-1;      // host: which seat was granted ball-in-hand this turn (-1 none)
+let onlineHadBIH=false;  // local: did my current turn start with ball-in-hand?
+
 function toast(msg,ms){
   var t=el('toast'); if(!msg){t.classList.remove('show');return;}
   t.textContent=msg; t.classList.add('show');
@@ -1074,6 +1083,13 @@ function updateSpinUI(){ var rad=20; el('spin-dot').style.left=(26+aim.spin.x*ra
 /* onShotComplete is called by the main loop when balls settle */
 function onShotComplete(){
   if(replaying){ replaying=false; if(postSnap)restoreBalls(postSnap); render(); return; }
+  if(onlineReplaying){
+    // Cosmetic replay finished — reconcile to the host's authoritative state.
+    onlineReplaying=false;
+    if(pendingOnlineState){ var s=pendingOnlineState; pendingOnlineState=null; applyPoolState(s); }
+    render(); return;
+  }
+  if(poolOnline && poolRole!=='host') return;   // only the host resolves shots
   if(curResolver) curResolver(shot);
 }
 
@@ -1094,6 +1110,17 @@ function beginTurnInput(){
 function attemptShoot(){
   if(!interaction||animating||aim.ballInHand)return;
   if(aim.power<=0.02){ toast('Set some power first'); return; }
+  if(poolOnline){
+    if(!game||game.turn!==poolSeat) return;               // only on your turn
+    var intent={k:'shot',dir:aim.dir,power:aim.power,spin:{x:aim.spin.x,y:aim.spin.y}};
+    if(onlineHadBIH){ var cb=cueBall(); if(cb) intent.cue={x:cb.x,y:cb.y}; }
+    if(game.calledPocket) intent.call=game.calledPocket;
+    interaction=false; aim.canShoot=false; enableControls(false); aim.power=0; updatePowerUI();
+    onlineHadBIH=false;
+    if(poolRole==='host') hostRunShot(intent);
+    else { poolNet.sendCmd(intent); toast('Shot sent…',1400); }
+    return;
+  }
   interaction=false; aim.canShoot=false; enableControls(false); el('ai-review').classList.add('hidden');
   lastShot={snap:cloneBalls(),dir:aim.dir,power:aim.power,spin:{x:aim.spin.x,y:aim.spin.y},byAI:false};
   fireCue(aim.dir,aim.power,aim.spin);
@@ -1227,7 +1254,9 @@ function openMenu(){
 el('ms-daily').addEventListener('click',function(){startDaily();});
 el('ms-classic').addEventListener('click',function(){openSetup();});
 el('menu-btn2').addEventListener('click',openMenu);
-el('restart-btn').addEventListener('click',function(){ if(mode==='daily')startDaily(); else if(mode==='classic')startClassic(); });
+el('restart-btn').addEventListener('click',function(){
+  if(poolOnline){ if(poolRole==='host') poolHostStartMatch(poolNames); return; }
+  if(mode==='daily')startDaily(); else if(mode==='classic')startClassic(); });
 el('help-close').addEventListener('click',function(){el('help').classList.add('hidden');});
 
 /* ═══════════════════════ DAILY MODE ═══════════════════════ */
@@ -1540,6 +1569,24 @@ function classicShotStart(){
   var onEight = pl.group && groupRemaining(pl.group)===0;
   updateClassicHUD();
   aim.spin={x:0,y:0}; updateSpinUI();
+  if(poolOnline){
+    // Online: the host (only caller here) either takes its own turn locally or
+    // hands input to the guest, then broadcasts authoritative state either way.
+    hostBihSeat = game.ballInHand ? game.turn : -1;
+    poolBroadcastState();
+    if(game.turn===poolSeat){
+      if(game.ballInHand){ beginBallInHand(game.bihKitchen); game.ballInHand=false; game.bihKitchen=false; onlineHadBIH=true; }
+      else { beginTurnInput(); onlineHadBIH=false; }
+      if(onEight && game.flags.callEight){ game.callPending=true; toast('On the 8 — tap the pocket you\'re calling'); }
+    } else {
+      interaction=false; aim.canShoot=false; enableControls(false);
+      if(poolNet) poolNet.broadcast({k:'yourTurn', ballInHand:!!game.ballInHand, bihKitchen:!!game.bihKitchen,
+                                     onEight:onEight, callEight:!!game.flags.callEight});
+      game.ballInHand=false; game.bihKitchen=false;
+      toast(pl.name+' is shooting…',2500);
+    }
+    return;
+  }
   if(pl.isAI){
     interaction=false; aim.canShoot=false; enableControls(false);
     toast(pl.name+' is lining up a shot…',2000);
@@ -1663,6 +1710,16 @@ function endClassic(winnerIdx,msg){
   };
   el('w-setup').onclick=function(){el('win').classList.add('hidden');openSetup();};
   el('w-menu').onclick=function(){el('win').classList.add('hidden');openMenu();};
+  if(poolOnline){
+    if(poolRole==='host' && poolNet){
+      poolNet.broadcast({k:'over', title:el('win-title').textContent, sub:el('win-sub').textContent, best:el('win-best').textContent});
+      el('w-again').onclick=function(){ poolHostStartMatch(poolNames); };
+      var ws=el('w-setup'); if(ws) ws.style.display='none';
+    } else {
+      var wa=el('w-again'); if(wa) wa.style.display='none';
+      var ws2=el('w-setup'); if(ws2) ws2.style.display='none';
+    }
+  }
 }
 
 /* ── shot timeline (classic) ── */
@@ -1966,6 +2023,149 @@ function showAIReview(pl,dec){
   el('ai-review').classList.remove('hidden');
 }
 
+/* ═══════════════════════ ONLINE 8-BALL (P2P, host-authoritative) ═══════════ */
+function poolBroadcastState(){ if(poolNet && poolNet.isHost) poolNet.pushState(); }
+
+// Host builds the state guests render. History is stripped (size) and ball-in-hand
+// is never sent as state — it's granted explicitly via the yourTurn event.
+function poolSnapshot(){
+  if(!game) return null;
+  var g={ players:game.players, turn:game.turn, openTable:game.openTable, breakShot:game.breakShot,
+          ballInHand:false, bihKitchen:false, over:game.over, flags:game.flags, mods:game.mods,
+          calledPocket:game.calledPocket, callPending:false, spectate:false, history:[] };
+  return { game: JSON.parse(JSON.stringify(g)), balls: cloneBalls() };
+}
+function applyPoolState(s){
+  if(!s) return;
+  if(onlineReplaying){ pendingOnlineState=s; return; }   // defer until the replay ends
+  mode='classic';
+  game=s.game;
+  if(s.balls) restoreBalls(s.balls);
+  updateClassicHUD(); render();
+}
+
+// Host executes a shot (its own or a validated guest intent): apply an allowed
+// ball-in-hand reposition + called pocket, broadcast the replay, then simulate.
+function hostRunShot(intent){
+  if(!game||game.over||animating) return;
+  var cb=cueBall();
+  if(intent.cue && hostBihSeat===game.turn && cb){
+    var p={x:+intent.cue.x, y:+intent.cue.y};
+    if(legalCuePos(p)){ cb.x=p.x; cb.y=p.y; cb.vx=cb.vy=0; cb.potted=false; }
+  }
+  if(intent.call && game.flags.callEight){ game.calledPocket=intent.call; game.callPending=false; }
+  hostBihSeat=-1;
+  var dir=+intent.dir, power=clamp(+intent.power,0.02,1),
+      spin={x:clamp(+intent.spin.x||0,-1,1), y:clamp(+intent.spin.y||0,-1,1)};
+  if(!isFinite(dir)) return;
+  var pre=cloneBalls();
+  lastShot={snap:pre,dir:dir,power:power,spin:spin,byAI:false};
+  if(poolNet) poolNet.broadcast({k:'playShot',snap:pre,dir:dir,power:power,spin:spin});
+  fireCue(dir,power,spin);   // → onShotComplete → resolveClassic → classicShotStart → state
+}
+
+// Host validation: reject anything that isn't a legal shot from the player whose
+// turn it is. Sanitize numbers; only pass through cue/call fields.
+function poolValidate(player,cmd){
+  if(!cmd || cmd.k!=='shot') return false;
+  if(!game || game.over || animating) return false;
+  if(player.id!==game.turn) return false;
+  var dir=+cmd.dir, power=+cmd.power;
+  if(!isFinite(dir) || !isFinite(power)) return false;
+  var out={ k:'shot', dir:dir, power:clamp(power,0.02,1),
+            spin:{ x:clamp(+((cmd.spin||{}).x)||0,-1,1), y:clamp(+((cmd.spin||{}).y)||0,-1,1) } };
+  if(cmd.cue && isFinite(+cmd.cue.x) && isFinite(+cmd.cue.y)) out.cue={x:+cmd.cue.x,y:+cmd.cue.y};
+  if(typeof cmd.call==='string') out.call=cmd.call;
+  return out;
+}
+
+// ── Guest side ──
+function guestYourTurn(ctx){
+  if(!game) return;
+  game.turn=poolSeat;
+  onlineHadBIH=!!ctx.ballInHand;
+  aim.spin={x:0,y:0}; updateSpinUI();
+  if(ctx.ballInHand){ beginBallInHand(!!ctx.bihKitchen); }
+  else beginTurnInput();
+  if(ctx.onEight && ctx.callEight){ game.callPending=true; toast('On the 8 — tap the pocket you\'re calling',2600); }
+  else toast('Your shot',1400);
+}
+function guestPlayShot(m){
+  if(!m || !m.snap) return;
+  restoreBalls(m.snap);
+  var cb=cueBall(); if(!cb) return;
+  initStrike(cb, +m.dir, +m.power, {x:+m.spin.x||0, y:+m.spin.y||0});
+  shot={firstHit:null,potted:[],railAfterHit:false,cueScratch:false,cushions:0};
+  onlineReplaying=true; animating=true;
+  interaction=false; aim.canShoot=false; aim.ballInHand=false; enableControls(false);
+}
+function guestShowOver(m){
+  el('win-title').textContent=m.title||'Game over';
+  el('win-sub').textContent=m.sub||'';
+  el('win-best').textContent=m.best||''; el('win-best').className='wb';
+  el('win-score').textContent='🎱';
+  el('win-btns').innerHTML='<button class="pbtn ghost" id="w-menu">Menu</button>';
+  el('win').classList.remove('hidden');
+  el('w-menu').onclick=function(){ location.href='index.html'; };
+}
+function poolClientEvent(evt){
+  if(!evt) return;
+  if(evt.k==='yourTurn') guestYourTurn(evt);
+  else if(evt.k==='playShot') guestPlayShot(evt);
+  else if(evt.k==='over') guestShowOver(evt);
+}
+function poolOpponentGone(){
+  if(!poolOnline) return;
+  if(game) game.over=true;
+  interaction=false; aim.canShoot=false; enableControls(false);
+  toast('Opponent left the game',5000);
+}
+
+// ── Start / rematch ──
+function poolHostStartMatch(names){
+  applyModsPhysics(); buildRack();
+  game={ players:[{name:names[0],group:null,isAI:false,diff:0},
+                  {name:names[1],group:null,isAI:false,diff:0}],
+    turn:0, openTable:true, breakShot:true, ballInHand:true, bihKitchen:true, over:false,
+    flags:presetFlags(cfg.preset), mods:cfg.mods, calledPocket:null, callPending:false,
+    spectate:false, history:[] };
+  curResolver=resolveClassic; lastShot=null;
+  ['modeselect','setup','win','help'].forEach(function(id){el(id).classList.add('hidden');});
+  showChrome(['hud','menu-btn2','restart-btn','tl-btn']);
+  renderTimeline(); fitCanvas();
+  toast('Break! Place the cue behind the line',2600);
+  classicShotStart();
+}
+function startOnlinePool(role,netCtrl,roster){
+  poolOnline=true; poolRole=role; poolNet=netCtrl; poolSeat=(role==='host')?0:1;
+  onlineReplaying=false; pendingOnlineState=null; hostBihSeat=-1; onlineHadBIH=false;
+  cfg.opp='human';
+  var hn=(roster.find(function(p){return p.isHost;})||{}).name||'Player 1';
+  var gn=(roster.find(function(p){return !p.isHost;})||{}).name||'Player 2';
+  poolNames=[hn,gn];
+  ['modeselect','setup','win','help'].forEach(function(id){el(id).classList.add('hidden');});
+  if(role==='host'){ poolHostStartMatch(poolNames); }
+  else { mode='classic'; showChrome(['hud','menu-btn2','tl-btn']); fitCanvas();
+         toast('Connected — waiting for host to break…',3000); }
+}
+function poolInitOnline(){
+  var mp=new URLSearchParams(location.search).get('mp');
+  if(mp!=='host' && mp!=='join') return true;   // handled → skip normal boot
+  import('./net/lobby.js').then(function(m){
+    m.openLobby({
+      gameId:'pool', gameName:'Daily Break · 8-Ball', maxPlayers:2, minPlayers:2,
+      hostHooks:{ validate:poolValidate,
+                  onCommand:function(pl,cmd){ if(cmd.k==='shot') hostRunShot(cmd); },
+                  snapshot:poolSnapshot, onJoin:function(){}, onLeave:function(){ poolOpponentGone(); } },
+      clientHooks:{ onState:applyPoolState, onEvent:poolClientEvent, onRoster:function(){},
+                    onKicked:function(){ poolOpponentGone(); }, onClose:function(){ poolOpponentGone(); } },
+      onBegin:function(o){ startOnlinePool(o.role,o.net,o.roster); },
+      onCancel:function(){ location.href='index.html'; }
+    });
+  }).catch(function(){ toast('Multiplayer failed to load',3000); });
+  return false;
+}
+
 /* ═══════════════════════ BOOT ═══════════════════════ */
 function maybeTutorial(){
   if(location.hash.indexOf('notut')>=0)return;
@@ -1975,10 +2175,12 @@ var _startDaily=startDaily, _startClassic=startClassic;
 startDaily=function(){_startDaily();maybeTutorial();};
 startClassic=function(){_startClassic();maybeTutorial();};
 
-if(location.hash.indexOf('cplay')>=0) startClassic();
-else if(location.hash.indexOf('daily')>=0) startDaily();
-else if(location.hash.indexOf('classic')>=0) openSetup();
-else openMenu();
+if(poolInitOnline()){
+  if(location.hash.indexOf('cplay')>=0) startClassic();
+  else if(location.hash.indexOf('daily')>=0) startDaily();
+  else if(location.hash.indexOf('classic')>=0) openSetup();
+  else openMenu();
+}
 fitCanvas();
 </script>
 </body>

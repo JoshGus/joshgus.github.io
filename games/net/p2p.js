@@ -30,6 +30,25 @@ const CONNECT_TIMEOUT_MS = 15000;   // host: give up if the broker never opens
 // that random collisions are rare; we retry on the off chance one happens.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+// ICE servers. STUN is only for NAT discovery (still leaks your IP to peers). TURN
+// relays the media — needed for (a) symmetric-NAT connectivity and (b) HIDING your
+// IP: with `relayOnly` we force `iceTransportPolicy:'relay'` so no direct peer
+// connection (and no IP exchange) ever happens. The default TURN below is the free,
+// no-signup Open Relay (Metered) project; it's rate-limited, so for reliable relay
+// swap in your own TURN credentials (metered.ca has a free tier) via opts.iceServers.
+const DEFAULT_ICE = [
+  { urls: 'stun:stun.l.google.com:19302' },
+  { urls: 'turn:openrelay.metered.ca:80',                 username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443',                username: 'openrelayproject', credential: 'openrelayproject' },
+  { urls: 'turn:openrelay.metered.ca:443?transport=tcp',  username: 'openrelayproject', credential: 'openrelayproject' },
+];
+
+function iceConfig(opts) {
+  const cfg = { iceServers: opts.iceServers || DEFAULT_ICE };
+  if (opts.relayOnly) cfg.iceTransportPolicy = 'relay';   // never connect directly → no IP leak
+  return cfg;
+}
+
 // ── small utilities ──────────────────────────────────────────────────────────
 
 let _peerLibPromise = null;
@@ -131,7 +150,7 @@ export async function hostRoom(opts) {
   for (let attempt = 0; attempt < 6; attempt++) {
     code = makeCode();
     try {
-      peer = await openPeer(Peer, roomPeerId(gameId, code));
+      peer = await openPeer(Peer, roomPeerId(gameId, code), iceConfig(opts));
       break;
     } catch (e) {
       if (e && e.type === 'unavailable-id' && attempt < 5) continue;
@@ -294,7 +313,7 @@ export async function joinRoom(opts) {
   const hooks  = opts.hooks || {};
   if (!code) throw new Error('joinRoom: code required');
 
-  const peer = await openPeer(Peer);            // random client id
+  const peer = await openPeer(Peer, null, iceConfig(opts));  // random client id
   const conn = peer.connect(roomPeerId(gameId, code), { reliable: true });
 
   return await new Promise((resolve, reject) => {
@@ -364,9 +383,10 @@ export async function joinRoom(opts) {
 
 // ── shared internals ───────────────────────────────────────────────────────
 
-function openPeer(Peer, id) {
+function openPeer(Peer, id, config) {
   return new Promise((resolve, reject) => {
-    const peer = id ? new Peer(id) : new Peer();
+    const opts = config ? { config } : undefined;
+    const peer = id ? new Peer(id, opts) : new Peer(opts);
     const timer = setTimeout(() => { try { peer.destroy(); } catch {} reject(new Error('Signaling server timeout')); }, CONNECT_TIMEOUT_MS);
     peer.on('open', () => { clearTimeout(timer); resolve(peer); });
     peer.on('error', (e) => { clearTimeout(timer); reject(e); });

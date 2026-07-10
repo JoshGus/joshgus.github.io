@@ -10,7 +10,8 @@ does only the initial signaling handshake. Discovery is **join-by-code / share-l
   and disconnect handling. Game-agnostic.
 - `lobby.js` — a drop-in connect/lobby overlay (Host / Join-by-code UI, password
   toggle, share link, roster, "Start"). Injects its own CSS.
-- Reference integration: **Darts** (`games/darts.html`) — online 2-player 301.
+- Integrated: **Darts** (`games/darts.html`, online 301) and **Daily Break**
+  (`games/pool.html`, online 8-ball). **Frontline** (`rts.html`) still to do.
 
 The games index (`games/index.html`) shows a **Play together** hub built from any
 catalog entry with an `mp` field (`data/games.js`); each tile links to the game with
@@ -31,7 +32,7 @@ anyone can read and modify. What this code *does* buy you:
 | Wrong password / room full | **Yes** | Enforced host-side over the DTLS-encrypted data channel (the broker never sees the password). |
 | Malicious **host** (sees hidden info, edits state) | **No — impossible in P2P** | The host *is* the server. Mitigation is social: host = whoever players trust. |
 | Fully modified client that still sends only *legal* commands | **No** | Indistinguishable from honest play. Out of scope for P2P. |
-| **IP-address leakage** to other peers (WebRTC ICE) | **No, by default** | Everyone who joins learns everyone's IP. See "Privacy" below. |
+| **IP-address leakage** to other peers (WebRTC ICE) | **Opt-in** | Off by default (peers learn each other's IPs). The lobby's **"Hide my IP"** toggle forces a TURN relay so no direct connection happens. See "Privacy" below. |
 
 The realistic goal is: block casual cheating and griefing, keep the host tab alive,
 and don't pretend the password is real security — it's an "unlisted / friends-only"
@@ -45,11 +46,22 @@ extra fields). This is where you enforce turn order, unit ownership, resource co
 cooldowns, and legal targets.
 
 ### Privacy (IP leakage) mitigation
-WebRTC exposes peers' IPs to each other. To hide them you route media through a
-**TURN relay** instead of a direct connection — that costs bandwidth and needs TURN
-credentials, so it's off by default. If you later want it, pass an `iceServers`
-config with a TURN server into the PeerJS `Peer` constructor in `p2p.js` and force
-`iceTransportPolicy: 'relay'`. For friends-only play the default (direct) is fine.
+WebRTC exposes peers' IPs to each other by default. The lobby now has a **"Hide my
+IP"** checkbox (both Host and Join). It sets `relayOnly`, which forces
+`iceTransportPolicy: 'relay'` in `p2p.js` — all traffic goes through a **TURN relay**
+so no direct peer connection (and no IP exchange) ever happens.
+
+Two things to know:
+- **Both players must enable it.** If only one side is relay-only, the *other* side
+  still offers its direct (host) candidate and reveals its IP. To hide both IPs, both
+  toggle it on.
+- The default TURN server is the free, no-signup **Open Relay (Metered)** project
+  (`DEFAULT_ICE` in `p2p.js`). It's rate-limited and can be flaky, so relay mode may
+  be slow or fail to connect. For reliable relaying, drop your own TURN credentials
+  into `DEFAULT_ICE` (metered.ca has a free tier, or self-host coturn) — or pass
+  `iceServers` through `hostRoom`/`joinRoom`.
+
+For friends-only play the default (direct, no relay) is fine and fastest.
 
 ---
 
@@ -88,15 +100,19 @@ rules in `hostApplyThrow`, broadcasts the scoreboard via `snapshot`, and broadca
 
 ## Plugging in the other games
 
-### Daily Break (pool) — turn-based, host simulates physics
-Physics **must not** run independently on both sides (float drift desyncs). Instead:
-- Guest sends only the shot on their turn: `{ k:'shot', aim, power, spin }`.
-- Host `validate`: is it this player's turn? clamp `power`∈[0,max], `spin` to legal
-  range, `aim` finite. Reject otherwise.
-- Host runs the existing physics sim, then `snapshot` returns the resulting ball
-  positions / pocketed balls / whose turn / game-over. Guests render that snapshot;
-  they do **not** simulate.
-- Bandwidth is trivial (one shot per turn). Same 2-player shape as Darts.
+### Daily Break (pool) — DONE (turn-based, host simulates physics)
+Implemented in `games/pool.html` (search `ONLINE 8-BALL`). How it works:
+- The host owns the authoritative `game` + `balls` + `resolveClassic`. Guest (seat 1)
+  sends `{ k:'shot', dir, power, spin }` — plus `cue:{x,y}` when it had ball-in-hand
+  and `call` when calling the 8. It never simulates authoritatively.
+- Host `validate` (`poolValidate`) rejects anything that isn't a legal shot from the
+  player whose turn it is; clamps `power`∈[0.02,1] and `spin` to ±1; only accepts a
+  cue reposition when that seat was actually granted ball-in-hand (`hostBihSeat`).
+- Host broadcasts a `playShot` event (pre-shot snapshot + params) so guests **replay
+  the shot cosmetically**, runs the real sim itself, then `pushState`s the
+  authoritative result. Guests defer incoming state until their replay ends
+  (`pendingOnlineState`) and snap to it — so cross-machine float drift is corrected.
+- Whose-turn input is handed to the guest via a `yourTurn` event; game-over via `over`.
 
 ### Frontline (RTS) — real-time, many players, hardest
 Host-authoritative real-time. This is where the "host runs locally and applies enemy
