@@ -75,6 +75,16 @@ button.primary:hover{filter:brightness(1.05);color:#1d1712}
 .word .p{font-size:.62rem;color:var(--dim)}
 .empty{font-family:var(--mono);font-size:.75rem;color:var(--dim);padding:30px 0}
 .hint{font-family:var(--mono);font-size:.64rem;color:var(--dimmer);margin-top:10px;line-height:1.7}
+.linkhelp{margin-top:14px;font-family:var(--mono);font-size:.64rem;color:var(--dim)}
+.linkhelp summary{cursor:pointer;color:var(--accent-ink);letter-spacing:.06em;list-style:none}
+.linkhelp summary::-webkit-details-marker{display:none}
+.linkhelp summary::before{content:'▸ ';font-size:.7em}
+.linkhelp[open] summary::before{content:'▾ '}
+.linkhelp p{margin:10px 0;line-height:1.7;color:var(--dim)}
+.cmdwrap{position:relative;margin-top:8px}
+.cmdwrap pre{background:var(--surface);border:1px solid var(--line);border-radius:8px;
+  padding:12px 12px 12px;overflow-x:auto;font-size:.62rem;line-height:1.6;color:var(--fg);white-space:pre}
+.cmdwrap button{position:absolute;top:6px;right:6px;padding:5px 10px;font-size:.55rem}
 </style>
 </head>
 <body>
@@ -107,6 +117,17 @@ button.primary:hover{filter:brightness(1.05);color:#1d1712}
       </div>
       <div class="status-line" id="decodeStatus"></div>
       <div class="hint">Scoring: 3&rarr;100 · 4&rarr;400 · 5&rarr;800 · 6&rarr;1400 · 7&rarr;1800 · 8+&rarr;2200. Hover or tap a word to trace it.</div>
+      <details class="linkhelp">
+        <summary>How do I get the link? (Mac)</summary>
+        <p>GamePigeon doesn't show the link in Messages, but it's stored in your Messages database. In Terminal (needs Full Disk Access), run this — the <b>top line</b> is your most recent game. Paste it in the box above.</p>
+        <div class="cmdwrap">
+          <button id="copyCmd" type="button">Copy</button>
+<pre id="cmd">sqlite3 "$HOME/Library/Messages/chat.db" \
+  "SELECT quote(payload_data) FROM message WHERE balloon_bundle_id LIKE '%gamepigeon%' ORDER BY date DESC LIMIT 6;" \
+  | sed "s/^X'//; s/'$//" \
+  | while read h; do printf %s "$h" | xxd -r -p | LC_ALL=C strings -a | grep -m1 'data:?ver='; done</pre>
+        </div>
+      </details>
     </div>
 
     <div class="results">
@@ -212,6 +233,11 @@ function runDecode(){
   solve();
 }
 document.getElementById('decodeBtn').onclick=runDecode;
+document.getElementById('copyCmd').onclick=function(){
+  const cmd=document.getElementById('cmd').textContent;
+  navigator.clipboard.writeText(cmd).then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy',1400);})
+    .catch(()=>{this.textContent='Copy failed';});
+};
 document.getElementById('link').addEventListener('paste',()=>setTimeout(runDecode,0));
 
 // ── dictionary ──────────────────────────────────────────────────────
