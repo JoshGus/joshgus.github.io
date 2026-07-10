@@ -129,9 +129,14 @@ body.embed .layout{margin-top:0}
         <div class="cmdwrap">
           <button id="copyCmd" type="button">Copy</button>
 <pre id="cmd">sqlite3 "$HOME/Library/Messages/chat.db" \
-  "SELECT quote(payload_data) FROM message WHERE balloon_bundle_id LIKE '%gamepigeon%' ORDER BY date DESC LIMIT 6;" \
-  | sed "s/^X'//; s/'$//" \
-  | while read h; do printf %s "$h" | xxd -r -p | LC_ALL=C strings -a | grep -om1 'data:?ver=.*'; done</pre>
+  "SELECT hex(payload_data) FROM message WHERE balloon_bundle_id LIKE '%gamepigeon%' AND payload_data IS NOT NULL ORDER BY date DESC LIMIT 6;" \
+| python3 -c 'import sys,plistlib,binascii
+for h in sys.stdin:
+    try:
+        pl=plistlib.loads(binascii.unhexlify(h.strip()))
+        u=next((o for o in pl.get("$objects",[]) if isinstance(o,str) and o.startswith("data:?ver=")),None)
+        if u: print(u)
+    except Exception: pass'</pre>
         </div>
       </details>
     </div>
