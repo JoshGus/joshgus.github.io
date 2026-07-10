@@ -788,6 +788,11 @@ let wildlife=[]; // ambient boid-like fauna (purely decorative)
 let trample=new Map(),trampleCd=0; // desire paths — tileIdx→intensity (aesthetic)
 let uid=0,selected=new Set();
 let players=[],HUMAN=0;      // HUMAN=-1 → spectator
+// ── Online (P2P) — EXPERIMENTAL. rtsOnline: null | 'host' | 'guest'.
+// Host runs the whole sim authoritatively; a guest takes a commander slot, renders
+// from host snapshots, and sends move/attack/spawn intents. All online code is
+// gated behind rtsOnline so single-player is completely untouched.
+let rtsOnline=null,rtsNet=null,rtsSnapTimer=null;
 let teamCalls={};            // team → {x,y,t,by} coordinated attack blackboard
 let depositSpawnTimer=40,DEPOSIT_TARGET=16;
 let AILOG=[],aiLogSeq=0,aiLogOpen=false;
@@ -1348,7 +1353,45 @@ function getSpawnPos(p){
   }
   return{c:bc,r:br};
 }
+// Host applies a remote commander's orders through these (parameterized by ownerId
+// instead of the local HUMAN/selected). Ownership/gold are re-checked here so a
+// guest can never command units it doesn't own or spawn without paying.
+function spawnForPlayer(p,type){
+  if(!p||!p.alive||gameOver)return;
+  const def=TDEFS[type];if(!def)return;
+  if(Math.floor(p.gold)<def.cost)return;
+  if(!def.at.includes('base')||!unitAvailable(p,type))return;
+  if(type!=='engineer'&&troopCount(p)>=troopCap(p))return;
+  if(p.spawnQueue.length>=8)return;
+  p.gold-=def.cost;
+  const trainTime=Math.max(2,def.cost*0.07)*trainTimeMult(p);
+  p.spawnQueue.push({type,timeLeft:trainTime,maxTime:trainTime});
+}
+function netApplyMove(ownerId,ids,x,y){
+  const gc=Math.floor(x/TS),gr=Math.floor(y/TS);let spread=0;
+  for(const id of ids){
+    const u=units.find(u=>u.id===id);if(!u||u.owner!==ownerId||u.hp<=0)continue;
+    u.attackTarget=null;
+    if(u.isBuilding||u.speed<=0){u.waypoints=[];continue;}
+    if(u.type==='engineer'){u.gatherState='parked';u.targetDep=-1;u.targetConId=-1;}
+    const oc=spread%3-1,or=Math.floor(spread/3)-1;
+    const tc=Math.max(0,Math.min(COLS-1,gc+oc)),tr=Math.max(0,Math.min(ROWS-1,gr+or));
+    if(u.canFly){u.waypoints=[{x:tc*TS+TS/2,y:tr*TS+TS/2}];}
+    else{const p=aStarForUnit(u,tc,tr);if(p)u.waypoints=toWp(p);}
+    spread++;
+  }
+}
+function netApplyAttack(ownerId,ids,targetId){
+  const tgt=units.find(u=>u.id===targetId&&u.hp>0);if(!tgt)return;
+  const op=players.find(p=>p.id===ownerId);if(!op||tgt.team===op.team)return;
+  for(const id of ids){
+    const u=units.find(u=>u.id===id);
+    if(u&&u.owner===ownerId&&!u.isBuilding&&u.type!=='engineer'&&u.dmg>0){u.attackTarget=tgt.id;u.atkRepath=0;u.waypoints=[];}
+  }
+}
+
 function spawnPlayer(type){ // human base queue
+  if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'spawn',type}); return; }
   const h=hum();if(!h||!h.alive)return;
   const def=TDEFS[type];
   if(Math.floor(h.gold)<def.cost||gameOver)return;
@@ -4545,6 +4588,17 @@ canvas.addEventListener('mousedown',e=>{
   }
   mouseDown=true;mouseBtn=e.button;mxDown=x;myDown=y;
   if(e.button===2){
+    if(rtsOnline==='guest'){
+      // Send an intent to the host instead of mutating the sim locally.
+      if(selected.size&&rtsNet){
+        const ids=[...selected];
+        const myTeam=(players[HUMAN]||{}).team;
+        const et=units.find(u=>u.hp>0&&u.team!==myTeam&&Math.hypot(u.x-x,u.y-y)<=u.r+6);
+        if(et)rtsNet.sendCmd({k:'attack',ids,targetId:et.id});
+        else rtsNet.sendCmd({k:'move',ids,x,y});
+      }
+      mouseDown=false;mouseBtn=-1;return;
+    }
     if(pingMode){pingMode=null;document.body.classList.remove('ping-mode');document.querySelectorAll('#comms-btns button').forEach(b=>b.classList.remove('on'));return;}
     if(!selected.size||!h)return;
     if(zoneMode){zoneMode=false;document.body.classList.remove('ping-mode');updateSelPanel();return;}
@@ -4932,7 +4986,8 @@ function startGame(){
 function loop(t){
   const raw=Math.min((t-lastT)/1000,.05);lastT=t;
   updateCamera(raw);
-  if(!paused&&gameStarted){
+  // Guests never simulate — they render the host's snapshots.
+  if(!paused&&gameStarted&&rtsOnline!=='guest'){
     try{
       const total=raw*gameSpeed;const steps=Math.max(1,Math.ceil(gameSpeed));
       for(let s=0;s<steps;s++)update(total/steps);
@@ -4941,9 +4996,131 @@ function loop(t){
   try{render();}catch(err){console.error('render() error:',err);window.__loopErr=(err&&err.message)+' :: '+((err&&err.stack||'').split('\n')[1]||'').trim();}
   requestAnimationFrame(loop);
 }
+/* ═══════════════════ ONLINE MULTIPLAYER (P2P, host-authoritative) ═══════════
+   EXPERIMENTAL foundation: host + one remote commander. The host runs the whole
+   sim (bots included) and streams world snapshots; the guest is a thin client
+   that renders snapshots and sends move/attack/spawn intents. Advanced orders
+   (engineers/economy micro, upgrades, airstrikes, mortar, medic, comms) are
+   host-only for now. See games/net/README.md. */
+function serUnit(u){
+  return {id:u.id,type:u.type,owner:u.owner,team:u.team,
+    x:Math.round(u.x*10)/10,y:Math.round(u.y*10)/10,hp:Math.round(u.hp),maxHp:u.maxHp,
+    r:u.r,isBuilding:!!u.isBuilding,vx:u.vx,vy:u.vy,ang:u.ang,facing:u.facing,
+    speed:u.speed,dmg:u.dmg,range:u.range,canFly:!!u.canFly};
+}
+function serPlayer(p){
+  return {id:p.id,team:p.team,color:p.color,dark:p.dark,name:p.name,
+    gold:Math.floor(p.gold),alive:p.alive,kills:p.kills};
+}
+function rtsSnapshot(){
+  if(!gameStarted)return null;
+  return {t:'snap',
+    units:units.map(serUnit),
+    players:players.map(serPlayer),
+    deposits:deposits.map(d=>({id:d.id,x:d.x,y:d.y,gold:Math.round(d.gold),depleted:d.depleted})),
+    constructions:constructions.map(c=>({id:c.id,x:c.x,y:c.y,type:c.type,progress:c.progress,owner:c.owner})),
+    projs:projs.map(p=>({x:Math.round(p.x),y:Math.round(p.y),team:p.team})),
+    gameOver,gameWin,gameMsg};
+}
+function rtsInitPayload(){
+  let terrain='';
+  try{terrain=mapCanvas.toDataURL('image/webp',0.5);}catch(e){try{terrain=mapCanvas.toDataURL('image/png');}catch(e2){}}
+  return {t:'init',COLS,ROWS,TS,W,H,mapStyle,terrain,
+    players:players.slice().sort((a,b)=>a.id-b.id).map(serPlayer).map((p,i)=>{
+      const src=players.find(q=>q.id===p.id);return Object.assign(p,{base:src.base});}),
+    units:units.map(serUnit),
+    deposits:deposits.map(d=>({id:d.id,x:d.x,y:d.y,gold:Math.round(d.gold),max:d.max,depleted:d.depleted})),
+    constructions:constructions.map(c=>({id:c.id,x:c.x,y:c.y,type:c.type,progress:c.progress,buildTime:c.buildTime,owner:c.owner}))};
+}
+function rtsApplyInit(m){
+  if(!m)return;
+  COLS=m.COLS;ROWS=m.ROWS;W=m.W;H=m.H;mapStyle=m.mapStyle;
+  mapCanvas.width=W;mapCanvas.height=H;
+  players=m.players.map(p=>Object.assign({},p,{human:p.id===HUMAN,alive:p.alive!==false,spawnQueue:[],upg:{},ai:null}));
+  units=m.units.map(u=>Object.assign({waypoints:[]},u));
+  deposits=(m.deposits||[]).map(d=>Object.assign({},d));
+  constructions=(m.constructions||[]).map(c=>Object.assign({},c));
+  projs=[];wildlife=[];selected.clear();
+  gameOver=false;gameWin=false;gameMsg='';gameStarted=true;paused=false;
+  if(m.terrain){const img=new Image();img.onload=()=>{try{mctx.clearRect(0,0,W,H);mctx.drawImage(img,0,0,W,H);}catch(e){}};img.src=m.terrain;}
+  try{resizeCanvas();initCamera();syncZoomSlider();buildPchips();updateHud();updateSelPanel();}catch(e){}
+}
+function rtsApplySnap(m){
+  if(!m||m.t!=='snap'||rtsOnline!=='guest')return;
+  units=m.units.map(u=>Object.assign({waypoints:[]},u));
+  for(const sp of m.players){const p=players.find(x=>x.id===sp.id);if(p){p.gold=sp.gold;p.alive=sp.alive;p.kills=sp.kills;}}
+  for(const sd of m.deposits){const d=deposits.find(x=>x.id===sd.id);if(d){d.gold=sd.gold;d.depleted=sd.depleted;}else deposits.push(Object.assign({},sd));}
+  constructions=(m.constructions||[]).map(c=>Object.assign({},c));
+  projs=(m.projs||[]).map(p=>Object.assign({},p));
+  for(const id of[...selected])if(!units.find(u=>u.id===id))selected.delete(id);
+  if(m.gameOver){gameOver=true;gameWin=m.gameWin;gameMsg=m.gameMsg;}
+  try{updateHud();}catch(e){}
+}
+function rtsValidate(player,cmd){
+  if(!cmd||typeof cmd.k!=='string')return false;
+  if(cmd.k==='move'){ if(!Array.isArray(cmd.ids))return false;
+    return {k:'move',ids:cmd.ids.slice(0,240).map(Number).filter(Number.isFinite),x:+cmd.x,y:+cmd.y}; }
+  if(cmd.k==='attack'){ if(!Array.isArray(cmd.ids))return false;
+    return {k:'attack',ids:cmd.ids.slice(0,240).map(Number).filter(Number.isFinite),targetId:+cmd.targetId}; }
+  if(cmd.k==='spawn'){ if(typeof cmd.type!=='string'||!TDEFS[cmd.type])return false; return {k:'spawn',type:cmd.type}; }
+  return false;
+}
+function rtsOnCommand(player,cmd){
+  const pid=player.id;                       // p2p slot === commander id
+  if(cmd.k==='move')netApplyMove(pid,cmd.ids,cmd.x,cmd.y);
+  else if(cmd.k==='attack')netApplyAttack(pid,cmd.ids,cmd.targetId);
+  else if(cmd.k==='spawn')spawnForPlayer(players.find(p=>p.id===pid),cmd.type);
+}
+function rtsHostStart(roster){
+  const guests=roster.filter(p=>!p.isHost);
+  SETTINGS.spectate=false;
+  SETTINGS.count=Math.max(SETTINGS.count,guests.length+1,2);
+  startGame();                               // host builds map + sim (slot0 = host)
+  for(const g of guests){                     // hand each guest's slot to the human
+    const p=players[g.id];
+    if(p){p.ai=null;p.human=false;p.remote=true;p.name=g.name||('Cmdr '+g.id);}
+  }
+  try{buildPchips();updateHud();}catch(e){}
+  rtsNet.broadcast(rtsInitPayload());
+  if(rtsSnapTimer)clearInterval(rtsSnapTimer);
+  rtsSnapTimer=setInterval(()=>{ try{ if(rtsNet)rtsNet.pushState(); }catch(e){} },90);
+}
+function rtsHostLeave(player){
+  // A remote commander dropped — let a bot take the slot back over.
+  const p=players[player.id];
+  if(p&&p.alive){p.remote=false;p.ai=mkAI(player.id);}
+  try{buildPchips();}catch(e){}
+}
+function rtsGuestGone(){
+  if(rtsOnline!=='guest')return;
+  gameOver=true;gameWin=false;gameMsg='Host disconnected — game over';
+}
+function rtsInitOnline(){
+  const mp=new URLSearchParams(location.search).get('mp');
+  if(mp!=='host'&&mp!=='join')return false;
+  import('./net/lobby.js').then(m=>{
+    m.openLobby({
+      gameId:'rts', gameName:'Frontline · skirmish', maxPlayers:6, minPlayers:2,
+      hostHooks:{ validate:rtsValidate, onCommand:rtsOnCommand, snapshot:rtsSnapshot,
+                  onJoin:()=>{}, onLeave:rtsHostLeave, onReject:()=>{} },
+      clientHooks:{ onState:rtsApplySnap,
+                    onEvent:(evt)=>{ if(evt&&evt.t==='init')rtsApplyInit(evt); },
+                    onRoster:()=>{}, onKicked:rtsGuestGone, onClose:rtsGuestGone },
+      onBegin:(o)=>{
+        rtsNet=o.net;
+        if(o.role==='host'){ rtsOnline='host'; rtsHostStart(o.roster); }
+        else { rtsOnline='guest'; HUMAN=(o.net.me&&o.net.me.id)||1; showSetup(false);
+               try{updateHud();}catch(e){} }
+      },
+      onCancel:()=>{ location.href='index.html'; }
+    });
+  }).catch(()=>{});
+  return true;
+}
+
 function init(){
   resizeCanvas();
-  showSetup(true);
+  if(!rtsInitOnline())showSetup(true);
   window.addEventListener('resize',resizeCanvas);
   if(window.ResizeObserver){
     const ro=new ResizeObserver(()=>resizeCanvas());

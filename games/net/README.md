@@ -11,7 +11,8 @@ does only the initial signaling handshake. Discovery is **join-by-code / share-l
 - `lobby.js` — a drop-in connect/lobby overlay (Host / Join-by-code UI, password
   toggle, share link, roster, "Start"). Injects its own CSS.
 - Integrated: **Darts** (`games/darts.html`, online 301) and **Daily Break**
-  (`games/pool.html`, online 8-ball). **Frontline** (`rts.html`) still to do.
+  (`games/pool.html`, online 8-ball), both stable. **Frontline** (`rts.html`) has an
+  experimental, not-yet-live-tested foundation (host + one remote commander).
 
 The games index (`games/index.html`) shows a **Play together** hub built from any
 catalog entry with an `mp` field (`data/games.js`); each tile links to the game with
@@ -44,6 +45,23 @@ gate. Don't open a **public** game to strangers you wouldn't share your IP with.
 **sanitized command object** to apply instead of the raw one (clamp numbers, drop
 extra fields). This is where you enforce turn order, unit ownership, resource costs,
 cooldowns, and legal targets.
+
+### How messages are sanitized (both directions)
+**Client → host (untrusted, fully checked in `p2p.js` `handleClientData`):**
+1. **Size cap** — anything over `MAX_MSG_BYTES` (24 KB) is dropped + striked.
+2. **Shape check** — must be an object with a string `type`; else dropped.
+3. **Handshake gate** — no `cmd` is processed before a valid `hello`/`welcome`.
+4. **Rate limit** — a per-client token bucket drops commands over `cmdsPerSec`.
+5. **Game validation** — `hooks.validate(player, cmd)` must return a value; it
+   returns a **sanitized copy** (coerced numbers, clamped ranges, whitelisted
+   fields) that is applied *instead of* the raw message. The raw client object is
+   never trusted directly. Repeated failures trip a strike counter → kick.
+
+**Host → client (trusted by design):** the host *is* the authority, so clients
+apply its `state`/`event` messages without re-validation — they do a light shape
+check (`typeof data.type === 'string'`) and coerce fields, but a malicious host is
+out of scope for P2P (see the table above). Host→client messages are **not**
+size-capped, which is why the host can send the large one-time Frontline init.
 
 ### Privacy (IP leakage) mitigation
 WebRTC exposes peers' IPs to each other by default. The lobby now has a **"Hide my
@@ -114,25 +132,33 @@ Implemented in `games/pool.html` (search `ONLINE 8-BALL`). How it works:
   (`pendingOnlineState`) and snap to it — so cross-machine float drift is corrected.
 - Whose-turn input is handed to the guest via a `yourTurn` event; game-over via `over`.
 
-### Frontline (RTS) — real-time, many players, hardest
-Host-authoritative real-time. This is where the "host runs locally and applies enemy
-commander commands" idea becomes safe **only if the host validates**:
-- Guests send intents: `{ k:'move', unitIds, x, y }`, `{ k:'spawn', type }`,
-  `{ k:'attack', unitId, targetId }`. Never send positions/HP — those are the host's.
-- Host `validate` must check, per command: does this player **own** those units?
-  is the spawn **affordable** (resources)? is the target **in range / valid**? is the
-  destination **on the map**? Clamp all coordinates. Reject anything else — this is
-  the whole anti-cheat surface.
-- Host ticks the one authoritative sim and `pushState()`s **delta snapshots** at
-  ~10–20 Hz (only what changed: unit positions/HP, resources, deaths). Guests
-  **interpolate** between snapshots for smooth rendering; they never run the sim.
-- Hard caps to survive griefing: max units per player, commands/sec per player
-  (already enforced by the rate limiter — tune `rate.cmdsPerSec`), max message size.
-- The host's machine is the server, so the host should have the best connection.
-- Set `maxPlayers` on the room; the core already rejects joins past the cap.
+### Frontline (RTS) — EXPERIMENTAL foundation, real-time, host-authoritative
+Implemented in `games/rts.html` (search `ONLINE MULTIPLAYER`). All online code is
+gated behind `rtsOnline` so single-player is completely untouched. Status: a working
+foundation for **host + one remote commander** (`maxPlayers:6` is set, but only the
+core loop is wired). It has **not** been live-tested end-to-end.
 
-Start Frontline at **2 players** (host + one rival commander) to prove the intent →
-validate → tick → snapshot → interpolate loop, then raise `maxPlayers`.
+How it works:
+- The host runs the entire sim (bots included) authoritatively. Each guest takes a
+  commander slot (p2p id === commander id); its AI is nulled so the human drives it.
+  On a guest drop, `rtsHostLeave` hands the slot back to a bot (`mkAI`).
+- The map is generated with `Math.random()` (not seedable), so the host sends the
+  full initial state **once** — including the baked terrain as a `mapCanvas` WebP
+  data-URL the guest blits onto its own `mapCanvas` — then streams `rtsSnapshot`
+  (units/players/deposits/constructions/projectiles) at ~11 Hz via `pushState`.
+- The guest is a **thin client**: `loop()` skips `update()` for guests, so they never
+  simulate — they just render the latest snapshot with the real renderer. (`loop()`
+  already try/catches `update`/`render`, so a malformed snapshot can't hard-crash.)
+- Guest intents: `{k:'move',ids,x,y}`, `{k:'attack',ids,targetId}`, `{k:'spawn',type}`.
+  `rtsValidate` sanitizes them; `netApplyMove`/`netApplyAttack`/`spawnForPlayer`
+  re-check **ownership** (`u.owner===pid`), **team** (can't attack allies), and
+  **gold/cap** before applying. The per-client rate limiter caps command spam.
+
+**Not yet networked (host-only for now):** engineer/economy micro, upgrades,
+airstrikes, mortar/medic orders, comms/pings, production-building queues, and
+snapshot interpolation (guests snap to each update rather than interpolating).
+Passive income is symmetric per commander, so move + spawn + attack alone make a
+playable 2-player match. These are the documented next steps.
 
 ---
 
