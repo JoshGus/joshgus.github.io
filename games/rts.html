@@ -793,6 +793,7 @@ let players=[],HUMAN=0;      // HUMAN=-1 → spectator
 // from host snapshots, and sends move/attack/spawn intents. All online code is
 // gated behind rtsOnline so single-player is completely untouched.
 let rtsOnline=null,rtsNet=null,rtsSnapTimer=null;
+let rtsGuestSlots=new Set(),rtsGuestNames={};   // host: commander slots driven by remote humans
 let teamCalls={};            // team → {x,y,t,by} coordinated attack blackboard
 let depositSpawnTimer=40,DEPOSIT_TARGET=16;
 let AILOG=[],aiLogSeq=0,aiLogOpen=false;
@@ -2320,7 +2321,7 @@ function assessAndPlan(p,cfg){
   } else if(stance==='assist'&&ally){
     ai.objective={x:ally.base.gateX+ally.base.fx*TS*3,y:ally.base.gateY+ally.base.fy*TS*3};ai.raidId=null;
     commsMsg(p,`defending ally ${ally.name} — inbound`);
-    for(const tm of players)if(tm.alive&&!tm.human&&tm.team===p.team&&tm.id!==p.id)tm.ai.assessCd=Math.min(tm.ai.assessCd,DIFF[tm.diff].react); // rally the rest of the team fast
+    for(const tm of players)if(tm.alive&&!tm.human&&tm.ai&&tm.team===p.team&&tm.id!==p.id)tm.ai.assessCd=Math.min(tm.ai.assessCd,DIFF[tm.diff].react); // rally the rest of the team fast
   } else if(stance==='siege'){
     softSpot(p,focus);
     ai.objective={x:focus.base.gateX,y:focus.base.gateY};ai.raidId=null;
@@ -2678,7 +2679,7 @@ function sendSuggestion(kind,x,y){
   const h=hum();if(!h)return;
   let sent=0;
   for(const p of players){
-    if(!p.alive||p.human||p.team!==h.team)continue;
+    if(!p.alive||p.human||!p.ai||p.team!==h.team)continue;
     p.ai.suggestions.push({kind,x,y,t:nowT,from:h.id});
     p.ai.assessCd=Math.min(p.ai.assessCd,DIFF[p.diff].react); // they consider it promptly
     sent++;
@@ -2819,7 +2820,7 @@ function update(dt){
   // ── AI / production / building systems — isolated so a stray error can never
   //    freeze the movement/combat loop below. ──
   try{
-  for(const p of players)if(p.alive&&!p.human)botCommander(p,dt);
+  for(const p of players)if(p.alive&&!p.human&&p.ai)botCommander(p,dt);   // remote commanders have no AI
 
   // deposits
   for(let i=deposits.length-1;i>=0;i--){
@@ -4128,11 +4129,13 @@ function bindUpgBtns(cmd){
   for(const btn of cmd.querySelectorAll('[data-upg]'))
     btn.addEventListener('click',()=>{
       const k=btn.dataset.upg,bldgType=btn.dataset.btype;
-      const upg=UPGD[k];if(!upg||h.upg[k]||upgradeQueue.some(e=>e.key===k&&e.table!=='BUPG'))return;
+      const upg=UPGD[k];if(!upg)return;
+      if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'research',key:k,bldgType}); return; }
+      if(h.upg[k]||upgradeQueue.some(e=>e.key===k&&e.table!=='BUPG'&&(e.owner==null||e.owner===h.id)))return;
       if(Math.floor(h.gold)<upg.cost)return;
-      if(upg.req&&!h.upg[upg.req]&&!upgradeQueue.some(e=>e.key===upg.req))return;
+      if(upg.req&&!h.upg[upg.req]&&!upgradeQueue.some(e=>e.key===upg.req&&(e.owner==null||e.owner===h.id)))return;
       h.gold-=upg.cost;const t=Math.max(8,Math.ceil(upg.cost*.1));
-      upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType});
+      upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType,owner:h.id});
       updateSelPanel();updateHud();
     });
 }
@@ -4189,8 +4192,11 @@ function renderBasePanel(){
     upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType:'base',table:'BUPG',owner:h.id});
     updateSelPanel();updateHud();
   });
-  cmd.querySelector('#cmd-repair-all')?.addEventListener('click',()=>{repairAllBuildings(h);updateSelPanel();});
+  cmd.querySelector('#cmd-repair-all')?.addEventListener('click',()=>{
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'repairAll'}); return; }
+    repairAllBuildings(h);updateSelPanel();});
   cmd.querySelector('#cmd-buy-airstrike')?.addEventListener('click',()=>{
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'buyAirstrike'}); return; }
     if(h.airstrikeCD>0||h.airstrikeStock>0||Math.floor(h.gold)<AIRSTRIKE_COST)return;
     h.gold-=AIRSTRIKE_COST;h.airstrikeStock=1;updateSelPanel();updateHud();
   });
@@ -4489,7 +4495,9 @@ function renderEngineerCmds(cmd,gids){
     for(const id of gids){const u=units.find(u=>u.id===id);if(u&&u.type==='engineer')u.assignedDepositId=-1;}
     updateSelPanel();
   });
-  cmd.querySelector('#cmd-return-gold')?.addEventListener('click',()=>{forceReturnGold(gids);updateSelPanel();});
+  cmd.querySelector('#cmd-return-gold')?.addEventListener('click',()=>{
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'returnGold',ids:gids}); return; }
+    forceReturnGold(gids);updateSelPanel();});
   cmd.querySelector('#cmd-mzone')?.addEventListener('click',()=>{
     zoneMode=!zoneMode;document.body.classList.toggle('ping-mode',zoneMode);
     if(zoneMode)buildMode=null;
@@ -4505,6 +4513,7 @@ function renderMedicCmds(cmd,mids){
     `<button class="cmd-btn${mode==='area'?' on':''}" id="cmd-heal-zone">Heal Zone</button>`+
     (ms.some(u=>u.medicArea)?`<button class="cmd-btn red" id="cmd-heal-clear">Clear Zone</button>`:'');
   for(const b of cmd.querySelectorAll('[data-mm]'))b.addEventListener('click',()=>{
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'medicmode',ids:mids,mode:b.dataset.mm}); return; }
     for(const u of ms){u.medicMode=b.dataset.mm;if(b.dataset.mm!=='area')u.medicArea=null;}updateSelPanel();
   });
   cmd.querySelector('#cmd-heal-zone')?.addEventListener('click',()=>{
@@ -4562,19 +4571,27 @@ canvas.addEventListener('mousedown',e=>{
   const h=hum();
   // ally suggestion ping
   if(pingMode&&e.button===0){
-    sendSuggestion(pingMode.kind,x,y);
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'ping',kind:pingMode.kind,x,y}); }
+    else sendSuggestion(pingMode.kind,x,y);
     pingMode=null;document.body.classList.remove('ping-mode');
     document.querySelectorAll('#comms-btns button').forEach(b=>b.classList.remove('on'));
     return;
   }
   if(zoneMode&&e.button===0){
+    if(rtsOnline==='guest')return;   // mine-zone painting is host-only for now
     zonePainting=true;paintMineZone(x,y);return; // brush — drag to paint, stays on until toggled
   }
   if(pendingAirstrike&&e.button===0&&h){
-    if(h.airstrikeStock>0)fireAirstrike(h,x,y);
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'airstrike',x,y}); }
+    else if(h.airstrikeStock>0)fireAirstrike(h,x,y);
     pendingAirstrike=false;updateSelPanel();updateHud();return;
   }
   if(buildMode&&e.button===0&&h){
+    if(rtsOnline==='guest'){
+      if(rtsNet)rtsNet.sendCmd({k:'place',btype:buildMode.type,x,y,ids:[...selected]});
+      if(!e.ctrlKey){buildMode=null;document.body.classList.remove('build-mode');}
+      return;
+    }
     const sx=Math.floor(x/TS)*TS+TS/2,sy=Math.floor(y/TS)*TS+TS/2;
     if(!tileBlocked(sx,sy)&&Math.floor(h.gold)>=BDEFS[buildMode.type].cost){
       h.gold-=BDEFS[buildMode.type].cost;
@@ -4596,15 +4613,27 @@ canvas.addEventListener('mousedown',e=>{
   mouseDown=true;mouseBtn=e.button;mxDown=x;myDown=y;
   if(e.button===2){
     if(rtsOnline==='guest'){
-      // Send an intent to the host instead of mutating the sim locally.
-      if(selected.size&&rtsNet){
-        const ids=[...selected];
-        const myTeam=(players[HUMAN]||{}).team;
-        const et=units.find(u=>u.hp>0&&u.team!==myTeam&&Math.hypot(u.x-x,u.y-y)<=u.r+6);
-        if(et)rtsNet.sendCmd({k:'attack',ids,targetId:et.id});
-        else rtsNet.sendCmd({k:'move',ids,x,y});
-      }
-      mouseDown=false;mouseBtn=-1;return;
+      // Detect what was right-clicked (same order as the host) and send a typed
+      // intent instead of mutating the sim locally. The host re-checks ownership.
+      mouseDown=false;mouseBtn=-1;
+      if(!selected.size||!rtsNet)return;
+      const ids=[...selected];
+      if(window._pendingMortarTarget){const mid=window._pendingMortarTarget;window._pendingMortarTarget=null;
+        rtsNet.sendCmd({k:'mortar',id:mid,x,y});updateSelPanel();return;}
+      if(window._pendingHealZone){const hids=window._pendingHealZone;window._pendingHealZone=null;
+        rtsNet.sendCmd({k:'healzone',ids:hids,x,y});updateSelPanel();return;}
+      const myTeam=(players[HUMAN]||{}).team;
+      const dep=deposits.find(d=>!d.depleted&&Math.hypot(d.x-x,d.y-y)<=18);
+      if(dep){rtsNet.sendCmd({k:'gather',ids,depId:dep.id});return;}
+      const mine=units.find(u=>u.type==='mine'&&u.owner===HUMAN&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+10);
+      if(mine){rtsNet.sendCmd({k:'assignMine',ids,mineId:mine.id});return;}
+      const con=constructions.find(c=>c.owner===HUMAN&&Math.hypot(c.x-x,c.y-y)<=TS*2.5);
+      if(con){rtsNet.sendCmd({k:'build',ids,conId:con.id});return;}
+      const bldg=units.find(u=>u.isBuilding&&u.owner===HUMAN&&u.hp>0&&Math.hypot(u.x-x,u.y-y)<=u.r+8);
+      if(bldg&&bldg.hp<bldg.maxHp&&bldg.type!=='cover'){rtsNet.sendCmd({k:'repair',ids,bid:bldg.id});return;}
+      const et=units.find(u=>u.hp>0&&u.team!==myTeam&&Math.hypot(u.x-x,u.y-y)<=u.r+6);
+      if(et){rtsNet.sendCmd({k:'attack',ids,targetId:et.id});return;}
+      rtsNet.sendCmd({k:'move',ids,x,y});return;
     }
     if(pingMode){pingMode=null;document.body.classList.remove('ping-mode');document.querySelectorAll('#comms-btns button').forEach(b=>b.classList.remove('on'));return;}
     if(!selected.size||!h)return;
@@ -4918,17 +4947,27 @@ function buildSetupUI(){
   }
   const spec=document.getElementById('opt-spectate');
   if(spec){spec.checked=SETTINGS.spectate;spec.onchange=()=>{SETTINGS.spectate=spec.checked;buildSetupUI();};}
+  // Online host: guests occupy fixed slots (their p2p id). Keep enough slots for
+  // them and show those rows as network players (no difficulty — they're humans).
+  if(rtsOnline==='host'&&rtsGuestSlots.size){
+    const req=Math.max(...rtsGuestSlots)+1;
+    if(SETTINGS.count<req)SETTINGS.count=req;
+    SETTINGS.spectate=false;
+  }
   const list=document.getElementById('slot-list');
   let html='';
   for(let i=0;i<SETTINGS.count;i++){
     const slot=SETTINGS.slots[i];
     const isHuman=!SETTINGS.spectate&&i===0;
+    const isNet=rtsOnline==='host'&&rtsGuestSlots.has(i);
+    const noBot=isHuman||isNet;
     const pal=PLAYER_COLS[i];
+    const nm=isHuman?'You':isNet?(rtsGuestNames[i]||('Player '+(i+1))):'Bot '+(i+1);
     html+=`<div class="slot-row">
       <span class="slot-dot" style="background:${pal.col}"></span>
-      <span class="slot-name" style="color:${pal.col}">${isHuman?'You':'Bot '+(i+1)}</span>
-      <span class="slot-kind">${isHuman?'human':'bot'}</span>
-      ${isHuman?'<span class="slot-sp"></span>':`<select data-diff="${i}">${['recruit','easy','medium','hard','brutal'].map(d=>`<option value="${d}"${slot.diff===d?' selected':''}>${d[0].toUpperCase()+d.slice(1)}</option>`).join('')}</select>`}
+      <span class="slot-name" style="color:${pal.col}">${nm}</span>
+      <span class="slot-kind">${isHuman?'you':isNet?'network':'bot'}</span>
+      ${noBot?'<span class="slot-sp"></span>':`<select data-diff="${i}">${['recruit','easy','medium','hard','brutal'].map(d=>`<option value="${d}"${slot.diff===d?' selected':''}>${d[0].toUpperCase()+d.slice(1)}</option>`).join('')}</select>`}
       <select data-team="${i}">${Array.from({length:SETTINGS.count},(_,t)=>t+1).map(t=>`<option value="${t}"${slot.team===t?' selected':''}>Team ${t}</option>`).join('')}</select>
     </div>`;
   }
@@ -4989,6 +5028,7 @@ function startGame(){
   const bb=document.getElementById('base-btn');
   if(bb)bb.style.display=h?'':'none';
   if(aiLogOpen)renderAILog();
+  if(rtsOnline==='host'){try{rtsAfterStart();}catch(e){console.error('rtsAfterStart',e);}}
 }
 function loop(t){
   const raw=Math.min((t-lastT)/1000,.05);lastT=t;
@@ -5021,7 +5061,7 @@ function serUnit(u){
     speed:u.speed,dmg:u.dmg,range:u.range,canFly:!!u.canFly};
 }
 function serPlayer(p){
-  return {id:p.id,team:p.team,color:p.color,dark:p.dark,name:p.name,
+  return {id:p.id,team:p.team,color:p.color,dark:p.dark,name:p.name,diff:p.diff||'medium',
     gold:Math.floor(p.gold),alive:p.alive,kills:p.kills,bupg:p.bupg,upg:p.upg};
 }
 function rtsSnapshot(){
@@ -5056,7 +5096,13 @@ function rtsApplyInit(m){
   projs=[];wildlife=[];selected.clear();
   gameOver=false;gameWin=false;gameMsg='';gameStarted=true;paused=false;
   if(m.terrain){const img=new Image();img.onload=()=>{try{mctx.clearRect(0,0,W,H);mctx.drawImage(img,0,0,W,H);}catch(e){}};img.src=m.terrain;}
-  try{resizeCanvas();initCamera();syncZoomSlider();buildPchips();updateHud();updateSelPanel();}catch(e){}
+  try{resizeCanvas();initCamera();syncZoomSlider();buildPchips();updateHud();updateSelPanel();
+    // Comms panel is available when this commander has teammates (host routes
+    // pings to AI allies only). Base button lets the guest queue base units.
+    const me=players[HUMAN],ally=me&&players.some(p=>p.id!==HUMAN&&p.alive&&p.team===me.team);
+    const cb=document.getElementById('comms-btn');if(cb)cb.style.display=ally?'':'none';
+    const bb=document.getElementById('base-btn');if(bb)bb.style.display='';
+  }catch(e){}
 }
 function rtsApplySnap(m){
   if(!m||m.t!=='snap'||rtsOnline!=='guest')return;
@@ -5086,37 +5132,148 @@ function buyBaseUpgradeForPlayer(p,key){
   p.gold-=up.cost;const t=Math.max(10,Math.ceil(up.cost*.09));
   upgradeQueue.push({key,timeLeft:t,maxTime:t,bldgType:'base',table:'BUPG',owner:p.id});
 }
+function researchForPlayer(p,key,bldgType){
+  const upg=UPGD[key];
+  if(!p||!p.alive||!upg)return;
+  if(p.upg[key]||upgradeQueue.some(e=>e.key===key&&e.table!=='BUPG'&&e.owner===p.id))return;
+  if(Math.floor(p.gold)<upg.cost)return;
+  if(upg.req&&!p.upg[upg.req]&&!upgradeQueue.some(e=>e.key===upg.req&&e.owner===p.id))return;
+  if(!hasBldgP(p,bldgType))return;                        // must own the research building
+  p.gold-=upg.cost;const t=Math.max(8,Math.ceil(upg.cost*.1));
+  upgradeQueue.push({key,timeLeft:t,maxTime:t,bldgType,owner:p.id});
+}
+// Engineer / economy orders (mirror the local right-click handler, parameterized).
+function netGather(ownerId,ids,depId){
+  const dep=deposits.find(d=>d.id===depId);if(!dep)return;
+  for(const id of ids){const u=units.find(u=>u.id===id&&u.type==='engineer'&&u.owner===ownerId&&u.hp>0);
+    if(u){u.assignedDepositId=depId;u.gatherState='idle';u.waypoints=[];u.targetDep=-1;}}
+}
+function netAssignMine(ownerId,ids,mineId){
+  const b=units.find(u=>u.id===mineId&&u.type==='mine'&&u.owner===ownerId&&u.hp>0);if(!b)return;
+  for(const id of ids){const u=units.find(u=>u.id===id&&u.type==='engineer'&&u.owner===ownerId&&u.hp>0);
+    if(u){u.assignedMineId=mineId;u.gatherState='idle';u.targetDep=-1;}}
+}
+function netBuildAssign(ownerId,ids,conId){
+  const con=constructions.find(c=>c.id===conId&&c.owner===ownerId);if(!con)return;
+  for(const id of ids){const u=units.find(u=>u.id===id&&u.type==='engineer'&&u.owner===ownerId&&u.hp>0);
+    if(u&&u.gatherState!=='building'){u.gatherState='going-build';u.targetConId=con.id;u.carryGold=0;
+      const p=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));if(p)u.waypoints=toWp(p);}}
+}
+function netRepair(ownerId,ids,bid){
+  const b=units.find(u=>u.id===bid&&u.isBuilding&&u.owner===ownerId&&u.hp>0);
+  if(!b||b.hp>=b.maxHp||b.type==='cover')return;
+  for(const id of ids){const u=units.find(u=>u.id===id&&u.type==='engineer'&&u.owner===ownerId&&u.hp>0);
+    if(u){u.repairTargetId=b.id;u.gatherState='parked';u.targetDep=-1;u.targetConId=-1;u.assignedMineId=-1;u.attackTarget=null;u.waypoints=[];}}
+}
+function netPlaceBuilding(ownerId,btype,x,y,ids){
+  const p=players.find(pp=>pp.id===ownerId);const def=BDEFS[btype];
+  if(!p||!p.alive||!def)return;
+  const sx=Math.floor(x/TS)*TS+TS/2,sy=Math.floor(y/TS)*TS+TS/2;
+  if(tileBlocked(sx,sy)||Math.floor(p.gold)<def.cost)return;
+  p.gold-=def.cost;
+  const con={id:uid++,x:sx,y:sy,type:btype,progress:0,buildTime:def.time,owner:ownerId};
+  constructions.push(con);
+  for(const id of ids){const u=units.find(u=>u.id===id&&u.type==='engineer'&&u.owner===ownerId&&u.hp>0);
+    if(u){u.gatherState='going-build';u.targetConId=con.id;u.carryGold=0;
+      const pth=aStar(Math.floor(u.x/TS),Math.floor(u.y/TS),Math.floor(con.x/TS),Math.floor(con.y/TS));if(pth)u.waypoints=toWp(pth);}}
+}
+function netReturnGold(ownerId,ids){
+  forceReturnGold(ids.filter(id=>{const u=units.find(x=>x.id===id&&x.type==='engineer');return u&&u.owner===ownerId;}));
+}
+function buyAirstrikeForPlayer(p){
+  if(!p||!p.alive||p.airstrikeCD>0||p.airstrikeStock>0||Math.floor(p.gold)<AIRSTRIKE_COST)return;
+  p.gold-=AIRSTRIKE_COST;p.airstrikeStock=1;
+}
+function netMortar(ownerId,id,x,y){
+  const mu=units.find(u=>u.id===id&&u.type==='mortar'&&u.owner===ownerId&&u.hp>0);if(mu)mu.mortarTarget={x,y};
+}
+function netHealZone(ownerId,ids,x,y){
+  for(const id of ids){const mu=units.find(u=>u.id===id&&u.type==='medic'&&u.owner===ownerId&&u.hp>0);
+    if(mu){mu.medicMode='area';mu.medicArea={x,y,r:TS*9};}}
+}
+function netMedicMode(ownerId,ids,mode){
+  if(!['seek','hold','area'].includes(mode))return;
+  for(const id of ids){const mu=units.find(u=>u.id===id&&u.type==='medic'&&u.owner===ownerId&&u.hp>0);
+    if(mu){mu.medicMode=mode;if(mode!=='area')mu.medicArea=null;}}
+}
+function sendSuggestionForPlayer(p,kind,x,y){
+  if(!p||!p.alive||!['attack','defend','gather','rally'].includes(kind))return;
+  for(const q of players){
+    if(!q.alive||q.human||q.remote||q.team!==p.team||!q.ai)continue;   // only AI allies
+    q.ai.suggestions.push({kind,x,y,t:nowT,from:p.id});
+    q.ai.assessCd=Math.min(q.ai.assessCd,DIFF[q.diff].react);
+  }
+  pings.push({x,y,kind,timer:3,maxTimer:3});
+}
 function rtsValidate(player,cmd){
   if(!cmd||typeof cmd.k!=='string')return false;
-  if(cmd.k==='move'){ if(!Array.isArray(cmd.ids))return false;
-    return {k:'move',ids:cmd.ids.slice(0,240).map(Number).filter(Number.isFinite),x:+cmd.x,y:+cmd.y}; }
-  if(cmd.k==='attack'){ if(!Array.isArray(cmd.ids))return false;
-    return {k:'attack',ids:cmd.ids.slice(0,240).map(Number).filter(Number.isFinite),targetId:+cmd.targetId}; }
-  if(cmd.k==='spawn'){ if(typeof cmd.type!=='string'||!TDEFS[cmd.type])return false; return {k:'spawn',type:cmd.type}; }
-  if(cmd.k==='train'){ if(typeof cmd.type!=='string'||!TDEFS[cmd.type])return false; return {k:'train',bid:+cmd.bid,type:cmd.type}; }
-  if(cmd.k==='upgrade'){ if(typeof cmd.key!=='string'||!BUPGD[cmd.key])return false; return {k:'upgrade',key:cmd.key}; }
+  const IDS=a=>Array.isArray(a)?a.slice(0,240).map(Number).filter(Number.isFinite):null;
+  switch(cmd.k){
+    case 'move':      { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'move',ids,x:+cmd.x,y:+cmd.y}; }
+    case 'attack':    { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'attack',ids,targetId:+cmd.targetId}; }
+    case 'spawn':     if(typeof cmd.type!=='string'||!TDEFS[cmd.type])return false; return {k:'spawn',type:cmd.type};
+    case 'train':     if(typeof cmd.type!=='string'||!TDEFS[cmd.type])return false; return {k:'train',bid:+cmd.bid,type:cmd.type};
+    case 'upgrade':   if(typeof cmd.key!=='string'||!BUPGD[cmd.key])return false; return {k:'upgrade',key:cmd.key};
+    case 'research':  if(typeof cmd.key!=='string'||!UPGD[cmd.key]||typeof cmd.bldgType!=='string')return false; return {k:'research',key:cmd.key,bldgType:cmd.bldgType};
+    case 'gather':    { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'gather',ids,depId:+cmd.depId}; }
+    case 'assignMine':{ const ids=IDS(cmd.ids); if(!ids)return false; return {k:'assignMine',ids,mineId:+cmd.mineId}; }
+    case 'build':     { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'build',ids,conId:+cmd.conId}; }
+    case 'place':     if(typeof cmd.btype!=='string'||!BDEFS[cmd.btype])return false; return {k:'place',btype:cmd.btype,x:+cmd.x,y:+cmd.y,ids:IDS(cmd.ids)||[]};
+    case 'repair':    { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'repair',ids,bid:+cmd.bid}; }
+    case 'repairAll': return {k:'repairAll'};
+    case 'returnGold':{ const ids=IDS(cmd.ids); if(!ids)return false; return {k:'returnGold',ids}; }
+    case 'buyAirstrike': return {k:'buyAirstrike'};
+    case 'airstrike': return {k:'airstrike',x:+cmd.x,y:+cmd.y};
+    case 'mortar':    return {k:'mortar',id:+cmd.id,x:+cmd.x,y:+cmd.y};
+    case 'healzone':  { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'healzone',ids,x:+cmd.x,y:+cmd.y}; }
+    case 'medicmode': { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'medicmode',ids,mode:String(cmd.mode)}; }
+    case 'ping':      return {k:'ping',kind:String(cmd.kind),x:+cmd.x,y:+cmd.y};
+  }
   return false;
 }
 function rtsOnCommand(player,cmd){
   const pid=player.id;                       // p2p slot === commander id
   const p=players.find(q=>q.id===pid);
-  if(cmd.k==='move')netApplyMove(pid,cmd.ids,cmd.x,cmd.y);
-  else if(cmd.k==='attack')netApplyAttack(pid,cmd.ids,cmd.targetId);
-  else if(cmd.k==='spawn')spawnForPlayer(p,cmd.type);
-  else if(cmd.k==='train')trainForPlayer(p,cmd.bid,cmd.type);
-  else if(cmd.k==='upgrade')buyBaseUpgradeForPlayer(p,cmd.key);
-}
-function rtsHostStart(roster){
-  const guests=roster.filter(p=>!p.isHost);
-  SETTINGS.spectate=false;
-  SETTINGS.count=Math.max(SETTINGS.count,guests.length+1,2);
-  startGame();                               // host builds map + sim (slot0 = host)
-  for(const g of guests){                     // hand each guest's slot to the human
-    const p=players[g.id];
-    if(p){p.ai=null;p.human=false;p.remote=true;p.name=g.name||('Cmdr '+g.id);}
+  switch(cmd.k){
+    case 'move':        netApplyMove(pid,cmd.ids,cmd.x,cmd.y); break;
+    case 'attack':      netApplyAttack(pid,cmd.ids,cmd.targetId); break;
+    case 'spawn':       spawnForPlayer(p,cmd.type); break;
+    case 'train':       trainForPlayer(p,cmd.bid,cmd.type); break;
+    case 'upgrade':     buyBaseUpgradeForPlayer(p,cmd.key); break;
+    case 'research':    researchForPlayer(p,cmd.key,cmd.bldgType); break;
+    case 'gather':      netGather(pid,cmd.ids,cmd.depId); break;
+    case 'assignMine':  netAssignMine(pid,cmd.ids,cmd.mineId); break;
+    case 'build':       netBuildAssign(pid,cmd.ids,cmd.conId); break;
+    case 'place':       netPlaceBuilding(pid,cmd.btype,cmd.x,cmd.y,cmd.ids); break;
+    case 'repair':      netRepair(pid,cmd.ids,cmd.bid); break;
+    case 'repairAll':   if(p)repairAllBuildings(p); break;
+    case 'returnGold':  netReturnGold(pid,cmd.ids); break;
+    case 'buyAirstrike':buyAirstrikeForPlayer(p); break;
+    case 'airstrike':   if(p&&p.airstrikeStock>0)fireAirstrike(p,cmd.x,cmd.y); break;
+    case 'mortar':      netMortar(pid,cmd.id,cmd.x,cmd.y); break;
+    case 'healzone':    netHealZone(pid,cmd.ids,cmd.x,cmd.y); break;
+    case 'medicmode':   netMedicMode(pid,cmd.ids,cmd.mode); break;
+    case 'ping':        if(p)sendSuggestionForPlayer(p,cmd.kind,cmd.x,cmd.y); break;
   }
+}
+// Host: after the lobby, open the normal setup screen (teams / bot difficulty /
+// map / size / gold / …) with the connected guests pinned to their slots.
+function rtsBeginHostSetup(roster){
+  const guests=roster.filter(p=>!p.isHost);
+  rtsGuestSlots=new Set(guests.map(g=>g.id));
+  rtsGuestNames={};for(const g of guests)rtsGuestNames[g.id]=g.name||('Cmdr '+g.id);
+  SETTINGS.spectate=false;
+  const req=guests.length?Math.max(...guests.map(g=>g.id))+1:2;
+  SETTINGS.count=Math.min(6,Math.max(SETTINGS.count,req,2));
+  showSetup(true);buildSetupUI();
+}
+// Runs at the end of startGame() when hosting online: hand guest slots to their
+// humans (no AI), push the one-time init, and start streaming snapshots.
+function rtsAfterStart(){
+  for(const gid of rtsGuestSlots){const p=players[gid];
+    if(p){p.ai=null;p.human=false;p.remote=true;p.name=rtsGuestNames[gid]||p.name;}}
   try{buildPchips();updateHud();}catch(e){}
-  rtsNet.broadcast(rtsInitPayload());
+  if(rtsNet)rtsNet.broadcast(rtsInitPayload());
   if(rtsSnapTimer)clearInterval(rtsSnapTimer);
   rtsSnapTimer=setInterval(()=>{ try{ if(rtsNet)rtsNet.pushState(); }catch(e){} },90);
 }
@@ -5143,7 +5300,7 @@ function rtsInitOnline(){
                     onRoster:()=>{}, onKicked:rtsGuestGone, onClose:rtsGuestGone },
       onBegin:(o)=>{
         rtsNet=o.net;
-        if(o.role==='host'){ rtsOnline='host'; rtsHostStart(o.roster); }
+        if(o.role==='host'){ rtsOnline='host'; rtsBeginHostSetup(o.roster); }
         else { rtsOnline='guest'; HUMAN=(o.net.me&&o.net.me.id)||1; showSetup(false);
                try{updateHud();}catch(e){} }
       },

@@ -138,10 +138,20 @@ gated behind `rtsOnline` so single-player is completely untouched. Status: a wor
 foundation for **host + one remote commander** (`maxPlayers:6` is set, but only the
 core loop is wired). It has **not** been live-tested end-to-end.
 
+**Match setup:** after the lobby, the host goes through the normal **setup screen**
+(`rtsBeginHostSetup`) — teams, per-bot difficulty, map style/size, terrain, gold,
+troop cap — with the connected guests pinned to their slots (shown as "network"
+players). So a guest can be **teamed with allied bots**, and since comms/pings are
+networked (`{k:'ping'}` → `sendSuggestionForPlayer`, which routes only to AI allies),
+each human can direct their own bot allies (attack/defend/gather/rally). Bot vs
+guest slots are decided at start; empty slots are AI.
+
 How it works:
 - The host runs the entire sim (bots included) authoritatively. Each guest takes a
-  commander slot (p2p id === commander id); its AI is nulled so the human drives it.
-  On a guest drop, `rtsHostLeave` hands the slot back to a bot (`mkAI`).
+  commander slot (p2p id === commander id); its AI is nulled so the human drives it
+  (the `botCommander`/ally-AI loops now skip `!p.ai` slots). Its **engineers still
+  auto-gather** (that path keys off `!p.human`, not the AI), so economy works even
+  without micro. On a guest drop, `rtsHostLeave` hands the slot back to a bot.
 - The map is generated with `Math.random()` (not seedable), so the host sends the
   full initial state **once** — including the baked terrain as a `mapCanvas` WebP
   data-URL the guest blits onto its own `mapCanvas` — then streams `rtsSnapshot`
@@ -149,22 +159,21 @@ How it works:
 - The guest is a **thin client**: `loop()` skips `update()` for guests, so they never
   simulate — they just render the latest snapshot with the real renderer. (`loop()`
   already try/catches `update`/`render`, so a malformed snapshot can't hard-crash.)
-- Guest intents: `{k:'move',ids,x,y}`, `{k:'attack',ids,targetId}`, `{k:'spawn',type}`,
-  `{k:'train',bid,type}` (produce at a building), `{k:'upgrade',key}` (base research).
-  `rtsValidate` sanitizes them; `netApplyMove`/`netApplyAttack`/`spawnForPlayer`/
-  `trainForPlayer`/`buyBaseUpgradeForPlayer` re-check **ownership** (`u.owner===pid`,
-  `b.owner===pid`), **team** (can't attack allies), and **gold/cap** before applying.
-  The per-client rate limiter caps command spam.
+- Guest intents (all sanitized by `rtsValidate`, then re-checked for ownership/team/
+  gold/building-owner in the matching `*ForPlayer`/`netApply*` handler):
+  `move`, `attack`, `spawn`, `train` (produce at a building), `upgrade` (base `BUPG`
+  research), `research` (`UPGD` combat tree at a building), `gather`/`assignMine`/
+  `build`/`repair`/`returnGold` (engineer economy), `place` (construct a building),
+  `buyAirstrike`/`airstrike`, `mortar`, `healzone`/`medicmode`, and `ping` (direct
+  AI allies). The per-client rate limiter caps command spam.
 - Guests **interpolate**: each snapshot sets an authoritative target and units glide
-  toward it (exponential smoothing in `loop()`), so movement is smooth between the
-  ~11 Hz updates instead of teleporting. The `upgradeQueue` is now **owner-aware**
-  (`owner` field) so a remote commander's research applies to their own player.
+  toward it (exponential smoothing in `loop()`), smooth between ~11 Hz updates. The
+  `upgradeQueue` is **owner-aware** (`owner` field) so a commander's research applies
+  to their own player.
 
-**Still host-only (next steps):** engineer/economy micro (mining/return-gold/build),
-production-building **upgrades** (the `UPGD` combat tree bought at buildings — only
-base `BUPG` research is networked so far), airstrikes, mortar/medic orders, and
-comms/pings. Passive income is symmetric per commander, so the networked set already
-makes a playable 2-player match.
+**Still host-only (minor):** mine-zone painting and a few unit micro-toggles
+(entrench, ward, cover decoy, per-mine profit). Everything gameplay-significant —
+build/tech/economy/army/abilities/comms — is networked.
 
 ---
 
