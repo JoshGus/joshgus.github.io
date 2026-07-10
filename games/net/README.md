@@ -149,16 +149,22 @@ How it works:
 - The guest is a **thin client**: `loop()` skips `update()` for guests, so they never
   simulate — they just render the latest snapshot with the real renderer. (`loop()`
   already try/catches `update`/`render`, so a malformed snapshot can't hard-crash.)
-- Guest intents: `{k:'move',ids,x,y}`, `{k:'attack',ids,targetId}`, `{k:'spawn',type}`.
-  `rtsValidate` sanitizes them; `netApplyMove`/`netApplyAttack`/`spawnForPlayer`
-  re-check **ownership** (`u.owner===pid`), **team** (can't attack allies), and
-  **gold/cap** before applying. The per-client rate limiter caps command spam.
+- Guest intents: `{k:'move',ids,x,y}`, `{k:'attack',ids,targetId}`, `{k:'spawn',type}`,
+  `{k:'train',bid,type}` (produce at a building), `{k:'upgrade',key}` (base research).
+  `rtsValidate` sanitizes them; `netApplyMove`/`netApplyAttack`/`spawnForPlayer`/
+  `trainForPlayer`/`buyBaseUpgradeForPlayer` re-check **ownership** (`u.owner===pid`,
+  `b.owner===pid`), **team** (can't attack allies), and **gold/cap** before applying.
+  The per-client rate limiter caps command spam.
+- Guests **interpolate**: each snapshot sets an authoritative target and units glide
+  toward it (exponential smoothing in `loop()`), so movement is smooth between the
+  ~11 Hz updates instead of teleporting. The `upgradeQueue` is now **owner-aware**
+  (`owner` field) so a remote commander's research applies to their own player.
 
-**Not yet networked (host-only for now):** engineer/economy micro, upgrades,
-airstrikes, mortar/medic orders, comms/pings, production-building queues, and
-snapshot interpolation (guests snap to each update rather than interpolating).
-Passive income is symmetric per commander, so move + spawn + attack alone make a
-playable 2-player match. These are the documented next steps.
+**Still host-only (next steps):** engineer/economy micro (mining/return-gold/build),
+production-building **upgrades** (the `UPGD` combat tree bought at buildings — only
+base `BUPG` research is networked so far), airstrikes, mortar/medic orders, and
+comms/pings. Passive income is symmetric per commander, so the networked set already
+makes a playable 2-player match.
 
 ---
 

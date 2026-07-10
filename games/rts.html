@@ -1420,17 +1420,21 @@ function processPlayerQueue(dt){
   }
 }
 function trainAtBuilding(bid,type){ // human production buildings
-  const h=hum();if(!h)return;
-  const b=units.find(u=>u.id===bid);if(!b||gameOver)return;
-  const def=TDEFS[type];if(Math.floor(h.gold)<def.cost||!unitAvailable(h,type))return;
-  if(type!=='engineer'&&troopCount(h)>=troopCap(h)){flashCap();return;}
+  if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'train',bid,type}); return; }
+  trainForPlayer(hum(),bid,type);
+}
+function trainForPlayer(p,bid,type){    // host: queue a unit at a player's building
+  if(!p||!p.alive||gameOver)return;
+  const b=units.find(u=>u.id===bid&&u.hp>0);if(!b||b.owner!==p.id||!b.isBuilding)return;
+  const def=TDEFS[type];if(!def||Math.floor(p.gold)<def.cost||!unitAvailable(p,type))return;
+  if(type!=='engineer'&&troopCount(p)>=troopCap(p)){if(p.id===HUMAN)flashCap();return;}
   if(!trainQueues.has(bid))trainQueues.set(bid,[]);
   const q=trainQueues.get(bid);
   if(q.length>=5)return;
-  h.gold-=def.cost;
-  const trainTime=Math.max(3,def.cost*0.07)*trainTimeMult(h);
+  p.gold-=def.cost;
+  const trainTime=Math.max(3,def.cost*0.07)*trainTimeMult(p);
   q.push({type,timeLeft:trainTime,maxTime:trainTime});
-  updateHud();updateSelPanel();
+  if(p.id===HUMAN){updateHud();updateSelPanel();}
 }
 function processTrainQueues(dt){
   for(const[bid,q]of trainQueues){
@@ -3148,17 +3152,18 @@ function update(dt){
   rankSampleCd-=dt;if(rankSampleCd<=0){rankSampleCd=2;sampleRank();}
   // human research queue — all researches progress concurrently
   if(upgradeQueue.length){
-    const h=hum();
     let anyDone=false;
     for(let i=upgradeQueue.length-1;i>=0;i--){
       const cur=upgradeQueue[i];cur.timeLeft-=dt;
       if(cur.timeLeft<=0){
-        if(h){
+        // owner-aware: online, a remote commander's research applies to their player
+        const op=players.find(p=>p.id===(cur.owner!=null?cur.owner:HUMAN));
+        if(op){
           if(cur.table==='BUPG'){
-            h.bupg[cur.key]=true;
-            if(cur.key==='reinforced'){const nm=baseMaxHpOf(h);h.base.hp+=nm-h.base.maxHp;h.base.maxHp=nm;}
+            op.bupg[cur.key]=true;
+            if(cur.key==='reinforced'){const nm=baseMaxHpOf(op);op.base.hp+=nm-op.base.maxHp;op.base.maxHp=nm;}
           }
-          else if(UPGD[cur.key])h.upg[cur.key]=true;
+          else if(UPGD[cur.key])op.upg[cur.key]=true;
         }
         upgradeQueue.splice(i,1);sfx('upgrade');anyDone=true;
       }
@@ -4177,9 +4182,11 @@ function renderBasePanel(){
   for(const b of cmd.querySelectorAll('[data-train]'))b.addEventListener('click',()=>{spawnPlayer(b.dataset.train);});
   for(const b of cmd.querySelectorAll('[data-bupg]'))b.addEventListener('click',()=>{
     const k=b.dataset.bupg,up=BUPGD[k];
-    if(!up||h.bupg[k]||upgradeQueue.some(e=>e.key===k&&e.table==='BUPG')||Math.floor(h.gold)<up.cost)return;
+    if(!up)return;
+    if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'upgrade',key:k}); return; }
+    if(h.bupg[k]||upgradeQueue.some(e=>e.key===k&&e.table==='BUPG'&&(e.owner==null||e.owner===h.id))||Math.floor(h.gold)<up.cost)return;
     h.gold-=up.cost;const t=Math.max(10,Math.ceil(up.cost*.09));
-    upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType:'base',table:'BUPG'});
+    upgradeQueue.push({key:k,timeLeft:t,maxTime:t,bldgType:'base',table:'BUPG',owner:h.id});
     updateSelPanel();updateHud();
   });
   cmd.querySelector('#cmd-repair-all')?.addEventListener('click',()=>{repairAllBuildings(h);updateSelPanel();});
@@ -4993,6 +5000,11 @@ function loop(t){
       for(let s=0;s<steps;s++)update(total/steps);
     }catch(err){console.error('update() error:',err);window.__loopErr=(err&&err.message)+' :: '+((err&&err.stack||'').split('\n')[1]||'').trim();}
   }
+  // Guest: smoothly interpolate units toward their latest snapshot positions.
+  if(rtsOnline==='guest'&&gameStarted&&!paused){
+    const k=Math.min(1,raw*13);
+    for(const u of units){ if(u._tx!=null){ u.x+=(u._tx-u.x)*k; u.y+=(u._ty-u.y)*k; } }
+  }
   try{render();}catch(err){console.error('render() error:',err);window.__loopErr=(err&&err.message)+' :: '+((err&&err.stack||'').split('\n')[1]||'').trim();}
   requestAnimationFrame(loop);
 }
@@ -5010,7 +5022,7 @@ function serUnit(u){
 }
 function serPlayer(p){
   return {id:p.id,team:p.team,color:p.color,dark:p.dark,name:p.name,
-    gold:Math.floor(p.gold),alive:p.alive,kills:p.kills};
+    gold:Math.floor(p.gold),alive:p.alive,kills:p.kills,bupg:p.bupg,upg:p.upg};
 }
 function rtsSnapshot(){
   if(!gameStarted)return null;
@@ -5036,7 +5048,8 @@ function rtsApplyInit(m){
   if(!m)return;
   COLS=m.COLS;ROWS=m.ROWS;W=m.W;H=m.H;mapStyle=m.mapStyle;
   mapCanvas.width=W;mapCanvas.height=H;
-  players=m.players.map(p=>Object.assign({},p,{human:p.id===HUMAN,alive:p.alive!==false,spawnQueue:[],upg:{},ai:null}));
+  players=m.players.map(p=>Object.assign({},p,{human:p.id===HUMAN,alive:p.alive!==false,spawnQueue:[],
+    upg:p.upg||{},bupg:p.bupg||{defRange:false,defDmg:false,reinforced:false},ai:null}));
   units=m.units.map(u=>Object.assign({waypoints:[]},u));
   deposits=(m.deposits||[]).map(d=>Object.assign({},d));
   constructions=(m.constructions||[]).map(c=>Object.assign({},c));
@@ -5047,14 +5060,31 @@ function rtsApplyInit(m){
 }
 function rtsApplySnap(m){
   if(!m||m.t!=='snap'||rtsOnline!=='guest')return;
-  units=m.units.map(u=>Object.assign({waypoints:[]},u));
-  for(const sp of m.players){const p=players.find(x=>x.id===sp.id);if(p){p.gold=sp.gold;p.alive=sp.alive;p.kills=sp.kills;}}
+  // Keep each unit's currently-displayed position and set the authoritative one as
+  // an interpolation target, so units glide (see the guest block in loop()) instead
+  // of teleporting every snapshot. New units appear at their real position.
+  const prev=new Map(units.map(u=>[u.id,u]));
+  units=m.units.map(u=>{
+    const nu=Object.assign({waypoints:[]},u);
+    nu._tx=u.x; nu._ty=u.y;
+    const o=prev.get(u.id);
+    if(o){ nu.x=o.x; nu.y=o.y; }
+    return nu;
+  });
+  for(const sp of m.players){const p=players.find(x=>x.id===sp.id);if(p){p.gold=sp.gold;p.alive=sp.alive;p.kills=sp.kills;if(sp.bupg)p.bupg=sp.bupg;if(sp.upg)p.upg=sp.upg;}}
   for(const sd of m.deposits){const d=deposits.find(x=>x.id===sd.id);if(d){d.gold=sd.gold;d.depleted=sd.depleted;}else deposits.push(Object.assign({},sd));}
   constructions=(m.constructions||[]).map(c=>Object.assign({},c));
   projs=(m.projs||[]).map(p=>Object.assign({},p));
   for(const id of[...selected])if(!units.find(u=>u.id===id))selected.delete(id);
   if(m.gameOver){gameOver=true;gameWin=m.gameWin;gameMsg=m.gameMsg;}
   try{updateHud();}catch(e){}
+}
+function buyBaseUpgradeForPlayer(p,key){
+  const up=BUPGD[key];
+  if(!p||!p.alive||!up)return;
+  if(p.bupg[key]||upgradeQueue.some(e=>e.key===key&&e.table==='BUPG'&&e.owner===p.id)||Math.floor(p.gold)<up.cost)return;
+  p.gold-=up.cost;const t=Math.max(10,Math.ceil(up.cost*.09));
+  upgradeQueue.push({key,timeLeft:t,maxTime:t,bldgType:'base',table:'BUPG',owner:p.id});
 }
 function rtsValidate(player,cmd){
   if(!cmd||typeof cmd.k!=='string')return false;
@@ -5063,13 +5093,18 @@ function rtsValidate(player,cmd){
   if(cmd.k==='attack'){ if(!Array.isArray(cmd.ids))return false;
     return {k:'attack',ids:cmd.ids.slice(0,240).map(Number).filter(Number.isFinite),targetId:+cmd.targetId}; }
   if(cmd.k==='spawn'){ if(typeof cmd.type!=='string'||!TDEFS[cmd.type])return false; return {k:'spawn',type:cmd.type}; }
+  if(cmd.k==='train'){ if(typeof cmd.type!=='string'||!TDEFS[cmd.type])return false; return {k:'train',bid:+cmd.bid,type:cmd.type}; }
+  if(cmd.k==='upgrade'){ if(typeof cmd.key!=='string'||!BUPGD[cmd.key])return false; return {k:'upgrade',key:cmd.key}; }
   return false;
 }
 function rtsOnCommand(player,cmd){
   const pid=player.id;                       // p2p slot === commander id
+  const p=players.find(q=>q.id===pid);
   if(cmd.k==='move')netApplyMove(pid,cmd.ids,cmd.x,cmd.y);
   else if(cmd.k==='attack')netApplyAttack(pid,cmd.ids,cmd.targetId);
-  else if(cmd.k==='spawn')spawnForPlayer(players.find(p=>p.id===pid),cmd.type);
+  else if(cmd.k==='spawn')spawnForPlayer(p,cmd.type);
+  else if(cmd.k==='train')trainForPlayer(p,cmd.bid,cmd.type);
+  else if(cmd.k==='upgrade')buyBaseUpgradeForPlayer(p,cmd.key);
 }
 function rtsHostStart(roster){
   const guests=roster.filter(p=>!p.isHost);
