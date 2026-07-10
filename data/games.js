@@ -356,7 +356,7 @@ export const CARDS = [
     type: 'game',
     title: 'Art Match',
     descShort: 'Drop an image, find paintings with the same palette and composition.',
-    descFull: 'Paste, drop, or upload any image. It reads the dominant palette and 5×5 composition in the browser, then ranks it against a local library of ~7,700 public-domain paintings (Wikimedia Commons / Google Art Project) to find the closest matches. Slide between color and composition weighting.',
+    descFull: 'Paste, drop, or upload any image. It reads the dominant palette and 5×5 composition in the browser, then ranks it against a local library of ~10,700 public-domain paintings (Wikimedia Commons) — classical through early-modern abstraction, expressionism, cubism and more — to find the closest matches. Slide between color and composition weighting.',
     href: 'art-match.html',
     thumbBg: 'linear-gradient(160deg,#1a1512,#2a1f18)',
     thumbSvg: ARTMATCH_SVG,
