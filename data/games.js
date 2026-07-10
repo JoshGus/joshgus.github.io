@@ -330,13 +330,13 @@ export const CARDS = [
     mp: { max: 6, blurb: 'Host a battle; rival commanders join and fight live.' }
   },
   {
-    id: 'wordhunt-solver',
+    id: 'gamepigeon-solver',
     type: 'game',
     category: 'solver',
-    title: 'Word Hunt Solver',
-    descShort: 'Paste a GamePigeon Word Hunt link — it decodes the board and finds every word.',
-    descFull: "Paste a GamePigeon Word Hunt link (or just type the 4×4 board) and it finds every word, ranked by the game's scoring, tracing each path on the grid. The board is decoded straight from the message, and it validates against GamePigeon's exact dictionary — both reverse-engineered from the app.",
-    href: 'wordhunt-solver.html',
+    title: 'GamePigeon Solver',
+    descShort: 'Decode GamePigeon game links and solve them — starting with Word Hunt.',
+    descFull: "Drop a file of GamePigeon links (or paste one) to browse every game and open it in the matching solver, filled in. Word Hunt is fully solved — from a link, a board screenshot, or typed in — ranking every word against the game's exact dictionary with each path drawn. The message format and dictionary were reverse-engineered from the app.",
+    href: 'gamepigeon.html',
     thumbBg: 'linear-gradient(160deg,#12200f,#1c3a17)',
     thumbSvg: WORDHUNT_SVG,
     stack: ['DFS', 'Reverse-eng', 'JS'],

@@ -85,6 +85,10 @@ button.primary:hover{filter:brightness(1.05);color:#1d1712}
 .cmdwrap pre{background:var(--surface);border:1px solid var(--line);border-radius:8px;
   padding:12px 12px 12px;overflow-x:auto;font-size:.62rem;line-height:1.6;color:var(--fg);white-space:pre}
 .cmdwrap button{position:absolute;top:6px;right:6px;padding:5px 10px;font-size:.55rem}
+/* embedded in the GamePigeon hub */
+body.embed .status,body.embed .head,body.embed .linkhelp{display:none}
+body.embed .wrap{padding:clamp(16px,3vw,28px)}
+body.embed .layout{margin-top:0}
 </style>
 </head>
 <body>
@@ -250,6 +254,7 @@ fetch('wordlist.txt').then(r=>{
 }).then(t=>{
   DICT=new Set(t.split(/\r?\n/).map(w=>w.trim().toUpperCase()).filter(w=>/^[A-Z]{3,16}$/.test(w)));
   dictStatus.textContent=DICT.size.toLocaleString()+' words';
+  if(window._pendingSolve) solve();
 }).catch(err=>{
   dictStatus.textContent='failed to load wordlist.txt ('+err.message+') — serve over http';
 });
@@ -457,6 +462,14 @@ document.addEventListener('drop',e=>{
   const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
   if(f) imageFromFile(f);
 });
+
+// deep-link: ?b=BOARD (+ &embed=1) — used by the GamePigeon hub to fill & solve
+(function(){
+  const qp=new URLSearchParams(location.search);
+  if(qp.get('embed')!=null) document.body.classList.add('embed');
+  const qb=(qp.get('b')||'').toUpperCase().replace(/[^A-Z]/g,'');
+  if(qb.length===SIZE){ setBoard(qb); if(DICT) solve(); else window._pendingSolve=true; }
+})();
 
 inputs[0].focus();
 </script>

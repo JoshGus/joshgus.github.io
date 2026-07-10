@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>GamePigeon Solver &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<script src="../dark-mode.js"></script>
+<style>
+body{background:var(--bg);color:var(--fg);font-family:var(--body);min-height:100vh;
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.wrap{flex:1;width:100%;max-width:1180px;margin:0 auto;
+  padding:clamp(24px,4vw,44px) clamp(16px,4vw,40px) 60px}
+.head h1{font-family:var(--disp);font-weight:460;font-size:clamp(2rem,5.5vw,3.2rem);
+  line-height:.92;letter-spacing:-.03em}
+.head h1 em{font-style:italic;color:var(--accent-ink)}
+.head p{font-family:var(--mono);font-size:.72rem;letter-spacing:.06em;color:var(--dim);
+  margin-top:12px;max-width:64ch;line-height:1.7}
+
+.layout{display:grid;grid-template-columns:300px 1fr;gap:clamp(20px,3vw,36px);
+  margin-top:clamp(22px,3.5vw,36px);align-items:start}
+@media(max-width:760px){.layout{grid-template-columns:1fr}}
+
+/* sidebar */
+.side{position:sticky;top:14px;display:flex;flex-direction:column;gap:12px}
+.drop{border:1.5px dashed var(--line-strong);border-radius:12px;padding:18px 14px;text-align:center;
+  font-family:var(--mono);font-size:.66rem;letter-spacing:.06em;color:var(--dim);line-height:1.7;
+  transition:.2s;cursor:pointer}
+.drop.over{border-color:var(--accent);background:rgba(204,247,63,.08);color:var(--accent-ink)}
+.drop b{color:var(--accent-ink)}
+textarea.links{width:100%;height:70px;font-family:var(--mono);font-size:.6rem;padding:10px;
+  border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);outline:none;resize:vertical}
+textarea.links:focus{border-color:var(--accent-ink)}
+.row{display:flex;gap:8px}
+button{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:9px 14px;border:1px solid var(--line-strong);border-radius:30px;background:transparent;
+  color:var(--fg);cursor:pointer;transition:.2s;flex:1}
+button:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712}
+
+.gamelist{display:flex;flex-direction:column;gap:6px;margin-top:4px;max-height:60vh;overflow-y:auto}
+.gi{display:block;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
+  background:var(--surface);cursor:pointer;transition:.15s;font-family:var(--mono)}
+.gi:hover{border-color:var(--accent-ink)}
+.gi.active{border-color:var(--accent);background:rgba(204,247,63,.1)}
+.gi .t{font-size:.78rem;font-weight:600;color:var(--fg);display:flex;justify-content:space-between;gap:8px}
+.gi .t .n{color:var(--accent-ink);font-size:.6rem}
+.gi .s{font-size:.58rem;color:var(--dim);margin-top:4px;letter-spacing:.04em;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sidenote{font-family:var(--mono);font-size:.58rem;color:var(--dimmer);line-height:1.7}
+.sidenote a{color:var(--accent-ink)}
+
+/* main panel */
+.main{min-height:60vh;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden}
+.main .placeholder{padding:clamp(30px,6vw,70px);text-align:center;color:var(--dim);
+  font-family:var(--mono);font-size:.72rem;line-height:1.9}
+.main iframe{width:100%;height:calc(100vh - 90px);min-height:640px;border:0;display:block;background:var(--bg)}
+.fields{padding:clamp(20px,3vw,32px)}
+.fields h2{font-family:var(--disp);font-size:1.7rem;font-weight:520;margin-bottom:4px}
+.fields .sub{font-family:var(--mono);font-size:.64rem;color:var(--dim);letter-spacing:.08em;margin-bottom:20px}
+.kv{display:grid;grid-template-columns:minmax(90px,140px) 1fr;gap:6px 16px;font-family:var(--mono);font-size:.7rem}
+.kv .k{color:var(--accent-ink);letter-spacing:.06em}
+.kv .v{color:var(--fg);word-break:break-word}
+.kv .hl{background:rgba(204,247,63,.14);padding:1px 5px;border-radius:4px}
+.note{margin-top:22px;font-family:var(--mono);font-size:.64rem;color:var(--dim);line-height:1.8;
+  border-top:1px solid var(--line);padding-top:16px}
+#clock{}
+</style>
+</head>
+<body>
+
+<div class="status dark">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav><a href="index.html">Games</a> <a href="wordhunt-solver.html">Word Hunt</a></nav>
+  <span id="clock"></span>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <h1>GamePigeon <em>Solver</em></h1>
+    <p>Drop your <b>gamepigeon_games.txt</b> (or paste links) to browse every game on the left. Pick one and it opens in the matching solver, filled in. Boards &amp; state are decoded from the message itself — reverse-engineered from the app.</p>
+  </div>
+
+  <div class="layout">
+    <aside class="side">
+      <div class="drop" id="drop">Drop <b>gamepigeon_games.txt</b> here<br>or click to choose a file</div>
+      <input type="file" id="fileInput" accept=".txt,text/plain" style="display:none">
+      <textarea class="links" id="links" placeholder="…or paste one or more data:?ver=52&data=… links, one per line"></textarea>
+      <div class="row">
+        <button class="primary" id="loadBtn">Load games</button>
+        <button id="clearBtn">Clear</button>
+      </div>
+      <div class="gamelist" id="gamelist"></div>
+      <div class="sidenote" id="sidenote">Get the file: run the one-liner from the <a href="wordhunt-solver.html">Word Hunt solver</a> (“How do I get the link?”), or use <code>gp_dump_links.sh</code>.</div>
+    </aside>
+
+    <section class="main" id="main">
+      <div class="placeholder">Load your games, then pick one from the list.<br>Word Hunt opens the full solver; other games show their decoded state.</div>
+    </section>
+  </div>
+</div>
+
+<script>
+setInterval(()=>{const c=document.getElementById('clock');if(c)c.textContent=
+  new Date().toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});},1000);
+
+// ── decoder (same as the Word Hunt solver) ──────────────────────────
+function makeRand48(seed){
+  const M=(1n<<48n)-1n, T=Number(1n<<48n);
+  let x=(((BigInt(seed)&M)<<16n)|0x330En)&M;
+  return ()=>{ x=(0x5DEECE66Dn*x+0xBn)&M; return Number(x)/T; };
+}
+function decryptStringNew(s){
+  const L=s.length, rnd=makeRand48(L*0xef), idx=new Array(L);
+  for(let i=0;i<L;i++) idx[i]=Math.trunc(rnd()*(L-i));
+  const out=[];
+  for(let pos=L-1;pos>=0;pos--) out.splice(idx[pos],0,s[pos]);
+  return out.join('');
+}
+function lettersToBoard(letters){
+  const rows=[letters.slice(0,4),letters.slice(4,8),letters.slice(8,12),letters.slice(12,16)];
+  return rows.reverse().join('');
+}
+function decodeOne(line){
+  line=(line||'').trim(); if(!line) return null;
+  let blob=line;
+  const m=line.match(/[?&]data=([^&\s]*)/);       // pull the data= value from a full link
+  if(m){ try{ blob=decodeURIComponent(m[1]); }catch(e){ blob=m[1]; } }
+  else if(/^data[:%]/i.test(line)){ return null; } // malformed
+  let query;
+  try{ query=decryptStringNew(blob); }catch(e){ return null; }
+  let params; try{ params=new URLSearchParams(query.replace(/^\?/,'')); }catch(e){ return null; }
+  const game=(params.get('game')||'').toLowerCase();
+  if(!game && !params.get('letters')) return null;  // not a decodable game
+  return {game, params, query};
+}
+
+const GAME_NAMES={hunt:'Word Hunt',anagrams:'Anagrams',wordbites:'Word Bites',pool:'8 Ball / Pool',
+  sea:'Sea Battle',gomoku:'Gomoku',four:'4 in a Row',mancala:'Mancala',knockout:'Knockout'};
+function gameLabel(g){
+  const gn=g.params.get('game_name'); if(gn) return decodeURIComponent(gn);
+  return GAME_NAMES[g.game]||(g.game? (g.game[0].toUpperCase()+g.game.slice(1)) : 'Unknown');
+}
+
+// ── load + list ─────────────────────────────────────────────────────
+let GAMES=[], sel=-1;
+function loadText(text){
+  const seen=new Set(); GAMES=[];
+  for(const line of text.split(/\r?\n/)){
+    const g=decodeOne(line); if(!g) continue;
+    const key=g.query; if(seen.has(key)) continue; seen.add(key);
+    GAMES.push(g);
+  }
+  renderList();
+  if(GAMES.length) select(0);
+  else setPlaceholder('No GamePigeon games found in that text. Paste the raw <code>data:?ver=52&data=…</code> links, one per line.');
+}
+function setPlaceholder(html){
+  document.getElementById('main').innerHTML='<div class="placeholder">'+html+'</div>';
+}
+function renderList(){
+  const box=document.getElementById('gamelist'); box.innerHTML='';
+  GAMES.forEach((g,i)=>{
+    const el=document.createElement('div'); el.className='gi'+(i===sel?' active':'');
+    const name=gameLabel(g); const num=g.params.get('num');
+    let hint='';
+    const letters=(g.params.get('letters')||'').toUpperCase().replace(/[^A-Z]/g,'');
+    if(g.game==='hunt'&&letters.length===16) hint='board '+lettersToBoard(letters);
+    else if(g.params.get('seed')) hint='seed '+g.params.get('seed');
+    else hint=[...g.params.keys()].slice(0,4).join(' · ');
+    el.innerHTML='<div class="t"><span>'+name+'</span>'+(num?'<span class="n">turn '+num+'</span>':'')+
+      '</div><div class="s">'+hint+'</div>';
+    el.onclick=()=>select(i);
+    box.appendChild(el);
+  });
+}
+
+// ── select → render solver / fields ─────────────────────────────────
+function select(i){
+  sel=i; renderList();
+  const g=GAMES[i], main=document.getElementById('main');
+  const letters=(g.params.get('letters')||'').toUpperCase().replace(/[^A-Z]/g,'');
+  if(g.game==='hunt' && letters.length===16){
+    const board=lettersToBoard(letters);
+    main.innerHTML='<iframe src="wordhunt-solver.html?embed=1&b='+board+'" title="Word Hunt solver"></iframe>';
+    return;
+  }
+  // generic decoded-state view for every other game
+  const rows=[];
+  const HL=new Set(['game','game_name','letters','seed','num','mode','v2','v3','v4','v5','score1','score2','words_list1','words_list2']);
+  for(const [k,v] of g.params.entries()){
+    let val=v; try{ val=decodeURIComponent(v); }catch(e){}
+    if(val.length>200) val=val.slice(0,200)+'…';
+    rows.push('<div class="k">'+k+'</div><div class="v'+(HL.has(k)?' ':'')+'">'+
+      (HL.has(k)?'<span class="hl">'+esc(val)+'</span>':esc(val))+'</div>');
+  }
+  main.innerHTML='<div class="fields"><h2>'+esc(gameLabel(g))+'</h2>'+
+    '<div class="sub">'+(g.params.get('num')?'turn '+g.params.get('num')+' · ':'')+g.game+'</div>'+
+    '<div class="kv">'+rows.join('')+'</div>'+
+    '<div class="note">Decoded from the message. A dedicated solver for this game isn\'t built yet — '+
+    (g.game==='pool'?'Pool needs a mid-game link (this may be the opening break, which only carries a seed) and geometric aim assist.':'tell me which game to add next.')+'</div></div>';
+}
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// ── inputs: file drop, file picker, paste ───────────────────────────
+const drop=document.getElementById('drop'), fileInput=document.getElementById('fileInput');
+drop.onclick=()=>fileInput.click();
+fileInput.onchange=e=>{const f=e.target.files[0]; if(f) f.text().then(loadText);};
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0]; if(f) f.text().then(loadText);});
+document.getElementById('loadBtn').onclick=()=>loadText(document.getElementById('links').value);
+document.getElementById('clearBtn').onclick=()=>{
+  document.getElementById('links').value=''; GAMES=[]; sel=-1; renderList();
+  setPlaceholder('Load your games, then pick one from the list.');
+};
+</script>
+</body>
+</html>
