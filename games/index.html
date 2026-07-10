@@ -71,6 +71,20 @@ a.game-card:hover .card-body h2{color:var(--accent-ink)}
 a.game-card:hover .play-label .arr{transform:translateX(5px)}
 .soon-label{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
   color:var(--dimmer)}
+
+/* multiplayer hub */
+.mp-hub{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:clamp(14px,2vw,22px)}
+.mp-tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:22px 22px 18px;
+  display:flex;flex-direction:column;gap:12px}
+.mp-tile h3{font-family:var(--disp);font-weight:560;font-size:1.4rem;letter-spacing:-.01em;margin:0}
+.mp-tile .mp-blurb{color:var(--dim);font-size:.9rem;font-weight:300;flex:1}
+.mp-tile .mp-meta{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dimmer)}
+.mp-actions{display:flex;gap:10px;margin-top:2px}
+.mp-actions a{flex:1;text-align:center;text-decoration:none;font-family:var(--mono);font-size:.66rem;
+  letter-spacing:.1em;text-transform:uppercase;padding:10px;border-radius:8px;border:1px solid var(--line-strong);
+  color:var(--fg);transition:.2s}
+.mp-actions a.host{background:var(--accent-ink);color:#fff;border-color:var(--accent-ink)}
+.mp-actions a:hover{filter:brightness(1.08);transform:translateY(-2px)}
 </style>
 </head>
 <body class="noise">
@@ -93,6 +107,10 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
 </div>
 
 <div class="games-wrap">
+  <div id="mp-hub-wrap" style="display:none">
+    <div class="section-label">Play together</div>
+    <div class="mp-hub" id="mp-hub"></div>
+  </div>
   <div>
     <div class="section-label">Games</div>
     <div class="games-grid" id="games-grid"></div>
@@ -144,6 +162,27 @@ const grid      = document.getElementById('games-grid');
 const compGrid  = document.getElementById('components-grid');
 if (grid)     renderCards(grid, games);
 if (compGrid) renderCards(compGrid, components);
+
+// ── Multiplayer hub: any game flagged `mp` gets a host/join tile. Both links
+// open the game with ?mp=host / ?mp=join so the game boots straight into the
+// shared lobby overlay (games/net/lobby.js).
+const mpGames = CARDS.filter(g => g.mp);
+const hub = document.getElementById('mp-hub');
+if (hub && mpGames.length) {
+  document.getElementById('mp-hub-wrap').style.display = '';
+  mpGames.forEach(g => {
+    hub.insertAdjacentHTML('beforeend', `
+      <div class="mp-tile">
+        <h3>${g.title}</h3>
+        <p class="mp-blurb">${g.mp.blurb || ''}</p>
+        <p class="mp-meta">Peer-to-peer · up to ${g.mp.max} players</p>
+        <div class="mp-actions">
+          <a class="host" href="${g.href}?mp=host">Host</a>
+          <a href="${g.href}?mp=join">Join by code</a>
+        </div>
+      </div>`);
+  });
+}
 </script>
 </body>
 </html>

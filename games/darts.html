@@ -817,7 +817,7 @@ body {
     <div class="sp-darts" id="sp-left-darts"></div>
   </div>
   <div class="score-panel" id="sp-right" style="display:none">
-    <div class="sp-name">P2</div>
+    <div class="sp-name" id="sp-right-name">P2</div>
     <div class="sp-score" id="sp-right-score">301</div>
     <div class="sp-turn" id="sp-right-turn">Your turn</div>
     <div class="sp-darts" id="sp-right-darts"></div>
@@ -1086,6 +1086,8 @@ body {
 
 <script type="module">
 'use strict';
+
+import { openLobby } from './net/lobby.js';
 
 // ── MediaPipe Worker ──────────────────────────────────────────────────────────
 // Run detectForVideo off the main thread so 100ms WASM calls don't stall render.
@@ -1423,6 +1425,13 @@ function drawAnims() {
 // ── Game state ────────────────────────────────────────────────────────────────
 let mode = 'practice', gamePhase = 'playing';
 let currPlayer = 0, dartsLeft = 3;
+
+// ── Online (P2P) state ─────────────────────────────────────────────────────
+// isOnline gates the network-authoritative 301 game. mode stays 'game' so all
+// the existing HUD/ledger code works; online-only differences branch on isOnline.
+// Player 0 is always the host; player 1 is the guest. Turns advance from the
+// host's authoritative state (no hotseat "between turns" gesture online).
+let isOnline = false, onlineRole = null, net = null, myIdx = 0, onlineWinner = null;
 const P = [
   { score:301, roundStart:301, roundPts:0, name:'P1', col:'#ccf73f' },
   { score:301, roundStart:301, roundPts:0, name:'P2', col:'#3fc8f7' },
@@ -1632,6 +1641,9 @@ function countFingers(lm) {
 function registerThrow(throwVec) {
   if (gamePhase === 'gameover') return;
   if (anims.length > 0) return;
+  // Online: you may only throw on your own turn. Blocks the off-turn player's
+  // camera/space/click throws locally (the host also re-checks on apply).
+  if (isOnline && (gamePhase !== 'playing' || currPlayer !== myIdx)) return;
   lastThrowMs = performance.now();
   const { cx, cy, R } = getBoardLayout();
 
@@ -1705,6 +1717,15 @@ function registerThrow(throwVec) {
 
 // ── Game throw — scoring resolves when dart lands ────────────────────────────
 function doGameThrow(wx0, wy0, wz0, vwx, vwy, vwz) {
+  if (isOnline) {
+    // Animate the dart locally, but let the HOST score it. On landing we report
+    // only the board position; the authoritative score/turn come back over the
+    // wire (host broadcast). This keeps one source of truth and no desync.
+    launchDart(wx0, wy0, wz0, vwx, vwy, vwz, { player: myIdx }, (d) => {
+      submitOnlineThrow(myIdx, d);
+    });
+    return;
+  }
   dartsLeft--;
   const isLast     = dartsLeft <= 0;
   const myPlayer   = currPlayer;
@@ -2327,6 +2348,170 @@ function loop() {
   tickFps();
   requestAnimationFrame(loop);
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Online 301 (P2P, host-authoritative). See games/net/README.md for the model.
+// ═══════════════════════════════════════════════════════════════════════════
+function setTextSafe(id, val) { const el = document.getElementById(id); if (el) el.textContent = val; }
+
+// Route a landed dart: host applies it directly; a guest sends it to the host.
+function submitOnlineThrow(playerIdx, d) {
+  const t = { k: 'throw', bx: d.bx, by: d.by, floorHit: !!d.floorHit,
+              ivx: d.ivx, ivy: d.ivy, ivz: d.ivz };
+  if (onlineRole === 'host') hostApplyThrow(playerIdx, t);
+  else if (net) net.sendCmd(t);
+}
+
+// ── Host authority: the only place the 301 scoreboard actually changes ───────
+function hostApplyThrow(playerIdx, t) {
+  if (gamePhase !== 'playing') return;
+  if (playerIdx !== currPlayer) return;                 // not your turn — reject
+  if (t.floorHit) { broadcastDart({ playerIdx, floorHit: true, pts: 0, label: 'Oops!' }); return; }
+
+  const p = P[playerIdx];
+  const { pts, label } = scoreDart(t.bx, t.by);         // host re-derives the score
+  dartsLeft--;
+  const isLast = dartsLeft <= 0;
+  const newScore = p.score - pts;
+  let bust = false, won = false;
+
+  if (newScore < 0) { bust = true; p.score = p.roundStart; }
+  else { p.score = newScore; p.roundPts += pts; won = p.score === 0; }
+
+  broadcastDart({ playerIdx, bx: t.bx, by: t.by, ivx: t.ivx, ivy: t.ivy, ivz: t.ivz,
+                  pts, label, bust, scoreAfter: p.score });
+
+  if (won)       { gamePhase = 'gameover'; onlineWinner = playerIdx; pushOnlineState(); showOnlineGameOver(playerIdx); }
+  else if (bust) { pushOnlineState(); setTimeout(() => { darts = darts.filter(x => !x.bust); hostEndTurn(); }, 700); }
+  else if (isLast) { pushOnlineState(); hostEndTurn(); }
+  else           { pushOnlineState(); }
+}
+
+function hostEndTurn() {
+  currPlayer = 1 - currPlayer; dartsLeft = 3;
+  P[0].roundStart = P[0].score; P[0].roundPts = 0;
+  P[1].roundStart = P[1].score; P[1].roundPts = 0;
+  updateGameHUD();
+  pushOnlineState();
+}
+
+// Render a dart result everywhere (host renders directly; guests get the event).
+function broadcastDart(info) {
+  applyDartVisual(info);
+  if (net && net.isHost) net.broadcast({ k: 'dart', ...info });
+}
+function applyDartVisual(info) {
+  if (info.floorHit) { flash('Oops!', 0, '#c82000'); return; }
+  flash(info.label, info.pts, info.bust ? '#c82000' : '#1d1712');
+  addShotToLedger(info.playerIdx, info.bust ? 'Bust' : info.label, info.bust ? 0 : info.pts, info.scoreAfter);
+  if (!info.bust) {
+    darts.push({ bx: info.bx, by: info.by, player: info.playerIdx,
+                 ivx: info.ivx, ivy: info.ivy, ivz: info.ivz, pts: info.pts, label: info.label });
+    if (darts.length > 18) darts.shift();
+  }
+}
+
+// ── State snapshot / apply ───────────────────────────────────────────────────
+function onlineSnapshot() {
+  return {
+    scores: [P[0].score, P[1].score],
+    roundStart: [P[0].roundStart, P[1].roundStart],
+    roundPts: [P[0].roundPts, P[1].roundPts],
+    names: [P[0].name, P[1].name],
+    currPlayer, dartsLeft, gamePhase, winner: onlineWinner,
+  };
+}
+function applyOnlineState(s) {
+  if (!s) return;
+  P[0].score = s.scores[0]; P[1].score = s.scores[1];
+  P[0].roundStart = s.roundStart[0]; P[1].roundStart = s.roundStart[1];
+  P[0].roundPts = s.roundPts[0]; P[1].roundPts = s.roundPts[1];
+  if (s.names) { P[0].name = s.names[0]; P[1].name = s.names[1]; setTextSafe('sp-left-name', s.names[0]); setTextSafe('sp-right-name', s.names[1]); }
+  currPlayer = s.currPlayer; dartsLeft = s.dartsLeft; gamePhase = s.gamePhase;
+  updateGameHUD();
+  if (s.gamePhase === 'gameover' && s.winner != null) showOnlineGameOver(s.winner);
+}
+function pushOnlineState() { if (net && net.isHost) net.pushState(); }
+
+function showOnlineGameOver(widx) {
+  gamePhase = 'gameover';
+  setTimeout(() => {
+    setTextSafe('winner-text', `${P[widx].name} wins!`);
+    const el = document.getElementById('gameover-screen'); if (el) el.style.display = 'flex';
+  }, 350);
+}
+
+// ── Host validation hook: reject anything that isn't a legal throw this turn ──
+function onlineValidate(player, cmd) {
+  if (!cmd || cmd.k !== 'throw') return false;
+  if (gamePhase !== 'playing') return false;
+  if (player.id !== currPlayer) return false;           // enforce turn order
+  const bx = +cmd.bx, by = +cmd.by;
+  if (cmd.floorHit) return { k: 'throw', floorHit: true };
+  if (!isFinite(bx) || !isFinite(by) || Math.hypot(bx, by) > 1.6) return false; // off-board garbage
+  return { k: 'throw', bx, by, floorHit: false,
+           ivx: +cmd.ivx || 0, ivy: +cmd.ivy || -1, ivz: +cmd.ivz || -0.005 };
+}
+
+// ── Start / teardown ─────────────────────────────────────────────────────────
+function startOnlineGame(role, netCtrl, roster) {
+  net = netCtrl; onlineRole = role; isOnline = true;
+  myIdx = (role === 'host') ? 0 : 1;
+  onlineWinner = null;
+
+  mode = 'game'; gamePhase = 'playing'; darts = []; anims = [];
+  currPlayer = 0; dartsLeft = 3;
+  const hostName  = (roster.find(p => p.isHost)  || {}).name || 'P1';
+  const guestName = (roster.find(p => !p.isHost) || {}).name || 'P2';
+  P[0].score = 301; P[0].roundStart = 301; P[0].roundPts = 0; P[0].name = hostName;
+  P[1].score = 301; P[1].roundStart = 301; P[1].roundPts = 0; P[1].name = guestName;
+
+  setupLedgerForMode(); clearLedger();
+  setTextSafe('sp-left-name', hostName);
+  setTextSafe('sp-right-name', guestName);
+  const spRight = document.getElementById('sp-right'); if (spRight) spRight.style.display = '';
+  const btnReset = document.getElementById('btn-reset'); if (btnReset) btnReset.style.display = 'none';
+  setTextSafe('btn-mode', 'Playing online');
+  document.getElementById('ready-screen').style.display = 'none';
+  document.getElementById('gameover-screen').style.display = 'none';
+  updateGameHUD();
+
+  flash(myIdx === currPlayer ? 'Your turn — throw!' : `${P[currPlayer].name}'s turn`, 0, '#1d1712');
+  if (role === 'host') pushOnlineState();
+}
+
+function onlineOpponentGone() {
+  if (!isOnline) return;
+  gamePhase = 'gameover';
+  flash('Opponent left', 0, '#c82000');
+  setTextSafe('winner-text', 'Opponent left the game');
+  const el = document.getElementById('gameover-screen'); if (el) el.style.display = 'flex';
+}
+
+// ── Boot into the lobby when arriving via the multiplayer hub ────────────────
+(function initOnline() {
+  const mp = new URLSearchParams(location.search).get('mp');
+  if (mp !== 'host' && mp !== 'join') return;
+  openLobby({
+    gameId: 'darts', gameName: 'Darts · 301', maxPlayers: 2, minPlayers: 2,
+    hostHooks: {
+      validate: onlineValidate,
+      onCommand: (player, cmd) => hostApplyThrow(player.id, cmd),
+      snapshot: onlineSnapshot,
+      onJoin: () => {},
+      onLeave: () => onlineOpponentGone(),
+    },
+    clientHooks: {
+      onState: applyOnlineState,
+      onEvent: (evt) => { if (evt && evt.k === 'dart') applyDartVisual(evt); },
+      onRoster: () => {},
+      onKicked: () => onlineOpponentGone(),
+      onClose:  () => onlineOpponentGone(),
+    },
+    onBegin: ({ role, net: n, roster }) => startOnlineGame(role, n, roster),
+    onCancel: () => {},
+  });
+})();
 
 loop();
 </script>

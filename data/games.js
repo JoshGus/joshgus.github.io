@@ -269,7 +269,8 @@ export const CARDS = [
     thumbSvg: POOL_SVG,
     stack: ['Canvas', 'Physics', 'JS'],
     ctaFull: "Play today's rack",
-    ctaShort: 'Play'
+    ctaShort: 'Play',
+    mp: { max: 2, blurb: 'Online 8-ball — one rack, two players.' }
   },
   {
     id: 'minigolf',
@@ -295,7 +296,8 @@ export const CARDS = [
     thumbSvg: DARTS_SVG,
     stack: ['MediaPipe', 'Canvas', 'JS'],
     ctaFull: 'Play',
-    ctaShort: 'Play'
+    ctaShort: 'Play',
+    mp: { max: 2, blurb: 'Online 301 — each player throws from their own camera.' }
   },
   {
     id: 'rts',
@@ -308,7 +310,8 @@ export const CARDS = [
     thumbSvg: RTS_SVG,
     stack: ['Canvas', 'A*', 'JS'],
     ctaFull: 'Play',
-    ctaShort: 'Play'
+    ctaShort: 'Play',
+    mp: { max: 6, blurb: 'Host a battle; rival commanders join and fight live.' }
   },
   {
     id: 'colormap',
