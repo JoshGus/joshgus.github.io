@@ -88,6 +88,10 @@ textarea.links:focus{border-color:var(--accent-ink)}
 .poolbar button.primary{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
   padding:8px 14px;border:1px solid var(--accent);border-radius:20px;background:var(--accent);color:#1d1712;cursor:pointer}
 .poolbar button.primary:disabled{opacity:.55;cursor:default}
+.poolbar button.ghostbtn{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:8px 14px;border:1px solid var(--line-strong);border-radius:20px;background:transparent;color:var(--fg);cursor:pointer}
+.poolbar button.ghostbtn:hover{border-color:var(--accent);color:var(--accent-ink)}
+.pool .ball{transition:opacity .15s}
 .poolbar .hint{font-family:var(--mono);font-size:.56rem;color:var(--dim);letter-spacing:.05em}
 .shotlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .shotlist button{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;
@@ -294,6 +298,7 @@ function poolSim(balls, shot, sub, track, maxSteps){
   const cue=B.find(b=>b.num===0);
   if(cue){ const v=P.k*shot.p; cue.vx=v*Math.cos(shot.d); cue.vy=v*Math.sin(shot.d); }
   const paths=track?B.map(b=>({num:b.num,pts:[[b.x,b.y]]})):null;
+  const frames=track?[B.map(b=>({x:b.x,y:b.y,p:false}))]:null;   // per-step snapshot for animation
   const potOrder=[];
   const MS=maxSteps||1500;
   for(let step=0; step<MS; step++){
@@ -328,9 +333,10 @@ function poolSim(balls, shot, sub, track, maxSteps){
         if(!b.potted){ if(!lp||lp[0]===null||Math.abs(b.x-lp[0])>1.2||Math.abs(b.y-lp[1])>1.2) pa.pts.push([b.x,b.y]); }
         else if(lp&&lp[0]!==null){ pa.pts.push([b.x,b.y]); pa.pts.push([null,null]); } }
     }
+    if(track) frames.push(B.map(b=>({x:b.x,y:b.y,p:b.potted})));
     if(!moving) break;
   }
-  return {balls:B, paths, potOrder};
+  return {balls:B, paths, potOrder, frames};
 }
 
 // —— shot search: geometric pre-filter, then physics-verify, cluster, rank ——
@@ -405,28 +411,58 @@ function renderPool(g,main){
   let html=`<div class="pool"><h2>8 Ball</h2><div class="sub">turn ${turn} · your shot from the decoded layout · physics preview</div>`;
   html+=tableSvg('');
   html+=`<div class="poolbar"><button id="findBtn" class="primary">⌖ Find best shots</button>`+
+        `<button id="replayBtn" class="ghostbtn" style="display:none">▶ Replay</button>`+
         `<span class="hint">or tap the table to aim the cue at full power</span></div>`;
   html+=`<div class="shotlist" id="shotlist"></div>`;
   html+=`<div class="poolnote" id="poolnote">${cue?'Physics matched to the GamePigeon engine. Trajectories are a faithful <b>no-spin</b> prediction — accurate for direct pots &amp; simple caroms; dense clusters are chaotic. Full power = 2000.':'No cue ball on the table in this state.'}</div></div>`;
   main.innerHTML=html;
   if(!cue) return true;
-  const svgEl=main.querySelector('svg'), traj=main.querySelector('#traj'), sl=main.querySelector('#shotlist'), note=main.querySelector('#poolnote');
+  const svgEl=main.querySelector('svg'), traj=main.querySelector('#traj'), sl=main.querySelector('#shotlist'),
+        note=main.querySelector('#poolnote'), replayBtn=main.querySelector('#replayBtn');
+  const ballEl={}; svgEl.querySelectorAll('.ball').forEach(el=>ballEl[el.dataset.num]=el);
+  let animId=null, lastShot=null;
 
-  function drawShot(shot){
-    const {paths}=poolSim(balls,{d:shot.d,p:shot.p},6,true);
+  function resetBalls(){
+    for(const b of balls){ const el=ballEl[b.num]; if(el){ el.removeAttribute('transform'); el.style.opacity='1'; } }
+  }
+  function drawTraj(paths, pots){
     let g='';
     for(const pa of paths){
-      const potted=shot.pots.indexOf(pa.num)>=0, isCue=pa.num===0;
+      const potted=pots.indexOf(pa.num)>=0, isCue=pa.num===0;
       const col=isCue?'#ccf73f':potted?'#7CFC9A':'#ffffff';
-      const w=isCue?2.4:potted?2:1.2, op=isCue||potted?0.95:0.4;
+      const w=isCue?2.2:potted?1.8:1, op=isCue||potted?0.85:0.32;
       let d='', pen=false;
       for(const pt of pa.pts){ if(pt[0]===null){pen=false;continue;} d+=(pen?'L':'M')+pt[0].toFixed(1)+' '+pt[1].toFixed(1)+' '; pen=true; }
       if(d) g+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}" stroke-linejoin="round"/>`;
     }
-    // aim arrow from cue
-    g+=`<line x1="${cue.x}" y1="${cue.y}" x2="${cue.x+22*Math.cos(shot.d)}" y2="${cue.y+22*Math.sin(shot.d)}" stroke="#ccf73f" stroke-width="1.5" opacity="0.6"/>`;
     traj.innerHTML=g;
   }
+  // play the shot: roll the balls along the simulated frames, potting as they go
+  function animate(frames){
+    cancelAnimationFrame(animId); resetBalls();
+    const N=frames.length; if(!N){ return; }
+    const t0=performance.now(), spf=1000/60/2.2;       // ~2.2× playback for snappy previews
+    function tick(now){
+      let idx=Math.floor((now-t0)/spf); if(idx>=N) idx=N-1;
+      const fr=frames[idx];
+      for(let j=0;j<balls.length;j++){ const el=ballEl[balls[j].num]; if(!el) continue;
+        const p=fr[j];
+        if(p.p){ el.style.opacity='0'; }
+        else { el.style.opacity='1'; const dx=(p.x-balls[j].x), dy=(p.y-balls[j].y);
+          el.setAttribute('transform', (dx||dy)?`translate(${dx.toFixed(2)} ${dy.toFixed(2)})`:''); }
+      }
+      if(idx<N-1) animId=requestAnimationFrame(tick);
+    }
+    animId=requestAnimationFrame(tick);
+  }
+  function showShot(shot){
+    lastShot=shot; replayBtn.style.display='';
+    const {paths,frames}=poolSim(balls,{d:shot.d,p:shot.p},6,true);
+    drawTraj(paths, shot.pots);
+    animate(frames);
+  }
+  replayBtn.onclick=()=>{ if(lastShot){ const {frames}=poolSim(balls,{d:lastShot.d,p:lastShot.p},6,true); animate(frames); } };
+  const drawShot=showShot;
   function shotLabel(s){
     const names=s.pots.map(n=>n===8?'8':n).join('+');
     const p=Math.round(s.p);
