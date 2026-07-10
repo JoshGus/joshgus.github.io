@@ -35,11 +35,22 @@ textarea.links{width:100%;height:70px;font-family:var(--mono);font-size:.6rem;pa
   border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--fg);outline:none;resize:vertical}
 textarea.links:focus{border-color:var(--accent-ink)}
 .row{display:flex;gap:8px}
-button{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+.side button{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
   padding:9px 14px;border:1px solid var(--line-strong);border-radius:30px;background:transparent;
   color:var(--fg);cursor:pointer;transition:.2s;flex:1}
-button:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
-button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712}
+.side button:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+.side button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712}
+/* get-the-file command block */
+.linkhelp{margin-top:4px;font-family:var(--mono);font-size:.6rem;color:var(--dim)}
+.linkhelp summary{cursor:pointer;color:var(--accent-ink);letter-spacing:.06em;list-style:none}
+.linkhelp summary::-webkit-details-marker{display:none}
+.linkhelp summary::before{content:'▸ ';font-size:.7em}
+.linkhelp[open] summary::before{content:'▾ '}
+.linkhelp p{margin:8px 0;line-height:1.7;color:var(--dim)}
+.cmdwrap{position:relative;margin-top:8px}
+.cmdwrap pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:12px;overflow-x:auto;font-size:.56rem;line-height:1.6;color:var(--fg);white-space:pre}
+.side .cmdwrap button{position:absolute;top:6px;right:6px;padding:5px 9px;font-size:.5rem;flex:none}
 
 .gamelist{display:flex;flex-direction:column;gap:6px;margin-top:4px;max-height:60vh;overflow-y:auto}
 .gi{display:block;text-align:left;padding:10px 12px;border:1px solid var(--line);border-radius:10px;
@@ -74,7 +85,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
 
 <div class="status dark">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
-  <nav><a href="index.html">Games</a> <a href="wordhunt-solver.html">Word Hunt</a></nav>
+  <nav><a href="index.html">Games</a></nav>
   <span id="clock"></span>
 </div>
 
@@ -94,7 +105,18 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
         <button id="clearBtn">Clear</button>
       </div>
       <div class="gamelist" id="gamelist"></div>
-      <div class="sidenote" id="sidenote">Get the file: run the one-liner from the <a href="wordhunt-solver.html">Word Hunt solver</a> (“How do I get the link?”), or use <code>gp_dump_links.sh</code>.</div>
+      <details class="linkhelp" open>
+        <summary>Get your games file (Mac)</summary>
+        <p>GamePigeon doesn't expose links in Messages, but they're in your Messages database. In <b>Terminal</b> — which needs Full Disk Access (System Settings → Privacy &amp; Security → Full Disk Access → enable Terminal) — run this. It writes <b>~/gamepigeon_games.txt</b>; drop that file above.</p>
+        <div class="cmdwrap">
+          <button id="copyCmd" type="button">Copy</button>
+<pre id="cmd">sqlite3 "$HOME/Library/Messages/chat.db" \
+  "SELECT quote(payload_data) FROM message WHERE balloon_bundle_id LIKE '%gamepigeon%' ORDER BY date DESC LIMIT 60;" \
+  | sed "s/^X'//; s/'$//" \
+  | while read h; do printf %s "$h" | xxd -r -p | LC_ALL=C strings -a | grep -om1 'data:?ver=.*'; done \
+  > ~/gamepigeon_games.txt</pre>
+        </div>
+      </details>
     </aside>
 
     <section class="main" id="main">
@@ -212,6 +234,11 @@ fileInput.onchange=e=>{const f=e.target.files[0]; if(f) f.text().then(loadText);
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove('over');}));
 drop.addEventListener('drop',e=>{const f=e.dataTransfer.files[0]; if(f) f.text().then(loadText);});
+document.getElementById('copyCmd').onclick=function(){
+  navigator.clipboard.writeText(document.getElementById('cmd').textContent)
+    .then(()=>{this.textContent='Copied';setTimeout(()=>this.textContent='Copy',1400);})
+    .catch(()=>{this.textContent='Copy failed';});
+};
 document.getElementById('loadBtn').onclick=()=>loadText(document.getElementById('links').value);
 document.getElementById('clearBtn').onclick=()=>{
   document.getElementById('links').value=''; GAMES=[]; sel=-1; renderList();
