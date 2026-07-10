@@ -98,7 +98,7 @@ button.primary:hover{filter:brightness(1.05);color:#1d1712}
 <div class="wrap">
   <div class="head">
     <h1>Word Hunt <em>Solver</em></h1>
-    <p>Enter the 4&times;4 board. Get every word, ranked by GamePigeon score, with the path drawn on the grid. Tab moves to the next tile; or paste all 16 letters at once.</p>
+    <p>Give it the 4&times;4 board — type it, paste 16 letters, drop a <b>screenshot</b>, or paste a GamePigeon <b>link</b> — and get every word ranked by score, with each path drawn on the grid.</p>
     <div class="status-line">dictionary: <b id="dictStatus">loading&hellip;</b></div>
   </div>
 
@@ -111,11 +111,13 @@ button.primary:hover{filter:brightness(1.05);color:#1d1712}
       <textarea class="paste" id="link" rows="2" placeholder="or paste the GamePigeon link — data:?ver=52&data=…  (auto-decodes the board)"></textarea>
       <div class="controls">
         <button class="primary" id="solveBtn">Solve</button>
+        <button id="shotBtn">Screenshot</button>
         <button id="decodeBtn">Decode link</button>
         <button id="clearBtn">Clear</button>
-        <button id="sampleBtn">Sample board</button>
+        <button id="sampleBtn">Sample</button>
       </div>
-      <div class="status-line" id="decodeStatus"></div>
+      <input type="file" id="shotInput" accept="image/*" style="display:none">
+      <div class="status-line" id="decodeStatus">tip: drop or paste a board screenshot anywhere to auto-read it.</div>
       <div class="hint">Scoring: 3&rarr;100 · 4&rarr;400 · 5&rarr;800 · 6&rarr;1400 · 7&rarr;1800 · 8+&rarr;2200. Hover or tap a word to trace it.</div>
       <details class="linkhelp">
         <summary>How do I get the link? (Mac)</summary>
@@ -367,6 +369,94 @@ function tracePath(path){
   const s=cellCenter(path[0]);const dot=document.createElementNS('http://www.w3.org/2000/svg','circle');
   dot.setAttribute('cx',s.x);dot.setAttribute('cy',s.y);dot.setAttribute('r',2.2);svg.appendChild(dot);
 }
+
+// ── screenshot OCR ──────────────────────────────────────────────────
+// Detect the board by its warm wood-tile color, crop the 16 tiles, OCR
+// each as a single A–Z letter with Tesseract.js (lazy-loaded from CDN).
+function setOcr(msg,err){document.getElementById('decodeStatus').innerHTML=
+  err?('<b style="color:#d9584b">'+msg+'</b>'):msg;}
+let _tess=null;
+async function tesseract(){
+  if(_tess) return _tess;
+  setOcr('loading text-recognition engine…');
+  await new Promise((res,rej)=>{
+    if(window.Tesseract) return res();
+    const s=document.createElement('script');
+    s.src='https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload=res; s.onerror=()=>rej(new Error('couldn\'t load Tesseract (offline?)'));
+    document.head.appendChild(s);
+  });
+  const w=await Tesseract.createWorker('eng');
+  await w.setParameters({tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZ',tessedit_pageseg_mode:'10'});
+  _tess=w; return w;
+}
+// longest contiguous band of above-threshold density (skips small warm blobs like avatars)
+function densestBand(arr,n){
+  let mx=0; for(let i=0;i<n;i++) if(arr[i]>mx)mx=arr[i];
+  const th=mx*0.18; let bs=-1,be=-1,cs=-1;
+  for(let i=0;i<n;i++){
+    if(arr[i]>th){ if(cs<0)cs=i; }
+    else if(cs>=0){ if((i-cs)>(be-bs)){bs=cs;be=i;} cs=-1; }
+  }
+  if(cs>=0 && (n-cs)>(be-bs)){bs=cs;be=n;}
+  return [bs,be];
+}
+function detectBoard(ctx,W,H){
+  const d=ctx.getImageData(0,0,W,H).data;
+  const rc=new Float64Array(H), cc=new Float64Array(W);
+  for(let y=0;y<H;y+=2)for(let x=0;x<W;x+=2){
+    const i=(y*W+x)*4, r=d[i],g=d[i+1],b=d[i+2];
+    if(r>150 && r>=g && g>=b && (r-b)>22 && r<252){ rc[y]++; cc[x]++; }
+  }
+  const [y0,y1]=densestBand(rc,H), [x0,x1]=densestBand(cc,W);
+  return {x0,y0,x1,y1};
+}
+async function runOCR(imgEl){
+  try{
+    const W=imgEl.naturalWidth||imgEl.width, H=imgEl.naturalHeight||imgEl.height;
+    const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
+    const ctx=cv.getContext('2d',{willReadFrequently:true}); ctx.drawImage(imgEl,0,0,W,H);
+    const b=detectBoard(ctx,W,H);
+    if(!(b.x1>b.x0+40 && b.y1>b.y0+40)){ setOcr("couldn't find a board in that image — try a tighter crop",true); return; }
+    const cw=(b.x1-b.x0)/4, ch=(b.y1-b.y0)/4;
+    const w=await tesseract();
+    const S=96, cell=document.createElement('canvas'); cell.width=S; cell.height=S;
+    const cx=cell.getContext('2d',{willReadFrequently:true});
+    const letters=[];
+    for(let i=0;i<16;i++){
+      const r=Math.floor(i/4), c=i%4, mx=cw*0.18, my=ch*0.18;
+      cx.fillStyle='#fff'; cx.fillRect(0,0,S,S);
+      cx.drawImage(cv, b.x0+c*cw+mx, b.y0+r*ch+my, cw-2*mx, ch-2*my, 4,4,S-8,S-8);
+      setOcr('reading tile '+(i+1)+' / 16…');
+      const {data}=await w.recognize(cell);
+      const m=(data.text||'').toUpperCase().match(/[A-Z]/);
+      letters.push(m?m[0]:'');
+    }
+    for(let i=0;i<16;i++) inputs[i].value=letters[i];
+    const filled=letters.filter(Boolean).length;
+    if(filled===16){ setOcr('read board <b>'+letters.join('')+'</b> — verify, then it auto-solved'); solve(); }
+    else setOcr('read '+filled+'/16 tiles — fill the blanks and hit Solve',true);
+  }catch(e){ setOcr('OCR failed: '+e.message,true); }
+}
+function imageFromFile(file){
+  if(!file || !file.type || !file.type.startsWith('image/')) return;
+  const url=URL.createObjectURL(file), im=new Image();
+  im.onload=()=>{ runOCR(im); URL.revokeObjectURL(url); };
+  im.onerror=()=>setOcr('could not read that image',true);
+  im.src=url;
+}
+document.getElementById('shotBtn').onclick=()=>document.getElementById('shotInput').click();
+document.getElementById('shotInput').onchange=e=>imageFromFile(e.target.files[0]);
+window.addEventListener('paste',e=>{
+  const it=[...((e.clipboardData&&e.clipboardData.items)||[])].find(i=>i.type.startsWith('image/'));
+  if(it) imageFromFile(it.getAsFile());
+});
+['dragenter','dragover'].forEach(ev=>document.addEventListener(ev,e=>e.preventDefault()));
+document.addEventListener('drop',e=>{
+  e.preventDefault();
+  const f=e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(f) imageFromFile(f);
+});
 
 inputs[0].focus();
 </script>
