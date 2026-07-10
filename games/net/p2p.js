@@ -25,6 +25,9 @@ const ID_PREFIX  = 'jgus';          // namespace on the shared public PeerJS bro
 const MAX_MSG_BYTES = 24 * 1024;    // reject any single message larger than this
 const HELLO_TIMEOUT_MS = 12000;     // client: give up if no welcome/reject in time
 const CONNECT_TIMEOUT_MS = 15000;   // host: give up if the broker never opens
+const HEARTBEAT_MS = 2500;          // how often each side pings the other
+const DROP_MS = 9000;               // no traffic for this long ⇒ treat peer as gone
+                                    // (catches silent drops the 'close' event misses)
 
 // Room codes: 4 unambiguous chars (no 0/O/1/I/etc). ~800k combinations — enough
 // that random collisions are rare; we retry on the off chance one happens.
@@ -114,7 +117,10 @@ class TokenBucket {
 //                                              apply instead of the raw one.
 //     onCommand(player, cmd)                   Apply a validated command to state.
 //     onJoin(player)                           A client finished the handshake.
-//     onLeave(player)                          A client disconnected / was kicked.
+//     onLeave(player)                          A client disconnected / was kicked /
+//                                              went silent past DROP_MS (heartbeat).
+//     onReject(player, cmd)                    A client's command failed validation —
+//                                              the game may re-prompt that player.
 //     snapshot(player) → stateObj              Build the state to send this player
 //                                              (per-player so hosts can hide info).
 //
@@ -183,13 +189,25 @@ export async function hostRoom(opts) {
     const c = {
       conn, id: null, name: 'Player', ready: false,
       bucket: new TokenBucket(rate.cmdsPerSec, rate.burst), strikes: 0,
+      lastSeen: performance.now(),
     };
     clients.set(conn.peer, c);
 
-    conn.on('data', (data) => handleClientData(c, data));
+    conn.on('data', (data) => { c.lastSeen = performance.now(); handleClientData(c, data); });
     conn.on('close', () => removeClient(c, 'closed'));
     conn.on('error', () => removeClient(c, 'error'));
   });
+
+  // Heartbeat: ping every client and evict any that has gone silent past DROP_MS.
+  // Receiving *any* data (including a client's own ping) refreshes lastSeen above.
+  const heartbeat = setInterval(() => {
+    const now = performance.now();
+    for (const c of clients.values()) {
+      if (!c.ready) continue;
+      safeSend(c.conn, { type: 'ping' });
+      if (now - c.lastSeen > DROP_MS) removeClient(c, 'timeout');
+    }
+  }, HEARTBEAT_MS);
 
   peer.on('error', (e) => {
     // Per-connection transport errors shouldn't tear the room down; surface them.
@@ -202,6 +220,7 @@ export async function hostRoom(opts) {
     if (byteLen(data) > MAX_MSG_BYTES) { strike(c, 5); return; }
     if (!data || typeof data !== 'object' || typeof data.type !== 'string') { strike(c, 1); return; }
 
+    if (data.type === 'ping') return;              // keepalive — lastSeen already bumped
     if (data.type === 'hello') return handleHello(c, data);
     if (!c.ready) { strike(c, 1); return; }        // no commands before handshake
 
@@ -211,7 +230,13 @@ export async function hostRoom(opts) {
       // 3) host-authoritative validation
       let cmd = data.cmd;
       const verdict = hooks.validate(player, cmd);
-      if (verdict === false || verdict == null) { strike(c, 1); return; }
+      if (verdict === false || verdict == null) {
+        strike(c, 1);
+        // Let the game re-prompt (e.g. re-grant the turn) so a rejected but
+        // otherwise-live client isn't left waiting forever.
+        if (typeof hooks.onReject === 'function') hooks.onReject(player, cmd);
+        return;
+      }
       if (verdict !== true) cmd = verdict;               // sanitized replacement
       if (typeof hooks.onCommand === 'function') hooks.onCommand(player, cmd);
       return;
@@ -277,6 +302,7 @@ export async function hostRoom(opts) {
       }
     },
     close() {
+      clearInterval(heartbeat);
       for (const c of clients.values()) { try { c.conn.close(); } catch {} }
       clients.clear();
       try { peer.destroy(); } catch {}
@@ -328,22 +354,44 @@ export async function joinRoom(opts) {
     const finish = (fn) => { if (!settled) { settled = true; clearTimeout(timer); fn(); } };
 
     let controller = null;
+    let lastSeen = performance.now();
+    let heartbeat = null;
+    let closedFired = false;
+
+    // Fire onClose exactly once, whether the drop was detected by the WebRTC
+    // 'close' event or by the heartbeat going silent past DROP_MS.
+    const fireClose = () => {
+      if (closedFired) return;
+      closedFired = true;
+      if (heartbeat) clearInterval(heartbeat);
+      try { conn.close(); } catch {}
+      try { peer.destroy(); } catch {}
+      if (typeof hooks.onClose === 'function') hooks.onClose();
+    };
 
     conn.on('open', () => {
       safeSend(conn, { type: 'hello', name: (opts.name || 'Player').slice(0, 24), password: opts.password ? String(opts.password) : '' });
     });
 
     conn.on('data', (data) => {
+      lastSeen = performance.now();
       if (!data || typeof data.type !== 'string') return;
       switch (data.type) {
+        case 'ping': return;                       // keepalive — lastSeen already bumped
         case 'welcome': {
           controller = {
             isHost: false,
             me: data.you,
             roster: data.roster || [],
             sendCmd(cmd) { safeSend(conn, { type: 'cmd', cmd }); },
-            close() { try { conn.close(); } catch {} try { peer.destroy(); } catch {} },
+            close() { closedFired = true; if (heartbeat) clearInterval(heartbeat); try { conn.close(); } catch {} try { peer.destroy(); } catch {} },
           };
+          // Start pinging the host and watch for it going silent (silent drops
+          // that never fire a 'close' event — network loss, tab killed, etc.).
+          heartbeat = setInterval(() => {
+            safeSend(conn, { type: 'ping' });
+            if (performance.now() - lastSeen > DROP_MS) fireClose();
+          }, HEARTBEAT_MS);
           if (data.state != null && typeof hooks.onState === 'function') hooks.onState(data.state);
           if (typeof hooks.onRoster === 'function') hooks.onRoster(controller.roster);
           finish(() => resolve(controller));
@@ -368,7 +416,7 @@ export async function joinRoom(opts) {
 
     conn.on('close', () => {
       if (!settled) finish(() => reject(new Error('Host closed the connection')));
-      else if (typeof hooks.onClose === 'function') hooks.onClose();
+      else fireClose();
     });
     conn.on('error', () => {
       finish(() => reject(new Error('Could not reach the host — check the code')));

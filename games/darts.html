@@ -2480,11 +2480,13 @@ function startOnlineGame(role, netCtrl, roster) {
   if (role === 'host') pushOnlineState();
 }
 
+let onlineGone = false;
 function onlineOpponentGone() {
-  if (!isOnline) return;
+  if (!isOnline || onlineGone) return;
+  onlineGone = true;
   gamePhase = 'gameover';
   flash('Opponent left', 0, '#c82000');
-  setTextSafe('winner-text', 'Opponent left the game');
+  setTextSafe('winner-text', 'Opponent left or lost connection');
   const el = document.getElementById('gameover-screen'); if (el) el.style.display = 'flex';
 }
 

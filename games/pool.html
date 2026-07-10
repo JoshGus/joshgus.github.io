@@ -1068,6 +1068,7 @@ let poolOnline=false, poolRole=null, poolNet=null, poolSeat=0, poolNames=['P1','
 let onlineReplaying=false, pendingOnlineState=null;
 let hostBihSeat=-1;      // host: which seat was granted ball-in-hand this turn (-1 none)
 let onlineHadBIH=false;  // local: did my current turn start with ball-in-hand?
+let poolGone=false;      // opponent-disconnected overlay shown once
 
 function toast(msg,ms){
   var t=el('toast'); if(!msg){t.classList.remove('show');return;}
@@ -2114,11 +2115,32 @@ function poolClientEvent(evt){
   else if(evt.k==='playShot') guestPlayShot(evt);
   else if(evt.k==='over') guestShowOver(evt);
 }
+// Host re-grants input to a guest whose shot was rejected (arrived mid-animation
+// or just after the turn passed) so they're never left waiting on a dropped shot.
+function poolOnReject(player,cmd){
+  if(!game||game.over||animating) return;
+  if(player.id!==game.turn) return;         // genuinely not their turn — ignore
+  if(player.id===poolSeat) return;          // host's own turn is driven locally
+  var pl=game.players[game.turn];
+  var onEight=pl.group && groupRemaining(pl.group)===0;
+  var stillBih=(hostBihSeat===game.turn);   // preserve ball-in-hand if it applied
+  if(poolNet) poolNet.broadcast({k:'yourTurn', ballInHand:stillBih, bihKitchen:false,
+                                 onEight:onEight, callEight:!!game.flags.callEight});
+}
+
 function poolOpponentGone(){
-  if(!poolOnline) return;
+  if(!poolOnline || poolGone) return;
+  poolGone=true;
   if(game) game.over=true;
-  interaction=false; aim.canShoot=false; enableControls(false);
-  toast('Opponent left the game',5000);
+  interaction=false; aim.canShoot=false; aim.ballInHand=false; enableControls(false);
+  el('win-title').textContent='Opponent disconnected';
+  el('win-sub').textContent='The other player left or lost connection';
+  el('win-best').textContent=''; el('win-best').className='wb';
+  el('win-score').textContent='🔌';
+  el('win-btns').innerHTML='<button class="pbtn ghost" id="w-menu">Back to games</button>';
+  el('win').classList.remove('hidden');
+  el('w-menu').onclick=function(){ location.href='index.html'; };
+  toast('');
 }
 
 // ── Start / rematch ──
@@ -2156,6 +2178,7 @@ function poolInitOnline(){
       gameId:'pool', gameName:'Daily Break · 8-Ball', maxPlayers:2, minPlayers:2,
       hostHooks:{ validate:poolValidate,
                   onCommand:function(pl,cmd){ if(cmd.k==='shot') hostRunShot(cmd); },
+                  onReject:poolOnReject,
                   snapshot:poolSnapshot, onJoin:function(){}, onLeave:function(){ poolOpponentGone(); } },
       clientHooks:{ onState:applyPoolState, onEvent:poolClientEvent, onRoster:function(){},
                     onKicked:function(){ poolOpponentGone(); }, onClose:function(){ poolOpponentGone(); } },
