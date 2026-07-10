@@ -82,16 +82,19 @@ textarea.links:focus{border-color:var(--accent-ink)}
 .pool{padding:clamp(14px,2.5vw,22px)}
 .pool h2{font-family:var(--disp);font-size:1.5rem;font-weight:520;margin-bottom:4px}
 .pool .sub{font-family:var(--mono);font-size:.62rem;color:var(--dim);letter-spacing:.08em;margin-bottom:14px}
-.pool svg{width:100%;height:auto;display:block;border-radius:12px}
+.pool svg{width:100%;height:auto;display:block;border-radius:12px;cursor:crosshair}
 .pool .ball{cursor:pointer}
-.pool .aimline{fill:none;stroke:var(--accent);stroke-width:2;opacity:.9}
-.pool .aimline.obj{stroke:#ffd93b}
-.pool .ghost{fill:none;stroke:#fff;stroke-width:1.4;stroke-dasharray:3 3;opacity:.8}
+.poolbar{display:flex;align-items:center;gap:12px;margin-top:12px;flex-wrap:wrap}
+.poolbar button.primary{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:8px 14px;border:1px solid var(--accent);border-radius:20px;background:var(--accent);color:#1d1712;cursor:pointer}
+.poolbar button.primary:disabled{opacity:.55;cursor:default}
+.poolbar .hint{font-family:var(--mono);font-size:.56rem;color:var(--dim);letter-spacing:.05em}
 .shotlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
 .shotlist button{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;
   padding:6px 10px;border:1px solid var(--line-strong);border-radius:20px;background:transparent;color:var(--fg);cursor:pointer}
 .shotlist button:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
 .shotlist button.best{border-color:var(--accent);color:var(--accent-ink);background:rgba(204,247,63,.12)}
+.shotlist button.warn{border-color:#c9622e;color:#c9622e}
 .shotlist button.active{background:var(--accent);color:#1d1712;border-color:var(--accent)}
 .poolnote{font-family:var(--mono);font-size:.62rem;color:var(--dim);margin-top:12px;line-height:1.7}
 #clock{}
@@ -249,13 +252,22 @@ function select(i){
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
-// ── Pool (8-ball): table + geometric ghost-ball aim assist ──────────
-// The `replay` field's last frame holds the resting layout: per ball
-// "x,y,z,spin,NUMBER,rotX,rotY,rotZ". Aim is pure geometry (ghost ball),
-// not a physics sim — it won't account for spin, throw, or cushions.
+// ── Pool (8-ball): physics shot solver ──────────────────────────────
+// The `replay` last frame = resting layout ("x,y,z,spin,NUMBER,..."), the
+// state you're about to shoot from. Physics + table geometry reverse-
+// engineered from GamePigeon's Box2D engine (rails, pockets, damping,
+// restitution). Reproduces real shots to a few px on aim-relevant shots;
+// heavy multi-ball breaks are chaotic and only approximate.
 const BALL_COLORS={0:'#f4f1e8',1:'#e6b422',2:'#1f49c4',3:'#d22f27',4:'#6a2fb5',5:'#e07b1c',6:'#1f7a3a',7:'#7a241f',
   8:'#161616',9:'#e6b422',10:'#1f49c4',11:'#d22f27',12:'#6a2fb5',13:'#e07b1c',14:'#1f7a3a',15:'#7a241f'};
-const TBL={x0:52,y0:46,x1:734,y1:394,r:10.5,pr:19};
+const R=10.5;                                            // ball radius (confirmed from rack spacing)
+const TBL={x0:50,y0:50,x1:734,y1:390};                  // physics cushion rails
+const POOL_RAILS=[[75,50,370,50],[414,50,709,50],[75,390,370,390],[414,390,709,390],[50,75,50,365],[734,75,734,365]];
+const POOL_OUTER=[[40,40,744,40],[744,40,744,400],[744,400,40,400],[40,400,40,40]];
+const POOL_SEGS=[...POOL_RAILS,...POOL_OUTER];
+const POCKETS=[{x:50,y:50},{x:392,y:44,side:1},{x:734,y:50},{x:50,y:390},{x:392,y:396,side:1},{x:734,y:390}];
+const MAXPOW=2000;                                       // full power
+const PHYS={damp:0.5,eBall:0.96,eCush:0.75,k:0.78,stopV:5,potCorner:13,potSide:22};
 function poolLastFrame(g){
   const rep=decodeURIComponent(g.params.get('replay')||'');
   const frags=rep.split('balls:').filter(f=>f.indexOf('#')>=0);
@@ -269,85 +281,189 @@ function poolLastFrame(g){
   });
   return balls.length?balls:null;
 }
-function pockets(){const{x0,y0,x1,y1}=TBL,mx=(x0+x1)/2;
-  return[[x0,y0],[mx,y0],[x1,y0],[x0,y1],[mx,y1],[x1,y1]];}
-function segDist(px,py,ax,ay,bx,by){ // distance point→segment
+// —— physics engine (pure JS, matched to the extracted Box2D constants) ——
+function closestOnSeg(px,py,ax,ay,bx,by){
   const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
-  let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t));
-  const cx=ax+t*dx,cy=ay+t*dy; return Math.hypot(px-cx,py-cy);
+  let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=t<0?0:t>1?1:t;
+  return [ax+t*dx, ay+t*dy];
 }
-function pathClear(ax,ay,bx,by,balls,skip){
-  for(const b of balls){ if(skip.indexOf(b)>=0) continue;
-    if(segDist(b.x,b.y,ax,ay,bx,by) < TBL.r*2-1) return false; }
-  return true;
-}
-function bestShot(cue,obj,balls){ // best pocket for obj; returns {P,ghost,cut} or null
-  let best=null;
-  for(const P of pockets()){
-    const ox=P[0]-obj.x, oy=P[1]-obj.y, od=Math.hypot(ox,oy)||1;
-    const ux=ox/od, uy=oy/od;                    // obj → pocket dir
-    const gx=obj.x-ux*TBL.r*2, gy=obj.y-uy*TBL.r*2;  // ghost-ball center
-    const cx=gx-cue.x, cy=gy-cue.y, cd=Math.hypot(cx,cy)||1;
-    const cos=(cx/cd)*ux+(cy/cd)*uy;             // cue-travel vs obj-travel
-    if(cos<=0.17) continue;                       // cut ≥ ~80° → impossible
-    const cut=Math.acos(Math.min(1,cos))*180/Math.PI;
-    const clear=pathClear(cue.x,cue.y,gx,gy,balls,[cue,obj]) && pathClear(obj.x,obj.y,P[0],P[1],balls,[obj]);
-    const score=cut+(clear?0:1000);
-    if(!best||score<best.score) best={P,gx,gy,cut,clear,score};
+// balls:[{num,x,y}], shot:{d,p}. Returns {balls, paths, potOrder}. track=collect paths.
+function poolSim(balls, shot, sub, track, maxSteps){
+  const P=PHYS, dt=1/60, sdt=dt/sub, dampF=1/(1+dt*P.damp);
+  const B=balls.map(b=>({num:b.num,x:b.x,y:b.y,vx:0,vy:0,potted:false}));
+  const cue=B.find(b=>b.num===0);
+  if(cue){ const v=P.k*shot.p; cue.vx=v*Math.cos(shot.d); cue.vy=v*Math.sin(shot.d); }
+  const paths=track?B.map(b=>({num:b.num,pts:[[b.x,b.y]]})):null;
+  const potOrder=[];
+  const MS=maxSteps||1500;
+  for(let step=0; step<MS; step++){
+    for(const b of B){ if(!b.potted){ b.vx*=dampF; b.vy*=dampF; } }
+    for(let s=0;s<sub;s++){
+      for(const b of B){ if(!b.potted){ b.x+=b.vx*sdt; b.y+=b.vy*sdt; } }
+      for(let i=0;i<B.length;i++){ const a=B[i]; if(a.potted)continue;
+        for(let j=i+1;j<B.length;j++){ const c=B[j]; if(c.potted)continue;
+          let nx=c.x-a.x, ny=c.y-a.y, d=Math.hypot(nx,ny);
+          if(d>1e-6 && d<2*R){ nx/=d; ny/=d; const ov=(2*R-d)/2;
+            a.x-=nx*ov; a.y-=ny*ov; c.x+=nx*ov; c.y+=ny*ov;
+            const vn=(c.vx-a.vx)*nx+(c.vy-a.vy)*ny;
+            if(vn<0){ const ji=-(1+P.eBall)*vn/2;
+              a.vx-=ji*nx; a.vy-=ji*ny; c.vx+=ji*nx; c.vy+=ji*ny; }
+          }
+        }
+      }
+      for(const b of B){ if(b.potted)continue;
+        for(const sg of POOL_SEGS){ const cp=closestOnSeg(b.x,b.y,sg[0],sg[1],sg[2],sg[3]);
+          let nx=b.x-cp[0], ny=b.y-cp[1], d=Math.hypot(nx,ny);
+          if(d<R && d>1e-6){ nx/=d; ny/=d; b.x+=nx*(R-d); b.y+=ny*(R-d);
+            const vn=b.vx*nx+b.vy*ny; if(vn<0){ b.vx-=(1+P.eCush)*vn*nx; b.vy-=(1+P.eCush)*vn*ny; } }
+        }
+        for(const pk of POCKETS){ if(Math.hypot(b.x-pk.x,b.y-pk.y)<(pk.side?P.potSide:P.potCorner)){
+          b.potted=true; b.vx=b.vy=0; potOrder.push(b.num); break; } }
+      }
+    }
+    let moving=false;
+    for(let i=0;i<B.length;i++){ const b=B[i];
+      if(!b.potted){ if(Math.hypot(b.vx,b.vy)<P.stopV){ b.vx=b.vy=0; } else moving=true; }
+      if(track){ const pa=paths[i], lp=pa.pts[pa.pts.length-1];
+        if(!b.potted){ if(!lp||lp[0]===null||Math.abs(b.x-lp[0])>1.2||Math.abs(b.y-lp[1])>1.2) pa.pts.push([b.x,b.y]); }
+        else if(lp&&lp[0]!==null){ pa.pts.push([b.x,b.y]); pa.pts.push([null,null]); } }
+    }
+    if(!moving) break;
   }
-  return best;
+  return {balls:B, paths, potOrder};
 }
+
+// —— shot search: geometric pre-filter, then physics-verify, cluster, rank ——
+// A cue heading direction d is only worth simulating if its straight path hits
+// an object ball before a cushion — skips the ~70% of angles that pot nothing.
+function cueHitsBall(cue, d, objs){
+  const dx=Math.cos(d), dy=Math.sin(d);
+  let best=1e9;
+  for(const o of objs){ const vx=o.x-cue.x, vy=o.y-cue.y, t=vx*dx+vy*dy;
+    if(t<=0) continue; const perp=Math.abs(vx*dy-vy*dx);
+    if(perp<2*R+1 && t<best) best=t; }
+  return best<1e9;
+}
+function findShots(balls){
+  const cue=balls.find(b=>b.num===0); if(!cue) return [];
+  const objs=balls.filter(b=>b.num>0);
+  const STEP=360;                              // 1° angular resolution
+  const powers=[MAXPOW, 1000];
+  const shots=[];
+  for(const p of powers){
+    const row=new Array(STEP);
+    for(let k=0;k<STEP;k++){ const d=k*Math.PI/180;
+      if(!cueHitsBall(cue,d,objs)){ row[k]=null; continue; }
+      const {balls:out,potOrder}=poolSim(balls,{d,p},2,false,800);
+      const pots=potOrder.filter(n=>n>0).sort((a,b)=>a-b);
+      row[k]=pots.length?{pots,scratch:out.find(b=>b.num===0).potted}:null;
+    }
+    const key=r=>r?r.pots.join(',')+(r.scratch?'|s':''):'';
+    const used=new Array(STEP).fill(false);
+    for(let start=0;start<STEP;start++){
+      if(used[start]||!row[start]) continue;
+      const k=key(row[start]); const idxs=[start]; used[start]=true;
+      let j=(start+1)%STEP; while(j!==start && row[j] && key(row[j])===k){ idxs.push(j); used[j]=true; j=(j+1)%STEP; }
+      let jb=(start-1+STEP)%STEP; while(jb!==start && !used[jb] && row[jb] && key(row[jb])===k){ idxs.unshift(jb); used[jb]=true; jb=(jb-1+STEP)%STEP; }
+      const mid=idxs[Math.floor(idxs.length/2)];
+      shots.push({d:mid*Math.PI/180, p, pots:row[start].pots, scratch:row[start].scratch, width:idxs.length});
+    }
+  }
+  // dedupe identical pot-sets across powers → keep the widest (most reliable) window
+  const byKey={};
+  for(const s of shots){ const k=s.pots.join(',')+(s.scratch?'s':'');
+    if(!byKey[k] || s.width>byKey[k].width) byKey[k]=s; }
+  let list=Object.values(byKey);
+  // drop chaotic multi-ball flukes (a 2+ ball pot that only works at one angle
+  // is the unreproducible chaos regime, not a real shot)
+  list=list.filter(s=> s.pots.length<2 || s.width>=2);
+  // reliability = window width; rank no-scratch first, then more pots, then wider
+  list.sort((a,b)=> (a.scratch-b.scratch) || (b.pots.length-a.pots.length) || (b.width-a.width));
+  return list.slice(0,12);
+}
+
 function renderPool(g,main){
   const balls=poolLastFrame(g);
   if(!balls) return false;              // opening break carries only a seed
   const cue=balls.find(b=>b.num===0);
-  const objs=balls.filter(b=>b.num>0);
-  const shots=cue? objs.map(o=>({o,s:bestShot(cue,o,balls)})).filter(x=>x.s)
-                   .sort((a,b)=>a.s.score-b.s.score) : [];
-  const vb=`24 18 738 404`;
-  const P=pockets();
-  let svg=`<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">`;
-  svg+=`<rect x="26" y="20" width="734" height="400" rx="26" fill="#5a3a1e"/>`;
-  svg+=`<rect x="${TBL.x0-8}" y="${TBL.y0-8}" width="${TBL.x1-TBL.x0+16}" height="${TBL.y1-TBL.y0+16}" rx="10" fill="#0f6b34"/>`;
-  P.forEach(p=>svg+=`<circle cx="${p[0]}" cy="${p[1]}" r="${TBL.pr}" fill="#07130b"/>`);
-  svg+=`<g id="aim"></g>`;
-  balls.forEach(b=>{
-    const col=BALL_COLORS[b.num]||'#ccc', stripe=b.num>8;
-    svg+=`<g class="ball" data-num="${b.num}">`;
-    svg+=`<circle cx="${b.x}" cy="${b.y}" r="${TBL.r}" fill="${col}" stroke="#00000055" stroke-width="1"/>`;
-    if(stripe) svg+=`<rect x="${b.x-TBL.r}" y="${b.y-3.2}" width="${TBL.r*2}" height="6.4" fill="#f4f1e8" opacity=".92"/>`;
-    if(b.num>0) svg+=`<circle cx="${b.x}" cy="${b.y}" r="4.4" fill="#f4f1e8"/><text x="${b.x}" y="${b.y+2.4}" font-size="6" text-anchor="middle" fill="#111" font-family="sans-serif">${b.num}</text>`;
-    svg+=`</g>`;
-  });
-  svg+=`</svg>`;
   const turn=g.params.get('num')||'?';
-  let html=`<div class="pool"><h2>8 Ball</h2><div class="sub">turn ${turn} · resting layout decoded from the shot replay</div>${svg}`;
-  html+=`<div class="shotlist" id="shotlist"></div>`;
-  html+=`<div class="poolnote">${cue?'Tap a ball for its aim line. Ghost ball (dashed) = where to send the cue center; the accent line is the cue path. <b>Geometric aim only</b> — ignores spin, throw and cushions, so treat it as a guide, not a guaranteed pot.':'No cue ball on the table in this state.'}</div></div>`;
-  main.innerHTML=html;
-
-  const svgEl=main.querySelector('svg'), aim=main.querySelector('#aim');
-  function drawAim(num){
-    aim.innerHTML='';
-    const rec=shots.find(x=>x.o.num===num); if(!rec||!cue) return;
-    const s=rec.s, o=rec.o;
-    aim.insertAdjacentHTML('beforeend',
-      `<circle class="ghost" cx="${s.gx}" cy="${s.gy}" r="${TBL.r}"/>`+
-      `<line class="aimline" x1="${cue.x}" y1="${cue.y}" x2="${s.gx}" y2="${s.gy}"/>`+
-      `<line class="aimline obj" x1="${o.x}" y1="${o.y}" x2="${s.P[0]}" y2="${s.P[1]}"/>`);
-    [...main.querySelectorAll('.shotlist button')].forEach(b=>b.classList.toggle('active',+b.dataset.num===num));
+  const vb=`30 30 724 380`;
+  function tableSvg(inner){
+    let s=`<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">`;
+    s+=`<rect x="34" y="34" width="716" height="372" rx="22" fill="#5a3a1e"/>`;
+    s+=`<rect x="44" y="44" width="696" height="352" rx="14" fill="#0f6b34"/>`;
+    POCKETS.forEach(p=>s+=`<circle cx="${p.x}" cy="${p.y}" r="16" fill="#07130b"/>`);
+    s+=`<g id="traj"></g>`;
+    balls.forEach(b=>{ const col=BALL_COLORS[b.num]||'#ccc', stripe=b.num>8;
+      s+=`<g class="ball" data-num="${b.num}">`;
+      s+=`<circle cx="${b.x}" cy="${b.y}" r="${R}" fill="${col}" stroke="#00000055" stroke-width="1"/>`;
+      if(stripe) s+=`<rect x="${b.x-R}" y="${b.y-3.2}" width="${R*2}" height="6.4" fill="#f4f1e8" opacity=".92"/>`;
+      if(b.num>0) s+=`<circle cx="${b.x}" cy="${b.y}" r="4.4" fill="#f4f1e8"/><text x="${b.x}" y="${b.y+2.4}" font-size="6" text-anchor="middle" fill="#111" font-family="sans-serif">${b.num}</text>`;
+      s+=`</g>`; });
+    s+=(inner||'')+`</svg>`; return s;
   }
-  const sl=main.querySelector('#shotlist');
-  shots.slice(0,10).forEach((x,idx)=>{
-    const b=document.createElement('button'); b.dataset.num=x.o.num;
-    b.className=(idx===0&&x.s.clear)?'best':'';
-    b.textContent=(x.o.num===8?'8-ball':'ball '+x.o.num)+' · '+Math.round(x.s.cut)+'°'+(x.s.clear?'':' ✕');
-    b.onclick=()=>drawAim(x.o.num); sl.appendChild(b);
+  let html=`<div class="pool"><h2>8 Ball</h2><div class="sub">turn ${turn} · your shot from the decoded layout · physics preview</div>`;
+  html+=tableSvg('');
+  html+=`<div class="poolbar"><button id="findBtn" class="primary">⌖ Find best shots</button>`+
+        `<span class="hint">or tap the table to aim the cue at full power</span></div>`;
+  html+=`<div class="shotlist" id="shotlist"></div>`;
+  html+=`<div class="poolnote" id="poolnote">${cue?'Physics matched to the GamePigeon engine. Trajectories are a faithful <b>no-spin</b> prediction — accurate for direct pots &amp; simple caroms; dense clusters are chaotic. Full power = 2000.':'No cue ball on the table in this state.'}</div></div>`;
+  main.innerHTML=html;
+  if(!cue) return true;
+  const svgEl=main.querySelector('svg'), traj=main.querySelector('#traj'), sl=main.querySelector('#shotlist'), note=main.querySelector('#poolnote');
+
+  function drawShot(shot){
+    const {paths}=poolSim(balls,{d:shot.d,p:shot.p},6,true);
+    let g='';
+    for(const pa of paths){
+      const potted=shot.pots.indexOf(pa.num)>=0, isCue=pa.num===0;
+      const col=isCue?'#ccf73f':potted?'#7CFC9A':'#ffffff';
+      const w=isCue?2.4:potted?2:1.2, op=isCue||potted?0.95:0.4;
+      let d='', pen=false;
+      for(const pt of pa.pts){ if(pt[0]===null){pen=false;continue;} d+=(pen?'L':'M')+pt[0].toFixed(1)+' '+pt[1].toFixed(1)+' '; pen=true; }
+      if(d) g+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}" stroke-linejoin="round"/>`;
+    }
+    // aim arrow from cue
+    g+=`<line x1="${cue.x}" y1="${cue.y}" x2="${cue.x+22*Math.cos(shot.d)}" y2="${cue.y+22*Math.sin(shot.d)}" stroke="#ccf73f" stroke-width="1.5" opacity="0.6"/>`;
+    traj.innerHTML=g;
+  }
+  function shotLabel(s){
+    const names=s.pots.map(n=>n===8?'8':n).join('+');
+    const p=Math.round(s.p);
+    const rel=s.width>=6?'easy':s.width>=3?'ok':'tight';
+    return (s.pots.length>1?'★ '+s.pots.length+'-ball ':'')+'pot '+names+' · '+(p>=MAXPOW?'full':p)+' · '+rel+(s.scratch?' · scratch!':'');
+  }
+  let searched=false;
+  function runSearch(){
+    if(searched) return; searched=true;
+    const btn=main.querySelector('#findBtn'); btn.textContent='Computing…'; btn.disabled=true;
+    setTimeout(()=>{
+      const shots=findShots(balls);
+      btn.textContent='⌖ Find best shots'; btn.disabled=false;
+      sl.innerHTML='';
+      if(!shots.length){ note.innerHTML='No clean pots found by the search (try aiming manually).'; return; }
+      shots.forEach((s,i)=>{ const b=document.createElement('button');
+        b.className=(i===0&&!s.scratch)?'best':(s.scratch?'warn':'');
+        b.textContent=shotLabel(s); b.onclick=()=>{ [...sl.children].forEach(c=>c.classList.remove('active')); b.classList.add('active'); drawShot(s); };
+        sl.appendChild(b); });
+      const first=shots.findIndex(s=>!s.scratch); const pick=first>=0?first:0;
+      sl.children[pick].classList.add('active'); drawShot(shots[pick]);
+    },30);
+  }
+  main.querySelector('#findBtn').onclick=runSearch;
+  // manual aim: click/tap the table to aim cue at that point, full power.
+  // map client px -> SVG user coords via the viewBox (svg width:100% height:auto
+  // ⇒ no letterboxing, so a plain proportional map is exact).
+  const VB=[30,30,724,380];
+  svgEl.addEventListener('click',e=>{
+    const r=svgEl.getBoundingClientRect(); if(!r.width) return;
+    const ux=VB[0]+(e.clientX-r.left)/r.width*VB[2];
+    const uy=VB[1]+(e.clientY-r.top)/r.height*VB[3];
+    const d=Math.atan2(uy-cue.y, ux-cue.x);
+    [...sl.children].forEach(c=>c.classList.remove('active'));
+    const {potOrder}=poolSim(balls,{d,p:MAXPOW},6,false);
+    drawShot({d,p:MAXPOW,pots:potOrder.filter(n=>n>0)});
   });
-  svgEl.querySelectorAll('.ball').forEach(el=>{
-    const n=+el.dataset.num; if(n>0) el.onclick=()=>drawAim(n);
-  });
-  if(shots.length&&shots[0].s.clear) drawAim(shots[0].o.num);
   return true;
 }
 
