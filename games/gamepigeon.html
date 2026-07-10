@@ -78,6 +78,22 @@ textarea.links:focus{border-color:var(--accent-ink)}
 .kv .hl{background:rgba(204,247,63,.14);padding:1px 5px;border-radius:4px}
 .note{margin-top:22px;font-family:var(--mono);font-size:.64rem;color:var(--dim);line-height:1.8;
   border-top:1px solid var(--line);padding-top:16px}
+/* pool */
+.pool{padding:clamp(14px,2.5vw,22px)}
+.pool h2{font-family:var(--disp);font-size:1.5rem;font-weight:520;margin-bottom:4px}
+.pool .sub{font-family:var(--mono);font-size:.62rem;color:var(--dim);letter-spacing:.08em;margin-bottom:14px}
+.pool svg{width:100%;height:auto;display:block;border-radius:12px}
+.pool .ball{cursor:pointer}
+.pool .aimline{fill:none;stroke:var(--accent);stroke-width:2;opacity:.9}
+.pool .aimline.obj{stroke:#ffd93b}
+.pool .ghost{fill:none;stroke:#fff;stroke-width:1.4;stroke-dasharray:3 3;opacity:.8}
+.shotlist{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.shotlist button{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;
+  padding:6px 10px;border:1px solid var(--line-strong);border-radius:20px;background:transparent;color:var(--fg);cursor:pointer}
+.shotlist button:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+.shotlist button.best{border-color:var(--accent);color:var(--accent-ink);background:rgba(204,247,63,.12)}
+.shotlist button.active{background:var(--accent);color:#1d1712;border-color:var(--accent)}
+.poolnote{font-family:var(--mono);font-size:.62rem;color:var(--dim);margin-top:12px;line-height:1.7}
 #clock{}
 </style>
 </head>
@@ -215,6 +231,7 @@ function select(i){
     main.innerHTML='<iframe src="wordhunt-solver.html?embed=1&b='+board+'" title="Word Hunt solver"></iframe>';
     return;
   }
+  if(g.game==='pool' && renderPool(g,main)) return;
   // generic decoded-state view for every other game
   const rows=[];
   const HL=new Set(['game','game_name','letters','seed','num','mode','v2','v3','v4','v5','score1','score2','words_list1','words_list2']);
@@ -231,6 +248,108 @@ function select(i){
     (g.game==='pool'?'Pool needs a mid-game link (this may be the opening break, which only carries a seed) and geometric aim assist.':'tell me which game to add next.')+'</div></div>';
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+
+// ── Pool (8-ball): table + geometric ghost-ball aim assist ──────────
+// The `replay` field's last frame holds the resting layout: per ball
+// "x,y,z,spin,NUMBER,rotX,rotY,rotZ". Aim is pure geometry (ghost ball),
+// not a physics sim — it won't account for spin, throw, or cushions.
+const BALL_COLORS={0:'#f4f1e8',1:'#e6b422',2:'#1f49c4',3:'#d22f27',4:'#6a2fb5',5:'#e07b1c',6:'#1f7a3a',7:'#7a241f',
+  8:'#161616',9:'#e6b422',10:'#1f49c4',11:'#d22f27',12:'#6a2fb5',13:'#e07b1c',14:'#1f7a3a',15:'#7a241f'};
+const TBL={x0:52,y0:46,x1:734,y1:394,r:10.5,pr:19};
+function poolLastFrame(g){
+  const rep=decodeURIComponent(g.params.get('replay')||'');
+  const frags=rep.split('balls:').filter(f=>f.indexOf('#')>=0);
+  if(!frags.length) return null;
+  const last=frags[frags.length-1].replace(/^\|/,'').split('|')[0];
+  const balls=[];
+  last.split('#').forEach(b=>{
+    const p=b.split(','); if(p.length<8) return;
+    const num=parseInt(p[4],10),x=parseFloat(p[0]),y=parseFloat(p[1]);
+    if(!isNaN(num)&&!isNaN(x)&&!isNaN(y)) balls.push({num,x,y});
+  });
+  return balls.length?balls:null;
+}
+function pockets(){const{x0,y0,x1,y1}=TBL,mx=(x0+x1)/2;
+  return[[x0,y0],[mx,y0],[x1,y0],[x0,y1],[mx,y1],[x1,y1]];}
+function segDist(px,py,ax,ay,bx,by){ // distance point→segment
+  const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy;
+  let t=l2?((px-ax)*dx+(py-ay)*dy)/l2:0; t=Math.max(0,Math.min(1,t));
+  const cx=ax+t*dx,cy=ay+t*dy; return Math.hypot(px-cx,py-cy);
+}
+function pathClear(ax,ay,bx,by,balls,skip){
+  for(const b of balls){ if(skip.indexOf(b)>=0) continue;
+    if(segDist(b.x,b.y,ax,ay,bx,by) < TBL.r*2-1) return false; }
+  return true;
+}
+function bestShot(cue,obj,balls){ // best pocket for obj; returns {P,ghost,cut} or null
+  let best=null;
+  for(const P of pockets()){
+    const ox=P[0]-obj.x, oy=P[1]-obj.y, od=Math.hypot(ox,oy)||1;
+    const ux=ox/od, uy=oy/od;                    // obj → pocket dir
+    const gx=obj.x-ux*TBL.r*2, gy=obj.y-uy*TBL.r*2;  // ghost-ball center
+    const cx=gx-cue.x, cy=gy-cue.y, cd=Math.hypot(cx,cy)||1;
+    const cos=(cx/cd)*ux+(cy/cd)*uy;             // cue-travel vs obj-travel
+    if(cos<=0.17) continue;                       // cut ≥ ~80° → impossible
+    const cut=Math.acos(Math.min(1,cos))*180/Math.PI;
+    const clear=pathClear(cue.x,cue.y,gx,gy,balls,[cue,obj]) && pathClear(obj.x,obj.y,P[0],P[1],balls,[obj]);
+    const score=cut+(clear?0:1000);
+    if(!best||score<best.score) best={P,gx,gy,cut,clear,score};
+  }
+  return best;
+}
+function renderPool(g,main){
+  const balls=poolLastFrame(g);
+  if(!balls) return false;              // opening break carries only a seed
+  const cue=balls.find(b=>b.num===0);
+  const objs=balls.filter(b=>b.num>0);
+  const shots=cue? objs.map(o=>({o,s:bestShot(cue,o,balls)})).filter(x=>x.s)
+                   .sort((a,b)=>a.s.score-b.s.score) : [];
+  const vb=`24 18 738 404`;
+  const P=pockets();
+  let svg=`<svg viewBox="${vb}" xmlns="http://www.w3.org/2000/svg">`;
+  svg+=`<rect x="26" y="20" width="734" height="400" rx="26" fill="#5a3a1e"/>`;
+  svg+=`<rect x="${TBL.x0-8}" y="${TBL.y0-8}" width="${TBL.x1-TBL.x0+16}" height="${TBL.y1-TBL.y0+16}" rx="10" fill="#0f6b34"/>`;
+  P.forEach(p=>svg+=`<circle cx="${p[0]}" cy="${p[1]}" r="${TBL.pr}" fill="#07130b"/>`);
+  svg+=`<g id="aim"></g>`;
+  balls.forEach(b=>{
+    const col=BALL_COLORS[b.num]||'#ccc', stripe=b.num>8;
+    svg+=`<g class="ball" data-num="${b.num}">`;
+    svg+=`<circle cx="${b.x}" cy="${b.y}" r="${TBL.r}" fill="${col}" stroke="#00000055" stroke-width="1"/>`;
+    if(stripe) svg+=`<rect x="${b.x-TBL.r}" y="${b.y-3.2}" width="${TBL.r*2}" height="6.4" fill="#f4f1e8" opacity=".92"/>`;
+    if(b.num>0) svg+=`<circle cx="${b.x}" cy="${b.y}" r="4.4" fill="#f4f1e8"/><text x="${b.x}" y="${b.y+2.4}" font-size="6" text-anchor="middle" fill="#111" font-family="sans-serif">${b.num}</text>`;
+    svg+=`</g>`;
+  });
+  svg+=`</svg>`;
+  const turn=g.params.get('num')||'?';
+  let html=`<div class="pool"><h2>8 Ball</h2><div class="sub">turn ${turn} · resting layout decoded from the shot replay</div>${svg}`;
+  html+=`<div class="shotlist" id="shotlist"></div>`;
+  html+=`<div class="poolnote">${cue?'Tap a ball for its aim line. Ghost ball (dashed) = where to send the cue center; the accent line is the cue path. <b>Geometric aim only</b> — ignores spin, throw and cushions, so treat it as a guide, not a guaranteed pot.':'No cue ball on the table in this state.'}</div></div>`;
+  main.innerHTML=html;
+
+  const svgEl=main.querySelector('svg'), aim=main.querySelector('#aim');
+  function drawAim(num){
+    aim.innerHTML='';
+    const rec=shots.find(x=>x.o.num===num); if(!rec||!cue) return;
+    const s=rec.s, o=rec.o;
+    aim.insertAdjacentHTML('beforeend',
+      `<circle class="ghost" cx="${s.gx}" cy="${s.gy}" r="${TBL.r}"/>`+
+      `<line class="aimline" x1="${cue.x}" y1="${cue.y}" x2="${s.gx}" y2="${s.gy}"/>`+
+      `<line class="aimline obj" x1="${o.x}" y1="${o.y}" x2="${s.P[0]}" y2="${s.P[1]}"/>`);
+    [...main.querySelectorAll('.shotlist button')].forEach(b=>b.classList.toggle('active',+b.dataset.num===num));
+  }
+  const sl=main.querySelector('#shotlist');
+  shots.slice(0,10).forEach((x,idx)=>{
+    const b=document.createElement('button'); b.dataset.num=x.o.num;
+    b.className=(idx===0&&x.s.clear)?'best':'';
+    b.textContent=(x.o.num===8?'8-ball':'ball '+x.o.num)+' · '+Math.round(x.s.cut)+'°'+(x.s.clear?'':' ✕');
+    b.onclick=()=>drawAim(x.o.num); sl.appendChild(b);
+  });
+  svgEl.querySelectorAll('.ball').forEach(el=>{
+    const n=+el.dataset.num; if(n>0) el.onclick=()=>drawAim(n);
+  });
+  if(shots.length&&shots[0].s.clear) drawAim(shots[0].o.num);
+  return true;
+}
 
 // ── inputs: file drop, file picker, paste ───────────────────────────
 const drop=document.getElementById('drop'), fileInput=document.getElementById('fileInput');
