@@ -131,7 +131,7 @@ body.embed .layout{margin-top:0}
 <pre id="cmd">sqlite3 "$HOME/Library/Messages/chat.db" \
   "SELECT quote(payload_data) FROM message WHERE balloon_bundle_id LIKE '%gamepigeon%' ORDER BY date DESC LIMIT 6;" \
   | sed "s/^X'//; s/'$//" \
-  | while read h; do printf %s "$h" | xxd -r -p | LC_ALL=C strings -a | grep -m1 'data:?ver='; done</pre>
+  | while read h; do printf %s "$h" | xxd -r -p | LC_ALL=C strings -a | grep -om1 'data:?ver=.*'; done</pre>
         </div>
       </details>
     </div>
