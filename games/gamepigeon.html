@@ -471,9 +471,8 @@ function renderPool(g,main){
   function animate(frames){
     stopPoolAnim();
     const N=frames.length; if(!N){ return; }
-    const spf=1000/60/2.2;                             // ~2.2× playback
-    function run(){
-      resetBalls();
+    const spf=1000/60/1.7;                             // ~1.7× playback
+    function play(){
       const t0=performance.now();
       function tick(now){
         let idx=Math.floor((now-t0)/spf); if(idx>=N) idx=N-1;
@@ -485,11 +484,15 @@ function renderPool(g,main){
             el.setAttribute('transform', (dx||dy)?`translate(${dx.toFixed(2)} ${dy.toFixed(2)})`:''); }
         }
         if(idx<N-1){ poolRAF=requestAnimationFrame(tick); }
-        else { poolTimer=setTimeout(run, 900); }        // pause, then loop
+        else { poolTimer=setTimeout(loop, 550); }        // brief hold at rest, then loop
       }
       poolRAF=requestAnimationFrame(tick);
     }
-    run();
+    function loop(){                                     // return to the START (with aim
+      resetBalls();                                      // vector) and hold, then shoot —
+      poolTimer=setTimeout(play, 700);                   // so the idle state is the setup,
+    }                                                    // not the finished shot
+    loop();
   }
   function showShot(shot){
     lastShot=shot; replayBtn.style.display='';
