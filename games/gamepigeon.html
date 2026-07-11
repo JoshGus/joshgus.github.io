@@ -436,15 +436,32 @@ function renderPool(g,main){
   function resetBalls(){
     for(const b of balls){ const el=ballEl[b.num]; if(el){ el.removeAttribute('transform'); el.style.opacity='1'; } }
   }
-  function drawTraj(paths, pots){
+  function drawTraj(paths, pots, shot){
     let g='';
     for(const pa of paths){
       const potted=pots.indexOf(pa.num)>=0, isCue=pa.num===0;
       const col=isCue?'#ccf73f':potted?'#7CFC9A':'#ffffff';
-      const w=isCue?2.2:potted?1.8:1, op=isCue||potted?0.85:0.32;
+      const w=isCue?1.8:potted?1.8:1, op=isCue||potted?0.7:0.3;
       let d='', pen=false;
       for(const pt of pa.pts){ if(pt[0]===null){pen=false;continue;} d+=(pen?'L':'M')+pt[0].toFixed(1)+' '+pt[1].toFixed(1)+' '; pen=true; }
       if(d) g+=`<path d="${d}" fill="none" stroke="${col}" stroke-width="${w}" opacity="${op}" stroke-linejoin="round"/>`;
+    }
+    // bold INITIAL shot vector: cue → first contact (ball or rail), with arrowhead
+    if(shot){
+      const dx=Math.cos(shot.d), dy=Math.sin(shot.d);
+      let dist=1e9, hitBall=false;
+      for(const o of balls){ if(o.num===0)continue; const vx=o.x-cue.x, vy=o.y-cue.y, t=vx*dx+vy*dy; if(t<=0)continue;
+        const perp=Math.abs(vx*dy-vy*dx); if(perp<2*R){ const h=t-Math.sqrt(Math.max(0,4*R*R-perp*perp)); if(h>0&&h<dist){dist=h;hitBall=true;} } }
+      const bx0=TBL.x0+R,bx1=TBL.x1-R,by0=TBL.y0+R,by1=TBL.y1-R;   // cue-centre bounds
+      if(dx>1e-6){const t=(bx1-cue.x)/dx; if(t<dist){dist=t;hitBall=false;}} else if(dx<-1e-6){const t=(bx0-cue.x)/dx; if(t<dist){dist=t;hitBall=false;}}
+      if(dy>1e-6){const t=(by1-cue.y)/dy; if(t<dist){dist=t;hitBall=false;}} else if(dy<-1e-6){const t=(by0-cue.y)/dy; if(t<dist){dist=t;hitBall=false;}}
+      if(!(dist>0&&dist<1e9)) dist=44;
+      const ex=cue.x+dx*dist, ey=cue.y+dy*dist;
+      const ah=8, aw=4.6, bkx=ex-dx*ah, bky=ey-dy*ah, px=-dy, py=dx;
+      g+=`<line x1="${cue.x}" y1="${cue.y}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="#00000088" stroke-width="5" stroke-linecap="round"/>`;
+      g+=`<line x1="${cue.x}" y1="${cue.y}" x2="${ex.toFixed(1)}" y2="${ey.toFixed(1)}" stroke="#ffffff" stroke-width="2.6" stroke-linecap="round"/>`;
+      g+=`<polygon points="${ex.toFixed(1)},${ey.toFixed(1)} ${(bkx+px*aw).toFixed(1)},${(bky+py*aw).toFixed(1)} ${(bkx-px*aw).toFixed(1)},${(bky-py*aw).toFixed(1)}" fill="#ffffff" stroke="#00000088" stroke-width="0.8"/>`;
+      if(hitBall) g+=`<circle cx="${ex.toFixed(1)}" cy="${ey.toFixed(1)}" r="${R}" fill="none" stroke="#ffffff" stroke-width="1.4" stroke-dasharray="3 3" opacity="0.9"/>`;
     }
     traj.innerHTML=g;
   }
@@ -477,7 +494,7 @@ function renderPool(g,main){
   function showShot(shot){
     lastShot=shot; replayBtn.style.display='';
     const {paths,frames}=poolSim(balls,{d:shot.d,p:shot.p},6,true);
-    drawTraj(paths, shot.pots);
+    drawTraj(paths, shot.pots, shot);
     animate(frames);
   }
   replayBtn.onclick=()=>{ if(lastShot){ const {frames}=poolSim(balls,{d:lastShot.d,p:lastShot.p},6,true); animate(frames); } };
