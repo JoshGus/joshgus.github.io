@@ -1405,21 +1405,36 @@ function spawnPlayer(type){ // human base queue
   h.spawnQueue.push({type,timeLeft:trainTime,maxTime:trainTime});
   updateHud();
 }
+// Buildings/base that produce units and can hold a rally point.
+const PRODUCER_TYPES=new Set(['barracks','depot','airbase','airstrip','enghall','hospital']);
+function isProducer(u){return !!(u&&u.isBuilding&&PRODUCER_TYPES.has(u.type));}
+function orderToRally(u,rally){
+  if(!u||!rally||u.isBuilding||u.speed<=0)return;
+  const tc=Math.max(0,Math.min(COLS-1,Math.floor(rally.x/TS))),tr=Math.max(0,Math.min(ROWS-1,Math.floor(rally.y/TS)));
+  if(u.canFly)u.waypoints=[{x:tc*TS+TS/2,y:tr*TS+TS/2}];
+  else{const path=aStarForUnit(u,tc,tr);if(path)u.waypoints=toWp(path);}
+}
 function processPlayerQueue(dt){
-  const h=hum();if(!h)return;
-  const q=h.spawnQueue;
+  // Advance EVERY commander's base queue — the host simulates all of them, so a
+  // remote commander's queued units must spawn too (not only the local human's).
+  for(const p of players){
+    const q=p.spawnQueue; if(!q||!q.length)continue;
+    q[0].timeLeft-=dt;
+    if(q[0].timeLeft<=0){
+      const{type}=q.shift();
+      const{c,r}=getSpawnPos(p);
+      const nu=makeUnit(type,p.id,c,r); units.push(nu);
+      if(p.base&&p.base.rally)orderToRally(nu,p.base.rally);
+      if(p.id===HUMAN)sfx('spawn');
+    }
+  }
+  // progress bar shows the local human's queue
+  const h=hum(),q=h?h.spawnQueue:null;
   const sq=document.getElementById('sq-wrap'),sf=document.getElementById('sq-fill'),sl=document.getElementById('sq-lbl');
-  if(!q.length){if(sq)sq.style.display='none';return;}
-  q[0].timeLeft-=dt;
+  if(!q||!q.length){if(sq)sq.style.display='none';return;}
   if(sq)sq.style.display='flex';
   if(sf){const cur=q[0];sf.style.width=((1-cur.timeLeft/cur.maxTime)*100).toFixed(1)+'%';}
   if(sl){const cur=q[0];sl.textContent=TDEFS[cur.type].name+(q.length>1?` (+${q.length-1})`:'');}
-  if(q[0].timeLeft<=0){
-    const{type}=q.shift();
-    const{c,r}=getSpawnPos(h);
-    units.push(makeUnit(type,h.id,c,r));
-    if(!q.length&&sq)sq.style.display='none';sfx('spawn');
-  }
 }
 function trainAtBuilding(bid,type){ // human production buildings
   if(rtsOnline==='guest'){ if(rtsNet)rtsNet.sendCmd({k:'train',bid,type}); return; }
@@ -1447,7 +1462,8 @@ function processTrainQueues(dt){
     if(q[0].timeLeft<=0){
       const{type}=q.shift();
       const{c,r}=findOpenNear(Math.floor(b.x/TS)+1,Math.floor(b.y/TS));
-      units.push(makeUnit(type,b.owner,c,r));
+      const nu=makeUnit(type,b.owner,c,r); units.push(nu);
+      if(b.rally)orderToRally(nu,b.rally);
     }
   }
 }
@@ -3280,6 +3296,28 @@ function drawMap(){
     }
   }
 }
+// Base rendered in the same visual language as the other buildings (rounded body,
+// player-colour fill, corner turrets, central keep) — a big HQ, not a flat box.
+function drawBaseShape(x,y,r,col,dark,isSel){
+  const s=r;
+  ctx.fillStyle='#0e1808';rrPath(x-s,y-s,s*2,s*2,7);ctx.fill();
+  ctx.fillStyle=dark||col;rrPath(x-s+3,y-s+3,s*2-6,s*2-6,6);ctx.fill();
+  for(let i=-2;i<=2;i++){ctx.fillStyle='#0e1808';ctx.fillRect(x+i*(s*0.46)-3,y-s-3,6,6);}   // crenellations
+  for(const[sx,sy]of[[-1,-1],[1,-1],[-1,1],[1,1]]){                                          // corner turrets
+    ctx.fillStyle='#0e1808';ctx.beginPath();ctx.arc(x+sx*s*0.78,y+sy*s*0.78,r*0.22,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(x+sx*s*0.78,y+sy*s*0.78,r*0.14,0,Math.PI*2);ctx.fill();
+  }
+  const k=s*0.42;                                                                            // central keep
+  ctx.fillStyle=col;rrPath(x-k,y-k,k*2,k*2,4);ctx.fill();
+  ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(x-k,y-2,k*2,4);
+  ctx.strokeStyle=isSel?'#ccf73f':'rgba(255,255,255,.14)';ctx.lineWidth=isSel?2:1.4;rrPath(x-s,y-s,s*2,s*2,7);ctx.stroke();
+}
+function drawRallyFlag(sx,sy,rx,ry){
+  ctx.strokeStyle='rgba(204,247,63,.5)';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
+  ctx.beginPath();ctx.moveTo(sx,sy);ctx.lineTo(rx,ry);ctx.stroke();ctx.setLineDash([]);
+  ctx.strokeStyle='rgba(204,247,63,.9)';ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(rx,ry+2);ctx.lineTo(rx,ry-13);ctx.stroke();
+  ctx.fillStyle='rgba(204,247,63,.9)';ctx.beginPath();ctx.moveTo(rx,ry-13);ctx.lineTo(rx+8,ry-10.5);ctx.lineTo(rx,ry-8);ctx.closePath();ctx.fill();
+}
 function drawBase(p){
   const b=p.base;
   const x=b.c0*TS,y=b.r0*TS,wPx=b.w*TS,hPx=b.h*TS;
@@ -3297,19 +3335,15 @@ function drawBase(p){
   ctx.strokeStyle=`rgba(${rgbS},${isSel?.22:.08})`;
   ctx.lineWidth=isSel?1.5:.8;ctx.setLineDash([4,6]);
   ctx.beginPath();ctx.arc(b.gateX,b.gateY,rng,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-  ctx.fillStyle=p.dark;ctx.fillRect(x,y,wPx,hPx);
-  // gate slab
+  const pct=b.hp/b.maxHp;
+  // gate slab (where units emerge) — drawn under the HQ
   ctx.fillStyle='#05080a';
   const gx=b.gateC*TS,gy=b.gateR*TS;
   if(b.fx!==0)ctx.fillRect(gx,gy-TS,TS,TS*3);else ctx.fillRect(gx-TS,gy,TS*3,TS);
-  const pct=b.hp/b.maxHp;
-  ctx.strokeStyle=`rgba(${rgbS},${.4+.3*pct})`;
-  ctx.lineWidth=isSel?2.5:2;ctx.strokeRect(x,y,wPx,hPx);
-  for(const[bx,by]of[[x,y],[x+wPx,y],[x,y+hPx],[x+wPx,y+hPx]]){
-    ctx.fillStyle=`rgba(${rgbS},.55)`;
-    ctx.beginPath();ctx.arc(bx,by,3,0,Math.PI*2);ctx.fill();
-  }
-  ctx.fillStyle=`rgba(${rgbS},.7)`;ctx.beginPath();ctx.arc(b.gateX,b.gateY,5,0,Math.PI*2);ctx.fill();
+  // building-style HQ (~3× a normal building), centred in the base footprint
+  const cx=x+wPx/2, cy=y+hPx/2, R=Math.min(wPx,hPx)*0.5;
+  drawBaseShape(cx,cy,R,p.color,p.dark,isSel);
+  ctx.fillStyle=`rgba(${rgbS},.75)`;ctx.beginPath();ctx.arc(b.gateX,b.gateY,5,0,Math.PI*2);ctx.fill();
   const barW=Math.max(wPx,TS*4)-10,bh=4,bx2=x+wPx/2-barW/2,by2=y+6;
   ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(bx2,by2,barW,bh);
   ctx.fillStyle=pct>.55?p.color:pct>.28?'#ffaa22':'#ff3333';ctx.fillRect(bx2,by2,barW*pct,bh);
@@ -3318,6 +3352,7 @@ function drawBase(p){
   ctx.fillStyle=`rgba(${rgbS},${isSel?.85:.6})`;
   ctx.font=`${isSel?'bold ':''}7px "IBM Plex Mono",monospace`;
   ctx.fillText((p.human?'◀ YOU ▶':p.name.toUpperCase())+' · T'+p.team,x+wPx/2,y+hPx-6);
+  if(isSel&&b.rally)drawRallyFlag(b.gateX,b.gateY,b.rally.x,b.rally.y);
 }
 function drawDeposits(){
   for(const d of deposits){
@@ -3466,6 +3501,7 @@ function drawUnit(u){
     const bw=r*2.4,bh=3,bx=x-bw/2,by=y-r-9;
     ctx.fillStyle='rgba(0,0,0,.5)';ctx.fillRect(bx,by,bw,bh);
     const pct=hp/maxHp;ctx.fillStyle=pct>.6?'#44cc55':pct>.3?'#ccaa22':'#dd3333';ctx.fillRect(bx,by,bw*pct,bh);
+    if(isSel&&isProducer(u)&&u.rally)drawRallyFlag(x,y,u.rally.x,u.rally.y);
     return;
   }
   const{x,y,r,col,hp,maxHp}=u;
@@ -4630,8 +4666,12 @@ canvas.addEventListener('mousedown',e=>{
       // Detect what was right-clicked (same order as the host) and send a typed
       // intent instead of mutating the sim locally. The host re-checks ownership.
       mouseDown=false;mouseBtn=-1;
-      if(!selected.size||!rtsNet)return;
+      if(!rtsNet)return;
+      if(baseSelected){ rtsNet.sendCmd({k:'rally',base:true,x,y}); const mb=players[HUMAN]&&players[HUMAN].base; if(mb)mb.rally={x,y}; return; }
+      if(!selected.size)return;
       const ids=[...selected];
+      const prodB=ids.map(id=>units.find(u=>u.id===id)).find(u=>u&&u.owner===HUMAN&&isProducer(u));
+      if(prodB){ rtsNet.sendCmd({k:'rally',bid:prodB.id,x,y}); prodB.rally={x,y}; return; }   // set producer rally
       if(window._pendingMortarTarget){const mid=window._pendingMortarTarget;window._pendingMortarTarget=null;
         rtsNet.sendCmd({k:'mortar',id:mid,x,y});updateSelPanel();return;}
       if(window._pendingHealZone){const hids=window._pendingHealZone;window._pendingHealZone=null;
@@ -4650,6 +4690,7 @@ canvas.addEventListener('mousedown',e=>{
       rtsNet.sendCmd({k:'move',ids,x,y});return;
     }
     if(pingMode){pingMode=null;document.body.classList.remove('ping-mode');document.querySelectorAll('#comms-btns button').forEach(b=>b.classList.remove('on'));return;}
+    if(baseSelected&&h){ if(h.base)h.base.rally={x,y}; return; }   // set base rally point
     if(!selected.size||!h)return;
     if(zoneMode){zoneMode=false;document.body.classList.remove('ping-mode');updateSelPanel();return;}
     if(window._pendingMortarTarget){
@@ -4661,6 +4702,12 @@ canvas.addEventListener('mousedown',e=>{
     if(window._pendingHealZone){
       for(const id of window._pendingHealZone){const mu=units.find(u=>u.id===id&&u.type==='medic');if(mu){mu.medicMode='area';mu.medicArea={x,y,r:TS*9};}}
       window._pendingHealZone=null;updateSelPanel();return;
+    }
+    // producer building rally points (if the selection is only buildings, we're done)
+    {
+      const sel=[...selected].map(id=>units.find(x=>x.id===id)).filter(Boolean);
+      const prods=sel.filter(u=>u.owner===HUMAN&&isProducer(u));
+      if(prods.length){ for(const u of prods)u.rally={x,y}; if(prods.length===sel.length){updateSelPanel();return;} }
     }
     const clickedDep=deposits.find(d=>!d.depleted&&Math.hypot(d.x-x,d.y-y)<=18);
     if(clickedDep){
@@ -5074,7 +5121,7 @@ function serUnit(u){
   return {id:u.id,type:u.type,owner:u.owner,team:u.team,
     x:Math.round(u.x*10)/10,y:Math.round(u.y*10)/10,hp:Math.round(u.hp),maxHp:u.maxHp,
     r:u.r,isBuilding:!!u.isBuilding,vx:u.vx,vy:u.vy,ang:u.ang,facing:u.facing,
-    speed:u.speed,dmg:u.dmg,range:u.range,canFly:!!u.canFly};
+    speed:u.speed,dmg:u.dmg,range:u.range,canFly:!!u.canFly,rally:u.rally};
 }
 function serPlayer(p){
   return {id:p.id,team:p.team,color:p.color,dark:p.dark,name:p.name,diff:p.diff||'medium',
@@ -5091,14 +5138,30 @@ function rtsSnapshot(){
     gameOver,gameWin,gameMsg};
 }
 function rtsInitPayload(){
-  let terrain='';
-  try{terrain=mapCanvas.toDataURL('image/webp',0.5);}catch(e){try{terrain=mapCanvas.toDataURL('image/png');}catch(e2){}}
-  return {t:'init',COLS,ROWS,TS,W,H,mapStyle,terrain,
+  // Small, reliable init — NO terrain image (that ships separately, downscaled).
+  return {t:'init',COLS,ROWS,TS,W,H,mapStyle,
     players:players.slice().sort((a,b)=>a.id-b.id).map(serPlayer).map((p,i)=>{
       const src=players.find(q=>q.id===p.id);return Object.assign(p,{base:src.base});}),
     units:units.map(serUnit),
     deposits:deposits.map(d=>({id:d.id,x:d.x,y:d.y,gold:Math.round(d.gold),max:d.max,depleted:d.depleted})),
     constructions:constructions.map(c=>({id:c.id,x:c.x,y:c.y,type:c.type,progress:c.progress,buildTime:c.buildTime,owner:c.owner}))};
+}
+// The baked terrain, downscaled so it fits comfortably in a data-channel message
+// (the full-res image is far too big and was silently failing to deliver).
+function rtsTerrainPayload(){
+  try{
+    const maxW=1100, sc=Math.min(1,maxW/W);
+    const tw=Math.max(1,Math.round(W*sc)), th=Math.max(1,Math.round(H*sc));
+    const oc=document.createElement('canvas'); oc.width=tw; oc.height=th;
+    oc.getContext('2d').drawImage(mapCanvas,0,0,tw,th);
+    return {t:'terrain',data:oc.toDataURL('image/webp',0.5)};
+  }catch(e){return null;}
+}
+function rtsApplyTerrain(m){
+  if(!m||!m.data)return;
+  const img=new Image();
+  img.onload=()=>{try{mapCanvas.width=W;mapCanvas.height=H;mctx.clearRect(0,0,W,H);mctx.drawImage(img,0,0,W,H);}catch(e){}};
+  img.src=m.data;
 }
 function rtsApplyInit(m){
   if(!m)return;
@@ -5111,7 +5174,7 @@ function rtsApplyInit(m){
   constructions=(m.constructions||[]).map(c=>Object.assign({},c));
   projs=[];wildlife=[];selected.clear();
   gameOver=false;gameWin=false;gameMsg='';gameStarted=true;paused=false;
-  if(m.terrain){const img=new Image();img.onload=()=>{try{mctx.clearRect(0,0,W,H);mctx.drawImage(img,0,0,W,H);}catch(e){}};img.src=m.terrain;}
+  try{mctx.fillStyle='#0e1a0a';mctx.fillRect(0,0,W,H);}catch(e){}  // placeholder until terrain arrives
   try{resizeCanvas();initCamera();syncZoomSlider();buildPchips();updateHud();updateSelPanel();
     // Comms panel is available when this commander has teammates (host routes
     // pings to AI allies only). Base button lets the guest queue base units.
@@ -5122,6 +5185,7 @@ function rtsApplyInit(m){
 }
 function rtsApplySnap(m){
   if(!m||m.t!=='snap'||rtsOnline!=='guest')return;
+  if(!gameStarted){ if(rtsNet)rtsNet.sendCmd({k:'needInit'}); return; }  // missed init — ask for it
   // Keep each unit's currently-displayed position and set the authoritative one as
   // an interpolation target, so units glide (see the guest block in loop()) instead
   // of teleporting every snapshot. New units appear at their real position.
@@ -5212,6 +5276,12 @@ function netMedicMode(ownerId,ids,mode){
   for(const id of ids){const mu=units.find(u=>u.id===id&&u.type==='medic'&&u.owner===ownerId&&u.hp>0);
     if(mu){mu.medicMode=mode;if(mode!=='area')mu.medicArea=null;}}
 }
+function netSetRally(ownerId,bid,base,x,y){
+  const p=players.find(pp=>pp.id===ownerId);if(!p)return;
+  if(base){ if(p.base)p.base.rally={x:+x,y:+y}; return; }
+  const b=units.find(u=>u.id===bid&&u.isBuilding&&u.owner===ownerId&&u.hp>0);
+  if(isProducer(b))b.rally={x:+x,y:+y};
+}
 function sendSuggestionForPlayer(p,kind,x,y){
   if(!p||!p.alive||!['attack','defend','gather','rally'].includes(kind))return;
   for(const q of players){
@@ -5277,6 +5347,8 @@ function rtsValidate(player,cmd){
     case 'healzone':  { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'healzone',ids,x:+cmd.x,y:+cmd.y}; }
     case 'medicmode': { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'medicmode',ids,mode:String(cmd.mode)}; }
     case 'ping':      return {k:'ping',kind:String(cmd.kind),x:+cmd.x,y:+cmd.y};
+    case 'needInit':  return {k:'needInit'};
+    case 'rally':     return {k:'rally',bid:+cmd.bid,base:!!cmd.base,x:+cmd.x,y:+cmd.y};
     case 'entrench':  { const ids=IDS(cmd.ids); if(!ids)return false; return {k:'entrench',ids}; }
     case 'mortarClear': return {k:'mortarClear',id:+cmd.id};
     case 'mprofit':   return {k:'mprofit',mineId:+cmd.mineId};
@@ -5310,6 +5382,8 @@ function rtsOnCommand(player,cmd){
     case 'healzone':    netHealZone(pid,cmd.ids,cmd.x,cmd.y); break;
     case 'medicmode':   netMedicMode(pid,cmd.ids,cmd.mode); break;
     case 'ping':        if(p)sendSuggestionForPlayer(p,cmd.kind,cmd.x,cmd.y); break;
+    case 'needInit':    if(rtsNet){ rtsNet.send(pid,rtsInitPayload()); const t=rtsTerrainPayload(); if(t)rtsNet.send(pid,t); } break;
+    case 'rally':       netSetRally(pid,cmd.bid,cmd.base,cmd.x,cmd.y); break;
     case 'entrench':    netEntrench(pid,cmd.ids); break;
     case 'mortarClear': netMortarClear(pid,cmd.id); break;
     case 'mprofit':     netMineProfit(pid,cmd.mineId); break;
@@ -5336,7 +5410,11 @@ function rtsAfterStart(){
   for(const gid of rtsGuestSlots){const p=players[gid];
     if(p){p.ai=null;p.human=false;p.remote=true;p.name=rtsGuestNames[gid]||p.name;}}
   try{buildPchips();updateHud();}catch(e){}
-  if(rtsNet)rtsNet.broadcast(rtsInitPayload());
+  if(rtsNet){
+    rtsNet.broadcast(rtsInitPayload());        // small, arrives first
+    const terr=rtsTerrainPayload();
+    if(terr)rtsNet.broadcast(terr);            // downscaled terrain, follows
+  }
   if(rtsSnapTimer)clearInterval(rtsSnapTimer);
   rtsSnapTimer=setInterval(()=>{ try{ if(rtsNet)rtsNet.pushState(); }catch(e){} },90);
 }
@@ -5359,7 +5437,7 @@ function rtsInitOnline(){
       hostHooks:{ validate:rtsValidate, onCommand:rtsOnCommand, snapshot:rtsSnapshot,
                   onJoin:()=>{}, onLeave:rtsHostLeave, onReject:()=>{} },
       clientHooks:{ onState:rtsApplySnap,
-                    onEvent:(evt)=>{ if(evt&&evt.t==='init')rtsApplyInit(evt); },
+                    onEvent:(evt)=>{ if(!evt)return; if(evt.t==='init')rtsApplyInit(evt); else if(evt.t==='terrain')rtsApplyTerrain(evt); },
                     onRoster:()=>{}, onKicked:rtsGuestGone, onClose:rtsGuestGone },
       onBegin:(o)=>{
         rtsNet=o.net;

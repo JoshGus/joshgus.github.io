@@ -145,12 +145,14 @@ body {
 }
 #sp-left  { left: 16px; }
 #sp-right { right: 16px; text-align: right; }
-.sp-name  { font-size: 1.1rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); }
+/* Score panels float over the dark game viewport, so their text is a fixed
+   light tan regardless of the site's light/dark toggle. */
+.sp-name  { font-size: 1.1rem; letter-spacing: .14em; text-transform: uppercase; color: rgba(237,227,216,.6); }
 .sp-score {
   font-size: clamp(4.5rem,12vw,8rem);
   font-weight: 700;
   letter-spacing: -.03em;
-  color: var(--fg);
+  color: #ede3d8;
   opacity: 1;
   transition: opacity .3s;
 }
@@ -165,7 +167,7 @@ body {
   transition: opacity .3s;
 }
 .sp-turn.show { opacity: 1; }
-.sp-darts { font-size: 1.2rem; color: var(--dimmer); letter-spacing: .06em; margin-top: 2px; }
+.sp-darts { font-size: 1.2rem; color: rgba(237,227,216,.7); letter-spacing: .06em; margin-top: 2px; }
 
 /* ── throw flash ── */
 #throw-flash {
