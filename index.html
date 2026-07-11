@@ -755,8 +755,10 @@ if (gamesList) {
     function resize(){canvas.width=canvas.offsetWidth||1;canvas.height=canvas.offsetHeight||1;}
     new ResizeObserver(resize).observe(canvas); resize();
 
-    /* Warm earth palette — [hue, sat-L, sat-D, lit-L, lit-D, weight] */
-    var PAL=[[22,45,55,33,56,.38],[14,55,65,40,58,.22],[38,60,70,46,60,.18],[80,32,42,37,54,.16],[72,90,92,37,64,.06]];
+    /* Warm earth palette — [hue, sat-L, sat-D, lit-L, lit-D, weight].
+       Light-mode hues sit near the tan bg (~30) so accumulated strokes read amber,
+       not pink; the two heavy colors were red-orange (14/22) and cast a pink veil. */
+    var PAL=[[30,38,52,40,56,.38],[26,40,60,44,58,.22],[40,52,70,48,60,.18],[80,32,42,37,54,.16],[72,88,92,38,64,.06]];
     var CW=[],_a=0;
     for(var k=0;k<PAL.length;k++){_a+=PAL[k][5];CW[k]=_a;}
     function pickC(){var r=Math.random();for(var k=0;k<CW.length;k++) if(r<CW[k]) return k;return 4;}
@@ -780,7 +782,7 @@ if (gamesList) {
       var w=canvas.width,h=canvas.height;
       if(!w||!h) return;
       var dark=isDark();
-      ctx.fillStyle=dark?'rgba(20,18,16,.04)':'rgba(247,236,225,.04)';
+      ctx.fillStyle=dark?'rgba(20,18,16,.04)':'rgba(247,236,225,.055)';
       ctx.fillRect(0,0,w,h);
       ctx.lineWidth=1;
       for(var i=0;i<parts.length;i++){
