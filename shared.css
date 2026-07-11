@@ -83,5 +83,7 @@ html.dark #clock { color:rgba(237,227,216,.22); }
   letter-spacing:0; text-transform:none;
 }
 #dark-toggle:hover { color:var(--fg); border-color:var(--line-strong); }
-html.dark #dark-toggle { color:rgba(237,227,216,.4); border-color:rgba(237,227,216,.18); }
-html.dark #dark-toggle:hover { color:rgba(237,227,216,.8); }
+html.dark #dark-toggle,
+.status.dark #dark-toggle { color:rgba(237,227,216,.4); border-color:rgba(237,227,216,.18); }
+html.dark #dark-toggle:hover,
+.status.dark #dark-toggle:hover { color:rgba(237,227,216,.8); }

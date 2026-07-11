@@ -8,6 +8,17 @@
 <link rel="stylesheet" href="../shared.css">
 <script src="../dark-mode.js"></script>
 <style>
+/* Darts is a fixed light-panel UI (hard-coded tan panels) over a dark game
+   viewport. Pin the theme variables to the light palette so the site's dark
+   toggle can't flip panel text to light (white-on-white) — otherwise --fg
+   inverts against the fixed tan/dark backgrounds. The nav still follows the
+   toggle via shared.css. */
+html.dark {
+  --bg:#f7ece1; --surface:#fdf5ea; --fg:#1d1712;
+  --dim:#8c7f70; --dimmer:#c1b3a3;
+  --accent:#ccf73f; --accent-ink:#5e7d0f;
+  --line:rgba(29,23,18,.14); --line-strong:rgba(29,23,18,.30);
+}
 body {
   background: #0f0d0b;
   color: var(--fg);
