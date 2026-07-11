@@ -235,6 +235,7 @@ function renderList(){
 
 // ── select → render solver / fields ─────────────────────────────────
 function select(i){
+  stopPoolAnim();                       // cancel any running pool preview loop
   sel=i; renderList();
   const g=GAMES[i], main=document.getElementById('main');
   const letters=(g.params.get('letters')||'').toUpperCase().replace(/[^A-Z]/g,'');
@@ -393,7 +394,12 @@ function findShots(balls){
   return list.slice(0,12);
 }
 
+// module-level animation handles so switching game/shot cleanly cancels the loop
+let poolRAF=null, poolTimer=null;
+function stopPoolAnim(){ if(poolRAF)cancelAnimationFrame(poolRAF); if(poolTimer)clearTimeout(poolTimer); poolRAF=poolTimer=null; }
+
 function renderPool(g,main){
+  stopPoolAnim();                       // kill any preview from the previously-shown game
   const balls=poolLastFrame(g);
   if(!balls) return false;              // opening break carries only a seed
   const cue=balls.find(b=>b.num===0);
@@ -425,7 +431,7 @@ function renderPool(g,main){
   const svgEl=main.querySelector('svg'), traj=main.querySelector('#traj'), sl=main.querySelector('#shotlist'),
         note=main.querySelector('#poolnote'), replayBtn=main.querySelector('#replayBtn');
   const ballEl={}; svgEl.querySelectorAll('.ball').forEach(el=>ballEl[el.dataset.num]=el);
-  let animId=null, lastShot=null;
+  let lastShot=null;
 
   function resetBalls(){
     for(const b of balls){ const el=ballEl[b.num]; if(el){ el.removeAttribute('transform'); el.style.opacity='1'; } }
@@ -442,23 +448,31 @@ function renderPool(g,main){
     }
     traj.innerHTML=g;
   }
-  // play the shot: roll the balls along the simulated frames, potting as they go
+  // play the shot on a loop: roll the balls along the simulated frames, potting as
+  // they go, then pause and replay — so the preview is always running until you
+  // pick another shot or game.
   function animate(frames){
-    cancelAnimationFrame(animId); resetBalls();
+    stopPoolAnim();
     const N=frames.length; if(!N){ return; }
-    const t0=performance.now(), spf=1000/60/2.2;       // ~2.2× playback for snappy previews
-    function tick(now){
-      let idx=Math.floor((now-t0)/spf); if(idx>=N) idx=N-1;
-      const fr=frames[idx];
-      for(let j=0;j<balls.length;j++){ const el=ballEl[balls[j].num]; if(!el) continue;
-        const p=fr[j];
-        if(p.p){ el.style.opacity='0'; }
-        else { el.style.opacity='1'; const dx=(p.x-balls[j].x), dy=(p.y-balls[j].y);
-          el.setAttribute('transform', (dx||dy)?`translate(${dx.toFixed(2)} ${dy.toFixed(2)})`:''); }
+    const spf=1000/60/2.2;                             // ~2.2× playback
+    function run(){
+      resetBalls();
+      const t0=performance.now();
+      function tick(now){
+        let idx=Math.floor((now-t0)/spf); if(idx>=N) idx=N-1;
+        const fr=frames[idx];
+        for(let j=0;j<balls.length;j++){ const el=ballEl[balls[j].num]; if(!el) continue;
+          const p=fr[j];
+          if(p.p){ el.style.opacity='0'; }
+          else { el.style.opacity='1'; const dx=(p.x-balls[j].x), dy=(p.y-balls[j].y);
+            el.setAttribute('transform', (dx||dy)?`translate(${dx.toFixed(2)} ${dy.toFixed(2)})`:''); }
+        }
+        if(idx<N-1){ poolRAF=requestAnimationFrame(tick); }
+        else { poolTimer=setTimeout(run, 900); }        // pause, then loop
       }
-      if(idx<N-1) animId=requestAnimationFrame(tick);
+      poolRAF=requestAnimationFrame(tick);
     }
-    animId=requestAnimationFrame(tick);
+    run();
   }
   function showShot(shot){
     lastShot=shot; replayBtn.style.display='';
@@ -505,6 +519,22 @@ function renderPool(g,main){
     const {potOrder}=poolSim(balls,{d,p:MAXPOW},6,false);
     drawShot({d,p:MAXPOW,pots:potOrder.filter(n=>n>0)});
   });
+  // auto-play a preview on selection so the table is always animating (geometric
+  // best ghost-ball pot at full power); replaced once the user picks/aims a shot.
+  (function(){
+    let best=null;
+    for(const o of balls){ if(o.num===0) continue;
+      for(const pk of POCKETS){
+        const ox=pk.x-o.x, oy=pk.y-o.y, od=Math.hypot(ox,oy)||1, ux=ox/od, uy=oy/od;
+        const gx=o.x-ux*2*R, gy=o.y-uy*2*R;                 // ghost-ball centre
+        const cx=gx-cue.x, cy=gy-cue.y, cd=Math.hypot(cx,cy)||1;
+        const cos=(cx/cd)*ux+(cy/cd)*uy;                    // cue-travel vs obj-travel
+        if(cos<=0.25) continue;                              // cut too steep
+        if(!best||cos>best.cos) best={cos,d:Math.atan2(gy-cue.y,gx-cue.x)};
+      }
+    }
+    if(best){ const {potOrder}=poolSim(balls,{d:best.d,p:MAXPOW},6,false); showShot({d:best.d,p:MAXPOW,pots:potOrder.filter(n=>n>0)}); }
+  })();
   return true;
 }
 
