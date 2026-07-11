@@ -23,7 +23,7 @@ body.noise::after {
 
 /* ── status bar ─────────────────────────────────────────────────────── */
 .status {
-  display:flex; justify-content:space-between; align-items:center;
+  display:flex; justify-content:space-between; align-items:center; gap:14px;
   padding:12px clamp(18px,3.5vw,56px);
   font-family:var(--mono); font-size:.65rem; letter-spacing:.16em; text-transform:uppercase;
   color:var(--dim); border-bottom:1px solid var(--line);
@@ -33,7 +33,9 @@ body.noise::after {
 .status .sig { font-weight:600; color:var(--fg); }
 .status .sig:hover { color:var(--accent-ink); }
 .status a { color:inherit; transition:color .2s; }
-.status nav { display:flex; gap:18px; }
+/* Absolutely centre the nav in the bar so the left label and the right
+   (dark toggle + clock) group can't bias the links off-centre. */
+.status nav { display:flex; gap:18px; position:absolute; left:50%; top:50%; transform:translate(-50%,-50%); }
 .status nav a { color:var(--dim); }
 .status nav a:hover, .status nav a.active { color:var(--accent-ink); }
 #clock { color:var(--dimmer); }
@@ -74,6 +76,7 @@ html.dark .status nav a { color:rgba(237,227,216,.35); }
 html.dark #clock { color:rgba(237,227,216,.22); }
 
 #dark-toggle {
+  margin-left:auto;   /* nav is absolute, so this pushes the toggle + clock together on the right */
   background:none; border:1px solid var(--line-strong); color:var(--dim);
   font-family:var(--mono); font-size:.75rem; cursor:pointer;
   padding:2px 8px; border-radius:3px; transition:color .15s,border-color .15s;
