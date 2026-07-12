@@ -3298,19 +3298,23 @@ function drawMap(){
 }
 // Base rendered in the same visual language as the other buildings (rounded body,
 // player-colour fill, corner turrets, central keep) — a big HQ, not a flat box.
-function drawBaseShape(x,y,r,col,dark,isSel){
-  const s=r;
-  ctx.fillStyle='#0e1808';rrPath(x-s,y-s,s*2,s*2,7);ctx.fill();
-  ctx.fillStyle=dark||col;rrPath(x-s+3,y-s+3,s*2-6,s*2-6,6);ctx.fill();
-  for(let i=-2;i<=2;i++){ctx.fillStyle='#0e1808';ctx.fillRect(x+i*(s*0.46)-3,y-s-3,6,6);}   // crenellations
-  for(const[sx,sy]of[[-1,-1],[1,-1],[-1,1],[1,1]]){                                          // corner turrets
-    ctx.fillStyle='#0e1808';ctx.beginPath();ctx.arc(x+sx*s*0.78,y+sy*s*0.78,r*0.22,0,Math.PI*2);ctx.fill();
-    ctx.fillStyle=col;ctx.beginPath();ctx.arc(x+sx*s*0.78,y+sy*s*0.78,r*0.14,0,Math.PI*2);ctx.fill();
+// (hw,hh) are half-width/half-height so the HQ fills the full base footprint.
+function drawBaseShape(x,y,hw,hh,col,dark,isSel){
+  const m=Math.min(hw,hh), rr=m*0.26;
+  ctx.fillStyle='#0e1808';rrPath(x-hw,y-hh,hw*2,hh*2,rr);ctx.fill();
+  ctx.fillStyle=dark||col;rrPath(x-hw+3,y-hh+3,hw*2-6,hh*2-6,Math.max(1,rr-2));ctx.fill();
+  const tr=m*0.2;                                                                            // corner turrets (inside)
+  for(const[sx,sy]of[[-1,-1],[1,-1],[-1,1],[1,1]]){
+    const tx=x+sx*(hw-tr-2), ty=y+sy*(hh-tr-2);
+    ctx.fillStyle='#0e1808';ctx.beginPath();ctx.arc(tx,ty,tr,0,Math.PI*2);ctx.fill();
+    ctx.fillStyle=col;ctx.beginPath();ctx.arc(tx,ty,tr*0.62,0,Math.PI*2);ctx.fill();
   }
-  const k=s*0.42;                                                                            // central keep
+  const n=Math.max(3,Math.round(hw/9));                                                       // crenellations on the top edge
+  for(let i=0;i<n;i++){const cxp=x-hw+tr+ (i+0.5)*((hw*2-tr*2)/n); ctx.fillStyle='#0e1808';ctx.fillRect(cxp-3,y-hh-1,6,5);}
+  const k=m*0.44;                                                                             // central keep
   ctx.fillStyle=col;rrPath(x-k,y-k,k*2,k*2,4);ctx.fill();
   ctx.fillStyle='rgba(0,0,0,.28)';ctx.fillRect(x-k,y-2,k*2,4);
-  ctx.strokeStyle=isSel?'#ccf73f':'rgba(255,255,255,.14)';ctx.lineWidth=isSel?2:1.4;rrPath(x-s,y-s,s*2,s*2,7);ctx.stroke();
+  ctx.strokeStyle=isSel?'#ccf73f':'rgba(255,255,255,.14)';ctx.lineWidth=isSel?2:1.4;rrPath(x-hw,y-hh,hw*2,hh*2,rr);ctx.stroke();
 }
 function drawRallyFlag(sx,sy,rx,ry){
   ctx.strokeStyle='rgba(204,247,63,.5)';ctx.lineWidth=1.5;ctx.setLineDash([5,5]);
@@ -3340,9 +3344,9 @@ function drawBase(p){
   ctx.fillStyle='#05080a';
   const gx=b.gateC*TS,gy=b.gateR*TS;
   if(b.fx!==0)ctx.fillRect(gx,gy-TS,TS,TS*3);else ctx.fillRect(gx-TS,gy,TS*3,TS);
-  // building-style HQ (~3× a normal building), centred in the base footprint
-  const cx=x+wPx/2, cy=y+hPx/2, R=Math.min(wPx,hPx)*0.5;
-  drawBaseShape(cx,cy,R,p.color,p.dark,isSel);
+  // building-style HQ filling the full base footprint (b.w × b.h tiles)
+  const cx=x+wPx/2, cy=y+hPx/2;
+  drawBaseShape(cx,cy,wPx/2,hPx/2,p.color,p.dark,isSel);
   ctx.fillStyle=`rgba(${rgbS},.75)`;ctx.beginPath();ctx.arc(b.gateX,b.gateY,5,0,Math.PI*2);ctx.fill();
   const barW=Math.max(wPx,TS*4)-10,bh=4,bx2=x+wPx/2-barW/2,by2=y+6;
   ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(bx2,by2,barW,bh);
