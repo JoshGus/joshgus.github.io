@@ -381,7 +381,7 @@ a.mini:hover{color:#ccf73f}
     <h2>How to play</h2>
     <div class="sub" style="margin-bottom:16px">Aim · Power · Spin · Shoot</div>
     <div class="help-list">
-      <b>Aim</b> — drag anywhere on the table to rotate your aim (fine adjustments, no snap).<br>
+      <b>Aim</b> — drag anywhere on the table to rotate your aim (no snap). Hold <b>Shift</b> for fine aim.<br>
       <b>Power</b> — drag the power bar.<br>
       <b>Spin</b> — drag the dot on the white ball for follow / draw / english.<br>
       <b>Shoot</b> — fire the shot. <b>Cancel</b> resets power without shooting.<br>
@@ -392,7 +392,7 @@ a.mini:hover{color:#ccf73f}
 
 <script>
 'use strict';
-const VERSION='v0.4.4';
+const VERSION='v0.4.5';
 
 /* ── clock ── */
 (function(){var clk=document.getElementById('clock');
@@ -675,7 +675,12 @@ let sinkFX=[];              // {x,y,color,stripe,t0} pocket-drop animations
 function pocketCheck(b){
   for(var i=0;i<POCKETS.length;i++){
     var p=POCKETS[i], cap=p.type==='corner'?CAP_C:CAP_S;
-    if(hypot(b.x-p.x,b.y-p.y)<cap){
+    var dx=p.x-b.x, dy=p.y-b.y, d=hypot(dx,dy);
+    // Direct drop, OR "jaws" funnel: once a ball reaches the pocket throat while
+    // heading inward, it drops instead of rattling off the flat rail nose.
+    var throat=p.type==='corner'?R*1.95:R*1.7;
+    var heading = d>0 && (b.vx*dx+b.vy*dy) > 0.15*hypot(b.vx,b.vy)*d;
+    if(d<cap || (d<throat && heading)){
       b.potted=true; b.vx=0;b.vy=0;b.wx=0;b.wy=0;b.wz=0;
       if(shot){ if(b.n===0)shot.cueScratch=true; else shot.potted.push(b.n); shot.lastPocket=p.name; }
       if(!SIM){ sinkFX.push({x:p.x,y:p.y,color:b.color,stripe:b.grp==='stripe',t0:performance.now()}); sfx('pocket',1); }
@@ -1030,9 +1035,9 @@ function frame(t){
     if(allStopped()){physAcc=0;animSteps=0;animating=false; if(typeof onShotComplete==='function')onShotComplete();}
   } else physAcc=0;
   // aim swing: after release the cue keeps rotating a little, then friction settles it
-  if(typeof interaction!=='undefined' && interaction && !animating && !pDown && !aim.ballInHand && Math.abs(aimVel)>0.0003){
-    aim.dir+=aimVel; aimVel*=0.9;
-    if(Math.abs(aimVel)<0.0004) aimVel=0;
+  if(typeof interaction!=='undefined' && interaction && !animating && !pDown && !aim.ballInHand && Math.abs(aimVel)>0.0008){
+    aim.dir+=aimVel; aimVel*=0.82;
+    if(Math.abs(aimVel)<0.001) aimVel=0;
   }
   render();
   requestAnimationFrame(frame);
@@ -1067,6 +1072,7 @@ let postSnap=null, replaying=false;
 // and snaps to the host's broadcast state. See games/net/README.md.
 let poolOnline=false, poolRole=null, poolNet=null, poolSeat=0, poolNames=['P1','P2'];
 let onlineReplaying=false, pendingOnlineState=null;
+let guestPendingEntry=null;  // guest: timeline entry being filled during a cosmetic replay
 let hostBihSeat=-1;      // host: which seat was granted ball-in-hand this turn (-1 none)
 let onlineHadBIH=false;  // local: did my current turn start with ball-in-hand?
 let poolGone=false;      // opponent-disconnected overlay shown once
@@ -1084,10 +1090,20 @@ function updateSpinUI(){ var rad=20; el('spin-dot').style.left=(26+aim.spin.x*ra
 
 /* onShotComplete is called by the main loop when balls settle */
 function onShotComplete(){
-  if(replaying){ replaying=false; if(postSnap)restoreBalls(postSnap); render(); return; }
+  if(replaying){ replaying=false; if(postSnap)restoreBalls(postSnap);
+    if(pendingOnlineState){ var ps=pendingOnlineState; pendingOnlineState=null; applyPoolState(ps); }
+    render(); return; }
   if(onlineReplaying){
-    // Cosmetic replay finished — reconcile to the host's authoritative state.
+    // Cosmetic replay finished — record the guest's timeline entry (its own physics
+    // just produced the potted result), then reconcile to the host's state.
     onlineReplaying=false;
+    if(guestPendingEntry){
+      guestPendingEntry.potted=shot.potted.slice();
+      guestPendingEntry.scratch=!!shot.cueScratch;
+      guestPendingEntry.foul=!!shot.cueScratch || shot.firstHit===null;
+      if(game&&game.history){ game.history.push(guestPendingEntry); renderTimeline(); }
+      guestPendingEntry=null;
+    }
     if(pendingOnlineState){ var s=pendingOnlineState; pendingOnlineState=null; applyPoolState(s); }
     render(); return;
   }
@@ -1167,7 +1183,7 @@ function finishBallInHand(){
 /* ── pointer handling ──
    Aiming is RELATIVE: dragging rotates the aim by however far the pointer
    sweeps around the cue ball, so pressing down never snaps the cue. */
-let dragMode=null, pDown=false, dragPrevAng=0, aimVel=0;
+let dragMode=null, pDown=false, dragPrevAng=0, aimVel=0, fineAim=false;
 function angDiff(x){ return ((x+Math.PI)%TAU+TAU)%TAU-Math.PI; }
 function canvasDown(cx,cy){
   var p=toTable(cx,cy);
@@ -1190,17 +1206,22 @@ function canvasMove(cx,cy){
   if(dragMode==='aim'&&pDown){
     var c=cueBall();
     var ang=Math.atan2(p.y-c.y,p.x-c.x);
-    var delta=angDiff(ang-dragPrevAng);      // rotate by the swept delta
-    aim.dir+=delta; dragPrevAng=ang;
-    aimVel=clamp(delta,-0.18,0.18);          // remember the swing for release momentum
+    var delta=angDiff(ang-dragPrevAng);      // swept angle since last move
+    dragPrevAng=ang;
+    if(fineAim) delta*=0.3;                   // hold Shift = fine aim for micro moves
+    aim.dir+=delta;
+    // smoothed angular velocity so a single tiny final flick can't dominate the coast
+    aimVel = aimVel*0.6 + delta*0.4;
   }
 }
 function canvasUp(){
   if(aim.ballInHand){ pDown=false; finishBallInHand(); return; }
   pDown=false; dragMode=null;
+  // coast only for a deliberate swing; slow / micro adjustments stop precisely
+  if(Math.abs(aimVel)<0.009) aimVel=0; else aimVel=clamp(aimVel,-0.05,0.05);
 }
-canvas.addEventListener('pointerdown',function(e){ e.preventDefault(); canvas.setPointerCapture&&canvas.setPointerCapture(e.pointerId); canvasDown(e.clientX,e.clientY); });
-canvas.addEventListener('pointermove',function(e){ canvasMove(e.clientX,e.clientY); });
+canvas.addEventListener('pointerdown',function(e){ e.preventDefault(); fineAim=e.shiftKey; canvas.setPointerCapture&&canvas.setPointerCapture(e.pointerId); canvasDown(e.clientX,e.clientY); });
+canvas.addEventListener('pointermove',function(e){ fineAim=e.shiftKey; canvasMove(e.clientX,e.clientY); });
 canvas.addEventListener('pointerup',function(e){ e.preventDefault(); canvasUp(); });
 canvas.addEventListener('pointercancel',function(){ canvasUp(); });
 
@@ -2039,9 +2060,10 @@ function poolSnapshot(){
 }
 function applyPoolState(s){
   if(!s) return;
-  if(onlineReplaying){ pendingOnlineState=s; return; }   // defer until the replay ends
+  if(onlineReplaying||replaying){ pendingOnlineState=s; return; }   // defer until any replay ends
   mode='classic';
-  game=s.game;
+  var keepHist=(game&&game.history)?game.history:[];   // host strips history; keep ours
+  game=s.game; game.history=keepHist;
   if(s.balls) restoreBalls(s.balls);
   updateClassicHUD(); render();
 }
@@ -2062,7 +2084,8 @@ function hostRunShot(intent){
   if(!isFinite(dir)) return;
   var pre=cloneBalls();
   lastShot={snap:pre,dir:dir,power:power,spin:spin,byAI:false};
-  if(poolNet) poolNet.broadcast({k:'playShot',snap:pre,dir:dir,power:power,spin:spin});
+  if(poolNet) poolNet.broadcast({k:'playShot',snap:pre,dir:dir,power:power,spin:spin,
+    seat:game.turn, pname:(game.players[game.turn]||{}).name||('P'+(game.turn+1))});
   fireCue(dir,power,spin);   // → onShotComplete → resolveClassic → classicShotStart → state
 }
 
@@ -2096,8 +2119,13 @@ function guestPlayShot(m){
   if(!m || !m.snap) return;
   restoreBalls(m.snap);
   var cb=cueBall(); if(!cb) return;
-  initStrike(cb, +m.dir, +m.power, {x:+m.spin.x||0, y:+m.spin.y||0});
+  var sp={x:+m.spin.x||0, y:+m.spin.y||0};
+  initStrike(cb, +m.dir, +m.power, sp);
   shot={firstHit:null,potted:[],railAfterHit:false,cueScratch:false,cushions:0};
+  // stash a timeline entry; its potted result is filled when the replay settles
+  var seat=(typeof m.seat==='number')?m.seat:0;
+  guestPendingEntry={ tag:'P'+(seat+1), player:m.pname||('P'+(seat+1)),
+    snap:m.snap, dir:+m.dir, power:+m.power, spin:sp, potted:[], scratch:false, foul:false };
   onlineReplaying=true; animating=true;
   interaction=false; aim.canShoot=false; aim.ballInHand=false; enableControls(false);
 }

@@ -165,6 +165,9 @@
   a.sc-card{display:flex;flex-direction:column;text-decoration:none;background:var(--surface);border:1px solid var(--line);overflow:hidden;transition:transform .4s cubic-bezier(.2,.7,.3,1),border-color .4s,box-shadow .4s}
   a.sc-card:hover{transform:translateY(-6px);border-color:var(--line-strong);box-shadow:0 20px 40px -24px rgba(29,23,18,.35)}
   .sc-thumb{position:relative;aspect-ratio:16/9;overflow:hidden;display:grid;place-items:center}
+  .thumb-img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.4);transition:transform .55s cubic-bezier(.2,.7,.3,1)}
+  a.sc-card:hover .thumb-img,a.game:hover .thumb-img{transform:scale(1.12)}
+  .game-thumb.has-img{padding:0!important;height:170px;display:block;overflow:hidden}
   .sc-body{padding:18px 20px;flex:1;display:flex;flex-direction:column;gap:7px}
   .sc-body h3{font-family:var(--disp);font-weight:520;font-size:clamp(1.3rem,2vw,1.7rem);letter-spacing:-.02em;line-height:1;font-variation-settings:"opsz" 40;transition:color .3s}
   a.sc-card:hover .sc-body h3{color:var(--accent-ink)}
@@ -649,7 +652,7 @@ if (scGrid) {
     const href = g.type === 'game' ? `games/${g.href}` : g.href;
     scGrid.insertAdjacentHTML('beforeend', `
       <a class="sc-card" href="${href}">
-        <div class="sc-thumb" style="background:${g.thumbBg}">${g.thumbSvg}</div>
+        <div class="sc-thumb" style="background:${g.thumbBg}">${g.thumbImg ? `<img class="thumb-img" src="${g.thumbImg}" alt="${g.title} cover">` : g.thumbSvg}</div>
         <div class="sc-body">
           <h3>${g.title}</h3>
           <p>${g.descShort}</p>
@@ -670,7 +673,9 @@ if (gamesList) {
       : `<span class="play">${g.ctaShort} <span class="arr">&#x2192;</span></span>`;
     gamesList.insertAdjacentHTML('beforeend', `
       <a class="game${cs}" href="${g.comingSoon ? '#' : 'games/'+g.href}">
-        <div class="game-thumb" style="background:${g.thumbBg};padding:22px">${g.thumbSvg}</div>
+        ${g.thumbImg
+          ? `<div class="game-thumb has-img" style="background:${g.thumbBg}"><img class="thumb-img" src="${g.thumbImg}" alt="${g.title} cover"></div>`
+          : `<div class="game-thumb" style="background:${g.thumbBg};padding:22px">${g.thumbSvg}</div>`}
         <div class="game-body">
           <h3>${g.title}</h3>
           <p>${g.descFull}</p>

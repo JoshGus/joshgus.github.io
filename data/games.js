@@ -283,6 +283,7 @@ export const CARDS = [
     href: 'pool.html',
     thumbBg: 'linear-gradient(160deg,#0a120e,#123a24)',
     thumbSvg: POOL_SVG,
+    thumbImg: 'poolcover.jpeg',
     stack: ['Canvas', 'Physics', 'JS'],
     ctaFull: "Play today's rack",
     ctaShort: 'Play',
