@@ -352,6 +352,7 @@ export const CARDS = [
     href: 'rts.html',
     thumbBg: 'linear-gradient(160deg,#0b0e07,#141c0a)',
     thumbSvg: RTS_SVG,
+    thumbImg: 'thumbnails/rtscover.jpeg',
     stack: ['Canvas', 'A*', 'JS'],
     ctaFull: 'Play',
     ctaShort: 'Play',
