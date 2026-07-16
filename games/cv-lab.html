@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>CV Lab &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<script src="../dark-mode.js"></script>
+<style>
+body{background:var(--bg);color:var(--fg);font-family:var(--body);min-height:100vh;
+  display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
+.wrap{flex:1;width:100%;max-width:1320px;margin:0 auto;
+  padding:clamp(24px,4vw,48px) clamp(16px,3vw,36px) 90px}
+.head h1{font-family:var(--disp);font-weight:460;font-size:clamp(2rem,5.5vw,3.4rem);
+  line-height:.92;letter-spacing:-.03em}
+.head h1 em{font-style:italic;color:var(--accent-ink)}
+.head p{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;color:var(--dim);
+  margin-top:12px;max-width:76ch;line-height:1.7}
+
+.layout{display:grid;grid-template-columns:minmax(260px,320px) 1fr;gap:clamp(20px,3vw,40px);
+  margin-top:clamp(22px,3vw,38px);align-items:start}
+@media(max-width:900px){.layout{grid-template-columns:1fr}}
+
+/* ── left column ─────────────────────────────────────── */
+.side{position:sticky;top:14px;display:flex;flex-direction:column;gap:16px}
+@media(max-width:900px){.side{position:static}}
+.drop{position:relative;border:1.5px dashed var(--line-strong);border-radius:14px;
+  background:var(--surface);min-height:200px;display:grid;place-items:center;
+  text-align:center;padding:18px;cursor:pointer;transition:.2s;overflow:hidden}
+.drop:hover,.drop.over{border-color:var(--accent-ink)}
+.drop.has-img{cursor:crosshair;padding:0;border-style:solid}
+.drop .prompt{display:flex;flex-direction:column;gap:10px;align-items:center;pointer-events:none}
+.drop .prompt b{font-family:var(--disp);font-weight:520;font-size:1.1rem}
+.drop .prompt span{font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;color:var(--dim);line-height:1.7}
+.drop.has-img .prompt{display:none}
+#srcCanvas{display:none;max-width:100%;image-rendering:auto}
+.drop.has-img #srcCanvas{display:block}
+#selBox{position:absolute;border:2px solid var(--accent);background:rgba(204,247,63,.12);display:none;pointer-events:none}
+
+.ctl-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+button,.btn{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:8px 12px;border:1px solid var(--line-strong);border-radius:24px;background:transparent;
+  color:var(--fg);cursor:pointer;transition:.2s}
+button:hover:not(:disabled){border-color:var(--accent-ink);color:var(--accent-ink)}
+button.on{background:var(--accent);border-color:var(--accent);color:#1d1712}
+button:disabled{opacity:.4;cursor:not-allowed}
+.hint{font-family:var(--mono);font-size:.6rem;letter-spacing:.04em;color:var(--dim);line-height:1.6}
+
+.menu{display:flex;flex-direction:column;gap:14px;border-top:1px solid var(--line);padding-top:14px}
+.grp-label{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;color:var(--dim);margin-bottom:7px}
+.tlist{display:flex;flex-direction:column;gap:5px}
+.titem{font-family:var(--mono);font-size:.72rem;text-align:left;padding:8px 11px;border-radius:9px;
+  border:1px solid var(--line);background:var(--surface);color:var(--fg);cursor:pointer;transition:.15s;letter-spacing:0;text-transform:none}
+.titem:hover{border-color:var(--line-strong)}
+.titem.active{background:var(--accent);border-color:var(--accent);color:#1d1712;font-weight:500}
+
+/* ── right column ────────────────────────────────────── */
+.stage{min-height:300px}
+.stage-head{display:flex;justify-content:space-between;align-items:baseline;gap:16px;flex-wrap:wrap;margin-bottom:8px}
+.stage-head h2{font-family:var(--disp);font-weight:520;font-size:clamp(1.4rem,3vw,1.9rem);letter-spacing:-.02em}
+.stage-head .grp{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:var(--accent-ink)}
+.explain{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:16px;
+  font-size:.9rem;line-height:1.65;color:var(--fg)}
+.explain code,.formula{font-family:var(--mono);font-size:.82rem;background:rgba(29,23,18,.06);padding:2px 6px;border-radius:5px}
+html.dark .explain code,html.dark .formula{background:rgba(237,227,216,.08)}
+.formula{display:inline-block;margin-top:6px}
+
+.params{display:flex;flex-wrap:wrap;gap:16px 22px;margin-bottom:18px;align-items:flex-end}
+.param{display:flex;flex-direction:column;gap:6px}
+.param label{font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;color:var(--dim);text-transform:uppercase}
+.param label b{color:var(--accent-ink)}
+.param input[type=range]{width:150px;accent-color:var(--accent-ink);cursor:pointer}
+.param select{font-family:var(--mono);font-size:.72rem;padding:6px 8px;border:1px solid var(--line-strong);border-radius:8px;background:var(--surface);color:var(--fg)}
+
+/* kernel editor */
+.kgrid{display:grid;gap:4px}
+.kgrid input{width:46px;height:30px;text-align:center;font-family:var(--mono);font-size:.72rem;
+  border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);color:var(--fg)}
+
+/* results */
+.results{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
+.rcard{display:flex;flex-direction:column;gap:8px}
+.rcard .cap{font-family:var(--mono);font-size:.64rem;letter-spacing:.04em;color:var(--dim)}
+.rcard canvas{width:100%;height:auto;background:#0e0d0b;border:1px solid var(--line);border-radius:8px;image-rendering:pixelated}
+.rcard.wide{grid-column:1/-1;max-width:520px}
+
+/* backprop graph */
+#graphWrap{overflow-x:auto}
+#graphSvg{min-width:640px}
+.gnode text{font-family:var(--mono);font-size:11px}
+</style>
+</head>
+<body class="noise">
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+    <a href="../colormap.html">Color Space</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <h1>CV <em>Lab</em></h1>
+    <p>An interactive computer-vision bench &mdash; the classic operations, run by hand with the math on screen.
+       Drop an image, pick a technique, turn the knobs, and watch every intermediate step. Convolution, gradients &amp;
+       edges, Gaussian/Laplacian pyramids, the 2D Fourier transform, JPEG-style DCT, HOG, Harris corners, homographies,
+       and a backprop computation graph. Everything runs locally in your browser.</p>
+  </div>
+
+  <div class="layout">
+    <!-- input -->
+    <div class="side">
+      <div class="drop" id="drop" tabindex="0">
+        <canvas id="srcCanvas"></canvas>
+        <div id="selBox"></div>
+        <div class="prompt">
+          <b>Drop an image</b>
+          <span>click to browse &middot; paste with &#8984;V / Ctrl+V<br>drag on the image to select a region</span>
+        </div>
+      </div>
+      <input type="file" id="file" accept="image/*" hidden>
+      <input type="file" id="fileB" accept="image/*" hidden>
+      <div class="ctl-row">
+        <button id="useSel" disabled>Region: off</button>
+        <button id="clearSel" disabled>Clear</button>
+        <button id="reset" disabled>New image</button>
+      </div>
+      <div class="hint" id="dims"></div>
+
+      <div class="menu" id="menu"></div>
+    </div>
+
+    <!-- stage -->
+    <div class="stage">
+      <div class="stage-head">
+        <h2 id="tTitle">Pick a technique</h2>
+        <span class="grp" id="tGroup"></span>
+      </div>
+      <div class="explain" id="tExplain">Drop or paste an image on the left, then choose an operation. Each one shows what it computes and lets you tune the parameters yourself.</div>
+      <div class="params" id="params"></div>
+      <div class="results" id="results"></div>
+      <div id="graphWrap"></div>
+    </div>
+  </div>
+</div>
+
+<script>try{var clk=document.getElementById('clock');var t=function(){clk.textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+' EST'};t();setInterval(t,30000)}catch(e){}</script>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════════
+   CV Lab — classic computer vision, computed by hand in the browser.
+   Grayscale images are Float32 in [0,1]; color kept for overlays/blends.
+   ══════════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const WORK = 256;           // cap working dimension for responsiveness
+
+/* ── image container ──────────────────────────────────────────────── */
+// gray: {w,h,d:Float32Array}   rgb: ImageData
+let SRC = null;             // {rgb: ImageData, gray, w, h}
+let SRC_B = null;           // optional second image (for blending)
+let selection = null;       // {x,y,w,h} in source pixels
+let useSelection = false;
+
+function imageToWork(img){
+  let w = img.naturalWidth||img.width, h = img.naturalHeight||img.height;
+  const scale = Math.min(1, WORK/Math.max(w,h));
+  w = Math.max(1, Math.round(w*scale)); h = Math.max(1, Math.round(h*scale));
+  const c = document.createElement('canvas'); c.width=w; c.height=h;
+  const x = c.getContext('2d', {willReadFrequently:true});
+  x.drawImage(img, 0, 0, w, h);
+  const rgb = x.getImageData(0,0,w,h);
+  return {rgb, gray: toGray(rgb), w, h};
+}
+function toGray(imageData){
+  const {width:w, height:h, data} = imageData;
+  const d = new Float32Array(w*h);
+  for(let i=0,p=0;i<data.length;i+=4,p++) d[p] = (data[i]+data[i+1]+data[i+2])/3/255;  // mean, like im.mean(2)
+  return {w, h, d};
+}
+// extract active region (whole image or selection) as {rgb, gray, w, h}
+function activeImage(){
+  if(!useSelection || !selection) return SRC;
+  const {x,y,w,h} = selection;
+  const rgb = new ImageData(w,h);
+  const sw = SRC.w;
+  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+    const si = ((y+j)*sw + (x+i))*4, di = (j*w+i)*4;
+    rgb.data[di]=SRC.rgb.data[si];rgb.data[di+1]=SRC.rgb.data[si+1];
+    rgb.data[di+2]=SRC.rgb.data[si+2];rgb.data[di+3]=255;
+  }
+  return {rgb, gray: toGray(rgb), w, h};
+}
+
+/* ── display helpers ──────────────────────────────────────────────── */
+// viridis-ish colormap (anchor stops, linear interp)
+const VIRIDIS = [[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],
+  [31,158,137],[53,183,121],[110,206,88],[181,222,43],[253,231,37]];
+function cmapViridis(t){ // t in [0,1]
+  t=Math.max(0,Math.min(1,t))*(VIRIDIS.length-1);
+  const i=Math.floor(t), f=t-i, a=VIRIDIS[i], b=VIRIDIS[Math.min(i+1,VIRIDIS.length-1)];
+  return [a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f, a[2]+(b[2]-a[2])*f];
+}
+function percentile(arr, p){ const s=Float32Array.from(arr).sort(); return s[Math.min(s.length-1, Math.floor(p/100*s.length))]; }
+// render a gray Float32 field to a canvas with a normalization + colormap
+function grayCanvas(g, {cmap='gray', norm='clamp01'}={}){
+  const {w,h,d}=g, c=document.createElement('canvas'); c.width=w; c.height=h;
+  const ctx=c.getContext('2d'), img=ctx.createImageData(w,h);
+  let lo=0, hi=1;
+  if(norm==='minmax'){ lo=Infinity;hi=-Infinity; for(const v of d){if(v<lo)lo=v;if(v>hi)hi=v;} if(hi<=lo)hi=lo+1; }
+  else if(norm==='p99'){ lo=0; hi=percentile(d,99)||1; }
+  else if(norm==='signed'){ let m=0; for(const v of d)m=Math.max(m,Math.abs(v)); lo=-m;hi=m||1; }
+  for(let i=0;i<d.length;i++){
+    let t=(d[i]-lo)/(hi-lo); t=Math.max(0,Math.min(1,t));
+    let r,gg,b;
+    if(cmap==='viridis'){ const c3=cmapViridis(t); r=c3[0];gg=c3[1];b=c3[2]; }
+    else { r=gg=b=t*255; }
+    const p=i*4; img.data[p]=r;img.data[p+1]=gg;img.data[p+2]=b;img.data[p+3]=255;
+  }
+  ctx.putImageData(img,0,0); return c;
+}
+function rgbCanvas(imageData){ const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;c.getContext('2d').putImageData(imageData,0,0);return c; }
+function cloneRGB(im){ const o=new ImageData(im.width,im.height); o.data.set(im.data); return o; }
+
+/* ── core CV operations ───────────────────────────────────────────── */
+// 2D convolution (flip kernel, zero-pad, slide) — matches the PS1 convolve()
+function convolve(g, ker, kw, kh){
+  const {w,h,d}=g, out=new Float32Array(w*h);
+  const pw=kw>>1, ph=kh>>1;
+  // flip kernel
+  const fk=new Float32Array(kw*kh);
+  for(let a=0;a<kh;a++)for(let b=0;b<kw;b++) fk[a*kw+b]=ker[(kh-1-a)*kw+(kw-1-b)];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let s=0;
+    for(let a=0;a<kh;a++)for(let b=0;b<kw;b++){
+      const yy=y+a-ph, xx=x+b-pw;
+      if(yy>=0&&yy<h&&xx>=0&&xx<w) s+=d[yy*w+xx]*fk[a*kw+b];
+    }
+    out[y*w+x]=s;
+  }
+  return {w,h,d:out};
+}
+function gaussianKernel(size, sigma){
+  const k=new Float32Array(size*size), c=size>>1; let sum=0;
+  for(let y=0;y<size;y++)for(let x=0;x<size;x++){ const v=Math.exp(-((x-c)**2+(y-c)**2)/(2*sigma*sigma)); k[y*size+x]=v; sum+=v; }
+  for(let i=0;i<k.length;i++)k[i]/=sum; return k;
+}
+function boxKernel(size){ const k=new Float32Array(size*size).fill(1/(size*size)); return k; }
+function median(g, k){
+  const {w,h,d}=g, out=new Float32Array(w*h), p=k>>1, win=new Float32Array(k*k);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    let n=0;
+    for(let a=-p;a<=p;a++)for(let b=-p;b<=p;b++){
+      let yy=y+a,xx=x+b; yy=Math.max(0,Math.min(h-1,yy)); xx=Math.max(0,Math.min(w-1,xx));
+      win[n++]=d[yy*w+xx];
+    }
+    const s=win.slice(0,n).sort(); out[y*w+x]=s[n>>1];
+  }
+  return {w,h,d:out};
+}
+function addNoise(g, sigma){
+  const {w,h,d}=g, out=new Float32Array(w*h);
+  for(let i=0;i<d.length;i++){
+    const u1=Math.random()||1e-9, u2=Math.random();
+    const n=Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2);
+    out[i]=Math.max(0,Math.min(1, d[i]+n*sigma));
+  }
+  return {w,h,d:out};
+}
+const DX=[1,-1], DY=[1,-1];        // gradient filters (1x2 and 2x1)
+function gradX(g){ return convolve(g, DX, 2, 1); }
+function gradY(g){ return convolve(g, DY, 1, 2); }
+function edgeMag(ix,iy){ const d=new Float32Array(ix.d.length); for(let i=0;i<d.length;i++)d[i]=ix.d[i]*ix.d[i]+iy.d[i]*iy.d[i]; return {w:ix.w,h:ix.h,d}; }
+
+/* Harris corners */
+function harris(g, k, thresh){
+  const ix=gradX(g), iy=gradY(g), n=g.d.length;
+  const ixx=new Float32Array(n), iyy=new Float32Array(n), ixy=new Float32Array(n);
+  for(let i=0;i<n;i++){ ixx[i]=ix.d[i]*ix.d[i]; iyy[i]=iy.d[i]*iy.d[i]; ixy[i]=ix.d[i]*iy.d[i]; }
+  const gk=gaussianKernel(5,1.4);
+  const Sxx=convolve({w:g.w,h:g.h,d:ixx},gk,5,5).d,
+        Syy=convolve({w:g.w,h:g.h,d:iyy},gk,5,5).d,
+        Sxy=convolve({w:g.w,h:g.h,d:ixy},gk,5,5).d;
+  const R=new Float32Array(n); let maxR=0;
+  for(let i=0;i<n;i++){ const det=Sxx[i]*Syy[i]-Sxy[i]*Sxy[i], tr=Sxx[i]+Syy[i]; R[i]=det-k*tr*tr; if(R[i]>maxR)maxR=R[i]; }
+  // non-max suppression + threshold
+  const {w,h}=g, pts=[];
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){
+    const r=R[y*w+x]; if(r<thresh*maxR)continue;
+    let isMax=true;
+    for(let a=-1;a<=1&&isMax;a++)for(let b=-1;b<=1;b++){ if(a||b){ if(R[(y+a)*w+(x+b)]>r){isMax=false;break;} } }
+    if(isMax)pts.push([x,y]);
+  }
+  return {R, pts, maxR};
+}
+
+/* HOG (compute_angles -> histogram -> block norm), like PS4 */
+function hog(g, cell, bins){
+  const ix=gradX(g), iy=gradY(g), {w,h}=g;
+  const nx=Math.floor(w/cell), ny=Math.floor(h/cell), step=180/bins;
+  const hist=new Float32Array(ny*nx*bins);
+  for(let cy=0;cy<ny;cy++)for(let cx=0;cx<nx;cx++){
+    for(let j=0;j<cell;j++)for(let i=0;i<cell;i++){
+      const y=cy*cell+j, x=cx*cell+i, idx=y*w+x;
+      const gx=ix.d[idx], gy=iy.d[idx], mag=Math.hypot(gx,gy);
+      let ang=Math.atan2(gy,gx)*180/Math.PI; ang=((ang%180)+180)%180;
+      let bin=Math.floor(ang/step); if(bin>=bins)bin=bins-1;
+      hist[(cy*nx+cx)*bins+bin]+=mag;
+    }
+  }
+  return {hist, nx, ny, bins, cell};
+}
+
+/* Gaussian / Laplacian pyramids */
+function downsample(g){
+  const b=convolve(g, gaussianKernel(5,1), 5,5);
+  const w=g.w>>1, h=g.h>>1, d=new Float32Array(w*h);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++) d[y*w+x]=b.d[(y*2)*g.w+(x*2)];
+  return {w,h,d};
+}
+function upsample(g, tw, th){
+  const w=g.w<<1, h=g.h<<1, up=new Float32Array(w*h);
+  for(let y=0;y<g.h;y++)for(let x=0;x<g.w;x++) up[(y*2)*w+(x*2)]=g.d[y*g.w+x];
+  const b=convolve({w,h,d:up}, gaussianKernel(5,1), 5,5);
+  for(let i=0;i<b.d.length;i++)b.d[i]*=4;
+  // crop/pad to target
+  const out=new Float32Array(tw*th);
+  for(let y=0;y<th;y++)for(let x=0;x<tw;x++) out[y*tw+x]= (y<h&&x<w)? b.d[y*w+x]:0;
+  return {w:tw,h:th,d:out};
+}
+function gaussPyr(g, levels){ const gp=[g]; for(let i=1;i<levels;i++)gp.push(downsample(gp[gp.length-1])); return gp; }
+function lapPyr(gp){ const lp=[]; for(let i=0;i<gp.length-1;i++){ const up=upsample(gp[i+1], gp[i].w, gp[i].h); const d=new Float32Array(gp[i].d.length); for(let k=0;k<d.length;k++)d[k]=gp[i].d[k]-up.d[k]; lp.push({w:gp[i].w,h:gp[i].h,d}); } lp.push(gp[gp.length-1]); return lp; }
+function reconstruct(lp){ let img=lp[lp.length-1]; for(let i=lp.length-2;i>=0;i--){ const up=upsample(img, lp[i].w, lp[i].h); const d=new Float32Array(lp[i].d.length); for(let k=0;k<d.length;k++)d[k]=up.d[k]+lp[i].d[k]; img={w:lp[i].w,h:lp[i].h,d}; } return img; }
+
+/* FFT (iterative radix-2) — operate on power-of-2 square */
+function fft1(re, im, inv){
+  const n=re.length;
+  for(let i=1,j=0;i<n;i++){ let bit=n>>1; for(;j&bit;bit>>=1)j^=bit; j^=bit; if(i<j){[re[i],re[j]]=[re[j],re[i]];[im[i],im[j]]=[im[j],im[i]];} }
+  for(let len=2;len<=n;len<<=1){
+    const ang=(inv?2:-2)*Math.PI/len, wr=Math.cos(ang), wi=Math.sin(ang);
+    for(let i=0;i<n;i+=len){ let cwr=1,cwi=0;
+      for(let k=0;k<len/2;k++){
+        const ur=re[i+k], ui=im[i+k];
+        const vr=re[i+k+len/2]*cwr-im[i+k+len/2]*cwi, vi=re[i+k+len/2]*cwi+im[i+k+len/2]*cwr;
+        re[i+k]=ur+vr; im[i+k]=ui+vi; re[i+k+len/2]=ur-vr; im[i+k+len/2]=ui-vi;
+        const n_cwr=cwr*wr-cwi*wi; cwi=cwr*wi+cwi*wr; cwr=n_cwr;
+      }
+    }
+  }
+  if(inv)for(let i=0;i<n;i++){re[i]/=n;im[i]/=n;}
+}
+function nextPow2(x){ let p=1; while(p<x)p<<=1; return p; }
+function fft2(re, im, N, inv){
+  const row=new Float64Array(N), rowi=new Float64Array(N);
+  for(let y=0;y<N;y++){ for(let x=0;x<N;x++){row[x]=re[y*N+x];rowi[x]=im[y*N+x];} fft1(row,rowi,inv); for(let x=0;x<N;x++){re[y*N+x]=row[x];im[y*N+x]=rowi[x];} }
+  const col=new Float64Array(N), coli=new Float64Array(N);
+  for(let x=0;x<N;x++){ for(let y=0;y<N;y++){col[y]=re[y*N+x];coli[y]=im[y*N+x];} fft1(col,coli,inv); for(let y=0;y<N;y++){re[y*N+x]=col[y];im[y*N+x]=coli[y];} }
+}
+// pad gray image into NxN
+function padSquare(g, N){ const re=new Float64Array(N*N), im=new Float64Array(N*N); for(let y=0;y<g.h;y++)for(let x=0;x<g.w;x++)re[y*N+x]=g.d[y*g.w+x]; return {re,im,N}; }
+function magnitudeSpectrum(re,im,N){ // log magnitude, fftshift
+  const out=new Float32Array(N*N);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const sy=(y+N/2)%N, sx=(x+N/2)%N; out[y*N+x]=Math.log(1+Math.hypot(re[sy*N+sx],im[sy*N+sx])); }
+  return {w:N,h:N,d:out};
+}
+
+/* 2D DCT (8x8) + basis */
+function dctBasis(){ const B=[]; const N=8;
+  for(let ky=0;ky<N;ky++)for(let kx=0;kx<N;kx++){ const b=new Float32Array(N*N);
+    const ax=kx===0?Math.sqrt(1/N):Math.sqrt(2/N), ay=ky===0?Math.sqrt(1/N):Math.sqrt(2/N);
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++) b[y*N+x]=ax*ay*Math.cos(Math.PI*(2*x+1)*kx/(2*N))*Math.cos(Math.PI*(2*y+1)*ky/(2*N));
+    B.push(b);
+  } return B;
+}
+function dct8(block){ const N=8, C=new Float32Array(64);
+  for(let ky=0;ky<N;ky++)for(let kx=0;kx<N;kx++){ let s=0;
+    const ax=kx===0?Math.sqrt(1/N):Math.sqrt(2/N), ay=ky===0?Math.sqrt(1/N):Math.sqrt(2/N);
+    for(let y=0;y<N;y++)for(let x=0;x<N;x++) s+=block[y*N+x]*Math.cos(Math.PI*(2*x+1)*kx/(2*N))*Math.cos(Math.PI*(2*y+1)*ky/(2*N));
+    C[ky*N+kx]=ax*ay*s;
+  } return C;
+}
+function idct8(C){ const N=8, b=new Float32Array(64);
+  for(let y=0;y<N;y++)for(let x=0;x<N;x++){ let s=0;
+    for(let ky=0;ky<N;ky++)for(let kx=0;kx<N;kx++){ const ax=kx===0?Math.sqrt(1/N):Math.sqrt(2/N), ay=ky===0?Math.sqrt(1/N):Math.sqrt(2/N);
+      s+=ax*ay*C[ky*N+kx]*Math.cos(Math.PI*(2*x+1)*kx/(2*N))*Math.cos(Math.PI*(2*y+1)*ky/(2*N)); }
+    b[y*N+x]=s;
+  } return b;
+}
+const JPEG_Q = [16,11,10,16,24,40,51,61, 12,12,14,19,26,58,60,55, 14,13,16,24,40,57,69,56, 14,17,22,29,51,87,80,62, 18,22,37,56,68,109,103,77, 24,35,55,64,81,104,113,92, 49,64,78,87,103,121,120,101, 72,92,95,98,112,100,103,99];
+
+/* Homography — solve H (3x3) from 4 correspondences via null space of A (Jacobi eigen of A^T A) */
+function jacobiEigen(A, n){ // symmetric n x n, returns {val, vec(columns)}
+  const a=A.map(r=>r.slice()), V=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?1:0));
+  for(let iter=0;iter<100;iter++){
+    let p=0,q=1,off=0;
+    for(let i=0;i<n;i++)for(let j=i+1;j<n;j++){ if(Math.abs(a[i][j])>Math.abs(a[p][q])){p=i;q=j;} off+=a[i][j]*a[i][j]; }
+    if(Math.abs(a[p][q])<1e-12)break;
+    const app=a[p][p], aqq=a[q][q], apq=a[p][q];
+    const phi=0.5*Math.atan2(2*apq, aqq-app), c=Math.cos(phi), s=Math.sin(phi);
+    for(let k=0;k<n;k++){ const akp=a[k][p], akq=a[k][q]; a[k][p]=c*akp-s*akq; a[k][q]=s*akp+c*akq; }
+    for(let k=0;k<n;k++){ const apk=a[p][k], aqk=a[q][k]; a[p][k]=c*apk-s*aqk; a[q][k]=s*apk+c*aqk; }
+    for(let k=0;k<n;k++){ const vkp=V[k][p], vkq=V[k][q]; V[k][p]=c*vkp-s*vkq; V[k][q]=s*vkp+c*vkq; }
+  }
+  const val=[]; for(let i=0;i<n;i++)val.push(a[i][i]); return {val, V};
+}
+function homography(srcPts, dstPts){ // maps dst -> src: p_src = H p_dst
+  const A=[];
+  for(let i=0;i<srcPts.length;i++){ const [x,y]=srcPts[i], [xp,yp]=dstPts[i];
+    A.push([-xp,-yp,-1,0,0,0,xp*x,yp*x,x]); A.push([0,0,0,-xp,-yp,-1,xp*y,yp*y,y]);
+  }
+  // AtA (9x9)
+  const AtA=Array.from({length:9},()=>new Array(9).fill(0));
+  for(const r of A)for(let i=0;i<9;i++)for(let j=0;j<9;j++)AtA[i][j]+=r[i]*r[j];
+  const {val,V}=jacobiEigen(AtA,9);
+  let mi=0; for(let i=1;i<9;i++)if(val[i]<val[mi])mi=i;
+  const h=V.map(r=>r[mi]); const s=h[8]||1e-9;
+  return [[h[0]/s,h[1]/s,h[2]/s],[h[3]/s,h[4]/s,h[5]/s],[h[6]/s,h[7]/s,h[8]/s]];
+}
+function warpPerspective(rgb, H, ow, oh){ // inverse-sample: out(x,y) <- src(H*[x,y,1])
+  const out=new ImageData(ow,oh), sw=rgb.width, sh=rgb.height;
+  for(let y=0;y<oh;y++)for(let x=0;x<ow;x++){
+    const w=H[2][0]*x+H[2][1]*y+H[2][2];
+    const sx=(H[0][0]*x+H[0][1]*y+H[0][2])/w, sy=(H[1][0]*x+H[1][1]*y+H[1][2])/w;
+    const di=(y*ow+x)*4;
+    if(sx>=0&&sx<sw-1&&sy>=0&&sy<sh-1){
+      const x0=Math.floor(sx),y0=Math.floor(sy),fx=sx-x0,fy=sy-y0;
+      for(let c=0;c<3;c++){
+        const p00=rgb.data[(y0*sw+x0)*4+c],p10=rgb.data[(y0*sw+x0+1)*4+c],p01=rgb.data[((y0+1)*sw+x0)*4+c],p11=rgb.data[((y0+1)*sw+x0+1)*4+c];
+        out.data[di+c]=(p00*(1-fx)+p10*fx)*(1-fy)+(p01*(1-fx)+p11*fx)*fy;
+      }
+      out.data[di+3]=255;
+    } else { out.data[di+3]=255; out.data[di]=out.data[di+1]=out.data[di+2]=20; }
+  }
+  return out;
+}
+
+/* ══ technique registry ══════════════════════════════════════════════ */
+const T = [];
+function tech(o){ T.push(o); }
+
+// ── PS1 ──
+tech({group:'PS1 · Filtering', id:'grayscale', name:'Grayscale', run(im){
+  return {explain:'Convert to a single luminance channel. Here we average the RGB channels (<code>im.mean(2)</code>), the same as the PSets.',
+    outputs:[{cap:'input', canvas:rgbCanvas(im.rgb)},{cap:'grayscale', canvas:grayCanvas(im.gray,{})}]};
+}});
+
+tech({group:'PS1 · Filtering', id:'convolve', name:'Convolution (custom kernel)',
+  params:[{id:'preset',type:'select',label:'preset',value:'gauss',options:[['gauss','Gaussian blur'],['box','Box blur'],['sharpen','Sharpen'],['emboss','Emboss'],['dx','∂/∂x'],['dy','∂/∂y'],['edge','Laplacian']]},{id:'kernel',type:'kernel'}],
+  onParam(p, prev){ if(p.preset!==prev){ p.kernel = KERNEL_PRESETS[p.preset].slice(); } },
+  run(im,p){
+    const K=p.kernel||KERNEL_PRESETS[p.preset]; const n=Math.sqrt(K.length)|0;
+    const out=convolve(im.gray, K, n, n);
+    return {explain:'Flip the kernel, zero-pad the image, and slide the window computing a weighted sum at each pixel &mdash; your <code>convolve(im, filter)</code>. Edit the kernel cells to see the effect.',
+      formula:'out[i,j] = Σ region · flip(kernel)',
+      outputs:[{cap:'grayscale', canvas:grayCanvas(im.gray,{})},{cap:'convolved', canvas:grayCanvas(out,{norm:'minmax'})}]};
+  }});
+const KERNEL_PRESETS = {
+  gauss: gaussianKernel(5,1), box: boxKernel(3),
+  sharpen:[0,-1,0,-1,5,-1,0,-1,0], emboss:[-2,-1,0,-1,1,1,0,1,2], edge:[0,1,0,1,-4,1,0,1,0],
+  dx:[0,0,0, 1,-1,0, 0,0,0], dy:[0,1,0, 0,-1,0, 0,0,0]
+};
+
+tech({group:'PS1 · Filtering', id:'edges', name:'Gradient edges (Ix, Iy, magnitude)',
+  params:[{id:'blur',type:'range',label:'pre-blur σ',min:0,max:4,step:0.5,value:0}],
+  run(im,p){
+    let g=im.gray; if(p.blur>0)g=convolve(g, gaussianKernel(11,p.blur),11,11);
+    const ix=gradX(g), iy=gradY(g), e=edgeMag(ix,iy);
+    return {explain:'Finite-difference gradients with <code>dx=[1,−1]</code>, <code>dy=[1,−1]ᵀ</code>, then edge strength = Ix²+Iy². Add a Gaussian pre-blur to suppress noise (PS1.2c).',
+      formula:'edges = Ix² + Iy²',
+      outputs:[{cap:'Ix', canvas:grayCanvas(ix,{cmap:'viridis',norm:'signed'})},{cap:'Iy', canvas:grayCanvas(iy,{cmap:'viridis',norm:'signed'})},{cap:'edges = Ix²+Iy²', canvas:grayCanvas(e,{cmap:'viridis',norm:'p99'})}]};
+  }});
+
+tech({group:'PS1 · Filtering', id:'blurcmp', name:'Blur comparison (box / Gaussian)',
+  params:[{id:'size',type:'range',label:'kernel size',min:3,max:15,step:2,value:9},{id:'sigma',type:'range',label:'Gaussian σ',min:0.5,max:5,step:0.5,value:2}],
+  run(im,p){
+    const sz=p.size|0, box=convolve(im.gray, boxKernel(sz), sz,sz), gau=convolve(im.gray, gaussianKernel(sz,p.sigma), sz,sz);
+    return {explain:'Two smoothing filters. The box kernel averages equally; the Gaussian weights the center more, giving smoother, halo-free blur.',
+      outputs:[{cap:'original', canvas:grayCanvas(im.gray,{})},{cap:'box '+sz+'×'+sz, canvas:grayCanvas(box,{})},{cap:'Gaussian σ='+p.sigma, canvas:grayCanvas(gau,{})}]};
+  }});
+
+tech({group:'PS1 · Filtering', id:'oriented', name:'Oriented gradient',
+  params:[{id:'theta',type:'range',label:'θ (deg)',min:0,max:180,step:5,value:45},{id:'blur',type:'range',label:'pre-blur σ',min:0,max:4,step:0.5,value:2}],
+  run(im,p){
+    let g=im.gray; if(p.blur>0)g=convolve(g, gaussianKernel(11,p.blur),11,11);
+    const ix=gradX(g), iy=gradY(g), th=p.theta*Math.PI/180, d=new Float32Array(ix.d.length);
+    for(let i=0;i<d.length;i++)d[i]=ix.d[i]*Math.cos(th)+iy.d[i]*Math.sin(th);
+    return {explain:'Directional derivative: project the gradient onto direction θ (PS1.2e). Sweep θ to see edges of that orientation light up.',
+      formula:'G_θ = Ix·cos θ + Iy·sin θ',
+      outputs:[{cap:'oriented gradient θ='+p.theta+'°', canvas:grayCanvas({w:ix.w,h:ix.h,d},{cmap:'gray',norm:'signed'}), wide:true}]};
+  }});
+
+tech({group:'PS1 · Filtering', id:'denoise', name:'Denoising (box / Gaussian / median)',
+  params:[{id:'noise',type:'range',label:'noise σ',min:0,max:0.3,step:0.02,value:0.12},{id:'k',type:'range',label:'kernel size',min:3,max:9,step:2,value:5}],
+  run(im,p){
+    const noisy=addNoise(im.gray, p.noise), sz=p.k|0;
+    const box=convolve(noisy, boxKernel(sz), sz,sz), gau=convolve(noisy, gaussianKernel(sz,2), sz,sz), med=median(noisy, sz);
+    return {explain:'Add Gaussian noise, then denoise three ways (PS1.2f). The median filter removes salt-and-pepper spikes while keeping edges sharp; linear filters blur them.',
+      outputs:[{cap:'noisy', canvas:grayCanvas(noisy,{})},{cap:'box', canvas:grayCanvas(box,{})},{cap:'Gaussian', canvas:grayCanvas(gau,{})},{cap:'median '+sz+'×'+sz, canvas:grayCanvas(med,{})}]};
+  }});
+
+// ── PS2 ──
+tech({group:'PS2 · Frequency', id:'pyramids', name:'Gaussian / Laplacian pyramids',
+  params:[{id:'levels',type:'range',label:'levels',min:2,max:5,step:1,value:4}],
+  run(im,p){
+    const gp=gaussPyr(im.gray, p.levels|0), lp=lapPyr(gp), rec=reconstruct(lp);
+    const outs=[];
+    gp.forEach((g,i)=>outs.push({cap:'Gaussian L'+i+' ('+g.w+'×'+g.h+')', canvas:grayCanvas(g,{})}));
+    lp.forEach((g,i)=>outs.push({cap:'Laplacian L'+i, canvas:grayCanvas(g,{cmap:'gray',norm:'signed'})}));
+    outs.push({cap:'reconstruction', canvas:grayCanvas(rec,{})});
+    return {explain:'Repeatedly blur+subsample for the Gaussian pyramid; each Laplacian level is a Gaussian level minus the upsampled next one (a band-pass). Summing them back reconstructs the image exactly (PS2.1a).', outputs:outs};
+  }});
+
+tech({group:'PS2 · Frequency', id:'blend', name:'Pyramid blending (needs image B)',
+  params:[{id:'levels',type:'range',label:'levels',min:1,max:6,step:1,value:5},{id:'split',type:'range',label:'seam x',min:10,max:90,step:5,value:50},{id:'loadB',type:'button',label:'Load image B'}],
+  run(im,p){
+    if(!SRC_B) return {explain:'Load a <b>second image</b> (button above) to blend it with the first across a seam.', outputs:[]};
+    // resize B to match im
+    const B=resampleGray(SRC_B.gray, im.w, im.h), A=im.gray, {w,h}=im;
+    const mask={w,h,d:new Float32Array(w*h)}; const sx=Math.round(w*p.split/100);
+    for(let y=0;y<h;y++)for(let x=0;x<w;x++)mask.d[y*w+x]=x<sx?1:0;
+    const lvl=p.levels|0;
+    const lpA=lapPyr(gaussPyr(A,lvl)), lpB=lapPyr(gaussPyr(B,lvl)), gpM=gaussPyr(mask,lvl);
+    const blended=lpA.map((la,i)=>{ const m=gpM[i], d=new Float32Array(la.d.length); for(let k=0;k<d.length;k++)d[k]=m.d[k]*la.d[k]+(1-m.d[k])*lpB[i].d[k]; return {w:la.w,h:la.h,d}; });
+    const out=reconstruct(blended);
+    // naive (level 1) cut for comparison
+    const naive={w,h,d:new Float32Array(w*h)}; for(let y=0;y<h;y++)for(let x=0;x<w;x++)naive.d[y*w+x]=mask.d[y*w+x]*A.d[y*w+x]+(1-mask.d[y*w+x])*B.d[y*w+x];
+    return {explain:'Blend by combining each pyramid <em>band</em> with a blurred mask, then reconstruct (PS2.1b). Low frequencies blend over a wide seam, high frequencies over a narrow one &mdash; so the join is invisible. Compare to the hard cut.',
+      outputs:[{cap:'A', canvas:grayCanvas(A,{})},{cap:'B', canvas:grayCanvas(B,{})},{cap:'hard cut', canvas:grayCanvas(naive,{})},{cap:'pyramid blend ('+lvl+' levels)', canvas:grayCanvas(out,{})}]};
+  }});
+function resampleGray(g, tw, th){ const d=new Float32Array(tw*th); for(let y=0;y<th;y++)for(let x=0;x<tw;x++){ const sx=Math.min(g.w-1,Math.round(x*g.w/tw)), sy=Math.min(g.h-1,Math.round(y*g.h/th)); d[y*tw+x]=g.d[sy*g.w+sx]; } return {w:tw,h:th,d}; }
+
+tech({group:'PS2 · Frequency', id:'dft', name:'2D Fourier transform + filtering',
+  params:[{id:'mode',type:'select',label:'filter',value:'none',options:[['none','none (spectrum only)'],['low','low-pass'],['high','high-pass']]},{id:'radius',type:'range',label:'cutoff radius',min:5,max:120,step:5,value:40}],
+  run(im,p){
+    const N=nextPow2(Math.max(im.w,im.h)); const {re,im:img}=padSquare(im.gray,N);
+    fft2(re,img,N,false);
+    const spec=magnitudeSpectrum(re,img,N);
+    let outs=[{cap:'grayscale', canvas:grayCanvas(im.gray,{})},{cap:'log |F| (fftshift)', canvas:grayCanvas(spec,{cmap:'viridis',norm:'minmax'})}];
+    if(p.mode!=='none'){
+      const r2=p.radius*p.radius;
+      for(let y=0;y<N;y++)for(let x=0;x<N;x++){ const fy=(y+N/2)%N-N/2, fx=(x+N/2)%N-N/2; const inside=(fx*fx+fy*fy)<=r2; const keep=p.mode==='low'?inside:!inside; if(!keep){re[y*N+x]=0;img[y*N+x]=0;} }
+      const spec2=magnitudeSpectrum(re,img,N);
+      fft2(re,img,N,true);
+      const filt={w:im.w,h:im.h,d:new Float32Array(im.w*im.h)};
+      for(let y=0;y<im.h;y++)for(let x=0;x<im.w;x++)filt.d[y*im.w+x]=re[y*N+x];
+      outs.push({cap:'filtered spectrum', canvas:grayCanvas(spec2,{cmap:'viridis',norm:'minmax'})});
+      outs.push({cap:p.mode+'-pass result', canvas:grayCanvas(filt,{norm:'minmax'})});
+    }
+    return {explain:'The 2D DFT moves the image to the frequency domain. The center is low frequency (overall tone), edges are high frequency (fine detail). Zeroing frequencies outside/inside a radius gives a low-/high-pass filter &mdash; the convolution theorem in action (PS2.2).', outputs:outs};
+  }});
+
+tech({group:'PS2 · Frequency', id:'dct', name:'DCT / JPEG block compression',
+  params:[{id:'keep',type:'range',label:'coeffs kept',min:1,max:64,step:1,value:10},{id:'basis',type:'button',label:'Show 8×8 basis'}],
+  run(im,p){
+    const {w,h}=im, out={w,h,d:new Float32Array(w*h)};
+    const zig=zigzag(); const keep=p.keep|0;
+    for(let by=0;by<h;by+=8)for(let bx=0;bx<w;bx+=8){
+      const block=new Float32Array(64);
+      for(let y=0;y<8;y++)for(let x=0;x<8;x++){ const yy=Math.min(h-1,by+y), xx=Math.min(w-1,bx+x); block[y*8+x]=im.gray.d[yy*w+xx]-0.5; }
+      const C=dct8(block);
+      // keep first `keep` zig-zag coefficients, quantize by JPEG table
+      const Cq=new Float32Array(64);
+      for(let i=0;i<64;i++){ if(zig.indexOf(i) < keep){ const q=JPEG_Q[i]/16; Cq[i]=Math.round(C[i]/q)*q; } }
+      const rec=idct8(Cq);
+      for(let y=0;y<8;y++)for(let x=0;x<8;x++){ const yy=by+y, xx=bx+x; if(yy<h&&xx<w)out.d[yy*w+xx]=rec[y*8+x]+0.5; }
+    }
+    return {explain:'JPEG splits the image into 8×8 blocks, runs the DCT (project onto cosine basis), keeps only the lowest-frequency coefficients (quantized), and inverts. Fewer coefficients → more blocky (PS2.3).',
+      formula:'keeping '+keep+' of 64 coefficients per block',
+      outputs:[{cap:'original', canvas:grayCanvas(im.gray,{})},{cap:'DCT reconstructed', canvas:grayCanvas(out,{})}]};
+  }});
+function zigzag(){ const order=[], N=8; let idx=new Array(64); let n=0;
+  for(let s=0;s<2*N-1;s++){ if(s%2===0){ for(let y=Math.min(s,N-1);y>=Math.max(0,s-N+1);y--){const x=s-y; idx[y*N+x]=n++;} } else { for(let x=Math.min(s,N-1);x>=Math.max(0,s-N+1);x--){const y=s-x; idx[y*N+x]=n++;} } }
+  return idx; // idx[pos]=zigzag rank
+}
+
+// ── PS3-4 ──
+tech({group:'PS3–4 · Features', id:'harris', name:'Harris corner detection',
+  params:[{id:'k',type:'range',label:'k',min:0.02,max:0.1,step:0.01,value:0.05},{id:'thresh',type:'range',label:'threshold',min:0.01,max:0.3,step:0.01,value:0.08}],
+  run(im,p){
+    const {pts,R,maxR}=harris(im.gray, p.k, p.thresh);
+    const disp=cloneRGB(im.rgb), sw=im.w;
+    for(const [x,y] of pts){ for(let a=-2;a<=2;a++)for(let b=-2;b<=2;b++){ const yy=y+a,xx=x+b; if(yy>=0&&yy<im.h&&xx>=0&&xx<sw&&(Math.abs(a)===2||Math.abs(b)===2)){ const i=(yy*sw+xx)*4; disp.data[i]=255;disp.data[i+1]=40;disp.data[i+2]=40; } } }
+    const Rf={w:im.w,h:im.h,d:Float32Array.from(R,v=>Math.max(0,v))};
+    return {explain:'Corners are where the image changes in <em>both</em> directions. Build the structure tensor from Ix²,Iy²,IxIy, then score R = det(M) − k·trace(M)². Threshold + non-max suppression gives the corners (PS3/PS4).',
+      formula:'R = det(M) − k·trace(M)²',
+      outputs:[{cap:pts.length+' corners', canvas:rgbCanvas(disp)},{cap:'corner response R', canvas:grayCanvas(Rf,{cmap:'viridis',norm:'p99'})}]};
+  }});
+
+tech({group:'PS3–4 · Features', id:'hog', name:'HOG features',
+  params:[{id:'cell',type:'range',label:'cell size',min:4,max:16,step:2,value:8},{id:'bins',type:'range',label:'orientation bins',min:6,max:12,step:1,value:9}],
+  run(im,p){
+    const H=hog(im.gray, p.cell|0, p.bins|0);
+    const c=document.createElement('canvas'); c.width=im.w; c.height=im.h; const ctx=c.getContext('2d');
+    // dim grayscale background
+    const bg=grayCanvas(im.gray,{}); ctx.globalAlpha=.35; ctx.drawImage(bg,0,0); ctx.globalAlpha=1;
+    ctx.strokeStyle='#ccf73f'; ctx.lineWidth=1;
+    let maxv=0; for(const v of H.hist)maxv=Math.max(maxv,v); maxv=maxv||1;
+    for(let cy=0;cy<H.ny;cy++)for(let cx=0;cx<H.nx;cx++){
+      const ox=cx*H.cell+H.cell/2, oy=cy*H.cell+H.cell/2;
+      for(let b=0;b<H.bins;b++){ const mag=H.hist[(cy*H.nx+cx)*H.bins+b]/maxv; if(mag<0.05)continue;
+        const ang=(b+0.5)*Math.PI/H.bins, len=mag*H.cell*0.6; ctx.globalAlpha=Math.min(1,mag+0.2);
+        ctx.beginPath(); ctx.moveTo(ox-Math.cos(ang)*len, oy-Math.sin(ang)*len); ctx.lineTo(ox+Math.cos(ang)*len, oy+Math.sin(ang)*len); ctx.stroke();
+      }
+    }
+    ctx.globalAlpha=1;
+    return {explain:'Split into cells, build a histogram of gradient orientations weighted by magnitude, and draw each bin as an oriented line (PS4). This is the descriptor SVMs and old-school detectors run on.', outputs:[{cap:'HOG cells ('+p.cell+'px, '+p.bins+' bins)', canvas:c, wide:true}]};
+  }});
+
+tech({group:'PS3–4 · Features', id:'homography', name:'Homography / perspective warp',
+  interactive:'quad',
+  run(im,p){
+    // uses draggable quad corners (set up by framework); warp source so dragged quad maps to full frame
+    const q=window.__quad; if(!q) return {explain:'Drag the four corners on the image to define a quadrilateral; it gets warped to a rectangle (rectification), computed from a homography (PS3.1).', outputs:[]};
+    const dst=[[0,0],[im.w-1,0],[im.w-1,im.h-1],[0,im.h-1]]; // output rectangle corners
+    const src=q.map(pt=>[pt[0]*im.w, pt[1]*im.h]);            // dragged corners in pixels
+    const H=homography(src, dst);                            // maps dst(out) -> src(image)
+    const out=warpPerspective(im.rgb, H, im.w, im.h);
+    return {explain:'A homography is a 3×3 projective map between planes. Solve it from 4 point correspondences via the null space of A (DLT/SVD), then inverse-sample to warp (PS3.1). Drag the corners on the left image; here they are rectified to a full rectangle.',
+      formula:'[x,y,1]ᵀ ≡ H·[x′,y′,1]ᵀ',
+      outputs:[{cap:'rectified (front-parallel)', canvas:rgbCanvas(out), wide:true}]};
+  }});
+
+// ── PS5 ──
+tech({group:'PS5 · Backprop', id:'graph', name:'Computation graph (forward + backward)',
+  custom:'graph'});
+
+/* ══ UI framework ═══════════════════════════════════════════════════ */
+let active = null, params = {};
+function buildMenu(){
+  const groups={}; T.forEach(t=>{(groups[t.group]=groups[t.group]||[]).push(t);});
+  const menu=$('menu'); menu.innerHTML='';
+  Object.keys(groups).forEach(g=>{
+    const wrap=document.createElement('div');
+    wrap.innerHTML=`<div class="grp-label">${g}</div>`;
+    const list=document.createElement('div'); list.className='tlist';
+    groups[g].forEach(t=>{ const b=document.createElement('button'); b.className='titem'; b.textContent=t.name; b.onclick=()=>selectTech(t); b.dataset.id=t.id; list.appendChild(b); });
+    wrap.appendChild(list); menu.appendChild(wrap);
+  });
+}
+function selectTech(t){
+  active=t; params={};
+  document.querySelectorAll('.titem').forEach(b=>b.classList.toggle('active', b.dataset.id===t.id));
+  $('tTitle').textContent=t.name; $('tGroup').textContent=t.group;
+  $('graphWrap').innerHTML=''; $('results').innerHTML='';
+  window.__quad = (t.interactive==='quad')? [[0.15,0.2],[0.85,0.15],[0.9,0.85],[0.1,0.8]] : null;
+  drawSource();
+  if(t.custom==='graph'){ $('params').innerHTML=''; renderGraph(); return; }
+  buildParams(t); runActive();
+}
+function buildParams(t){
+  const box=$('params'); box.innerHTML='';
+  (t.params||[]).forEach(pd=>{
+    if(pd.type==='button'){ const b=document.createElement('button'); b.textContent=pd.label; b.onclick=()=>paramButton(pd.id); box.appendChild(b); return; }
+    const wrap=document.createElement('div'); wrap.className='param';
+    if(pd.type==='range'){ params[pd.id]=pd.value;
+      wrap.innerHTML=`<label>${pd.label}: <b class="pv">${pd.value}</b></label>`;
+      const inp=document.createElement('input'); inp.type='range'; inp.min=pd.min;inp.max=pd.max;inp.step=pd.step;inp.value=pd.value;
+      inp.oninput=()=>{ params[pd.id]=parseFloat(inp.value); wrap.querySelector('.pv').textContent=inp.value; runActive(); };
+      wrap.appendChild(inp);
+    } else if(pd.type==='select'){ params[pd.id]=pd.value;
+      wrap.innerHTML=`<label>${pd.label}</label>`;
+      const sel=document.createElement('select'); pd.options.forEach(([v,l])=>{const o=document.createElement('option');o.value=v;o.textContent=l;sel.appendChild(o);}); sel.value=pd.value;
+      sel.onchange=()=>{ const prev=params[pd.id]; params[pd.id]=sel.value; if(active.onParam)active.onParam(params, prev); rebuildKernel(); runActive(); };
+      wrap.appendChild(sel);
+    } else if(pd.type==='kernel'){
+      wrap.className='param'; wrap.dataset.kernel='1';
+      params.kernel = (KERNEL_PRESETS[params.preset]||gaussianKernel(3,1)).slice();
+      wrap.innerHTML='<label>kernel</label>'; wrap.appendChild(kernelGrid());
+    }
+    box.appendChild(wrap);
+  });
+}
+function kernelGrid(){
+  const K=params.kernel, n=Math.sqrt(K.length)|0, grid=document.createElement('div'); grid.className='kgrid';
+  grid.style.gridTemplateColumns=`repeat(${n},auto)`;
+  K.forEach((v,i)=>{ const inp=document.createElement('input'); inp.value=(+v.toFixed(3)); inp.oninput=()=>{ params.kernel[i]=parseFloat(inp.value)||0; runActive(); }; grid.appendChild(inp); });
+  return grid;
+}
+function rebuildKernel(){ const w=document.querySelector('[data-kernel]'); if(w){ w.innerHTML='<label>kernel</label>'; w.appendChild(kernelGrid()); } }
+function paramButton(id){
+  if(id==='loadB') $('fileB').click();
+  else if(id==='basis') showDctBasis();
+  else if(id==='reset') {}
+}
+function runActive(){
+  if(!active || active.custom) return;
+  const im=activeImage(); if(!im){ $('results').innerHTML='<div class="hint">Drop an image to begin.</div>'; return; }
+  let res; try{ res=active.run(im, params); }catch(e){ console.error(e); $('results').innerHTML='<div class="hint">Error: '+e.message+'</div>'; return; }
+  $('tExplain').innerHTML = (res.explain||'') + (res.formula?`<br><span class="formula">${res.formula}</span>`:'');
+  const R=$('results'); R.innerHTML='';
+  (res.outputs||[]).forEach(o=>{ const card=document.createElement('div'); card.className='rcard'+(o.wide?' wide':'');
+    const cap=document.createElement('div'); cap.className='cap'; cap.textContent=o.cap; card.appendChild(cap);
+    o.canvas.style.imageRendering = (o.canvas.width<160)?'pixelated':'auto'; card.appendChild(o.canvas); R.appendChild(card); });
+}
+function showDctBasis(){
+  const B=dctBasis(), R=$('results'); R.innerHTML='';
+  const card=document.createElement('div'); card.className='rcard wide'; card.innerHTML='<div class="cap">8×8 DCT basis (top-left = DC, high frequency toward bottom-right)</div>';
+  const c=document.createElement('canvas'); c.width=8*17; c.height=8*17; const ctx=c.getContext('2d'); c.style.imageRendering='pixelated'; c.style.width='260px';
+  B.forEach((b,k)=>{ const gy=Math.floor(k/8), gx=k%8; let lo=Infinity,hi=-Infinity; for(const v of b){if(v<lo)lo=v;if(v>hi)hi=v;}
+    for(let y=0;y<8;y++)for(let x=0;x<8;x++){ const t=(b[y*8+x]-lo)/(hi-lo+1e-9); ctx.fillStyle=`rgb(${t*255|0},${t*255|0},${t*255|0})`; ctx.fillRect(gx*17+x*2, gy*17+y*2, 2,2); } });
+  card.appendChild(c); R.appendChild(card);
+}
+
+/* ── PS5 computation graph: f = sigmoid(w0·x0 + w1/x1 − w2·x2 + w3) ── */
+const GRAPH_INPUTS={x0:1,x1:2,x2:-1,w0:2,w1:-3,w2:1,w3:2};
+function renderGraph(){
+  $('tExplain').innerHTML='A scalar computation graph (PS5.1). Set the inputs; the forward pass computes each node, and backprop walks the chain rule backward to get every gradient. Values are <b>black</b>, gradients are <span style="color:#c0392b">red</span>.';
+  const box=$('params'); box.innerHTML='';
+  Object.keys(GRAPH_INPUTS).forEach(k=>{ const wrap=document.createElement('div'); wrap.className='param';
+    wrap.innerHTML=`<label>${k}: <b class="pv">${GRAPH_INPUTS[k]}</b></label>`;
+    const inp=document.createElement('input'); inp.type='range'; inp.min=-4;inp.max=4;inp.step=0.5;inp.value=GRAPH_INPUTS[k];
+    inp.oninput=()=>{ GRAPH_INPUTS[k]=parseFloat(inp.value); wrap.querySelector('.pv').textContent=inp.value; drawGraph(); };
+    wrap.appendChild(inp); box.appendChild(wrap);
+  });
+  drawGraph();
+}
+function drawGraph(){
+  const {x0,x1,x2,w0,w1,w2,w3}=GRAPH_INPUTS;
+  // forward
+  const t1=w0*x0, t2=1/x1, t3=w1*t2, t4=w2*x2, t5=t1+t3, t6=t5-t4, t7=t6+w3, s=1/(1+Math.exp(-t7));
+  // backward (dL/d node), L=s
+  const dt7=s*(1-s), dt6=dt7, dw3=dt7, dt5=dt6, dt4=-dt6, dt1=dt5, dt3=dt5;
+  const dw0=dt1*x0, dx0=dt1*w0, dw2=dt4*x2, dx2=dt4*w2, dw1=dt3*t2, dt2=dt3*w1, dx1=dt2*(-1/(x1*x1));
+  const nodes=[
+    {n:'w0',v:w0,g:dw0,x:60,y:40},{n:'x0',v:x0,g:dx0,x:60,y:90},
+    {n:'w1',v:w1,g:dw1,x:60,y:150},{n:'x1',v:x1,g:dx1,x:60,y:200},
+    {n:'w2',v:w2,g:dw2,x:60,y:270},{n:'x2',v:x2,g:dx2,x:60,y:320},
+    {n:'w3',v:w3,g:dw3,x:60,y:380},
+    {n:'·',v:t1,g:dt1,x:210,y:65},{n:'1/x',v:t2,g:dt2,x:210,y:200},{n:'·',v:t3,g:dt3,x:340,y:175},
+    {n:'·',v:t4,g:dt4,x:210,y:295},
+    {n:'+',v:t5,g:dt5,x:460,y:120},{n:'−',v:t6,g:dt6,x:560,y:200},{n:'+',v:t7,g:dt7,x:660,y:280},
+    {n:'σ',v:s,g:1,x:770,y:340}
+  ];
+  const edges=[[0,7],[1,7],[3,8],[2,9],[8,9],[4,10],[5,10],[7,11],[9,11],[11,12],[10,12],[12,13],[6,13],[13,14]];
+  let svg=`<svg id="graphSvg" width="860" height="440" viewBox="0 0 860 440">`;
+  edges.forEach(([a,b])=>{ svg+=`<line x1="${nodes[a].x+22}" y1="${nodes[a].y}" x2="${nodes[b].x-22}" y2="${nodes[b].y}" stroke="rgba(140,127,112,.5)" stroke-width="1.2"/>`; });
+  nodes.forEach(nd=>{ svg+=`<g class="gnode"><circle cx="${nd.x}" cy="${nd.y}" r="20" fill="var(--surface)" stroke="var(--line-strong)"/>`+
+    `<text x="${nd.x}" y="${nd.y-24}" text-anchor="middle" fill="var(--dim)">${nd.n}</text>`+
+    `<text x="${nd.x}" y="${nd.y+2}" text-anchor="middle" fill="var(--fg)">${nd.v.toFixed(2)}</text>`+
+    `<text x="${nd.x}" y="${nd.y+34}" text-anchor="middle" fill="#c0392b">${nd.g.toFixed(2)}</text></g>`; });
+  svg+=`</svg>`;
+  $('graphWrap').innerHTML='<div class="rcard wide"><div class="cap">f = σ(w₀·x₀ + w₁/x₁ − w₂·x₂ + w₃)</div>'+svg+'</div>';
+  $('results').innerHTML='';
+}
+
+/* ── source canvas + selection + draggable quad ─────────────────────── */
+function drawSource(){
+  if(!SRC) return;
+  const c=$('srcCanvas'); c.width=SRC.w; c.height=SRC.h; const ctx=c.getContext('2d'); ctx.putImageData(SRC.rgb,0,0);
+  if(active && active.interactive==='quad' && window.__quad){
+    const q=window.__quad.map(p=>[p[0]*SRC.w, p[1]*SRC.h]);
+    ctx.strokeStyle='#ccf73f'; ctx.lineWidth=2; ctx.beginPath(); q.forEach((p,i)=>i?ctx.lineTo(p[0],p[1]):ctx.moveTo(p[0],p[1])); ctx.closePath(); ctx.stroke();
+    ctx.fillStyle='#ccf73f'; q.forEach(p=>{ctx.beginPath();ctx.arc(p[0],p[1],5,0,7);ctx.fill();});
+  }
+}
+// map client coords to source-pixel coords
+function evtToSrc(e){ const c=$('srcCanvas'), r=c.getBoundingClientRect(); return [ (e.clientX-r.left)/r.width*SRC.w, (e.clientY-r.top)/r.height*SRC.h ]; }
+let drag=null;
+$('srcCanvas').addEventListener('pointerdown', e=>{ if(!SRC)return; const [x,y]=evtToSrc(e);
+  if(active&&active.interactive==='quad'&&window.__quad){ // grab nearest corner
+    let best=-1,bd=1e9; window.__quad.forEach((p,i)=>{const dx=p[0]*SRC.w-x,dy=p[1]*SRC.h-y,d=dx*dx+dy*dy;if(d<bd){bd=d;best=i;}}); if(bd<400){ drag={type:'quad',i:best}; e.target.setPointerCapture(e.pointerId); return; } }
+  drag={type:'sel',x0:x,y0:y}; e.target.setPointerCapture(e.pointerId);
+});
+$('srcCanvas').addEventListener('pointermove', e=>{ if(!drag||!SRC)return; const [x,y]=evtToSrc(e);
+  if(drag.type==='quad'){ window.__quad[drag.i]=[Math.max(0,Math.min(1,x/SRC.w)), Math.max(0,Math.min(1,y/SRC.h))]; drawSource(); }
+  else { const sx=Math.min(drag.x0,x),sy=Math.min(drag.y0,y),sw=Math.abs(x-drag.x0),sh=Math.abs(y-drag.y0); selection={x:Math.round(sx),y:Math.round(sy),w:Math.round(sw),h:Math.round(sh)}; showSelBox(); }
+});
+$('srcCanvas').addEventListener('pointerup', ()=>{ if(!drag)return; const wasQuad=drag.type==='quad'; drag=null;
+  if(wasQuad){ runActive(); } else if(selection&&selection.w>4&&selection.h>4){ $('useSel').disabled=false; $('clearSel').disabled=false; if(useSelection)runActive(); } });
+function showSelBox(){ if(!selection)return; const c=$('srcCanvas'), r=c.getBoundingClientRect(), dr=$('drop').getBoundingClientRect(); const box=$('selBox');
+  box.style.display='block'; const sx=r.width/SRC.w, sy=r.height/SRC.h;
+  box.style.left=(r.left-dr.left+selection.x*sx)+'px'; box.style.top=(r.top-dr.top+selection.y*sy)+'px';
+  box.style.width=(selection.w*sx)+'px'; box.style.height=(selection.h*sy)+'px';
+}
+$('useSel').onclick=()=>{ useSelection=!useSelection; $('useSel').textContent='Region: '+(useSelection?'on':'off'); $('useSel').classList.toggle('on',useSelection); runActive(); };
+$('clearSel').onclick=()=>{ selection=null; useSelection=false; $('selBox').style.display='none'; $('useSel').textContent='Region: off'; $('useSel').classList.remove('on'); $('useSel').disabled=true; $('clearSel').disabled=true; runActive(); };
+
+/* ── image input ────────────────────────────────────────────────────── */
+function loadMain(src){ const img=new Image(); img.onload=()=>{ SRC=imageToWork(img); selection=null;useSelection=false;$('selBox').style.display='none';$('useSel').disabled=true;$('clearSel').disabled=true;$('reset').disabled=false;
+  $('drop').classList.add('has-img'); $('dims').textContent='working size '+SRC.w+'×'+SRC.h+' px (downscaled for speed)';
+  if(!active) selectTech(T[1]); else { drawSource(); if(active.custom)renderGraph(); else runActive(); } };
+  img.onerror=()=>{$('dims').textContent='Could not read image.';}; img.src=src; }
+function loadB(src){ const img=new Image(); img.onload=()=>{ SRC_B=imageToWork(img); if(active&&active.id==='blend')runActive(); }; img.src=src; }
+function handleFile(f, cb){ if(!f||!f.type.startsWith('image/'))return; const r=new FileReader(); r.onload=e=>cb(e.target.result); r.readAsDataURL(f); }
+
+const drop=$('drop');
+drop.addEventListener('click',e=>{ if(!drop.classList.contains('has-img'))$('file').click(); });
+$('file').addEventListener('change',e=>handleFile(e.target.files[0], loadMain));
+$('fileB').addEventListener('change',e=>handleFile(e.target.files[0], loadB));
+$('reset').onclick=()=>{ SRC=null; drop.classList.remove('has-img'); $('dims').textContent=''; $('reset').disabled=true; $('results').innerHTML=''; $('tTitle').textContent='Pick a technique'; };
+['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();if(ev==='dragleave'&&drop.contains(e.relatedTarget))return;drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f)handleFile(f, loadMain); });
+window.addEventListener('paste',e=>{ for(const it of e.clipboardData.items){ if(it.type.startsWith('image/')){ handleFile(it.getAsFile(), loadMain); return; } } });
+
+buildMenu();
+</script>
+</body>
+</html>

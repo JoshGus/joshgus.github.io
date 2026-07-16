@@ -273,6 +273,31 @@ const WORDHUNT_SVG = `<svg viewBox="0 0 200 120" style="width:82%;max-width:200p
   </g>
 </svg>`;
 
+const CVLAB_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- source pixel grid (left) -->
+  <g>
+    <rect x="14" y="24" width="72" height="72" rx="3" fill="#0e120a" stroke="rgba(255,255,255,.10)" stroke-width="1"/>
+    <rect x="14" y="24" width="18" height="18" fill="#2b3418"/><rect x="32" y="24" width="18" height="18" fill="#48541f"/><rect x="50" y="24" width="18" height="18" fill="#6e7d2c"/><rect x="68" y="24" width="18" height="18" fill="#8f9f3a"/>
+    <rect x="14" y="42" width="18" height="18" fill="#3a4419"/><rect x="32" y="42" width="18" height="18" fill="#5c6a25"/><rect x="50" y="42" width="18" height="18" fill="#8f9f3a"/><rect x="68" y="42" width="18" height="18" fill="#b4c64a"/>
+    <rect x="14" y="60" width="18" height="18" fill="#242c14"/><rect x="32" y="60" width="18" height="18" fill="#3a4419"/><rect x="50" y="60" width="18" height="18" fill="#5c6a25"/><rect x="68" y="60" width="18" height="18" fill="#8f9f3a"/>
+    <rect x="14" y="78" width="18" height="18" fill="#1a2010"/><rect x="32" y="78" width="18" height="18" fill="#2b3418"/><rect x="50" y="78" width="18" height="18" fill="#3a4419"/><rect x="68" y="78" width="18" height="18" fill="#5c6a25"/>
+    <!-- 3x3 kernel window -->
+    <rect x="31" y="41" width="38" height="38" fill="none" stroke="#ccf73f" stroke-width="2" rx="2"/>
+  </g>
+  <!-- convolution arrow -->
+  <path d="M96 60 h20" stroke="#ccf73f" stroke-width="2" stroke-linecap="round"/>
+  <path d="M111 55 l6 5 -6 5" fill="none" stroke="#ccf73f" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="106" y="52" fill="rgba(200,215,150,.7)" font-family="monospace" font-size="9" text-anchor="middle">∗k</text>
+  <!-- edge-map output (right) -->
+  <g>
+    <rect x="128" y="24" width="58" height="72" rx="3" fill="#180b2a" stroke="rgba(255,255,255,.10)" stroke-width="1"/>
+    <path d="M138 88 L150 40 L162 66 L176 32" stroke="#4be0c0" stroke-width="2.5" fill="none" stroke-linejoin="round" stroke-linecap="round"/>
+    <path d="M138 92 L152 74 L168 84 L178 60" stroke="#5b8def" stroke-width="1.6" fill="none" stroke-linejoin="round" stroke-linecap="round" opacity=".8"/>
+    <circle cx="150" cy="40" r="2.5" fill="#ccf73f"/>
+    <circle cx="176" cy="32" r="2.5" fill="#ccf73f"/>
+  </g>
+</svg>`;
+
 export const CARDS = [
   {
     id: 'pool',
@@ -398,6 +423,20 @@ export const CARDS = [
     category: 'component',
     credit: 'Paintings & images from <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>',
     ctaFull: 'Open',
+    ctaShort: 'Open'
+  },
+  {
+    id: 'cv-lab',
+    type: 'game',
+    title: 'CV Lab',
+    descShort: 'Run classic computer-vision algorithms on your own image, step by step.',
+    descFull: 'An interactive computer-vision playground built from my EECS 442 problem sets — every algorithm hand-written in plain JS so you can see the math. Drop in an image and step through 2D convolution with a live kernel editor, gradient edges, Gaussian/Laplacian pyramids and blending, the 2D Fourier transform with low/high-pass filtering, JPEG-style DCT compression, HOG, Harris corners, homography warps, and a backprop computation graph. Optional draw-a-box region. Everything runs locally in your browser.',
+    href: 'cv-lab.html',
+    thumbBg: 'linear-gradient(160deg,#0c0f08,#141c0a)',
+    thumbSvg: CVLAB_SVG,
+    stack: ['Canvas', 'FFT', 'JS'],
+    category: 'component',
+    ctaFull: 'Open lab',
     ctaShort: 'Open'
   },
   {
