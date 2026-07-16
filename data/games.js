@@ -337,6 +337,7 @@ export const CARDS = [
     href: 'darts.html',
     thumbBg: '#121210',
     thumbSvg: DARTS_SVG,
+    thumbImg: 'thumbnails/dartcover.jpeg',
     stack: ['MediaPipe', 'Canvas', 'JS'],
     ctaFull: 'Play',
     ctaShort: 'Play',
