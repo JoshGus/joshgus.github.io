@@ -167,6 +167,8 @@
   .sc-thumb{position:relative;aspect-ratio:16/9;overflow:hidden;display:grid;place-items:center}
   .thumb-img{width:100%;height:100%;object-fit:cover;display:block;transform:scale(1.4);transition:transform .55s cubic-bezier(.2,.7,.3,1)}
   a.sc-card:hover .thumb-img,a.game:hover .thumb-img{transform:scale(1.12)}
+  .thumb-img[src*="golfcover"]{transform:scale(1.08)}
+  a.sc-card:hover .thumb-img[src*="golfcover"],a.game:hover .thumb-img[src*="golfcover"]{transform:scale(1)}
   .game-thumb.has-img{padding:0!important;height:170px;display:block;overflow:hidden}
   .sc-body{padding:18px 20px;flex:1;display:flex;flex-direction:column;gap:7px}
   .sc-body h3{font-family:var(--disp);font-weight:520;font-size:clamp(1.3rem,2vw,1.7rem);letter-spacing:-.02em;line-height:1;font-variation-settings:"opsz" 40;transition:color .3s}
