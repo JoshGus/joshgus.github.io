@@ -308,7 +308,7 @@ export const CARDS = [
     href: 'pool.html',
     thumbBg: 'linear-gradient(160deg,#0a120e,#123a24)',
     thumbSvg: POOL_SVG,
-    thumbImg: 'poolcover.jpeg',
+    thumbImg: 'thumbnails/poolcover.jpeg',
     stack: ['Canvas', 'Physics', 'JS'],
     ctaFull: "Play today's rack",
     ctaShort: 'Play',
@@ -323,6 +323,7 @@ export const CARDS = [
     href: 'minigolf.html',
     thumbBg: 'linear-gradient(160deg,#111e11,#1e3c1a)',
     thumbSvg: GOLF_SVG,
+    thumbImg: 'thumbnails/golfcover.jpeg',
     stack: ['Canvas', 'JS'],
     ctaFull: "Play today's course",
     ctaShort: 'Play'
