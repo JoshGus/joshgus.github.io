@@ -83,7 +83,10 @@ html.dark .explain code,html.dark .formula{background:rgba(237,227,216,.08)}
 /* results */
 .results{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:18px}
 .rcard{display:flex;flex-direction:column;gap:8px}
-.rcard .cap{font-family:var(--mono);font-size:.64rem;letter-spacing:.04em;color:var(--dim)}
+.rcard .cap{display:flex;justify-content:space-between;align-items:center;gap:8px;font-family:var(--mono);font-size:.64rem;letter-spacing:.04em;color:var(--dim)}
+.rcard .cap .apply{font-size:.54rem;padding:3px 9px;letter-spacing:.08em;border-radius:20px;flex:none;opacity:.55}
+.rcard:hover .cap .apply{opacity:1}
+#editStatus{font-family:var(--mono);font-size:.6rem;letter-spacing:.05em;color:var(--accent-ink)}
 .rcard canvas{width:100%;height:auto;background:#0e0d0b;border:1px solid var(--line);border-radius:8px;image-rendering:pixelated}
 .rcard.wide{grid-column:1/-1;max-width:520px}
 
@@ -112,7 +115,8 @@ html.dark .explain code,html.dark .formula{background:rgba(237,227,216,.08)}
     <p>An interactive computer-vision bench &mdash; the classic operations, run by hand with the math on screen.
        Drop an image, pick a technique, turn the knobs, and watch every intermediate step. Convolution, gradients &amp;
        edges, Gaussian/Laplacian pyramids, the 2D Fourier transform, JPEG-style DCT, HOG, Harris corners, homographies,
-       and a backprop computation graph. Everything runs locally in your browser.</p>
+       and a backprop computation graph. <b>Chain them like layers</b> &mdash; hit <em>Edit this &rarr;</em> on any result to make it
+       the new working image and run the next operation on top. Everything runs locally in your browser.</p>
   </div>
 
   <div class="layout">
@@ -132,6 +136,11 @@ html.dark .explain code,html.dark .formula{background:rgba(237,227,216,.08)}
         <button id="useSel" disabled>Region: off</button>
         <button id="clearSel" disabled>Clear</button>
         <button id="reset" disabled>New image</button>
+      </div>
+      <div class="ctl-row">
+        <button id="undo" disabled>Undo</button>
+        <button id="revert" disabled>Revert to original</button>
+        <span id="editStatus"></span>
       </div>
       <div class="hint" id="dims"></div>
 
@@ -225,10 +234,58 @@ function grayCanvas(g, {cmap='gray', norm='clamp01'}={}){
     else { r=gg=b=t*255; }
     const p=i*4; img.data[p]=r;img.data[p+1]=gg;img.data[p+2]=b;img.data[p+3]=255;
   }
-  ctx.putImageData(img,0,0); return c;
+  ctx.putImageData(img,0,0);
+  c.__field=g; c.__norm=norm;   // remember the underlying field so this result can become a new working image
+  return c;
 }
-function rgbCanvas(imageData){ const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;c.getContext('2d').putImageData(imageData,0,0);return c; }
+function rgbCanvas(imageData){ const c=document.createElement('canvas');c.width=imageData.width;c.height=imageData.height;c.getContext('2d').putImageData(imageData,0,0); c.__rgb=imageData; return c; }
 function cloneRGB(im){ const o=new ImageData(im.width,im.height); o.data.set(im.data); return o; }
+
+/* ── pipeline: any result can become the new working image ─────────── */
+let HISTORY = [];           // stack of previous SRC snapshots (undo)
+let ORIGINAL = null;        // first loaded image (revert target)
+// render a Float32 field to a *grayscale* ImageData using its display normalization
+function fieldToImageData(g, norm){
+  const c=grayCanvas(g,{cmap:'gray',norm}); return c.getContext('2d').getImageData(0,0,c.width,c.height);
+}
+function rgbToWork(imageData){ const rgb=cloneRGB(imageData); return {rgb, gray:toGray(rgb), w:imageData.width, h:imageData.height}; }
+function blit(dst, src, ox, oy){ // paste src ImageData into dst at (ox,oy)
+  for(let y=0;y<src.height;y++)for(let x=0;x<src.width;x++){
+    const dx=ox+x, dy=oy+y; if(dx<0||dy<0||dx>=dst.width||dy>=dst.height)continue;
+    const s=(y*src.width+x)*4, d=(dy*dst.width+dx)*4;
+    dst.data[d]=src.data[s];dst.data[d+1]=src.data[s+1];dst.data[d+2]=src.data[s+2];dst.data[d+3]=255;
+  }
+}
+// commit a result (grayscale field or RGB ImageData, at active-image size) as the new working image
+function applyCanvas(cv){
+  let result;
+  if(cv.__rgb) result=cv.__rgb;
+  else if(cv.__field) result=fieldToImageData(cv.__field, cv.__norm);
+  else return;
+  HISTORY.push(SRC);
+  let base;
+  if(useSelection && selection && result.width===selection.w && result.height===selection.h){
+    base=cloneRGB(SRC.rgb); blit(base, result, selection.x, selection.y);   // composite back into the region
+  } else {
+    base=cloneRGB(result);                                                  // replace the whole image
+  }
+  SRC=rgbToWork(base);
+  selection=null; useSelection=false; $('selBox').style.display='none';
+  $('useSel').textContent='Region: off'; $('useSel').classList.remove('on'); $('useSel').disabled=true; $('clearSel').disabled=true;
+  afterWorkChange();
+}
+function afterWorkChange(){
+  $('dims').textContent='working size '+SRC.w+'×'+SRC.h+' px'+(HISTORY.length?' · edited':' (downscaled for speed)');
+  $('editStatus').textContent = HISTORY.length ? ('● '+HISTORY.length+' step'+(HISTORY.length>1?'s':'')) : '';
+  $('undo').disabled = HISTORY.length===0;
+  $('revert').disabled = HISTORY.length===0;
+  window.__quad = (active && active.interactive==='quad')? [[0.15,0.2],[0.85,0.15],[0.9,0.85],[0.1,0.8]] : window.__quad;
+  drawSource();
+  if(active){ if(active.custom)renderGraph(); else runActive(); }
+}
+$('undo').onclick=()=>{ if(!HISTORY.length)return; SRC=HISTORY.pop(); resetSelUI(); afterWorkChange(); };
+$('revert').onclick=()=>{ if(!ORIGINAL)return; SRC=ORIGINAL; HISTORY=[]; resetSelUI(); afterWorkChange(); };
+function resetSelUI(){ selection=null; useSelection=false; $('selBox').style.display='none'; $('useSel').textContent='Region: off'; $('useSel').classList.remove('on'); $('useSel').disabled=true; $('clearSel').disabled=true; }
 
 /* ── core CV operations ───────────────────────────────────────────── */
 // 2D convolution (flip kernel, zero-pad, slide) — matches the PS1 convolve()
@@ -697,8 +754,17 @@ function runActive(){
   $('tExplain').innerHTML = (res.explain||'') + (res.formula?`<br><span class="formula">${res.formula}</span>`:'');
   const R=$('results'); R.innerHTML='';
   (res.outputs||[]).forEach(o=>{ const card=document.createElement('div'); card.className='rcard'+(o.wide?' wide':'');
-    const cap=document.createElement('div'); cap.className='cap'; cap.textContent=o.cap; card.appendChild(cap);
-    o.canvas.style.imageRendering = (o.canvas.width<160)?'pixelated':'auto'; card.appendChild(o.canvas); R.appendChild(card); });
+    const cap=document.createElement('div'); cap.className='cap';
+    const label=document.createElement('span'); label.textContent=o.cap; cap.appendChild(label);
+    const cv=o.canvas;
+    if(cv.__rgb || cv.__field){
+      const ab=document.createElement('button'); ab.className='apply'; ab.textContent='Edit this →';
+      ab.title='Make this the working image and keep editing';
+      ab.onclick=ev=>{ ev.stopPropagation(); applyCanvas(cv); };
+      cap.appendChild(ab);
+    }
+    card.appendChild(cap);
+    cv.style.imageRendering = (cv.width<160)?'pixelated':'auto'; card.appendChild(cv); R.appendChild(card); });
 }
 function showDctBasis(){
   const B=dctBasis(), R=$('results'); R.innerHTML='';
@@ -784,7 +850,7 @@ $('useSel').onclick=()=>{ useSelection=!useSelection; $('useSel').textContent='R
 $('clearSel').onclick=()=>{ selection=null; useSelection=false; $('selBox').style.display='none'; $('useSel').textContent='Region: off'; $('useSel').classList.remove('on'); $('useSel').disabled=true; $('clearSel').disabled=true; runActive(); };
 
 /* ── image input ────────────────────────────────────────────────────── */
-function loadMain(src){ const img=new Image(); img.onload=()=>{ SRC=imageToWork(img); selection=null;useSelection=false;$('selBox').style.display='none';$('useSel').disabled=true;$('clearSel').disabled=true;$('reset').disabled=false;
+function loadMain(src){ const img=new Image(); img.onload=()=>{ SRC=imageToWork(img); ORIGINAL=SRC; HISTORY=[]; selection=null;useSelection=false;$('selBox').style.display='none';$('useSel').disabled=true;$('clearSel').disabled=true;$('reset').disabled=false;$('undo').disabled=true;$('revert').disabled=true;$('editStatus').textContent='';
   $('drop').classList.add('has-img'); $('dims').textContent='working size '+SRC.w+'×'+SRC.h+' px (downscaled for speed)';
   if(!active) selectTech(T[1]); else { drawSource(); if(active.custom)renderGraph(); else runActive(); } };
   img.onerror=()=>{$('dims').textContent='Could not read image.';}; img.src=src; }
@@ -795,7 +861,7 @@ const drop=$('drop');
 drop.addEventListener('click',e=>{ if(!drop.classList.contains('has-img'))$('file').click(); });
 $('file').addEventListener('change',e=>handleFile(e.target.files[0], loadMain));
 $('fileB').addEventListener('change',e=>handleFile(e.target.files[0], loadB));
-$('reset').onclick=()=>{ SRC=null; drop.classList.remove('has-img'); $('dims').textContent=''; $('reset').disabled=true; $('results').innerHTML=''; $('tTitle').textContent='Pick a technique'; };
+$('reset').onclick=()=>{ SRC=null; ORIGINAL=null; HISTORY=[]; drop.classList.remove('has-img'); $('dims').textContent=''; $('reset').disabled=true; $('undo').disabled=true; $('revert').disabled=true; $('editStatus').textContent=''; $('results').innerHTML=''; $('tTitle').textContent='Pick a technique'; };
 ['dragenter','dragover'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add('over');}));
 ['dragleave','drop'].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();if(ev==='dragleave'&&drop.contains(e.relatedTarget))return;drop.classList.remove('over');}));
 drop.addEventListener('drop',e=>{ const f=e.dataTransfer.files[0]; if(f)handleFile(f, loadMain); });
