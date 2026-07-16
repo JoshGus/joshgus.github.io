@@ -450,7 +450,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button class="diff-btn" id="menu-btn" title="Back to operation setup">☰ Menu</button>
     <button id="help-btn" title="How to play">?</button>
-    <span id="version-badge">v0.22.0</span>
+    <span id="version-badge">v0.22.1</span>
   </div>
   <canvas id="canvas" style="cursor:crosshair"></canvas>
   <div id="zoom-wrap">
@@ -556,7 +556,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
     <h2>Frontline — How to play</h2>
-    <div class="help-ver" id="help-ver">v0.22.0</div>
+    <div class="help-ver" id="help-ver">v0.22.1</div>
     <div class="help-grid">
       <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty — or watch an all-bot match as a spectator.</dd></dl>
       <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies — no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> (or its row in the left panel) to inspect anyone's gold, research, queues, army and live brain state.</dd></dl>
@@ -586,7 +586,7 @@ const BASE_MAX_HP=500;
 const BASE_RANGE=155,BASE_DMG=20,BASE_RATE=.7;
 const MINE_RATE_BASE=10, CARRY_BASE=50;
 const MINE_PROFIT_MAX=3, MINE_PROFIT_BASE=120;
-const VERSION='v0.22.0';
+const VERSION='v0.22.1';
 
 // ── map styles (biomes) — palettes + decor flavour ─────────────────────────────
 const MAP_STYLES={
@@ -1724,10 +1724,11 @@ function fireAt(fx,fy,shooter,dmg,range,tx,ty,opts={}){
     ltx+=Math.cos(ang)*sc;lty+=Math.sin(ang)*sc;
   }
   const dx=ltx-fx,dy=lty-fy,d=Math.hypot(dx,dy);if(d<1)return;
-  const angle=Math.atan2(dy,dx);
+  let angle=Math.atan2(dy,dx);
+  if(opts.jitter)angle+=(Math.random()-0.5)*opts.jitter; // firing on the move → aim wobble (arced shots use scatter instead)
   const spd=opts.speed||projSpeed(sp);
   const maxD=opts.toDest?d:range*1.35;
-  const proj={x:fx,y:fy,vx:dx/d*spd,vy:dy/d*spd,dmg,team:shooter.team,owner:shooter.owner,maxDist:maxD,traveled:0,
+  const proj={x:fx,y:fy,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,dmg,team:shooter.team,owner:shooter.owner,maxDist:maxD,traveled:0,
     aoe:opts.aoe||0,cone:opts.cone||false,angle,
     passWalls:opts.passWalls||false,arc:opts.arc||false,airOnly:opts.airOnly||false};
   if(opts.toDest)proj.landX=ltx,proj.landY=lty;
@@ -2957,9 +2958,11 @@ function update(dt){
           } else if(!stuck){u.waypoints=[];}
         }
       }
-      // combat
+      // combat — firing on the move costs accuracy (aim wobble) and a little reach
       u.shotCd-=dt;
-      const effRange=u.type==='mortar'&&u.entrenched?u.range*1.6:u.range;
+      const moving=!u.isBuilding&&u.waypoints.length>0&&u.type!=='mortar';
+      const moveJit=moving?0.12:0;      // radians of aim wobble
+      const effRange=(u.type==='mortar'&&u.entrenched?u.range*1.6:u.range)*(moving?0.9:1);
       const effDmg=u.type==='mortar'&&u.entrenched?u.dmg*1.4:u.dmg;
       const mortarBusy=u.type==='mortar'&&(u.entrenching||u.waypoints.length>0);
       const losOK=(ft)=>!(TDEFS[u.type]?.los)||canSeeLine(u.x,u.y,ft.x,ft.y);
@@ -2979,13 +2982,13 @@ function update(dt){
         const useArc=isLob;
         const useToDest=isLob;
         if(td?.spread){
-          const cnt=u.type==='flamer'?4:5,ang=u.type==='flamer'?0.18:0.13;
+          const cnt=u.type==='flamer'?4:5,ang=(u.type==='flamer'?0.18:0.13)*(moving?1.6:1);
           fireSpread(u.x,u.y,u,Math.round(effDmg/3),effRange,tgt.x,tgt.y,cnt,ang,{passWalls:passW,arc:useArc});
         } else if(useAoe){
-          const scatter=u.type==='mortar'?28:0;
-          fireAt(u.x,u.y,u,effDmg,effRange,tgt.x,tgt.y,{aoe:useAoe,cone:td.cone||false,speed:projSpeed(uOwner),passWalls:passW,arc:useArc,toDest:useToDest,scatter});
+          const scatter=(u.type==='mortar'?28:0)+(moving?20:0); // moving lobbers scatter their landing
+          fireAt(u.x,u.y,u,effDmg,effRange,tgt.x,tgt.y,{aoe:useAoe,cone:td.cone||false,speed:projSpeed(uOwner),passWalls:passW,arc:useArc,toDest:useToDest,scatter,jitter:moveJit});
         } else {
-          fireAt(u.x,u.y,u,effDmg,effRange,tgt.x,tgt.y,{speed:projSpeed(uOwner),passWalls:passW,arc:useArc});
+          fireAt(u.x,u.y,u,effDmg,effRange,tgt.x,tgt.y,{speed:projSpeed(uOwner),passWalls:passW,arc:useArc,jitter:moveJit});
         }
         u.shotCd=1/u.rate;
       }
