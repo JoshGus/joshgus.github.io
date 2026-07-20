@@ -792,6 +792,8 @@ if (gamesList) {
     var ctx=canvas.getContext('2d');
     function resize(){canvas.width=canvas.offsetWidth||1;canvas.height=canvas.offsetHeight||1;}
     new ResizeObserver(resize).observe(canvas); resize();
+    var _vis=true;   // pause rendering whenever the hero is scrolled out of view
+    try{ new IntersectionObserver(function(e){ _vis=e[0].isIntersecting; },{threshold:0}).observe(canvas); }catch(_e){}
 
     var CLOUD='dgxn8tymb';
     // Curated pool — strong silhouettes / edges + rich tonal gradients.
@@ -873,14 +875,18 @@ if (gamesList) {
     function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=8+F.lum[ci]*22;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
     function seed(){
       var area=canvas.width*canvas.height;
-      N=Math.max(200,Math.min(520,Math.round(area/2200))); inkN=Math.round(N*0.5);
+      N=Math.max(80,Math.min(200,Math.round(area/6000))); inkN=Math.round(N*0.5);
       updTf(); parts=[];
       for(var i=0;i<N;i++){var p={ink:i<inkN};(p.ink?spawnInk:spawnShade)(p);parts.push(p);}
     }
 
-    var TARGET_FPS=30, FRAME_MS=1000/TARGET_FPS, _lastT=-1e9;  // cap render rate regardless of display refresh
+    var TARGET_FPS=60, FRAME_MS=1000/TARGET_FPS, _lastT=-1e9;  // cap render rate regardless of display refresh
+    var SETTLE_FRAMES=600, _renders=0, _running=false;         // draw the sketch in, then freeze ⇒ zero ongoing cost
+    function ensureLoop(){ if(_running||reduced) return; _running=true; _lastT=-1e9; requestAnimationFrame(frame); }
     function frame(ts){
+      if(_renders>=SETTLE_FRAMES){ _running=false; return; }   // settled: stop the loop entirely (resketch restarts it)
       requestAnimationFrame(frame);
+      if(!_vis) return;                     // hero off-screen ⇒ idle
       if(ts===undefined) ts=performance.now();
       if(ts-_lastT<FRAME_MS) return;        // throttle: skip rAF slots faster than the target rate
       _lastT=ts;
@@ -888,7 +894,7 @@ if (gamesList) {
       if(!parts.length) seed(); updTf();
       var dark=isDark();
       ctx.globalCompositeOperation='destination-out';
-      ctx.fillStyle='rgba(0,0,0,'+(dark?.017:.019)+')';   // fade lowered with the particle count so density holds while doing less per-frame work
+      ctx.fillStyle='rgba(0,0,0,'+(dark?.0063:.007)+')';   // fade lowered with the particle count so density holds while doing less per-frame work
       ctx.fillRect(0,0,w,h);
       ctx.globalCompositeOperation='source-over';
       ctx.lineCap='round';
@@ -918,6 +924,7 @@ if (gamesList) {
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         }
       }
+      _renders++;
     }
     function staticRender(){ // prefers-reduced-motion: one painterly pass, no animation
       updTf();
@@ -954,14 +961,14 @@ if (gamesList) {
 
     var srcImg=document.getElementById('srcImg'), srcCap=document.getElementById('srcCap');
     function loadPhoto(id){
-      PHOTO=id; F=null; parts=[]; everBuilt=false;
+      PHOTO=id; F=null; parts=[]; everBuilt=false; _renders=0;
       if(canvas.width&&canvas.height) ctx.clearRect(0,0,canvas.width,canvas.height);
       var _id=id.indexOf('/')>=0?id:'portfolio/'+id;         // pool stores bare ids; manifest ids carry the portfolio/ folder
       var url='https://res.cloudinary.com/'+CLOUD+'/image/upload/w_720,f_auto,q_auto/'+_id;
       if(srcImg) srcImg.src=url;                             // the peek tab shows the same (cached) image
       if(srcCap) srcCap.textContent=TITLES[_id]||'';
       var img=new Image(); img.crossOrigin='anonymous';
-      img.onload=function(){ buildField(img); everBuilt=true; if(reduced) staticRender(); };
+      img.onload=function(){ buildField(img); everBuilt=true; if(reduced) staticRender(); else ensureLoop(); };
       img.onerror=function(){ if(!everBuilt && !reduced) fallback(); };
       img.src=url;
     }
@@ -977,7 +984,7 @@ if (gamesList) {
     });
 
     // Defer the whole effect until the browser is idle so it never competes with first paint.
-    function start(){ if(!reduced) requestAnimationFrame(frame); loadPhoto(_h?_h[1]:randomId()); }
+    function start(){ loadPhoto(_h?_h[1]:randomId()); }   // ensureLoop() kicks in once the field is built
     if('requestIdleCallback' in window) requestIdleCallback(start,{timeout:1500}); else setTimeout(start,300);
   }();
 
