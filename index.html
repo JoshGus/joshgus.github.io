@@ -752,7 +752,14 @@ if (gamesList) {
   }
   function isDark(){return document.documentElement.classList.contains('dark');}
 
-  /* ── LEFT: Flow-field particles ───────────────────────────────────────── */
+  /* ── LEFT: Photo-traced flow field ────────────────────────────────────────
+     A random photo from the pool is edge-detected live in the browser (no
+     precompute). Two pen populations draw over it:
+       • ink tracers — slow, hard, dark strokes that follow the edge tangents
+         (the "pencil lines" marking contours);
+       • shading strokes — faster, colour sampled from the photo, spawned with
+         density proportional to how DARK the area is, so shadows fill in with
+         tight clustered paths and highlights stay sparse. */
   !function(){
     var canvas=document.getElementById('intro-art');
     if(!canvas) return;
@@ -760,17 +767,24 @@ if (gamesList) {
     function resize(){canvas.width=canvas.offsetWidth||1;canvas.height=canvas.offsetHeight||1;}
     new ResizeObserver(resize).observe(canvas); resize();
 
-    /* Warm earth palette — [hue, sat-L, sat-D, lit-L, lit-D, weight].
-       Light-mode hues sit near the tan bg (~30) so accumulated strokes read amber,
-       not pink; the two heavy colors were red-orange (14/22) and cast a pink veil. */
-    var PAL=[[30,38,52,40,56,.38],[26,40,60,44,58,.22],[40,52,70,48,60,.18],[80,32,42,37,54,.16],[72,88,92,38,64,.06]];
-    var CW=[],_a=0;
-    for(var k=0;k<PAL.length;k++){_a+=PAL[k][5];CW[k]=_a;}
-    function pickC(){var r=Math.random();for(var k=0;k<CW.length;k++) if(r<CW[k]) return k;return 4;}
-
-    var N=300,SC=0.003,SP=0.9,parts=[];
-    function spawn(){return{x:Math.random()*canvas.width,y:Math.random()*canvas.height,life:Math.random()*180,max:110+Math.random()*200,ci:pickC()};}
-    for(var i=0;i<N;i++) parts.push(spawn());
+    var CLOUD='dgxn8tymb';
+    // Curated pool — strong silhouettes / edges + rich tonal gradients.
+    var POOL=[
+      '0E76AF80-DA23-4DE1-B69B-49C3A198CEB2_1_105_c_aj7ffs', // Power Lines Against Sunset Sky
+      '20960E61-79F8-4F20-96E7-48B8BCB04436_1_105_c_kjqqui', // Sunset Over Dune
+      '0E477AA1-1272-434B-96C5-BCFBC62E9987_1_105_c_ewcatx', // Bird in Night Sky
+      '3204E044-0872-4686-82E0-EF43558F3E7E_1_105_c_dzqwgf', // Bus Stop at Night
+      '70A11174-878A-4E0A-B9C5-EB5D6D43D980_1_105_c_hneaza', // Flying Bird
+      '73A53CC6-50A5-4071-9618-E4D474FD9509_1_105_c_bclbl5', // Empty Bus Station
+      'D646B43E-3D9C-467E-9A2D-14CED01B017E_1_105_c_lido9n', // Sunset over Condo Buildings
+      'EC495C36-82DA-4F76-9C04-146F462C551E_1_105_c_qqbkjp', // Bird in Flight
+      '2BA45A66-FBA3-4573-8468-6097DD818848_1_105_c_tyx3gc', // Knight and Horse Statue
+      '6563C3E5-8F19-4ECF-A35F-03B4BD4FC193_1_105_c_fcwthc', // Old Car on Roadside
+      '072AB311-01D2-46E6-89DB-BD5F8435C467_1_105_c_xfhf7q', // Squirrel on Tree
+      '010AAC32-6084-4B6B-BA3F-26CE373DE098_1_105_c_jx3zq1'  // Cloudy Sunset
+    ];
+    var _h=(location.hash||'').match(/photo=([\w\-\/.]+)/);        // #photo=<id> to pin one
+    var PHOTO=_h?_h[1]:POOL[Math.floor(Math.random()*POOL.length)];
 
     /* Mouse — listen on .intro parent; canvas has pointer-events:none */
     var mx=-9999,my=-9999,MR=115,MF=2.6;
@@ -779,38 +793,123 @@ if (gamesList) {
       intro.addEventListener('mousemove',function(e){var r=canvas.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top;});
       intro.addEventListener('mouseleave',function(){mx=-9999;my=-9999;});
     }
+    function repel(p){var dx=p.x-mx,dy=p.y-my,d2=dx*dx+dy*dy;if(d2<MR*MR&&d2>0.01){var d=Math.sqrt(d2),f=(1-d/MR)*MF;p.x+=(dx/d*.78-dy/d*.22)*f;p.y+=(dy/d*.78+dx/d*.22)*f;}}
 
-    var t=0;
+    /* ── field, computed live via Sobel once the photo loads ── */
+    var F=null, edgeCum=null, shadeCum=null, edgeTot=0, shadeTot=0;
+    var HANG=0.6, HC=Math.cos(HANG), HS=Math.sin(HANG); // hatch angle for flat areas
+    function buildField(img){
+      var FL=200, ar=img.width/img.height;
+      var fw=ar>=1?FL:Math.round(FL*ar), fh=ar>=1?Math.round(FL/ar):FL;
+      var oc=document.createElement('canvas'); oc.width=fw; oc.height=fh;
+      var octx=oc.getContext('2d',{willReadFrequently:true});
+      octx.drawImage(img,0,0,fw,fh);
+      var d=octx.getImageData(0,0,fw,fh).data, n=fw*fh;
+      var r=new Uint8Array(n),g=new Uint8Array(n),b=new Uint8Array(n),lum=new Float32Array(n);
+      for(var i=0,pp=0;i<n;i++,pp+=4){r[i]=d[pp];g[i]=d[pp+1];b[i]=d[pp+2];lum[i]=(0.299*d[pp]+0.587*d[pp+1]+0.114*d[pp+2])/255;}
+      var tx=new Float32Array(n),ty=new Float32Array(n),mag=new Float32Array(n),maxm=1e-6;
+      for(var y=1;y<fh-1;y++)for(var x=1;x<fw-1;x++){
+        var o=y*fw+x;
+        var gx=(lum[o-fw+1]+2*lum[o+1]+lum[o+fw+1])-(lum[o-fw-1]+2*lum[o-1]+lum[o+fw-1]);
+        var gy=(lum[o+fw-1]+2*lum[o+fw]+lum[o+fw+1])-(lum[o-fw-1]+2*lum[o-fw]+lum[o-fw+1]);
+        var m=Math.sqrt(gx*gx+gy*gy); mag[o]=m; if(m>maxm)maxm=m;
+        var gl=m||1; tx[o]=-gy/gl; ty[o]=gx/gl;          // tangent = perpendicular to gradient
+      }
+      edgeCum=new Float32Array(n); shadeCum=new Float32Array(n); var ce=0,cs=0;
+      for(var j=0;j<n;j++){
+        mag[j]/=maxm;
+        var mw=mag[j]>0.2?Math.pow(mag[j],3):0;          // edge spawn weight — bias hard onto real contours
+        var dw=Math.pow(1-lum[j],1.7)+0.02;              // shade spawn weight ∝ darkness
+        ce+=mw; cs+=dw; edgeCum[j]=ce; shadeCum[j]=cs;
+      }
+      edgeTot=ce; shadeTot=cs;
+      F={fw:fw,fh:fh,r:r,g:g,b:b,lum:lum,tx:tx,ty:ty,mag:mag,n:n};
+    }
+    function pick(cum,tot){ // binary search a cumulative-weight array
+      var lo=0,hi=cum.length-1,r=Math.random()*tot;
+      while(lo<hi){var mid=(lo+hi)>>1; if(cum[mid]<r)lo=mid+1; else hi=mid;} return lo;
+    }
+    // cover-fit transform (recomputed each frame)
+    var ts=1,tox=0,toy=0;
+    function updTf(){var s=Math.max(canvas.width/F.fw,canvas.height/F.fh);ts=s;tox=(canvas.width-F.fw*s)/2;toy=(canvas.height-F.fh*s)/2;}
+    function cellAt(x,y){var fx=((x-tox)/ts)|0,fy=((y-toy)/ts)|0;if(fx<0||fy<0||fx>=F.fw||fy>=F.fh)return -1;return fy*F.fw+fx;}
+    function cx(ci){return tox+((ci%F.fw)+0.5)*ts;}
+    function cy(ci){return toy+(((ci/F.fw)|0)+0.5)*ts;}
+
+    var parts=[],N=0,inkN=0;
+    var SP_INK=0.85, SP_SHADE=2.0;
+    function spawnInk(p){var ci=pick(edgeCum,edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=80+Math.random()*160;p.stray=0;return p;}
+    function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=8+F.lum[ci]*22;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
+    function seed(){
+      var area=canvas.width*canvas.height;
+      N=Math.max(320,Math.min(800,Math.round(area/1400))); inkN=Math.round(N*0.5);
+      updTf(); parts=[];
+      for(var i=0;i<N;i++){var p={ink:i<inkN};(p.ink?spawnInk:spawnShade)(p);parts.push(p);}
+    }
+
     function frame(){
       requestAnimationFrame(frame);
-      t+=0.00055;
-      var w=canvas.width,h=canvas.height;
-      if(!w||!h) return;
+      var w=canvas.width,h=canvas.height; if(!w||!h||!F) return;
+      if(!parts.length) seed(); updTf();
       var dark=isDark();
-      // Fade trails toward TRANSPARENT (not an opaque bg colour) so the page's tan
-      // shows straight through and no colour can accumulate into a panel-wide tint.
       ctx.globalCompositeOperation='destination-out';
-      ctx.fillStyle='rgba(0,0,0,'+(dark?.05:.06)+')';
+      ctx.fillStyle='rgba(0,0,0,'+(dark?.019:.021)+')';   // fade tuned so retraced edges stay dark but the field reads as a light sketch under the text
       ctx.fillRect(0,0,w,h);
       ctx.globalCompositeOperation='source-over';
-      ctx.lineWidth=1;
+      ctx.lineCap='round';
       for(var i=0;i<parts.length;i++){
         var p=parts[i];
-        if(p.life>=p.max||p.x<-30||p.x>w+30||p.y<-30||p.y>h+30){parts[i]=spawn();continue;}
-        var n=pnoise(p.x*SC,p.y*SC+t)+pnoise(p.x*SC*2+4,p.y*SC*2+t*1.5)*.38;
-        var ang=n*Math.PI*3.6,px=p.x,py=p.y;
-        p.x+=Math.cos(ang)*SP; p.y+=Math.sin(ang)*SP;
-        var dx=p.x-mx,dy=p.y-my,d2=dx*dx+dy*dy;
-        if(d2<MR*MR&&d2>0.01){var d=Math.sqrt(d2),f=(1-d/MR)*MF;p.x+=(dx/d*.78-dy/d*.22)*f;p.y+=(dy/d*.78+dx/d*.22)*f;}
-        p.life++;
-        var a=Math.sin(p.life/p.max*Math.PI)*(dark?.34:.20);
-        var c=PAL[p.ci];
-        ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);
-        ctx.strokeStyle='hsla('+c[0]+','+(dark?c[2]:c[1])+'%,'+(dark?c[4]:c[3])+'%,'+a+')';
-        ctx.stroke();
+        if(p.life>=p.max||p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){(p.ink?spawnInk:spawnShade)(p);continue;}
+        var ci=cellAt(p.x,p.y); if(ci<0){(p.ink?spawnInk:spawnShade)(p);continue;}
+        var m=F.mag[ci],px=p.x,py=p.y;
+        if(p.ink){
+          if(m<0.05){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
+          var ax=F.tx[ci],ay=F.ty[ci];
+          if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}      // keep heading consistent along the contour
+          p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; repel(p); p.life++;
+          var a=(dark?0.34:0.3)*(0.4+0.6*m);
+          ctx.lineWidth=1.2;
+          ctx.strokeStyle=dark?'rgba(233,223,207,'+a+')':'rgba(34,24,16,'+a+')';
+          ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
+        } else {
+          var dx,dy;
+          if(m>0.03){dx=F.tx[ci];dy=F.ty[ci];} else {dx=HC;dy=HS;} // flat areas hatch at a set angle
+          var j=pnoise(p.x*0.012,p.y*0.012)*0.7, cj=Math.cos(j),sj=Math.sin(j); // slight per-path variation
+          var rx=dx*cj-dy*sj, ry=dx*sj+dy*cj;
+          p.x+=rx*SP_SHADE; p.y+=ry*SP_SHADE; repel(p); p.life++;
+          var sa=dark?0.075:0.06;
+          ctx.lineWidth=1;
+          ctx.strokeStyle='rgba('+F.r[ci]+','+F.g[ci]+','+F.b[ci]+','+sa+')';
+          ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
+        }
       }
     }
-    if(!window.matchMedia('(prefers-reduced-motion:reduce)').matches) frame();
+    function staticRender(){ // prefers-reduced-motion: one painterly pass, no animation
+      updTf();
+      for(var ci=0;ci<F.n;ci++){
+        var lum=F.lum[ci],m=F.mag[ci],X=cx(ci),Y=cy(ci);
+        if(Math.random()<Math.pow(1-lum,1.7)*0.8){var dx=m>0.03?F.tx[ci]:HC,dy=m>0.03?F.ty[ci]:HS,L=ts*1.6;
+          ctx.strokeStyle='rgba('+F.r[ci]+','+F.g[ci]+','+F.b[ci]+',0.5)';ctx.beginPath();ctx.moveTo(X,Y);ctx.lineTo(X+dx*L,Y+dy*L);ctx.stroke();}
+        if(m>0.18){var L2=ts*2;ctx.strokeStyle='rgba(38,28,19,0.7)';ctx.beginPath();ctx.moveTo(X-F.tx[ci]*L2,Y-F.ty[ci]*L2);ctx.lineTo(X+F.tx[ci]*L2,Y+F.ty[ci]*L2);ctx.stroke();}
+      }
+    }
+    function fallback(){ // photo failed to load — quiet perlin ink so the panel isn't dead
+      var t=0,fp=[];for(var i=0;i<160;i++)fp.push({x:Math.random()*canvas.width,y:Math.random()*canvas.height,l:Math.random()*200,m:120+Math.random()*180});
+      (function fr(){requestAnimationFrame(fr);var w=canvas.width,h=canvas.height;if(!w||!h)return;t+=0.0006;var dark=isDark();
+        ctx.globalCompositeOperation='destination-out';ctx.fillStyle='rgba(0,0,0,.06)';ctx.fillRect(0,0,w,h);ctx.globalCompositeOperation='source-over';
+        for(var i=0;i<fp.length;i++){var p=fp[i];if(p.l>=p.m||p.x<0||p.x>w||p.y<0||p.y>h){fp[i]={x:Math.random()*w,y:Math.random()*h,l:0,m:120+Math.random()*180};continue;}
+          var n=pnoise(p.x*0.003,p.y*0.003+t),a=n*Math.PI*3.6,px=p.x,py=p.y;p.x+=Math.cos(a)*.9;p.y+=Math.sin(a)*.9;repel(p);p.l++;
+          ctx.strokeStyle=dark?'rgba(233,223,207,.18)':'rgba(40,29,20,.14)';ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();}
+      })();
+    }
+
+    var img=new Image(); img.crossOrigin='anonymous';
+    img.onload=function(){ buildField(img);
+      if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) staticRender(); else frame();
+    };
+    img.onerror=function(){ if(!window.matchMedia('(prefers-reduced-motion:reduce)').matches) fallback(); };
+    var _id=PHOTO.indexOf('/')>=0?PHOTO:'portfolio/'+PHOTO;   // pool stores bare ids; manifest ids carry the portfolio/ folder
+    img.src='https://res.cloudinary.com/'+CLOUD+'/image/upload/w_720,f_auto,q_auto/'+_id;
   }();
 
 
