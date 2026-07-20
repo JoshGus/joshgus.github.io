@@ -245,6 +245,12 @@
 
   /* ---------- generative art background (left panel) ---------- */
   #intro-art{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+  #resketch{position:absolute;left:clamp(28px,4vw,64px);bottom:22px;z-index:3;
+    font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
+    padding:7px 13px;border:1px solid var(--line-strong);border-radius:20px;background:var(--surface);
+    color:var(--dim);cursor:pointer;pointer-events:auto;transition:border-color .2s,color .2s;opacity:.72}
+  #resketch:hover{border-color:var(--accent-ink);color:var(--accent-ink);opacity:1}
+  @media(min-width:1601px){ #resketch{left:calc(clamp(28px,4vw,64px) + (100vw - 1600px) / 2)} }
   .intro-inner{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;flex:1;min-width:0;min-height:0;}
 
   /* ---------- custom scrollbar (wide screens only) ---------- */
@@ -337,6 +343,7 @@
       </div>
     </div>
     </div><!-- /.intro-inner -->
+    <button id="resketch" type="button" aria-label="Sketch a different photo" title="Sketch a different photo">&#8635; resketch</button>
   </aside>
 
   <!-- ================= CONTENT (scrolling right) ================= -->
@@ -806,7 +813,12 @@ if (gamesList) {
       octx.drawImage(img,0,0,fw,fh);
       var d=octx.getImageData(0,0,fw,fh).data, n=fw*fh;
       var r=new Uint8Array(n),g=new Uint8Array(n),b=new Uint8Array(n),lum=new Float32Array(n);
-      for(var i=0,pp=0;i<n;i++,pp+=4){r[i]=d[pp];g[i]=d[pp+1];b[i]=d[pp+2];lum[i]=(0.299*d[pp]+0.587*d[pp+1]+0.114*d[pp+2])/255;}
+      var SAT=1.7, cl=function(v){return v<0?0:v>255?255:v|0;};   // push sampled colours away from grey ⇒ more intense
+      for(var i=0,pp=0;i<n;i++,pp+=4){
+        var R=d[pp],G=d[pp+1],Bb=d[pp+2],gy=(R+G+Bb)/3;
+        r[i]=cl(gy+(R-gy)*SAT); g[i]=cl(gy+(G-gy)*SAT); b[i]=cl(gy+(Bb-gy)*SAT);
+        lum[i]=(0.299*R+0.587*G+0.114*Bb)/255;
+      }
       var tx=new Float32Array(n),ty=new Float32Array(n),mag=new Float32Array(n),maxm=1e-6;
       for(var y=1;y<fh-1;y++)for(var x=1;x<fw-1;x++){
         var o=y*fw+x;
@@ -853,7 +865,7 @@ if (gamesList) {
       if(!parts.length) seed(); updTf();
       var dark=isDark();
       ctx.globalCompositeOperation='destination-out';
-      ctx.fillStyle='rgba(0,0,0,'+(dark?.019:.021)+')';   // fade tuned so retraced edges stay dark but the field reads as a light sketch under the text
+      ctx.fillStyle='rgba(0,0,0,'+(dark?.022:.025)+')';   // fade tuned so the sketch stays light enough to read text over
       ctx.fillRect(0,0,w,h);
       ctx.globalCompositeOperation='source-over';
       ctx.lineCap='round';
@@ -867,7 +879,7 @@ if (gamesList) {
           var ax=F.tx[ci],ay=F.ty[ci];
           if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}      // keep heading consistent along the contour
           p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; repel(p); p.life++;
-          var a=(dark?0.34:0.3)*(0.4+0.6*m);
+          var a=(dark?0.26:0.22)*(0.4+0.6*m);
           ctx.lineWidth=1.2;
           ctx.strokeStyle=dark?'rgba(233,223,207,'+a+')':'rgba(34,24,16,'+a+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
@@ -877,7 +889,7 @@ if (gamesList) {
           var j=pnoise(p.x*0.012,p.y*0.012)*0.7, cj=Math.cos(j),sj=Math.sin(j); // slight per-path variation
           var rx=dx*cj-dy*sj, ry=dx*sj+dy*cj;
           p.x+=rx*SP_SHADE; p.y+=ry*SP_SHADE; repel(p); p.life++;
-          var sa=dark?0.075:0.06;
+          var sa=dark?0.07:0.055;
           ctx.lineWidth=1;
           ctx.strokeStyle='rgba('+F.r[ci]+','+F.g[ci]+','+F.b[ci]+','+sa+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
@@ -903,13 +915,28 @@ if (gamesList) {
       })();
     }
 
-    var img=new Image(); img.crossOrigin='anonymous';
-    img.onload=function(){ buildField(img);
-      if(window.matchMedia('(prefers-reduced-motion:reduce)').matches) staticRender(); else frame();
-    };
-    img.onerror=function(){ if(!window.matchMedia('(prefers-reduced-motion:reduce)').matches) fallback(); };
-    var _id=PHOTO.indexOf('/')>=0?PHOTO:'portfolio/'+PHOTO;   // pool stores bare ids; manifest ids carry the portfolio/ folder
-    img.src='https://res.cloudinary.com/'+CLOUD+'/image/upload/w_720,f_auto,q_auto/'+_id;
+    var reduced=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
+    var ALL=null, everBuilt=false;
+    // Load the full photo manifest so "resketch" can pull ANY photo, not just the pool.
+    // First sketch uses the built-in pool so it starts instantly without waiting on this.
+    fetch('data/photos-web.json').then(function(r){return r.json();}).then(function(a){ ALL=a.map(function(x){return x.id;}); }).catch(function(){});
+    function randomId(){ var src=(ALL&&ALL.length)?ALL:POOL; return src[Math.floor(Math.random()*src.length)]; }
+
+    function loadPhoto(id){
+      PHOTO=id; F=null; parts=[]; everBuilt=false;
+      if(canvas.width&&canvas.height) ctx.clearRect(0,0,canvas.width,canvas.height);
+      var _id=id.indexOf('/')>=0?id:'portfolio/'+id;         // pool stores bare ids; manifest ids carry the portfolio/ folder
+      var img=new Image(); img.crossOrigin='anonymous';
+      img.onload=function(){ buildField(img); everBuilt=true; if(reduced) staticRender(); };
+      img.onerror=function(){ if(!everBuilt && !reduced) fallback(); };
+      img.src='https://res.cloudinary.com/'+CLOUD+'/image/upload/w_720,f_auto,q_auto/'+_id;
+    }
+
+    var btn=document.getElementById('resketch');
+    if(btn) btn.addEventListener('click',function(){ loadPhoto(randomId()); });
+
+    if(!reduced) frame();            // frame loop runs continuously, idling until a field is built
+    loadPhoto(_h?_h[1]:randomId());
   }();
 
 
