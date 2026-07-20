@@ -834,7 +834,7 @@ if (gamesList) {
       octx.drawImage(img,0,0,fw,fh);
       var d=octx.getImageData(0,0,fw,fh).data, n=fw*fh;
       var r=new Uint8Array(n),g=new Uint8Array(n),b=new Uint8Array(n),lum=new Float32Array(n);
-      var SAT=1.7, cl=function(v){return v<0?0:v>255?255:v|0;};   // push sampled colours away from grey ⇒ more intense
+      var SAT=2.1, cl=function(v){return v<0?0:v>255?255:v|0;};   // push sampled colours away from grey ⇒ more intense
       for(var i=0,pp=0;i<n;i++,pp+=4){
         var R=d[pp],G=d[pp+1],Bb=d[pp+2],gy=(R+G+Bb)/3;
         r[i]=cl(gy+(R-gy)*SAT); g[i]=cl(gy+(G-gy)*SAT); b[i]=cl(gy+(Bb-gy)*SAT);
@@ -908,9 +908,12 @@ if (gamesList) {
           var ax=F.tx[ci],ay=F.ty[ci];
           if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}      // keep heading consistent along the contour
           p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; repel(p); p.life++;
-          var a=(dark?0.26:0.22)*(0.4+0.6*m);
+          var a=(dark?0.32:0.28)*(0.4+0.6*m);
+          var er=F.r[ci],eg=F.g[ci],eb=F.b[ci];        // edges take the photo's colour, not grey ink
+          if(dark){er+=(255-er)*0.28;eg+=(255-eg)*0.28;eb+=(255-eb)*0.28;}  // lift on dark bg
+          else{er*=0.55;eg*=0.55;eb*=0.55;}                                 // deepen so the line still reads as inked
           ctx.lineWidth=1.2;
-          ctx.strokeStyle=dark?'rgba(233,223,207,'+a+')':'rgba(34,24,16,'+a+')';
+          ctx.strokeStyle='rgba('+(er|0)+','+(eg|0)+','+(eb|0)+','+a+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         } else {
           var dx,dy;
@@ -932,7 +935,7 @@ if (gamesList) {
         var lum=F.lum[ci],m=F.mag[ci],X=cx(ci),Y=cy(ci);
         if(Math.random()<Math.pow(1-lum,1.7)*0.8){var dx=m>0.03?F.tx[ci]:HC,dy=m>0.03?F.ty[ci]:HS,L=ts*1.6;
           ctx.strokeStyle='rgba('+F.r[ci]+','+F.g[ci]+','+F.b[ci]+',0.5)';ctx.beginPath();ctx.moveTo(X,Y);ctx.lineTo(X+dx*L,Y+dy*L);ctx.stroke();}
-        if(m>0.18){var L2=ts*2;ctx.strokeStyle='rgba(38,28,19,0.7)';ctx.beginPath();ctx.moveTo(X-F.tx[ci]*L2,Y-F.ty[ci]*L2);ctx.lineTo(X+F.tx[ci]*L2,Y+F.ty[ci]*L2);ctx.stroke();}
+        if(m>0.18){var L2=ts*2;ctx.strokeStyle='rgba('+(F.r[ci]*0.55|0)+','+(F.g[ci]*0.55|0)+','+(F.b[ci]*0.55|0)+',0.7)';ctx.beginPath();ctx.moveTo(X-F.tx[ci]*L2,Y-F.ty[ci]*L2);ctx.lineTo(X+F.tx[ci]*L2,Y+F.ty[ci]*L2);ctx.stroke();}
       }
     }
     function fallback(){ // photo failed to load — quiet perlin ink so the panel isn't dead
