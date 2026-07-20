@@ -834,7 +834,7 @@ if (gamesList) {
       octx.drawImage(img,0,0,fw,fh);
       var d=octx.getImageData(0,0,fw,fh).data, n=fw*fh;
       var r=new Uint8Array(n),g=new Uint8Array(n),b=new Uint8Array(n),lum=new Float32Array(n);
-      var SAT=2.1, cl=function(v){return v<0?0:v>255?255:v|0;};   // push sampled colours away from grey ⇒ more intense
+      var SAT=2.7, cl=function(v){return v<0?0:v>255?255:v|0;};   // push sampled colours away from grey ⇒ more intense
       for(var i=0,pp=0;i<n;i++,pp+=4){
         var R=d[pp],G=d[pp+1],Bb=d[pp+2],gy=(R+G+Bb)/3;
         r[i]=cl(gy+(R-gy)*SAT); g[i]=cl(gy+(G-gy)*SAT); b[i]=cl(gy+(Bb-gy)*SAT);
@@ -871,20 +871,22 @@ if (gamesList) {
 
     var parts=[],N=0,inkN=0;
     var SP_INK=0.85, SP_SHADE=2.0;
-    function spawnInk(p){var ci=pick(edgeCum,edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=80+Math.random()*160;p.stray=0;return p;}
-    function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=8+F.lum[ci]*22;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
+    function spawnInk(p){var ci=pick(edgeCum,edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=180+Math.random()*320;p.stray=0;return p;}  // long-lived ⇒ sustained contour lines
+    function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=14+F.lum[ci]*40;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
     function seed(){
       var area=canvas.width*canvas.height;
-      N=Math.max(80,Math.min(200,Math.round(area/6000))); inkN=Math.round(N*0.5);
-      updTf(); parts=[];
+      N=Math.max(180,Math.min(440,Math.round(area/2600))); inkN=Math.round(N*0.5);
+      updTf(); parts=[]; active=N;
       for(var i=0;i<N;i++){var p={ink:i<inkN};(p.ink?spawnInk:spawnShade)(p);parts.push(p);}
     }
 
     var TARGET_FPS=60, FRAME_MS=1000/TARGET_FPS, _lastT=-1e9;  // cap render rate regardless of display refresh
-    var SETTLE_FRAMES=600, _renders=0, _running=false;         // draw the sketch in, then freeze ⇒ zero ongoing cost
+    // Build the sketch with a full population, then once it's reached a degree of finish,
+    // cull the particles down over CULL_FRAMES until the loop stops (resketch repopulates).
+    var FINISH_FRAMES=460, CULL_FRAMES=380, _renders=0, _running=false, active=0;
     function ensureLoop(){ if(_running||reduced) return; _running=true; _lastT=-1e9; requestAnimationFrame(frame); }
     function frame(ts){
-      if(_renders>=SETTLE_FRAMES){ _running=false; return; }   // settled: stop the loop entirely (resketch restarts it)
+      if(!_running) return;
       requestAnimationFrame(frame);
       if(!_vis) return;                     // hero off-screen ⇒ idle
       if(ts===undefined) ts=performance.now();
@@ -893,12 +895,15 @@ if (gamesList) {
       var w=canvas.width,h=canvas.height; if(!w||!h||!F) return;
       if(!parts.length) seed(); updTf();
       var dark=isDark();
-      ctx.globalCompositeOperation='destination-out';
-      ctx.fillStyle='rgba(0,0,0,'+(dark?.0063:.007)+')';   // fade lowered with the particle count so density holds while doing less per-frame work
-      ctx.fillRect(0,0,w,h);
-      ctx.globalCompositeOperation='source-over';
+      if(_renders<=FINISH_FRAMES){          // fade only while building; afterwards the finished image is locked in
+        ctx.globalCompositeOperation='destination-out';
+        ctx.fillStyle='rgba(0,0,0,'+(dark?.011:.012)+')';
+        ctx.fillRect(0,0,w,h);
+        ctx.globalCompositeOperation='source-over';
+      }
       ctx.lineCap='round';
-      for(var i=0;i<parts.length;i++){
+      var na=active|0;
+      for(var i=0;i<na;i++){
         var p=parts[i];
         if(p.life>=p.max||p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){(p.ink?spawnInk:spawnShade)(p);continue;}
         var ci=cellAt(p.x,p.y); if(ci<0){(p.ink?spawnInk:spawnShade)(p);continue;}
@@ -910,8 +915,8 @@ if (gamesList) {
           p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; repel(p); p.life++;
           var a=(dark?0.32:0.28)*(0.4+0.6*m);
           var er=F.r[ci],eg=F.g[ci],eb=F.b[ci];        // edges take the photo's colour, not grey ink
-          if(dark){er+=(255-er)*0.28;eg+=(255-eg)*0.28;eb+=(255-eb)*0.28;}  // lift on dark bg
-          else{er*=0.55;eg*=0.55;eb*=0.55;}                                 // deepen so the line still reads as inked
+          if(dark){er+=(255-er)*0.32;eg+=(255-eg)*0.32;eb+=(255-eb)*0.32;}  // lift on dark bg
+          else{er*=0.68;eg*=0.68;eb*=0.68;}                                 // deepen a touch so the line still reads as inked
           ctx.lineWidth=1.2;
           ctx.strokeStyle='rgba('+(er|0)+','+(eg|0)+','+(eb|0)+','+a+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
@@ -928,6 +933,7 @@ if (gamesList) {
         }
       }
       _renders++;
+      if(_renders>FINISH_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
     }
     function staticRender(){ // prefers-reduced-motion: one painterly pass, no animation
       updTf();
@@ -935,7 +941,7 @@ if (gamesList) {
         var lum=F.lum[ci],m=F.mag[ci],X=cx(ci),Y=cy(ci);
         if(Math.random()<Math.pow(1-lum,1.7)*0.8){var dx=m>0.03?F.tx[ci]:HC,dy=m>0.03?F.ty[ci]:HS,L=ts*1.6;
           ctx.strokeStyle='rgba('+F.r[ci]+','+F.g[ci]+','+F.b[ci]+',0.5)';ctx.beginPath();ctx.moveTo(X,Y);ctx.lineTo(X+dx*L,Y+dy*L);ctx.stroke();}
-        if(m>0.18){var L2=ts*2;ctx.strokeStyle='rgba('+(F.r[ci]*0.55|0)+','+(F.g[ci]*0.55|0)+','+(F.b[ci]*0.55|0)+',0.7)';ctx.beginPath();ctx.moveTo(X-F.tx[ci]*L2,Y-F.ty[ci]*L2);ctx.lineTo(X+F.tx[ci]*L2,Y+F.ty[ci]*L2);ctx.stroke();}
+        if(m>0.18){var L2=ts*2;ctx.strokeStyle='rgba('+(F.r[ci]*0.68|0)+','+(F.g[ci]*0.68|0)+','+(F.b[ci]*0.68|0)+',0.7)';ctx.beginPath();ctx.moveTo(X-F.tx[ci]*L2,Y-F.ty[ci]*L2);ctx.lineTo(X+F.tx[ci]*L2,Y+F.ty[ci]*L2);ctx.stroke();}
       }
     }
     function fallback(){ // photo failed to load — quiet perlin ink so the panel isn't dead
