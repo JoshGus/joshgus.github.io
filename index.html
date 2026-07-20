@@ -873,7 +873,7 @@ if (gamesList) {
     function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=8+F.lum[ci]*22;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
     function seed(){
       var area=canvas.width*canvas.height;
-      N=Math.max(320,Math.min(800,Math.round(area/1400))); inkN=Math.round(N*0.5);
+      N=Math.max(200,Math.min(520,Math.round(area/2200))); inkN=Math.round(N*0.5);
       updTf(); parts=[];
       for(var i=0;i<N;i++){var p={ink:i<inkN};(p.ink?spawnInk:spawnShade)(p);parts.push(p);}
     }
@@ -888,7 +888,7 @@ if (gamesList) {
       if(!parts.length) seed(); updTf();
       var dark=isDark();
       ctx.globalCompositeOperation='destination-out';
-      ctx.fillStyle='rgba(0,0,0,'+(dark?.022:.025)+')';   // fade tuned so the sketch stays light enough to read text over
+      ctx.fillStyle='rgba(0,0,0,'+(dark?.017:.019)+')';   // fade lowered with the particle count so density holds while doing less per-frame work
       ctx.fillRect(0,0,w,h);
       ctx.globalCompositeOperation='source-over';
       ctx.lineCap='round';
