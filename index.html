@@ -245,12 +245,22 @@
 
   /* ---------- generative art background (left panel) ---------- */
   #intro-art{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
-  #resketch{position:absolute;left:clamp(28px,4vw,64px);bottom:22px;z-index:3;
-    font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
+  #srcPeek{position:absolute;left:clamp(28px,4vw,64px);bottom:22px;z-index:3;
+    display:flex;flex-direction:column;gap:10px;align-items:flex-start;pointer-events:none}
+  #srcPeek>*{pointer-events:auto}
+  .src-peek-img{max-height:0;overflow:hidden;opacity:0;transform:translateY(6px);
+    transition:max-height .4s cubic-bezier(.2,.7,.3,1),opacity .3s,transform .4s}
+  #srcPeek.open .src-peek-img{max-height:220px;opacity:1;transform:none}
+  .src-peek-img img{display:block;width:auto;max-width:230px;max-height:170px;
+    border:1px solid var(--line-strong);border-radius:10px;background:var(--surface);box-shadow:0 8px 24px rgba(0,0,0,.16)}
+  .src-peek-cap{display:block;margin-top:6px;font-family:var(--mono);font-size:.56rem;
+    letter-spacing:.08em;color:var(--dim);max-width:230px;line-height:1.5}
+  .src-peek-bar{display:flex;gap:8px}
+  .src-peek-bar button{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
     padding:7px 13px;border:1px solid var(--line-strong);border-radius:20px;background:var(--surface);
-    color:var(--dim);cursor:pointer;pointer-events:auto;transition:border-color .2s,color .2s;opacity:.72}
-  #resketch:hover{border-color:var(--accent-ink);color:var(--accent-ink);opacity:1}
-  @media(min-width:1601px){ #resketch{left:calc(clamp(28px,4vw,64px) + (100vw - 1600px) / 2)} }
+    color:var(--dim);cursor:pointer;transition:border-color .2s,color .2s;opacity:.72}
+  .src-peek-bar button:hover{border-color:var(--accent-ink);color:var(--accent-ink);opacity:1}
+  @media(min-width:1601px){ #srcPeek{left:calc(clamp(28px,4vw,64px) + (100vw - 1600px) / 2)} }
   .intro-inner{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;flex:1;min-width:0;min-height:0;}
 
   /* ---------- custom scrollbar (wide screens only) ---------- */
@@ -343,7 +353,16 @@
       </div>
     </div>
     </div><!-- /.intro-inner -->
-    <button id="resketch" type="button" aria-label="Sketch a different photo" title="Sketch a different photo">&#8635; resketch</button>
+    <div id="srcPeek">
+      <div class="src-peek-img">
+        <img id="srcImg" alt="Source photo currently being sketched">
+        <span class="src-peek-cap" id="srcCap"></span>
+      </div>
+      <div class="src-peek-bar">
+        <button id="srcToggle" type="button" aria-expanded="false" title="Show the source photo">&#9650; source</button>
+        <button id="resketch" type="button" title="Sketch a different photo">&#8635; resketch</button>
+      </div>
+    </div>
   </aside>
 
   <!-- ================= CONTENT (scrolling right) ================= -->
@@ -916,24 +935,37 @@ if (gamesList) {
     }
 
     var reduced=window.matchMedia('(prefers-reduced-motion:reduce)').matches;
-    var ALL=null, everBuilt=false;
+    var ALL=null, TITLES={}, everBuilt=false;
     // Load the full photo manifest so "resketch" can pull ANY photo, not just the pool.
     // First sketch uses the built-in pool so it starts instantly without waiting on this.
-    fetch('data/photos-web.json').then(function(r){return r.json();}).then(function(a){ ALL=a.map(function(x){return x.id;}); }).catch(function(){});
+    fetch('data/photos-web.json').then(function(r){return r.json();}).then(function(a){
+      ALL=a.map(function(x){return x.id;}); a.forEach(function(x){TITLES[x.id]=x.title;});
+      if(srcCap && !srcCap.textContent && PHOTO){ var cur=PHOTO.indexOf('/')>=0?PHOTO:'portfolio/'+PHOTO; srcCap.textContent=TITLES[cur]||''; }
+    }).catch(function(){});
     function randomId(){ var src=(ALL&&ALL.length)?ALL:POOL; return src[Math.floor(Math.random()*src.length)]; }
 
+    var srcImg=document.getElementById('srcImg'), srcCap=document.getElementById('srcCap');
     function loadPhoto(id){
       PHOTO=id; F=null; parts=[]; everBuilt=false;
       if(canvas.width&&canvas.height) ctx.clearRect(0,0,canvas.width,canvas.height);
       var _id=id.indexOf('/')>=0?id:'portfolio/'+id;         // pool stores bare ids; manifest ids carry the portfolio/ folder
+      var url='https://res.cloudinary.com/'+CLOUD+'/image/upload/w_720,f_auto,q_auto/'+_id;
+      if(srcImg) srcImg.src=url;                             // the peek tab shows the same (cached) image
+      if(srcCap) srcCap.textContent=TITLES[_id]||'';
       var img=new Image(); img.crossOrigin='anonymous';
       img.onload=function(){ buildField(img); everBuilt=true; if(reduced) staticRender(); };
       img.onerror=function(){ if(!everBuilt && !reduced) fallback(); };
-      img.src='https://res.cloudinary.com/'+CLOUD+'/image/upload/w_720,f_auto,q_auto/'+_id;
+      img.src=url;
     }
 
     var btn=document.getElementById('resketch');
     if(btn) btn.addEventListener('click',function(){ loadPhoto(randomId()); });
+    var srcToggle=document.getElementById('srcToggle'), srcPeek=document.getElementById('srcPeek');
+    if(srcToggle&&srcPeek) srcToggle.addEventListener('click',function(){
+      var open=srcPeek.classList.toggle('open');
+      srcToggle.setAttribute('aria-expanded', open?'true':'false');
+      srcToggle.innerHTML=(open?'▼':'▲')+' source';
+    });
 
     if(!reduced) frame();            // frame loop runs continuously, idling until a field is built
     loadPhoto(_h?_h[1]:randomId());
