@@ -294,11 +294,11 @@
   /* matte panel wrapping the bio, photo and experience — lifts them off the sketch, warms on hover */
   .intro-inner{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;min-width:0;
     padding:18px 20px;border-radius:12px;   /* no flex:1 — .intro already centres, so this hugs its content */
-    background:rgba(247,236,225,.64);       /* --bg tan; hover deepens it just a touch */
+    background:rgba(247,236,225,.82);       /* --bg tan; art behind is near-full coverage now */
     transition:background .32s ease}
-  .intro-inner:hover{background:rgba(247,236,225,.9)}
-  html.dark .intro-inner{background:rgba(20,18,16,.64)}    /* --bg dark */
-  html.dark .intro-inner:hover{background:rgba(20,18,16,.9)}
+  .intro-inner:hover{background:rgba(247,236,225,.94)}
+  html.dark .intro-inner{background:rgba(20,18,16,.82)}    /* --bg dark */
+  html.dark .intro-inner:hover{background:rgba(20,18,16,.94)}
 
   /* ---------- custom scrollbar (wide screens only) ---------- */
   #sb{display:none}
@@ -950,7 +950,7 @@ if (gamesList) {
         regSize.push(sz); regCol.push(cent[L]);
       }
       // only blocks big enough to be worth washing get fill particles
-      var MINBLK=Math.max(40, n*0.004);
+      var MINBLK=Math.max(6, n*0.0002);
       fillCum=new Float32Array(n); var cfl=0;
       for(var i4=0;i4<n;i4++){ if(regSize[reg[i4]]>=MINBLK) cfl+=1; fillCum[i4]=cfl; }
       fillTot=cfl;
@@ -1009,21 +1009,21 @@ if (gamesList) {
     function spawnInk(p){var re=refining&&subjETot>0,ci=pick(re?subjECum:edgeCum,re?subjETot:edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=re?90+Math.random()*160:180+Math.random()*320;p.stray=0;return p;}
     function spawnShade(p){var re=refining&&subjTot>0,ci=pick(re?subjCum:shadeCum,re?subjTot:shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
     // seeded inside a segmented colour block, and confined to it while it paints
-    function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:110+Math.random()*160;p.w=re?3+Math.random()*5:6+Math.random()*9;return p;}
+    function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:150+Math.random()*200;p.w=re?4+Math.random()*6:10+Math.random()*14;return p;}
     function respawn(p){ return p.kind===0?spawnInk(p):p.kind===1?spawnShade(p):spawnFill(p); }
     function seed(){
       var area=canvas.width*canvas.height;
       N=Math.max(220,Math.min(520,Math.round(area/2200)));
-      var inkN=Math.round(N*0.34), shadeN=Math.round(N*0.30);   // remainder (~36%) are fills
+      var fillN=Math.round(N*0.50), shadeN=Math.round(N*0.24);  // fills first so ink draws over them
       updTf(); parts=[]; active=N;
-      for(var i=0;i<N;i++){var p={kind:i<inkN?0:(i<inkN+shadeN?1:2)};respawn(p);parts.push(p);}
+      for(var i=0;i<N;i++){var p={kind:i<fillN?2:(i<fillN+shadeN?1:0)};respawn(p);parts.push(p);}
     }
 
     var TARGET_FPS=60, FRAME_MS=1000/TARGET_FPS, _lastT=-1e9;  // cap render rate regardless of display refresh
     // Build the sketch with a full population, then once it's reached a degree of finish,
     // cull the particles down over CULL_FRAMES until the loop stops (resketch repopulates).
     // base build → subject refinement pass → cull to a stop
-    var FINISH_FRAMES=460, REFINE_FRAMES=380, CULL_FRAMES=380, _renders=0, _running=false, active=0;
+    var BLOCK_FRAMES=320, LINE_FRAMES=360, REFINE_FRAMES=340, CULL_FRAMES=300, _renders=0, _running=false, active=0;
     function ensureLoop(){ if(_running||reduced) return; _running=true; _lastT=-1e9; requestAnimationFrame(frame); }
     function frame(ts){
       if(!_running) return;
@@ -1034,18 +1034,17 @@ if (gamesList) {
       _lastT=ts;
       var w=canvas.width,h=canvas.height; if(!w||!h||!F) return;
       if(!parts.length) seed(); updTf();
-      refining = subjTot>0 && _renders>FINISH_FRAMES && _renders<=FINISH_FRAMES+REFINE_FRAMES;
+      // 0 = colour blocking, 1 = linework over it, 2 = subject refinement, 3 = settling
+      var phase = _renders<=BLOCK_FRAMES ? 0 : _renders<=BLOCK_FRAMES+LINE_FRAMES ? 1
+                : _renders<=BLOCK_FRAMES+LINE_FRAMES+REFINE_FRAMES ? 2 : 3;
+      refining = subjTot>0 && phase===2;
       var dark=isDark();
-      if(_renders<=FINISH_FRAMES){          // fade only while building; afterwards the finished image is locked in
-        ctx.globalCompositeOperation='destination-out';
-        ctx.fillStyle='rgba(0,0,0,'+(dark?.0045:.005)+')';
-        ctx.fillRect(0,0,w,h);
-        ctx.globalCompositeOperation='source-over';
-      }
-      ctx.lineCap='round';
+      ctx.lineCap='round';                  // no fade — the painting accumulates
       var na=active|0;
       for(var i=0;i<na;i++){
         var p=parts[i];
+        if(phase===0&&p.kind!==2) continue;   // blocking: fills only
+        if(phase===1&&p.kind===2) continue;   // linework: ink + hatch over the blocks
         if(p.life>=p.max||p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){respawn(p);continue;}
         var ci=cellAt(p.x,p.y); if(ci<0){respawn(p);continue;}
         var m=F.mag[ci],px=p.x,py=p.y;
@@ -1090,14 +1089,14 @@ if (gamesList) {
           var fr=fgy+(rc[0]-fgy)*1.05, fgc=fgy+(rc[1]-fgy)*1.05, fbc=fgy+(rc[2]-fgy)*1.05;
           fr=fr<0?0:fr>255?255:fr; fgc=fgc<0?0:fgc>255?255:fgc; fbc=fbc<0?0:fbc>255?255:fbc;
           ctx.lineWidth=p.w;                                       // fat
-          ctx.strokeStyle='rgba('+(fr|0)+','+(fgc|0)+','+(fbc|0)+','+(dark?0.085:0.078)+')';  // and faint
+          ctx.strokeStyle='rgba('+(fr|0)+','+(fgc|0)+','+(fbc|0)+','+(dark?0.17:0.16)+')';  // and faint
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         }
       }
       _renders++;
       // base is down — re-aim every particle at the detected subject for the detail pass
-      if(_renders===FINISH_FRAMES+1 && subjTot>0){ for(var z=0,na2=active|0;z<na2;z++) respawn(parts[z]); }
-      if(_renders>FINISH_FRAMES+REFINE_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
+      if(_renders===BLOCK_FRAMES+1||_renders===BLOCK_FRAMES+LINE_FRAMES+1){ for(var z=0,na2=active|0;z<na2;z++) respawn(parts[z]); }
+      if(_renders>BLOCK_FRAMES+LINE_FRAMES+REFINE_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
     }
     function staticRender(){ // prefers-reduced-motion: one painterly pass, no animation
       updTf();
