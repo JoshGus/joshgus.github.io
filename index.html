@@ -912,15 +912,19 @@ if (gamesList) {
     function cx(ci){return tox+((ci%F.fw)+0.5)*ts;}
     function cy(ci){return toy+(((ci/F.fw)|0)+0.5)*ts;}
 
-    var parts=[],N=0,inkN=0;
-    var SP_INK=1.8, SP_SHADE=3.9;
+    var parts=[],N=0;
+    var SP_INK=1.8, SP_SHADE=3.9, SP_FILL=2.5;
+    // kind: 0 = ink contour, 1 = hatch tick, 2 = broad fill wash
     function spawnInk(p){var ci=pick(edgeCum,edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=180+Math.random()*320;p.stray=0;return p;}  // long-lived ⇒ sustained contour lines
     function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=14+F.lum[ci]*40;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
+    function spawnFill(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts*2;p.y=cy(ci)+(Math.random()-.5)*ts*2;p.life=0;p.max=50+Math.random()*90;p.w=5+Math.random()*8;return p;} // fat, faint washes that lay colour into the regions
+    function respawn(p){ return p.kind===0?spawnInk(p):p.kind===1?spawnShade(p):spawnFill(p); }
     function seed(){
       var area=canvas.width*canvas.height;
-      N=Math.max(180,Math.min(440,Math.round(area/2600))); inkN=Math.round(N*0.5);
+      N=Math.max(220,Math.min(520,Math.round(area/2200)));
+      var inkN=Math.round(N*0.40), shadeN=Math.round(N*0.35);   // remainder (~25%) are fills
       updTf(); parts=[]; active=N;
-      for(var i=0;i<N;i++){var p={ink:i<inkN};(p.ink?spawnInk:spawnShade)(p);parts.push(p);}
+      for(var i=0;i<N;i++){var p={kind:i<inkN?0:(i<inkN+shadeN?1:2)};respawn(p);parts.push(p);}
     }
 
     var TARGET_FPS=60, FRAME_MS=1000/TARGET_FPS, _lastT=-1e9;  // cap render rate regardless of display refresh
@@ -948,10 +952,10 @@ if (gamesList) {
       var na=active|0;
       for(var i=0;i<na;i++){
         var p=parts[i];
-        if(p.life>=p.max||p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){(p.ink?spawnInk:spawnShade)(p);continue;}
-        var ci=cellAt(p.x,p.y); if(ci<0){(p.ink?spawnInk:spawnShade)(p);continue;}
+        if(p.life>=p.max||p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){respawn(p);continue;}
+        var ci=cellAt(p.x,p.y); if(ci<0){respawn(p);continue;}
         var m=F.mag[ci],px=p.x,py=p.y;
-        if(p.ink){
+        if(p.kind===0){
           if(m<0.05){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
           var ax=F.tx[ci],ay=F.ty[ci];
           if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}      // keep heading consistent along the contour
@@ -963,7 +967,7 @@ if (gamesList) {
           ctx.lineWidth=1.2;
           ctx.strokeStyle='rgba('+(er|0)+','+(eg|0)+','+(eb|0)+','+a+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
-        } else {
+        } else if(p.kind===1){
           var dx,dy;
           if(m>0.03){dx=F.tx[ci];dy=F.ty[ci];} else {dx=HC;dy=HS;} // flat areas hatch at a set angle
           var j=pnoise(p.x*0.012,p.y*0.012)*0.7, cj=Math.cos(j),sj=Math.sin(j); // slight per-path variation
@@ -975,6 +979,19 @@ if (gamesList) {
           sr=sr<0?0:sr>255?255:sr;sg=sg<0?0:sg>255?255:sg;sb=sb<0?0:sb>255?255:sb;
           ctx.lineWidth=1;
           ctx.strokeStyle='rgba('+(sr|0)+','+(sg|0)+','+(sb|0)+','+sa+')';
+          ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
+        } else {
+          // broad, very faint wash — lays colour into the regions beneath the linework
+          var bx,by;
+          if(m>0.03){bx=F.tx[ci];by=F.ty[ci];} else {bx=HC;by=HS;}
+          var bj=pnoise(p.x*0.007,p.y*0.007)*1.1, bc=Math.cos(bj), bs=Math.sin(bj);
+          var wx=bx*bc-by*bs, wy=bx*bs+by*bc;
+          p.x+=wx*SP_FILL; p.y+=wy*SP_FILL; repel(p); p.life++;
+          var fr=F.r[ci],fg=F.g[ci],fb=F.b[ci],fgy=(fr+fg+fb)/3;   // same chroma push as the hatching
+          fr=fgy+(fr-fgy)*1.6;fg=fgy+(fg-fgy)*1.6;fb=fgy+(fb-fgy)*1.6;
+          fr=fr<0?0:fr>255?255:fr;fg=fg<0?0:fg>255?255:fg;fb=fb<0?0:fb>255?255:fb;
+          ctx.lineWidth=p.w;                                       // fat
+          ctx.strokeStyle='rgba('+(fr|0)+','+(fg|0)+','+(fb|0)+','+(dark?0.032:0.028)+')';  // and faint
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         }
       }
