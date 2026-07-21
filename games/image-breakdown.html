@@ -241,6 +241,36 @@ function analyse(){
   const sal=new Float32Array(n);
   for(let i=0;i<n;i++) sal[i]=rS[reg[i]]/maxS;
 
+  // 5b. zone in: threshold, then keep only the strongest CONNECTED blob, so scattered
+  //     high-scoring specks elsewhere in the frame don't get treated as subject.
+  const seedMask=new Uint8Array(n);
+  for(let i=0;i<n;i++) seedMask[i]=sal[i]>SUBJ_T?1:0;
+  const lbl=new Int32Array(n).fill(-1), st2=new Int32Array(n);
+  let bestId=-1, bestMass=-1, nb=0;
+  for(let s=0;s<n;s++){
+    if(!seedMask[s]||lbl[s]!==-1) continue;
+    const id=nb++; let sp=0, mass=0; st2[sp++]=s; lbl[s]=id;
+    while(sp){
+      const t=st2[--sp]; mass+=sal[t];
+      const qx=t%fw, qy=(t/fw)|0; let a;
+      if(qx>0){a=t-1;     if(seedMask[a]&&lbl[a]===-1){lbl[a]=id;st2[sp++]=a;}}
+      if(qx<fw-1){a=t+1;  if(seedMask[a]&&lbl[a]===-1){lbl[a]=id;st2[sp++]=a;}}
+      if(qy>0){a=t-fw;    if(seedMask[a]&&lbl[a]===-1){lbl[a]=id;st2[sp++]=a;}}
+      if(qy<fh-1){a=t+fw; if(seedMask[a]&&lbl[a]===-1){lbl[a]=id;st2[sp++]=a;}}
+    }
+    if(mass>bestMass){bestMass=mass;bestId=id;}     // strongest by total saliency, not just area
+  }
+  let subj=new Uint8Array(n);
+  for(let i=0;i<n;i++) if(lbl[i]===bestId) subj[i]=1;
+  for(let d=0;d<2;d++){                              // dilate slightly to take in the subject's outline
+    const nx2=new Uint8Array(subj);
+    for(let y=0;y<fh;y++)for(let x=0;x<fw;x++){
+      const o=y*fw+x; if(subj[o]) continue;
+      if((x>0&&subj[o-1])||(x<fw-1&&subj[o+1])||(y>0&&subj[o-fw])||(y<fh-1&&subj[o+fw])) nx2[o]=1;
+    }
+    subj=nx2;
+  }
+
   // 6. spawn fields
   const MINBLK=Math.max(6,n*0.0002);
   const edgeCum=new Float32Array(n),shadeCum=new Float32Array(n),fillCum=new Float32Array(n),
@@ -250,12 +280,12 @@ function analyse(){
     ce+=mag[i]>0.2?mag[i]**3:0;                    edgeCum[i]=ce;
     cs+=Math.pow(1-lum[i],1.15)+0.22;              shadeCum[i]=cs;
     cf+=regSize[reg[i]]>=MINBLK?1:0;               fillCum[i]=cf;
-    const sw=sal[i]>SUBJ_T?sal[i]*sal[i]:0; if(sw>0)subjPx++;
+    const sw=subj[i]?Math.max(sal[i],0.5)**2:0; if(sw>0)subjPx++;
     c2+=sw;                                        subjCum[i]=c2;
     ce2+=(mag[i]>0.14?mag[i]*mag[i]:0)*sw;         subjECum[i]=ce2;
   }
 
-  F={fw,fh,n,r,g,b,lum,mag,tx,ty,reg,regCol,regSize,sal,K,nreg,SUBJ_T,
+  F={fw,fh,n,r,g,b,lum,mag,tx,ty,reg,regCol,regSize,sal,subj,K,nreg,SUBJ_T,
      edgeCum,shadeCum,fillCum,subjCum,subjECum,
      edgeTot:ce,shadeTot:cs,fillTot:cf,subjTot:c2,subjETot:ce2,
      bigBlocks:regSize.filter(s=>s>=MINBLK).length, subjPx, ms:Math.round(performance.now()-t0)};
@@ -291,7 +321,7 @@ function drawStages(){
   put('s-sal',o=>{for(let i=0;i<n;i++){const c=viridis(F.sal[i]);o[i*4]=c[0];o[i*4+1]=c[1];o[i*4+2]=c[2];o[i*4+3]=255;}});
   // subject mask over a dimmed source
   put('s-subj',o=>{const d=SRC.rgb.data;
-    for(let i=0;i<n;i++){const on=F.sal[i]>F.SUBJ_T;
+    for(let i=0;i<n;i++){const on=F.subj[i];
       o[i*4]  = on? d[i*4]   : 244;
       o[i*4+1]= on? d[i*4+1] : 236;
       o[i*4+2]= on? d[i*4+2] : 225;
@@ -375,7 +405,7 @@ function frame(){
     const m=F.mag[ci],px=p.x,py=p.y;
 
     if(phase>0&&p.kind===0){                 // ink contour
-      if(m<0.05||(refining&&F.sal[ci]<0.35)){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
+      if(m<0.05||(refining&&!F.subj[ci])){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
       let ax=F.tx[ci],ay=F.ty[ci];
       if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}
       p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; p.life++;

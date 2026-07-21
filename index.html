@@ -979,17 +979,46 @@ if (gamesList) {
       }
       var sal=new Float32Array(n);
       for(var i5=0;i5<n;i5++) sal[i5]=rS[reg[i5]]/maxS;
+
+      // zone in: threshold, then keep only the strongest CONNECTED blob, so scattered
+      // high-scoring specks elsewhere in the frame don't get treated as subject.
+      var seedMask=new Uint8Array(n);
+      for(var im2=0;im2<n;im2++) seedMask[im2]=sal[im2]>0.45?1:0;
+      var lbl=new Int32Array(n).fill(-1), st2=new Int32Array(n), bestId=-1, bestMass=-1, nbl=0;
+      for(var sm=0;sm<n;sm++){
+        if(!seedMask[sm]||lbl[sm]!==-1) continue;
+        var id2=nbl++, sp2=0, mass=0; st2[sp2++]=sm; lbl[sm]=id2;
+        while(sp2){
+          var t2=st2[--sp2]; mass+=sal[t2];
+          var qx=t2%fw, qy=(t2/fw)|0, aa;
+          if(qx>0){aa=t2-1;     if(seedMask[aa]&&lbl[aa]===-1){lbl[aa]=id2;st2[sp2++]=aa;}}
+          if(qx<fw-1){aa=t2+1;  if(seedMask[aa]&&lbl[aa]===-1){lbl[aa]=id2;st2[sp2++]=aa;}}
+          if(qy>0){aa=t2-fw;    if(seedMask[aa]&&lbl[aa]===-1){lbl[aa]=id2;st2[sp2++]=aa;}}
+          if(qy<fh-1){aa=t2+fw; if(seedMask[aa]&&lbl[aa]===-1){lbl[aa]=id2;st2[sp2++]=aa;}}
+        }
+        if(mass>bestMass){bestMass=mass;bestId=id2;}
+      }
+      var subj=new Uint8Array(n);
+      for(var is=0;is<n;is++) if(lbl[is]===bestId) subj[is]=1;
+      for(var dd=0;dd<2;dd++){                        // dilate slightly to take in the outline
+        var nx2=new Uint8Array(subj);
+        for(var dy2=0;dy2<fh;dy2++)for(var dx2=0;dx2<fw;dx2++){
+          var o2=dy2*fw+dx2; if(subj[o2]) continue;
+          if((dx2>0&&subj[o2-1])||(dx2<fw-1&&subj[o2+1])||(dy2>0&&subj[o2-fw])||(dy2<fh-1&&subj[o2+fw])) nx2[o2]=1;
+        }
+        subj=nx2;
+      }
       // spawn fields for the refinement pass: the subject, and the subject's edges
       subjCum=new Float32Array(n); subjECum=new Float32Array(n);
       var cs2=0, ce2=0;
       for(var i6=0;i6<n;i6++){
-        var sw=sal[i6]>0.45?sal[i6]*sal[i6]:0;
+        var sw=subj[i6]?Math.pow(Math.max(sal[i6],0.5),2):0;
         cs2+=sw; subjCum[i6]=cs2;
         ce2+=(mag[i6]>0.14?mag[i6]*mag[i6]:0)*sw; subjECum[i6]=ce2;
       }
       subjTot=cs2; subjETot=ce2;
 
-      F={fw:fw,fh:fh,r:r,g:g,b:b,lum:lum,tx:tx,ty:ty,mag:mag,n:n,reg:reg,regCol:regCol,regSize:regSize,minBlk:MINBLK,sal:sal};
+      F={fw:fw,fh:fh,r:r,g:g,b:b,lum:lum,tx:tx,ty:ty,mag:mag,n:n,reg:reg,regCol:regCol,regSize:regSize,minBlk:MINBLK,sal:sal,subj:subj};
     }
     function pick(cum,tot){ // binary search a cumulative-weight array
       var lo=0,hi=cum.length-1,r=Math.random()*tot;
@@ -1070,7 +1099,7 @@ if (gamesList) {
         var m=F.mag[ci],px=p.x,py=p.y;
         if(phase>0&&p.kind===0){
           // while refining, wandering off the subject counts as straying too
-          if(m<0.05||(refining&&F.sal[ci]<0.35)){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
+          if(m<0.05||(refining&&!F.subj[ci])){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
           var ax=F.tx[ci],ay=F.ty[ci];
           if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}      // keep heading consistent along the contour
           p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; repel(p); p.life++;
