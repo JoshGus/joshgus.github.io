@@ -247,6 +247,11 @@
   @media(max-width:920px){
     .layout{grid-template-columns:1fr;max-width:700px}
     .intro{position:relative;height:auto;border-right:none;border-bottom:1px solid var(--line);padding:108px clamp(24px,6vw,40px) 52px}
+    /* stacked: the panel sits above the content, so shade the bottom edge instead of the right */
+    .intro::after{box-shadow:inset 0 15px 24px -15px rgba(29,23,18,.34),
+               inset 0 -15px 24px -15px rgba(29,23,18,.22)}
+    html.dark .intro::after{box-shadow:inset 0 15px 26px -15px rgba(0,0,0,.6),
+               inset 0 -15px 26px -15px rgba(0,0,0,.4)}
     .content{padding:0 clamp(24px,6vw,40px)}
     .sec-head .desc{text-align:left;margin-left:0}
     .sec-head .idx{padding-right:0}
@@ -260,6 +265,13 @@
 
   /* ---------- generative art background (left panel) ---------- */
   #intro-art{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0;}
+  /* inset shadow so the art panel reads as recessed below the navbar and the right column.
+     Sits above the canvas but below .intro-inner (z-index 1) so it never darkens the text. */
+  .intro::after{content:'';position:absolute;inset:0;pointer-events:none;z-index:0;
+    box-shadow:inset 0 15px 24px -15px rgba(29,23,18,.34),
+               inset -15px 0 24px -15px rgba(29,23,18,.24)}
+  html.dark .intro::after{box-shadow:inset 0 15px 26px -15px rgba(0,0,0,.6),
+               inset -15px 0 26px -15px rgba(0,0,0,.45)}
   #srcPeek{position:absolute;left:clamp(28px,4vw,64px);bottom:22px;z-index:3;
     display:flex;flex-direction:column;gap:10px;align-items:flex-start;pointer-events:none}
   #srcPeek>*{pointer-events:auto}
