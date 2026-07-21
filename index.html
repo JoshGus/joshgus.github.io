@@ -886,6 +886,7 @@ if (gamesList) {
 
     /* ── field, computed live via Sobel once the photo loads ── */
     var F=null, edgeCum=null, shadeCum=null, fillCum=null, edgeTot=0, shadeTot=0, fillTot=0;
+    var subjCum=null, subjECum=null, subjTot=0, subjETot=0, refining=false;
     var HANG=0.6, HC=Math.cos(HANG), HS=Math.sin(HANG); // hatch angle for flat areas
     function buildField(img){
       var FL=200, ar=img.width/img.height;
@@ -954,7 +955,41 @@ if (gamesList) {
       for(var i4=0;i4<n;i4++){ if(regSize[reg[i4]]>=MINBLK) cfl+=1; fillCum[i4]=cfl; }
       fillTot=cfl;
 
-      F={fw:fw,fh:fh,r:r,g:g,b:b,lum:lum,tx:tx,ty:ty,mag:mag,n:n,reg:reg,regCol:regCol,regSize:regSize,minBlk:MINBLK};
+      /* ── subject detection (no model): border-contrast + centre prior over the blocks ──
+         Regions that hug the frame edge read as background; ones that are colour-distinct
+         from it, central, compact and detailed read as the subject. Cheap, class-agnostic,
+         and it reuses the segmentation above rather than downloading a network. */
+      var nR=nreg, rB=new Float64Array(nR), rX=new Float64Array(nR), rY=new Float64Array(nR), rE=new Float64Array(nR);
+      for(var yy=0;yy<fh;yy++)for(var xx=0;xx<fw;xx++){
+        var o3=yy*fw+xx, R=reg[o3];
+        rX[R]+=xx; rY[R]+=yy; rE[R]+=mag[o3];
+        if(xx===0||yy===0||xx===fw-1||yy===fh-1) rB[R]++;
+      }
+      var bgR=0; for(var kb=1;kb<nR;kb++) if(rB[kb]>rB[bgR]) bgR=kb;   // most frame contact = background
+      var bgC=regCol[bgR], perim=2*(fw+fh), rS=new Float64Array(nR), maxS=1e-6;
+      for(var R3=0;R3<nR;R3++){
+        var c3=regCol[R3];
+        var dc=Math.sqrt((c3[0]-bgC[0])*(c3[0]-bgC[0])+(c3[1]-bgC[1])*(c3[1]-bgC[1])+(c3[2]-bgC[2])*(c3[2]-bgC[2]))/441;
+        var bf=rB[R3]/perim;
+        var ux=rX[R3]/regSize[R3]/fw-0.5, uy=rY[R3]/regSize[R3]/fh-0.5;
+        var cd=Math.sqrt(ux*ux+uy*uy)/0.7071;
+        var sc=dc*(1-Math.min(1,bf*3))*(1-0.55*cd)+(rE[R3]/regSize[R3])*0.6;
+        if(regSize[R3]<n*0.0006) sc*=0.3;                              // ignore specks
+        rS[R3]=sc; if(sc>maxS) maxS=sc;
+      }
+      var sal=new Float32Array(n);
+      for(var i5=0;i5<n;i5++) sal[i5]=rS[reg[i5]]/maxS;
+      // spawn fields for the refinement pass: the subject, and the subject's edges
+      subjCum=new Float32Array(n); subjECum=new Float32Array(n);
+      var cs2=0, ce2=0;
+      for(var i6=0;i6<n;i6++){
+        var sw=sal[i6]>0.45?sal[i6]*sal[i6]:0;
+        cs2+=sw; subjCum[i6]=cs2;
+        ce2+=(mag[i6]>0.14?mag[i6]*mag[i6]:0)*sw; subjECum[i6]=ce2;
+      }
+      subjTot=cs2; subjETot=ce2;
+
+      F={fw:fw,fh:fh,r:r,g:g,b:b,lum:lum,tx:tx,ty:ty,mag:mag,n:n,reg:reg,regCol:regCol,regSize:regSize,minBlk:MINBLK,sal:sal};
     }
     function pick(cum,tot){ // binary search a cumulative-weight array
       var lo=0,hi=cum.length-1,r=Math.random()*tot;
@@ -970,10 +1005,11 @@ if (gamesList) {
     var parts=[],N=0;
     var SP_INK=1.8, SP_SHADE=3.9, SP_FILL=2.5;
     // kind: 0 = ink contour, 1 = hatch tick, 2 = broad fill wash
-    function spawnInk(p){var ci=pick(edgeCum,edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=180+Math.random()*320;p.stray=0;return p;}  // long-lived ⇒ sustained contour lines
-    function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=14+F.lum[ci]*40;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
+    // While refining, all three kinds re-aim at the detected subject and draw finer marks.
+    function spawnInk(p){var re=refining&&subjETot>0,ci=pick(re?subjECum:edgeCum,re?subjETot:edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=re?90+Math.random()*160:180+Math.random()*320;p.stray=0;return p;}
+    function spawnShade(p){var re=refining&&subjTot>0,ci=pick(re?subjCum:shadeCum,re?subjTot:shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
     // seeded inside a segmented colour block, and confined to it while it paints
-    function spawnFill(p){var ci=fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot);p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=70+Math.random()*130;p.w=5+Math.random()*8;return p;}
+    function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?40+Math.random()*70:70+Math.random()*130;p.w=re?2+Math.random()*4:5+Math.random()*8;return p;}
     function respawn(p){ return p.kind===0?spawnInk(p):p.kind===1?spawnShade(p):spawnFill(p); }
     function seed(){
       var area=canvas.width*canvas.height;
@@ -986,7 +1022,8 @@ if (gamesList) {
     var TARGET_FPS=60, FRAME_MS=1000/TARGET_FPS, _lastT=-1e9;  // cap render rate regardless of display refresh
     // Build the sketch with a full population, then once it's reached a degree of finish,
     // cull the particles down over CULL_FRAMES until the loop stops (resketch repopulates).
-    var FINISH_FRAMES=460, CULL_FRAMES=380, _renders=0, _running=false, active=0;
+    // base build → subject refinement pass → cull to a stop
+    var FINISH_FRAMES=460, REFINE_FRAMES=380, CULL_FRAMES=380, _renders=0, _running=false, active=0;
     function ensureLoop(){ if(_running||reduced) return; _running=true; _lastT=-1e9; requestAnimationFrame(frame); }
     function frame(ts){
       if(!_running) return;
@@ -997,6 +1034,7 @@ if (gamesList) {
       _lastT=ts;
       var w=canvas.width,h=canvas.height; if(!w||!h||!F) return;
       if(!parts.length) seed(); updTf();
+      refining = subjTot>0 && _renders>FINISH_FRAMES && _renders<=FINISH_FRAMES+REFINE_FRAMES;
       var dark=isDark();
       if(_renders<=FINISH_FRAMES){          // fade only while building; afterwards the finished image is locked in
         ctx.globalCompositeOperation='destination-out';
@@ -1012,7 +1050,8 @@ if (gamesList) {
         var ci=cellAt(p.x,p.y); if(ci<0){respawn(p);continue;}
         var m=F.mag[ci],px=p.x,py=p.y;
         if(p.kind===0){
-          if(m<0.05){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
+          // while refining, wandering off the subject counts as straying too
+          if(m<0.05||(refining&&F.sal[ci]<0.35)){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
           var ax=F.tx[ci],ay=F.ty[ci];
           if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}      // keep heading consistent along the contour
           p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; repel(p); p.life++;
@@ -1020,7 +1059,7 @@ if (gamesList) {
           var er=F.r[ci],eg=F.g[ci],eb=F.b[ci];        // edges take the photo's colour, not grey ink
           if(dark){er+=(255-er)*0.32;eg+=(255-eg)*0.32;eb+=(255-eb)*0.32;}  // lift on dark bg
           else{er*=0.68;eg*=0.68;eb*=0.68;}                                 // deepen a touch so the line still reads as inked
-          ctx.lineWidth=1.2;
+          ctx.lineWidth=refining?0.85:1.2;        // finer line for the detail pass
           ctx.strokeStyle='rgba('+(er|0)+','+(eg|0)+','+(eb|0)+','+a+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         } else if(p.kind===1){
@@ -1056,7 +1095,9 @@ if (gamesList) {
         }
       }
       _renders++;
-      if(_renders>FINISH_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
+      // base is down — re-aim every particle at the detected subject for the detail pass
+      if(_renders===FINISH_FRAMES+1 && subjTot>0){ for(var z=0,na2=active|0;z<na2;z++) respawn(parts[z]); }
+      if(_renders>FINISH_FRAMES+REFINE_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
     }
     function staticRender(){ // prefers-reduced-motion: one painterly pass, no animation
       updTf();
