@@ -203,9 +203,12 @@
   .cs-link:hover{background:#ccf73f;color:#0e0d0b}
   .cs-caption{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
     color:var(--dimmer);margin-top:12px}
-  /* collapsible color space body */
-  .cs-body{overflow:hidden;transition:max-height .45s cubic-bezier(.2,.7,.3,1),opacity .35s ease}
-  .cs-body.collapsed{max-height:0!important;opacity:0}
+  /* collapsible section bodies (color space + every other content section) */
+  .cs-body,.sec-body{overflow:hidden;transition:max-height .45s cubic-bezier(.2,.7,.3,1),opacity .35s ease}
+  .cs-body.collapsed,.sec-body.collapsed{max-height:0!important;opacity:0}
+  /* a collapsed section shouldn't keep its big bottom gap */
+  .sec-head{transition:margin-bottom .35s cubic-bezier(.2,.7,.3,1)}
+  .sec-head.collapsed{margin-bottom:8px}
   .cs-toggle{
     background:none;border:none;cursor:pointer;
     font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
@@ -526,6 +529,48 @@
         btn.setAttribute('aria-expanded','true');
         lbl.textContent='Collapse';
       }
+    });
+  })();
+
+  // Collapsible headers for every content section (colour space brings its own)
+  (function(){
+    var secs=document.querySelectorAll('main.content > section');
+    Array.prototype.forEach.call(secs,function(sec){
+      var head=sec.querySelector('.sec-head');
+      if(!head || sec.querySelector('.cs-toggle')) return;      // skip the bespoke colour-space one
+      // move everything after the header into a collapsible wrapper
+      var body=document.createElement('div'); body.className='sec-body';
+      var n=head.nextElementSibling;
+      while(n){ var nx=n.nextElementSibling; body.appendChild(n); n=nx; }
+      sec.appendChild(body);
+      body.style.maxHeight='none';                              // grows freely while open (cards render later)
+
+      var btn=document.createElement('button');
+      btn.className='cs-toggle'; btn.type='button';
+      btn.setAttribute('aria-expanded','true');
+      var h2=head.querySelector('h2');
+      btn.setAttribute('aria-label','Collapse '+(h2?h2.textContent.trim():'section'));
+      btn.innerHTML='<span class="cs-chev">&#8595;</span><span>Collapse</span>';
+      var lbl=btn.lastChild;
+      head.appendChild(btn);
+
+      btn.addEventListener('click',function(){
+        var open=btn.getAttribute('aria-expanded')==='true';
+        if(open){
+          body.style.maxHeight=body.scrollHeight+'px';          // pin current height before collapsing
+          requestAnimationFrame(function(){ body.classList.add('collapsed'); body.style.maxHeight='0'; });
+          btn.classList.add('collapsed'); head.classList.add('collapsed');
+          btn.setAttribute('aria-expanded','false'); lbl.textContent='Expand';
+        } else {
+          body.classList.remove('collapsed');
+          body.style.maxHeight=body.scrollHeight+'px';
+          btn.classList.remove('collapsed'); head.classList.remove('collapsed');
+          btn.setAttribute('aria-expanded','true'); lbl.textContent='Collapse';
+          setTimeout(function(){                                // release the cap so later content can grow
+            if(btn.getAttribute('aria-expanded')==='true') body.style.maxHeight='none';
+          },480);
+        }
+      });
     });
   })();
 
@@ -927,8 +972,11 @@ if (gamesList) {
           var rx=dx*cj-dy*sj, ry=dx*sj+dy*cj;
           p.x+=rx*SP_SHADE; p.y+=ry*SP_SHADE; repel(p); p.life++;
           var sa=dark?0.085:0.07;
+          var sr=F.r[ci],sg=F.g[ci],sb=F.b[ci],sgy=(sr+sg+sb)/3;   // extra chroma so the fill reads as colour, not grey
+          sr=sgy+(sr-sgy)*1.6;sg=sgy+(sg-sgy)*1.6;sb=sgy+(sb-sgy)*1.6;
+          sr=sr<0?0:sr>255?255:sr;sg=sg<0?0:sg>255?255:sg;sb=sb<0?0:sb>255?255:sb;
           ctx.lineWidth=1;
-          ctx.strokeStyle='rgba('+F.r[ci]+','+F.g[ci]+','+F.b[ci]+','+sa+')';
+          ctx.strokeStyle='rgba('+(sr|0)+','+(sg|0)+','+(sb|0)+','+sa+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         }
       }
