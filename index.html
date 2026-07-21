@@ -213,8 +213,9 @@
   .sec-head:hover .cs-toggle,.sec-head:focus-visible .cs-toggle{color:var(--fg)}
   .sec-head a{cursor:pointer}              /* links inside still behave as links */
   /* pin the toggle top-right so it lands identically on every header */
-  .sec-head{position:relative;padding-right:94px}   /* room for the pinned toggle */
-  .sec-head .cs-toggle{position:absolute;top:4px;right:0;margin-left:0}
+  .sec-head{position:relative}
+  .sec-head .idx{flex:0 0 100%;margin-bottom:4px;padding-right:94px}  /* own line above the title */
+  .sec-head .cs-toggle{position:absolute;top:2px;right:0;margin-left:0}
   .cs-toggle{
     background:none;border:none;cursor:pointer;
     font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
@@ -245,7 +246,7 @@
     .intro{position:relative;height:auto;border-right:none;border-bottom:1px solid var(--line);padding:108px clamp(24px,6vw,40px) 52px}
     .content{padding:0 clamp(24px,6vw,40px)}
     .sec-head .desc{text-align:left;margin-left:0}
-    .sec-head{padding-right:0}
+    .sec-head .idx{padding-right:0}
     .sec-head .cs-toggle{position:static;margin-left:auto}
   }
   @media(prefers-reduced-motion:reduce){
