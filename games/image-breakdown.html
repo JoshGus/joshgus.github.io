@@ -58,7 +58,9 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
 #sketch{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
 .legend{font-family:var(--mono);font-size:.58rem;letter-spacing:.04em;color:var(--dim);line-height:1.9;margin-top:12px}
 .legend b{color:var(--fg);font-weight:500}
-.hidden{display:none}
+.drop.compact{padding:13px 18px;min-height:0}
+.drop.compact b{display:inline;font-size:.9rem}
+.drop.compact span{display:inline;margin-top:0;margin-left:10px}
 </style>
 </head>
 <body class="noise">
@@ -451,7 +453,8 @@ function run(img){
   SRC=toWork(img);
   analyse();
   $('replay').disabled=false;
-  $('drop').classList.add('hidden');
+  drop.classList.add('compact');                       // stays available for the next image
+  drop.querySelector('b').textContent='Drop another image';
   redraw();
 }
 
