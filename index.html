@@ -852,7 +852,7 @@ if (gamesList) {
       for(var j=0;j<n;j++){
         mag[j]/=maxm;
         var mw=mag[j]>0.2?Math.pow(mag[j],3):0;          // edge spawn weight — bias hard onto real contours
-        var dw=Math.pow(1-lum[j],1.7)+0.02;              // shade spawn weight ∝ darkness
+        var dw=Math.pow(1-lum[j],1.15)+0.22;             // shade spawn weight ∝ darkness, with a floor so light areas still fill in
         ce+=mw; cs+=dw; edgeCum[j]=ce; shadeCum[j]=cs;
       }
       edgeTot=ce; shadeTot=cs;
@@ -926,7 +926,7 @@ if (gamesList) {
           var j=pnoise(p.x*0.012,p.y*0.012)*0.7, cj=Math.cos(j),sj=Math.sin(j); // slight per-path variation
           var rx=dx*cj-dy*sj, ry=dx*sj+dy*cj;
           p.x+=rx*SP_SHADE; p.y+=ry*SP_SHADE; repel(p); p.life++;
-          var sa=dark?0.07:0.055;
+          var sa=dark?0.085:0.07;
           ctx.lineWidth=1;
           ctx.strokeStyle='rgba('+F.r[ci]+','+F.g[ci]+','+F.b[ci]+','+sa+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
