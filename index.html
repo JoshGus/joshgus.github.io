@@ -1010,20 +1010,22 @@ if (gamesList) {
     function spawnShade(p){var re=refining&&subjTot>0,ci=pick(re?subjCum:shadeCum,re?subjTot:shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
     // seeded inside a segmented colour block, and confined to it while it paints
     function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:150+Math.random()*200;p.w=re?4+Math.random()*6:10+Math.random()*14;return p;}
-    function respawn(p){ return p.kind===0?spawnInk(p):p.kind===1?spawnShade(p):spawnFill(p); }
+    var phaseNow=0;
+    function respawn(p){ return phaseNow===0?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p)); }
     function seed(){
       var area=canvas.width*canvas.height;
       N=Math.max(220,Math.min(520,Math.round(area/2200)));
-      var fillN=Math.round(N*0.50), shadeN=Math.round(N*0.24);  // fills first so ink draws over them
+      var inkN=Math.round(N*0.45);              // kind only splits ink vs hatch; blocking uses everyone
       updTf(); parts=[]; active=N;
-      for(var i=0;i<N;i++){var p={kind:i<fillN?2:(i<fillN+shadeN?1:0)};respawn(p);parts.push(p);}
+      phaseNow=0;
+      for(var i=0;i<N;i++){var p={kind:i<inkN?0:1};respawn(p);parts.push(p);}
     }
 
     var TARGET_FPS=60, FRAME_MS=1000/TARGET_FPS, _lastT=-1e9;  // cap render rate regardless of display refresh
     // Build the sketch with a full population, then once it's reached a degree of finish,
     // cull the particles down over CULL_FRAMES until the loop stops (resketch repopulates).
     // base build → subject refinement pass → cull to a stop
-    var BLOCK_FRAMES=320, LINE_FRAMES=360, REFINE_FRAMES=340, CULL_FRAMES=300, _renders=0, _running=false, active=0;
+    var BLOCK_FRAMES=430, LINE_FRAMES=340, REFINE_FRAMES=320, CULL_FRAMES=280, _renders=0, _running=false, active=0;
     function ensureLoop(){ if(_running||reduced) return; _running=true; _lastT=-1e9; requestAnimationFrame(frame); }
     function frame(ts){
       if(!_running) return;
@@ -1037,18 +1039,17 @@ if (gamesList) {
       // 0 = colour blocking, 1 = linework over it, 2 = subject refinement, 3 = settling
       var phase = _renders<=BLOCK_FRAMES ? 0 : _renders<=BLOCK_FRAMES+LINE_FRAMES ? 1
                 : _renders<=BLOCK_FRAMES+LINE_FRAMES+REFINE_FRAMES ? 2 : 3;
-      refining = subjTot>0 && phase===2;
+      phaseNow=phase;
+      refining = subjTot>0 && phase>=2;   // settle keeps the fine marks too
       var dark=isDark();
       ctx.lineCap='round';                  // no fade — the painting accumulates
       var na=active|0;
       for(var i=0;i<na;i++){
         var p=parts[i];
-        if(phase===0&&p.kind!==2) continue;   // blocking: fills only
-        if(phase===1&&p.kind===2) continue;   // linework: ink + hatch over the blocks
         if(p.life>=p.max||p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){respawn(p);continue;}
         var ci=cellAt(p.x,p.y); if(ci<0){respawn(p);continue;}
         var m=F.mag[ci],px=p.x,py=p.y;
-        if(p.kind===0){
+        if(phase>0&&p.kind===0){
           // while refining, wandering off the subject counts as straying too
           if(m<0.05||(refining&&F.sal[ci]<0.35)){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
           var ax=F.tx[ci],ay=F.ty[ci];
@@ -1061,7 +1062,7 @@ if (gamesList) {
           ctx.lineWidth=refining?0.85:1.2;        // finer line for the detail pass
           ctx.strokeStyle='rgba('+(er|0)+','+(eg|0)+','+(eb|0)+','+a+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
-        } else if(p.kind===1){
+        } else if(phase>0){
           var dx,dy;
           if(m>0.03){dx=F.tx[ci];dy=F.ty[ci];} else {dx=HC;dy=HS;} // flat areas hatch at a set angle
           var j=pnoise(p.x*0.012,p.y*0.012)*0.7, cj=Math.cos(j),sj=Math.sin(j); // slight per-path variation
@@ -1095,7 +1096,8 @@ if (gamesList) {
       }
       _renders++;
       // base is down — re-aim every particle at the detected subject for the detail pass
-      if(_renders===BLOCK_FRAMES+1||_renders===BLOCK_FRAMES+LINE_FRAMES+1){ for(var z=0,na2=active|0;z<na2;z++) respawn(parts[z]); }
+      if(_renders===BLOCK_FRAMES+1){ for(var z=0,na2=active|0;z<na2;z++) respawn(parts[z]); }
+      if(_renders===BLOCK_FRAMES+LINE_FRAMES+1){ for(var z2=0,na3=active|0;z2<na3;z2++) respawn(parts[z2]); }   // re-aim onto the subject
       if(_renders>BLOCK_FRAMES+LINE_FRAMES+REFINE_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
     }
     function staticRender(){ // prefers-reduced-motion: one painterly pass, no animation
