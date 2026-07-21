@@ -870,7 +870,7 @@ if (gamesList) {
     function cy(ci){return toy+(((ci/F.fw)|0)+0.5)*ts;}
 
     var parts=[],N=0,inkN=0;
-    var SP_INK=0.85, SP_SHADE=2.0;
+    var SP_INK=1.8, SP_SHADE=3.9;
     function spawnInk(p){var ci=pick(edgeCum,edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=180+Math.random()*320;p.stray=0;return p;}  // long-lived ⇒ sustained contour lines
     function spawnShade(p){var ci=pick(shadeCum,shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=14+F.lum[ci]*40;return p;} // short hatch ticks; darker areas spawn more ⇒ denser, closer paths
     function seed(){
