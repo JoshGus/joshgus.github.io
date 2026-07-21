@@ -206,9 +206,15 @@
   /* collapsible section bodies (color space + every other content section) */
   .cs-body,.sec-body{overflow:hidden;transition:max-height .45s cubic-bezier(.2,.7,.3,1),opacity .35s ease}
   .cs-body.collapsed,.sec-body.collapsed{max-height:0!important;opacity:0}
-  /* a collapsed section shouldn't keep its big bottom gap */
-  .sec-head{transition:margin-bottom .35s cubic-bezier(.2,.7,.3,1)}
-  .sec-head.collapsed{margin-bottom:8px}
+  /* the whole header is the toggle target */
+  .sec-head{transition:margin-bottom .35s cubic-bezier(.2,.7,.3,1);cursor:pointer;
+    user-select:none;-webkit-user-select:none;outline-offset:6px}
+  .sec-head.collapsed{margin-bottom:8px}   /* collapsed section shouldn't keep its big bottom gap */
+  .sec-head:hover .cs-toggle,.sec-head:focus-visible .cs-toggle{color:var(--fg)}
+  .sec-head a{cursor:pointer}              /* links inside still behave as links */
+  /* pin the toggle top-right so it lands identically on every header */
+  .sec-head{position:relative;padding-right:94px}   /* room for the pinned toggle */
+  .sec-head .cs-toggle{position:absolute;top:4px;right:0;margin-left:0}
   .cs-toggle{
     background:none;border:none;cursor:pointer;
     font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
@@ -239,6 +245,8 @@
     .intro{position:relative;height:auto;border-right:none;border-bottom:1px solid var(--line);padding:108px clamp(24px,6vw,40px) 52px}
     .content{padding:0 clamp(24px,6vw,40px)}
     .sec-head .desc{text-align:left;margin-left:0}
+    .sec-head{padding-right:0}
+    .sec-head .cs-toggle{position:static;margin-left:auto}
   }
   @media(prefers-reduced-motion:reduce){
     *{animation:none!important}
@@ -374,8 +382,9 @@
     <!-- ================= SHOWCASE ================= -->
     <section id="featured" style="padding-top:clamp(48px,8vh,80px)">
       <div class="sec-head reveal">
-        <span class="idx">Featured</span>
+        <span class="idx">00 / Featured</span>
         <h2>Now live</h2>
+        <span class="desc">The newest builds. Live and playable.</span>
       </div>
       <div class="sc-grid reveal" id="sc-grid">
 
@@ -442,7 +451,6 @@
         <span class="idx">03 / Photography</span>
         <h2>From the field</h2>
         <span class="desc">Mostly birds, through a 150–600mm. Hover for details.</span>
-        <a href="gallery.html" style="font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink);border:1px solid var(--accent-ink);padding:8px 14px;margin-top:16px;display:inline-block;transition:background .2s,color .2s" onmouseover="this.style.background='var(--accent-ink)';this.style.color='var(--bg)'" onmouseout="this.style.background='';this.style.color='var(--accent-ink)'">View full gallery &rarr;</a>
       </div>
 
       <!-- PHOTO — replace each .ph with <img class="tile-img" src="photo.jpg" alt="..."> -->
@@ -452,6 +460,7 @@
         <figure class="tile"><div class="ph"><svg viewBox="0 0 64 64" fill="currentColor"><path d="M2 40c14-2 22-9 27-20 1-2 4-2 4 1 0 5-2 9-5 13 7-1 13-4 19-9 2-2 5 0 3 3-5 8-14 14-26 16 3 2 7 3 11 3 3 0 3 4 0 4-13 1-27-4-33-12-1-2 0-2 0-2z"/></svg></div><figcaption><div class="cap-t">Belted Kingfisher</div><div class="cap-m">Huron River · Fall</div></figcaption></figure>
         <figure class="tile"><div class="ph"><svg viewBox="0 0 64 64" fill="currentColor"><path d="M2 40c14-2 22-9 27-20 1-2 4-2 4 1 0 5-2 9-5 13 7-1 13-4 19-9 2-2 5 0 3 3-5 8-14 14-26 16 3 2 7 3 11 3 3 0 3 4 0 4-13 1-27-4-33-12-1-2 0-2 0-2z"/></svg></div><figcaption><div class="cap-t">Eastern Bluebird</div><div class="cap-m">Field edge · Summer</div></figcaption></figure>
       </div>
+      <a href="gallery.html" style="display:inline-flex;align-items:center;gap:10px;margin-top:28px;font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink);border:1px solid var(--accent-ink);padding:10px 18px;text-decoration:none;transition:background .2s,color .2s" onmouseover="this.style.background='var(--accent-ink)';this.style.color='var(--bg)'" onmouseout="this.style.background='';this.style.color='var(--accent-ink)'">View full gallery &rarr;</a>
     </section>
 
     <!-- ================= COLOR SPACE ================= -->
@@ -460,9 +469,6 @@
         <span class="idx">04 / Color Space</span>
         <h2>Every palette <em>mapped</em></h2>
         <span class="desc">816 photos in 3D — X&thinsp;=&thinsp;Red, Y&thinsp;=&thinsp;Green, Z&thinsp;=&thinsp;Blue. Similar colors cluster.</span>
-        <button class="cs-toggle" id="cs-toggle" aria-expanded="true" aria-controls="cs-body">
-          <span class="cs-chev">↓</span><span id="cs-toggle-label">Collapse</span>
-        </button>
       </div>
       <div class="cs-body reveal" id="cs-body">
         <div class="cs-wrap">
@@ -502,74 +508,58 @@
     tick(); setInterval(tick, 30000);
   } catch(e) {}
 
-  // Collapsible color space
-  (function(){
-    var btn=document.getElementById('cs-toggle');
-    var body=document.getElementById('cs-body');
-    var lbl=document.getElementById('cs-toggle-label');
-    if(!btn||!body)return;
-    // Set open max-height so CSS transition has a target
-    body.style.maxHeight=body.scrollHeight+'px';
-    body.style.opacity='1';
-    btn.addEventListener('click',function(){
-      var open=btn.getAttribute('aria-expanded')==='true';
-      if(open){
-        body.style.maxHeight=body.scrollHeight+'px'; // pin before collapsing
-        requestAnimationFrame(function(){
-          body.classList.add('collapsed');
-          body.style.maxHeight='0';
-        });
-        btn.classList.add('collapsed');
-        btn.setAttribute('aria-expanded','false');
-        lbl.textContent='Expand';
-      } else {
-        body.classList.remove('collapsed');
-        body.style.maxHeight=body.scrollHeight+'px';
-        btn.classList.remove('collapsed');
-        btn.setAttribute('aria-expanded','true');
-        lbl.textContent='Collapse';
-      }
-    });
-  })();
-
-  // Collapsible headers for every content section (colour space brings its own)
+  // Collapsible section headers — every content section, whole header is the hit area
   (function(){
     var secs=document.querySelectorAll('main.content > section');
     Array.prototype.forEach.call(secs,function(sec){
       var head=sec.querySelector('.sec-head');
-      if(!head || sec.querySelector('.cs-toggle')) return;      // skip the bespoke colour-space one
+      if(!head) return;
+      var _h2=head.querySelector('h2'), title=_h2?_h2.textContent.trim():'section';
       // move everything after the header into a collapsible wrapper
       var body=document.createElement('div'); body.className='sec-body';
       var n=head.nextElementSibling;
       while(n){ var nx=n.nextElementSibling; body.appendChild(n); n=nx; }
       sec.appendChild(body);
-      body.style.maxHeight='none';                              // grows freely while open (cards render later)
 
       var btn=document.createElement('button');
-      btn.className='cs-toggle'; btn.type='button';
-      btn.setAttribute('aria-expanded','true');
-      var h2=head.querySelector('h2');
-      btn.setAttribute('aria-label','Collapse '+(h2?h2.textContent.trim():'section'));
-      btn.innerHTML='<span class="cs-chev">&#8595;</span><span>Collapse</span>';
+      btn.className='cs-toggle'; btn.type='button'; btn.tabIndex=-1;   // header itself is the control
+      btn.innerHTML='<span class="cs-chev">&#8595;</span><span>Expand</span>';
       var lbl=btn.lastChild;
       head.appendChild(btn);
 
-      btn.addEventListener('click',function(){
-        var open=btn.getAttribute('aria-expanded')==='true';
+      // all sections start collapsed
+      body.classList.add('collapsed'); body.style.maxHeight='0';
+      btn.classList.add('collapsed'); head.classList.add('collapsed');
+      head.setAttribute('role','button'); head.setAttribute('tabindex','0');
+      head.setAttribute('aria-expanded','false');
+      btn.setAttribute('aria-expanded','false');
+      head.setAttribute('aria-label','Expand '+title);
+
+      function setOpen(open){
         if(open){
-          body.style.maxHeight=body.scrollHeight+'px';          // pin current height before collapsing
-          requestAnimationFrame(function(){ body.classList.add('collapsed'); body.style.maxHeight='0'; });
-          btn.classList.add('collapsed'); head.classList.add('collapsed');
-          btn.setAttribute('aria-expanded','false'); lbl.textContent='Expand';
-        } else {
           body.classList.remove('collapsed');
           body.style.maxHeight=body.scrollHeight+'px';
           btn.classList.remove('collapsed'); head.classList.remove('collapsed');
-          btn.setAttribute('aria-expanded','true'); lbl.textContent='Collapse';
-          setTimeout(function(){                                // release the cap so later content can grow
-            if(btn.getAttribute('aria-expanded')==='true') body.style.maxHeight='none';
+          setTimeout(function(){                        // release the cap so later content can grow
+            if(head.getAttribute('aria-expanded')==='true') body.style.maxHeight='none';
           },480);
+        } else {
+          body.style.maxHeight=body.scrollHeight+'px';   // pin current height before collapsing
+          requestAnimationFrame(function(){ body.classList.add('collapsed'); body.style.maxHeight='0'; });
+          btn.classList.add('collapsed'); head.classList.add('collapsed');
         }
+        head.setAttribute('aria-expanded',open?'true':'false');
+        btn.setAttribute('aria-expanded',open?'true':'false');
+        lbl.textContent=open?'Collapse':'Expand';
+        head.setAttribute('aria-label',(open?'Collapse ':'Expand ')+title);
+      }
+      function toggle(e){
+        if(e.target.closest('a')) return;               // let links inside the header still navigate
+        setOpen(head.getAttribute('aria-expanded')!=='true');
+      }
+      head.addEventListener('click',toggle);
+      head.addEventListener('keydown',function(e){
+        if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(e); }
       });
     });
   })();
