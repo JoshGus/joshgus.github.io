@@ -105,6 +105,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
   <div class="bar">
     <button id="mine">Use one of my photos</button>
     <button id="replay" class="primary" disabled>&#8635; Redraw</button>
+    <button id="save" disabled>&#8595; Save image</button>
     <div class="ctl"><label>Colour clusters <b id="kv">7</b></label><input type="range" id="k" min="3" max="12" step="1" value="7"></div>
     <div class="ctl"><label>Subject threshold <b id="stv">0.45</b></label><input type="range" id="st" min="0.2" max="0.8" step="0.05" value="0.45"></div>
     <div class="ctl"><label>Particles <b id="nv">440</b></label><input type="range" id="np" min="80" max="900" step="20" value="440"></div>
@@ -563,7 +564,7 @@ function redraw(){
 function run(img){
   SRC=toWork(img); manualSeed=-1; $('clearSeed').hidden=true;
   analyse();
-  $('replay').disabled=false;
+  $('replay').disabled=false; $('save').disabled=false;
   drop.classList.add('compact');                       // stays available for the next image
   drop.querySelector('b').textContent='Drop another image';
   redraw();
@@ -595,6 +596,22 @@ $('mine').addEventListener('click',async()=>{
     im.src='https://res.cloudinary.com/dgxn8tymb/image/upload/w_900,f_auto,q_auto/'+id;
   }catch(e){}
   btn.disabled=false; btn.textContent='Use one of my photos';
+});
+
+// export the drawing flattened onto the paper colour (the canvas itself is transparent)
+$('save').addEventListener('click',()=>{
+  if(!SRC) return;
+  const c=$('sketch');
+  const o=document.createElement('canvas'); o.width=c.width; o.height=c.height;
+  const x=o.getContext('2d');
+  x.fillStyle=isDark()?'#141210':'#f7ece1'; x.fillRect(0,0,o.width,o.height);
+  x.drawImage(c,0,0);
+  try{
+    const a=document.createElement('a');
+    a.download='image-breakdown-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.png';
+    a.href=o.toDataURL('image/png');
+    a.click();
+  }catch(err){ alert('Could not export this image — the source was loaded from a site that blocks canvas reads.'); }
 });
 
 $('s-src').addEventListener('click',e=>{
