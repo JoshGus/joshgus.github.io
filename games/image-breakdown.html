@@ -128,8 +128,9 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
   <div class="legend">
     <b>1 &middot; Colour blocking</b> &mdash; broad fills sweep each segmented region, painting it in that block's own colour until the frame is covered.<br>
     <b>2 &middot; Linework</b> &mdash; ink tracers follow the edge tangents and hatch ticks shade by darkness, drawing over the blocks.<br>
-    <b>3 &middot; Refine</b> &mdash; the fills retire and every particle re-aims at the detected subject, drawing finer still: thinner ink on subject edges and tighter hatching. Nothing thick runs again, so detail is never painted back over.<br>
-    <b>4 &middot; Settle</b> &mdash; particles are culled away and the loop stops, leaving the finished painting.
+    <b>3 &middot; Re-blocking the subject</b> &mdash; coverage is re-armed over the detected subject only, and it is filled again with finer strokes.<br>
+    <b>4 &middot; Subject detail</b> &mdash; the fills retire for good and only fine marks run: thin ink on subject edges and tight hatching, so detail is never painted back over.<br>
+    <b>5 &middot; Settle</b> &mdash; particles are culled away and the loop stops, leaving the finished painting.
   </div>
 </div>
 
@@ -341,7 +342,7 @@ function drawStages(){
 }
 
 /* ── the redraw ─────────────────────────────────────────────────── */
-const BLOCK=420, LINE=320, REFINE=300, CULL=260;   // block fully, then finer, then finest
+const BLOCK=420, LINE=320, REFILL=170, DETAIL=300, CULL=240;  // block, line, re-block subject finer, detail
 let parts=[],N=0,active=0,renders=0,refining=false,running=false;
 let ctx=null,cw=0,ch=0,scale=1,ox=0,oy=0;
 const SP_INK=1.8,SP_SHADE=3.9,SP_FILL=2.5;
@@ -365,11 +366,15 @@ function spawnFill(p){const re=refining&&F.subjTot>0;
   p.x=cX(ci);p.y=cY(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;
   p.max=re?60+Math.random()*90:160+Math.random()*220;p.w=re?4+Math.random()*6:11+Math.random()*15;return p;}
 let phaseNow=0;
-const respawn=p=>phaseNow===0?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p));
+const respawn=p=>(phaseNow===0||phaseNow===2)?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p));
 
 // ── coverage tracking: fills steer toward ground they haven't painted yet ──
 let painted=null, unpainted=0, scanCur=0;
 function resetCoverage(){ painted=new Uint8Array(F.n); unpainted=F.n; scanCur=0; }
+function coverSubjectOnly(){            // re-arm coverage over the subject alone for the refill pass
+  painted=new Uint8Array(F.n); unpainted=0; scanCur=0;
+  for(let i=0;i<F.n;i++){ if(F.subj[i]) unpainted++; else painted[i]=1; }
+}
 function markPainted(ci,rad){
   const x0=ci%F.fw, y0=(ci/F.fw)|0;
   for(let dy=-rad;dy<=rad;dy++){ const y=y0+dy; if(y<0||y>=F.fh) continue;
@@ -402,8 +407,11 @@ function frame(){
   if(!F) return;
   const dark=isDark();
   // 0 = colour blocking, 1 = linework over it, 2 = subject refinement, 3 = settling
-  if(renders<BLOCK && unpainted<=0) renders=BLOCK;   // fully covered — move on to the detail passes
-  const phase = renders<=BLOCK ? 0 : renders<=BLOCK+LINE ? 1 : renders<=BLOCK+LINE+REFINE ? 2 : 3;
+  if(renders<BLOCK && unpainted<=0) renders=BLOCK;                       // frame covered
+  if(renders>BLOCK+LINE && renders<BLOCK+LINE+REFILL && unpainted<=0) renders=BLOCK+LINE+REFILL;  // subject covered
+  // 0 blocking · 1 linework · 2 subject refill (finer fills) · 3 subject detail · 4 settling
+  const phase = renders<=BLOCK ? 0 : renders<=BLOCK+LINE ? 1 : renders<=BLOCK+LINE+REFILL ? 2
+              : renders<=BLOCK+LINE+REFILL+DETAIL ? 3 : 4;
   phaseNow=phase;
   refining = F.subjTot>0 && phase>=2;   // settle keeps the fine marks too
   ctx.lineCap='round';                       // no fade — the painting accumulates
@@ -415,7 +423,7 @@ function frame(){
     const ci=cellAt(p.x,p.y); if(ci<0){respawn(p);continue;}
     const m=F.mag[ci],px=p.x,py=p.y;
 
-    if(phase>0&&p.kind===0){                 // ink contour
+    if(phase!==0&&phase!==2&&p.kind===0){    // ink contour
       if(m<0.05||(refining&&!F.subj[ci])){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
       let ax=F.tx[ci],ay=F.ty[ci];
       if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}
@@ -427,7 +435,7 @@ function frame(){
       ctx.strokeStyle=`rgba(${er|0},${eg|0},${eb|0},${a})`;
       ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
 
-    } else if(phase>0){                      // hatch tick
+    } else if(phase!==0&&phase!==2){         // hatch tick
       let dx,dy;
       if(m>0.03){dx=F.tx[ci];dy=F.ty[ci];} else {dx=HC;dy=HS;}
       const j=pnoise(p.x*.012,p.y*.012)*.7,cj=Math.cos(j),sj=Math.sin(j);
@@ -463,15 +471,19 @@ function frame(){
 
   renders++;
   if(renders===BLOCK+1){ for(let z=0,q=active|0;z<q;z++) respawn(parts[z]); }
-  if(renders===BLOCK+LINE+1){ for(let z=0,q=active|0;z<q;z++) respawn(parts[z]); }   // re-aim onto the subject
+  if(renders===BLOCK+LINE+1){ phaseNow=2; refining=F.subjTot>0; coverSubjectOnly();
+    for(let z=0,q=active|0;z<q;z++) respawn(parts[z]); }                                  // refill the subject, finer
+  if(renders===BLOCK+LINE+REFILL+1){ phaseNow=3; refining=F.subjTot>0;
+    for(let z=0,q=active|0;z<q;z++) respawn(parts[z]); }                                  // now fine marks only
 
-  const total=BLOCK+LINE+REFINE+CULL, pct=100*renders/total;
+  const total=BLOCK+LINE+REFILL+DETAIL+CULL, pct=100*renders/total;
   if(renders<=BLOCK) setPhase('1 · colour blocking',pct);
   else if(renders<=BLOCK+LINE) setPhase('2 · linework',pct);
-  else if(renders<=BLOCK+LINE+REFINE) setPhase(F.subjTot>0?'3 · refining subject':'3 · refining',pct);
-  else setPhase('4 · settling',pct);
+  else if(renders<=BLOCK+LINE+REFILL) setPhase(F.subjTot>0?'3 · re-blocking subject':'3 · re-blocking',pct);
+  else if(renders<=BLOCK+LINE+REFILL+DETAIL) setPhase('4 · subject detail',pct);
+  else setPhase('5 · settling',pct);
 
-  if(renders>BLOCK+LINE+REFINE){
+  if(renders>BLOCK+LINE+REFILL+DETAIL){
     active-=N/CULL;
     if(active<=0){ active=0; running=false; setPhase('finished',100,true); }
   }

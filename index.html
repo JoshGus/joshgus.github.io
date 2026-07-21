@@ -1052,10 +1052,14 @@ if (gamesList) {
     function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(phaseNow===0?nextUnpainted():-1);
       if(ci<0) ci=fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot);p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:150+Math.random()*200;p.w=re?4+Math.random()*6:10+Math.random()*14;return p;}
     var phaseNow=0;
-    function respawn(p){ return phaseNow===0?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p)); }
+    function respawn(p){ return (phaseNow===0||phaseNow===2)?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p)); }
     // ── coverage tracking: fills steer toward ground they haven't painted yet ──
     var painted=null, unpainted=0, scanCur=0;
     function resetCoverage(){ painted=new Uint8Array(F.n); unpainted=F.n; scanCur=0; }
+    function coverSubjectOnly(){        // re-arm coverage over the subject alone for the refill pass
+      painted=new Uint8Array(F.n); unpainted=0; scanCur=0;
+      for(var ci2=0;ci2<F.n;ci2++){ if(F.subj[ci2]) unpainted++; else painted[ci2]=1; }
+    }
     function markPainted(ci,rad){
       var x0=ci%F.fw, y0=(ci/F.fw)|0;
       for(var dy=-rad;dy<=rad;dy++){ var y=y0+dy; if(y<0||y>=F.fh) continue;
@@ -1083,7 +1087,7 @@ if (gamesList) {
     // Build the sketch with a full population, then once it's reached a degree of finish,
     // cull the particles down over CULL_FRAMES until the loop stops (resketch repopulates).
     // base build → subject refinement pass → cull to a stop
-    var BLOCK_FRAMES=430, LINE_FRAMES=340, REFINE_FRAMES=320, CULL_FRAMES=280, _renders=0, _running=false, active=0;
+    var BLOCK_FRAMES=430, LINE_FRAMES=340, REFILL_FRAMES=170, DETAIL_FRAMES=300, CULL_FRAMES=260, _renders=0, _running=false, active=0;
     function ensureLoop(){ if(_running||reduced) return; _running=true; _lastT=-1e9; requestAnimationFrame(frame); }
     function frame(ts){
       if(!_running) return;
@@ -1096,8 +1100,12 @@ if (gamesList) {
       if(!parts.length) seed(); updTf();
       // 0 = colour blocking, 1 = linework over it, 2 = subject refinement, 3 = settling
       if(_renders<BLOCK_FRAMES && unpainted<=0) _renders=BLOCK_FRAMES;   // covered — on to the detail passes
+      if(_renders>BLOCK_FRAMES+LINE_FRAMES && _renders<BLOCK_FRAMES+LINE_FRAMES+REFILL_FRAMES && unpainted<=0)
+        _renders=BLOCK_FRAMES+LINE_FRAMES+REFILL_FRAMES;                                   // subject covered
+      // 0 blocking · 1 linework · 2 subject refill (finer fills) · 3 subject detail · 4 settling
       var phase = _renders<=BLOCK_FRAMES ? 0 : _renders<=BLOCK_FRAMES+LINE_FRAMES ? 1
-                : _renders<=BLOCK_FRAMES+LINE_FRAMES+REFINE_FRAMES ? 2 : 3;
+                : _renders<=BLOCK_FRAMES+LINE_FRAMES+REFILL_FRAMES ? 2
+                : _renders<=BLOCK_FRAMES+LINE_FRAMES+REFILL_FRAMES+DETAIL_FRAMES ? 3 : 4;
       phaseNow=phase;
       refining = subjTot>0 && phase>=2;   // settle keeps the fine marks too
       var dark=isDark();
@@ -1108,7 +1116,7 @@ if (gamesList) {
         if(p.life>=p.max||p.x<-20||p.x>w+20||p.y<-20||p.y>h+20){respawn(p);continue;}
         var ci=cellAt(p.x,p.y); if(ci<0){respawn(p);continue;}
         var m=F.mag[ci],px=p.x,py=p.y;
-        if(phase>0&&p.kind===0){
+        if(phase!==0&&phase!==2&&p.kind===0){
           // while refining, wandering off the subject counts as straying too
           if(m<0.05||(refining&&!F.subj[ci])){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
           var ax=F.tx[ci],ay=F.ty[ci];
@@ -1121,7 +1129,7 @@ if (gamesList) {
           ctx.lineWidth=refining?0.85:1.2;        // finer line for the detail pass
           ctx.strokeStyle='rgba('+(er|0)+','+(eg|0)+','+(eb|0)+','+a+')';
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
-        } else if(phase>0){
+        } else if(phase!==0&&phase!==2){
           var dx,dy;
           if(m>0.03){dx=F.tx[ci];dy=F.ty[ci];} else {dx=HC;dy=HS;} // flat areas hatch at a set angle
           var j=pnoise(p.x*0.012,p.y*0.012)*0.7, cj=Math.cos(j),sj=Math.sin(j); // slight per-path variation
@@ -1158,10 +1166,14 @@ if (gamesList) {
         }
       }
       _renders++;
-      // base is down — re-aim every particle at the detected subject for the detail pass
       if(_renders===BLOCK_FRAMES+1){ for(var z=0,na2=active|0;z<na2;z++) respawn(parts[z]); }
-      if(_renders===BLOCK_FRAMES+LINE_FRAMES+1){ for(var z2=0,na3=active|0;z2<na3;z2++) respawn(parts[z2]); }   // re-aim onto the subject
-      if(_renders>BLOCK_FRAMES+LINE_FRAMES+REFINE_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
+      // transitions run after the draw loop, so set the INCOMING phase before respawning —
+      // otherwise spawnFill hands out blocking widths during the refill pass
+      if(_renders===BLOCK_FRAMES+LINE_FRAMES+1){ phaseNow=2; refining=subjTot>0; coverSubjectOnly();
+        for(var z2=0,na3=active|0;z2<na3;z2++) respawn(parts[z2]); }                      // refill subject, finer
+      if(_renders===BLOCK_FRAMES+LINE_FRAMES+REFILL_FRAMES+1){ phaseNow=3; refining=subjTot>0;
+        for(var z3=0,na4=active|0;z3<na4;z3++) respawn(parts[z3]); }                      // fine marks only
+      if(_renders>BLOCK_FRAMES+LINE_FRAMES+REFILL_FRAMES+DETAIL_FRAMES){ active-=N/CULL_FRAMES; if(active<=0){ active=0; _running=false; } } // cull to a stop
     }
     function staticRender(){ // prefers-reduced-motion: one painterly pass, no animation
       updTf();
