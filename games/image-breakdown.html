@@ -108,10 +108,13 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
     <div class="ctl"><label>Colour clusters <b id="kv">7</b></label><input type="range" id="k" min="3" max="12" step="1" value="7"></div>
     <div class="ctl"><label>Subject threshold <b id="stv">0.45</b></label><input type="range" id="st" min="0.2" max="0.8" step="0.05" value="0.45"></div>
     <div class="ctl"><label>Particles <b id="nv">440</b></label><input type="range" id="np" min="80" max="900" step="20" value="440"></div>
+    <div class="ctl"><label>Subject palette bias <b id="sbv">1.6</b></label><input type="range" id="sb" min="1" max="2.8" step="0.1" value="1.6"></div>
+    <button id="clearSeed" hidden>&#10005; Clear subject point</button>
   </div>
+  <p class="legend" style="margin-top:10px">Subject is found automatically &mdash; or <b>click the Source thumbnail</b> to drop a point and flood-fill the subject yourself.</p>
 
   <div class="pipe" id="pipe">
-    <div class="stage"><canvas id="s-src"></canvas><span class="cap">1 &middot; Source</span><span class="sub" id="d-src">&mdash;</span></div>
+    <div class="stage"><canvas id="s-src" style="cursor:crosshair" title="Click to place a subject point"></canvas><span class="cap">1 &middot; Source</span><span class="sub" id="d-src">&mdash;</span></div>
     <div class="stage"><canvas id="s-lum"></canvas><span class="cap">2 &middot; Luminance</span><span class="sub">0.299R + 0.587G + 0.114B</span></div>
     <div class="stage"><canvas id="s-edge"></canvas><span class="cap">3 &middot; Sobel edges</span><span class="sub" id="d-edge">&mdash;</span></div>
     <div class="stage"><canvas id="s-quant"></canvas><span class="cap">4 &middot; Colour blocks</span><span class="sub" id="d-quant">&mdash;</span></div>
@@ -181,7 +184,7 @@ function toWork(img){
 function analyse(){
   const t0=performance.now();
   const {rgb,w:fw,h:fh}=SRC, d=rgb.data, n=fw*fh;
-  const K=+$('k').value, SUBJ_T=+$('st').value;
+  const K=+$('k').value, SUBJ_T=+$('st').value, SUBJ_BIAS=+$('sb').value;
 
   // 1. colour + luminance (colours pushed away from grey so blocks read as colour)
   const SAT=1.3, cl=v=>v<0?0:v>255?255:v|0;
@@ -283,6 +286,59 @@ function analyse(){
     subj=nx2;
   }
 
+  // A hand-placed point wins over the automatic guess: region-grow from it, taking
+  // neighbours whose colour is close to the seed's. Classic flood fill with tolerance.
+  if(manualSeed>=0 && manualSeed<n){
+    const sr0=r[manualSeed], sg0=g[manualSeed], sb0=b[manualSeed];
+    const TOL=46*46, cap=Math.floor(n*0.6);
+    const grown=new Uint8Array(n), stq=new Int32Array(n);
+    let sp3=0, cnt3=0; stq[sp3++]=manualSeed; grown[manualSeed]=1;
+    while(sp3 && cnt3<cap){
+      const t3=stq[--sp3]; cnt3++;
+      const qx=t3%fw, qy=(t3/fw)|0;
+      const push=k=>{ if(grown[k]) return;
+        const dr=r[k]-sr0, dg=g[k]-sg0, db=b[k]-sb0;
+        if(dr*dr+dg*dg+db*db<=TOL){ grown[k]=1; stq[sp3++]=k; } };
+      if(qx>0) push(t3-1); if(qx<fw-1) push(t3+1);
+      if(qy>0) push(t3-fw); if(qy<fh-1) push(t3+fw);
+    }
+    for(let d=0;d<2;d++){                            // same slight dilate
+      const g2=new Uint8Array(grown);
+      for(let y=0;y<fh;y++)for(let x=0;x<fw;x++){
+        const o=y*fw+x; if(grown[o]) continue;
+        if((x>0&&grown[o-1])||(x<fw-1&&grown[o+1])||(y>0&&grown[o-fw])||(y<fh-1&&grown[o+fw])) g2[o]=1;
+      }
+      grown.set(g2);
+    }
+    subj=grown;
+  }
+
+  // ── subject palette: re-quantise the SUBJECT's own colours so the refill pass paints
+  //    its likeness rather than the whole-frame blocks. Colours are stretched around the
+  //    subject's mean first (SUBJ_BIAS) so contrast and variance inside it are preserved.
+  const sIdx=[]; for(let i=0;i<n;i++) if(subj[i]) sIdx.push(i);
+  let subjLab=new Uint8Array(n), subjCol=[];
+  if(sIdx.length>12){
+    let mr=0,mg=0,mb=0;
+    for(const i of sIdx){ mr+=r[i]; mg+=g[i]; mb+=b[i]; }
+    mr/=sIdx.length; mg/=sIdx.length; mb/=sIdx.length;
+    const cl2=v=>v<0?0:v>255?255:v;
+    const SR=new Float32Array(sIdx.length), SG=new Float32Array(sIdx.length), SB=new Float32Array(sIdx.length);
+    sIdx.forEach((i,j)=>{ SR[j]=cl2(mr+(r[i]-mr)*SUBJ_BIAS); SG[j]=cl2(mg+(g[i]-mg)*SUBJ_BIAS); SB[j]=cl2(mb+(b[i]-mb)*SUBJ_BIAS); });
+    const KS=Math.min(6,Math.max(3,Math.round(K*0.8))), sc2=[];
+    for(let k=0;k<KS;k++){ const j=Math.floor(sIdx.length*(k+0.5)/KS); sc2.push([SR[j],SG[j],SB[j]]); }
+    for(let it=0;it<7;it++){
+      const ar=new Float64Array(KS),ag=new Float64Array(KS),ab=new Float64Array(KS),cn=new Float64Array(KS);
+      for(let j=0;j<sIdx.length;j++){
+        let bk=0,bd=1e18;
+        for(let k=0;k<KS;k++){const c=sc2[k],dr=SR[j]-c[0],dg=SG[j]-c[1],db=SB[j]-c[2],d2=dr*dr+dg*dg+db*db;if(d2<bd){bd=d2;bk=k;}}
+        subjLab[sIdx[j]]=bk; ar[bk]+=SR[j]; ag[bk]+=SG[j]; ab[bk]+=SB[j]; cn[bk]++;
+      }
+      for(let k=0;k<KS;k++) if(cn[k]) sc2[k]=[ar[k]/cn[k],ag[k]/cn[k],ab[k]/cn[k]];
+    }
+    subjCol=sc2;
+  }
+
   // 6. spawn fields
   const MINBLK=Math.max(6,n*0.0002);
   const edgeCum=new Float32Array(n),shadeCum=new Float32Array(n),fillCum=new Float32Array(n),
@@ -297,7 +353,7 @@ function analyse(){
     ce2+=(mag[i]>0.14?mag[i]*mag[i]:0)*sw;         subjECum[i]=ce2;
   }
 
-  F={fw,fh,n,r,g,b,lum,mag,tx,ty,reg,regCol,regSize,sal,subj,K,nreg,SUBJ_T,
+  F={fw,fh,n,r,g,b,lum,mag,tx,ty,reg,regCol,regSize,sal,subj,subjLab,subjCol,K,nreg,SUBJ_T,
      edgeCum,shadeCum,fillCum,subjCum,subjECum,
      edgeTot:ce,shadeTot:cs,fillTot:cf,subjTot:c2,subjETot:ce2,
      bigBlocks:regSize.filter(s=>s>=MINBLK).length, subjPx, ms:Math.round(performance.now()-t0)};
@@ -338,12 +394,12 @@ function drawStages(){
       o[i*4+1]= on? d[i*4+1] : 236;
       o[i*4+2]= on? d[i*4+2] : 225;
       o[i*4+3]=255;}});
-  $('d-subj').textContent=`${(100*F.subjPx/n).toFixed(1)}% of the frame kept as subject`;
+  $('d-subj').textContent=`${(100*F.subjPx/n).toFixed(1)}% kept · ${manualSeed>=0?'your point':'auto'} · ${F.subjCol.length} subject colours`;
 }
 
 /* ── the redraw ─────────────────────────────────────────────────── */
 const BLOCK=420, LINE=320, REFILL=170, DETAIL=300, CULL=240;  // block, line, re-block subject finer, detail
-let parts=[],N=0,active=0,renders=0,refining=false,running=false;
+let parts=[],N=0,active=0,renders=0,refining=false,running=false,manualSeed=-1;
 let ctx=null,cw=0,ch=0,scale=1,ox=0,oy=0;
 const SP_INK=1.8,SP_SHADE=3.9,SP_FILL=2.5;
 const HANG=0.6,HC=Math.cos(HANG),HS=Math.sin(HANG);
@@ -361,11 +417,13 @@ function spawnShade(p){const re=refining&&F.subjTot>0,ci=pick(re?F.subjCum:F.sha
   p.x=cX(ci)+(Math.random()-.5)*scale;p.y=cY(ci)+(Math.random()-.5)*scale;p.life=0;
   p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
 function spawnFill(p){const re=refining&&F.subjTot>0;
-  let ci=re?pick(F.subjCum,F.subjTot):(phaseNow===0?nextUnpainted():-1);
-  if(ci<0) ci=F.fillTot>0?pick(F.fillCum,F.fillTot):pick(F.shadeCum,F.shadeTot);
-  p.x=cX(ci);p.y=cY(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;
+  let ci=(phaseNow===2||phaseNow===0)?nextUnpainted():-1;
+  if(ci<0) ci=re?pick(F.subjCum,F.subjTot):(F.fillTot>0?pick(F.fillCum,F.fillTot):pick(F.shadeCum,F.shadeTot));
+  p.sub=(phaseNow===2&&F.subjCol.length>0)?1:0;
+  p.x=cX(ci);p.y=cY(ci);p.reg=p.sub?F.subjLab[ci]:F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;
   p.max=re?60+Math.random()*90:160+Math.random()*220;p.w=re?4+Math.random()*6:11+Math.random()*15;return p;}
 let phaseNow=0;
+const inBlock=(ci,p)=>p.sub ? (F.subj[ci]&&F.subjLab[ci]===p.reg) : (F.reg[ci]===p.reg);
 const respawn=p=>(phaseNow===0||phaseNow===2)?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p));
 
 // ── coverage tracking: fills steer toward ground they haven't painted yet ──
@@ -453,7 +511,7 @@ function frame(){
       for(let t=0;t<7;t++){                  // try straight on, then fan out, preferring bare cells
         const a=p.ang+(t?flip*((t&1)?1:-1)*0.55*Math.ceil(t/2):0);
         const tx2=p.x+Math.cos(a)*SP_FILL, ty2=p.y+Math.sin(a)*SP_FILL, tci=cellAt(tx2,ty2);
-        if(tci<0||F.reg[tci]!==p.reg) continue;
+        if(tci<0||!inBlock(tci,p)) continue;
         if(best<0){best=a;bx=tx2;by=ty2;bci=tci;}     // fallback: any legal step
         if(!painted[tci]){best=a;bx=tx2;by=ty2;bci=tci;break;}
       }
@@ -461,7 +519,7 @@ function frame(){
       if(!painted[bci]) p.miss=0;
       p.ang=best; p.x=bx; p.y=by; p.life++;
       markPainted(bci, Math.max(0,Math.floor(p.w/2/scale)-1));
-      const rc=F.regCol[p.reg],fgy=(rc[0]+rc[1]+rc[2])/3;
+      const rc=p.sub?F.subjCol[p.reg]:F.regCol[p.reg], fgy=(rc[0]+rc[1]+rc[2])/3;
       const fr=(fgy+(rc[0]-fgy)*1.05)*.88,fg=(fgy+(rc[1]-fgy)*1.05)*.88,fb=(fgy+(rc[2]-fgy)*1.05)*.88;
       ctx.lineWidth=p.w;
       ctx.strokeStyle=`rgba(${Math.min(255,Math.max(0,fr))|0},${Math.min(255,Math.max(0,fg))|0},${Math.min(255,Math.max(0,fb))|0},${dark?.21:.2})`;
@@ -503,7 +561,7 @@ function redraw(){
 }
 
 function run(img){
-  SRC=toWork(img);
+  SRC=toWork(img); manualSeed=-1; $('clearSeed').hidden=true;
   analyse();
   $('replay').disabled=false;
   drop.classList.add('compact');                       // stays available for the next image
@@ -539,8 +597,18 @@ $('mine').addEventListener('click',async()=>{
   btn.disabled=false; btn.textContent='Use one of my photos';
 });
 
+$('s-src').addEventListener('click',e=>{
+  if(!SRC||!F) return;
+  const r0=e.target.getBoundingClientRect();
+  const fx=Math.floor((e.clientX-r0.left)/r0.width*F.fw), fy=Math.floor((e.clientY-r0.top)/r0.height*F.fh);
+  if(fx<0||fy<0||fx>=F.fw||fy>=F.fh) return;
+  manualSeed=fy*F.fw+fx; $('clearSeed').hidden=false;
+  analyse(); redraw();
+});
+$('clearSeed').addEventListener('click',()=>{ manualSeed=-1; $('clearSeed').hidden=true; if(SRC){ analyse(); redraw(); } });
+
 $('replay').addEventListener('click',()=>{ if(SRC){ analyse(); redraw(); } });
-[['k','kv'],['st','stv'],['np','nv']].forEach(([id,out])=>{
+[['k','kv'],['st','stv'],['np','nv'],['sb','sbv']].forEach(([id,out])=>{
   $(id).addEventListener('input',()=>{ $(out).textContent=$(id).value; });
   $(id).addEventListener('change',()=>{ if(SRC){ analyse(); redraw(); } });
 });

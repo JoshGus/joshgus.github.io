@@ -1019,6 +1019,34 @@ if (gamesList) {
         }
         subj=nx2;
       }
+
+      // subject palette: re-quantise the SUBJECT's own colours so the refill pass paints
+      // its likeness, not the whole-frame blocks. Colours are stretched around the subject's
+      // mean first (SUBJ_BIAS) so contrast and variance inside it survive the clustering.
+      var SUBJ_BIAS=1.6, sIdx=[];
+      for(var si=0;si<n;si++) if(subj[si]) sIdx.push(si);
+      var subjLab=new Uint8Array(n), subjCol=[];
+      if(sIdx.length>12){
+        var mr=0,mg=0,mb=0;
+        for(var q1=0;q1<sIdx.length;q1++){ mr+=r[sIdx[q1]]; mg+=g[sIdx[q1]]; mb+=b[sIdx[q1]]; }
+        mr/=sIdx.length; mg/=sIdx.length; mb/=sIdx.length;
+        var cl2=function(v){return v<0?0:v>255?255:v;};
+        var SR=new Float32Array(sIdx.length),SG=new Float32Array(sIdx.length),SB=new Float32Array(sIdx.length);
+        for(var q2=0;q2<sIdx.length;q2++){ var ii=sIdx[q2];
+          SR[q2]=cl2(mr+(r[ii]-mr)*SUBJ_BIAS); SG[q2]=cl2(mg+(g[ii]-mg)*SUBJ_BIAS); SB[q2]=cl2(mb+(b[ii]-mb)*SUBJ_BIAS); }
+        var KS=Math.min(6,Math.max(3,Math.round(K*0.8))), sc2=[];
+        for(var k4=0;k4<KS;k4++){ var jj=Math.floor(sIdx.length*(k4+0.5)/KS); sc2.push([SR[jj],SG[jj],SB[jj]]); }
+        for(var it2=0;it2<7;it2++){
+          var ar2=new Float64Array(KS),ag2=new Float64Array(KS),ab2=new Float64Array(KS),cn2=new Float64Array(KS);
+          for(var q3=0;q3<sIdx.length;q3++){
+            var bk=0,bd2=1e18;
+            for(var k5=0;k5<KS;k5++){var c5=sc2[k5],dr5=SR[q3]-c5[0],dg5=SG[q3]-c5[1],db5=SB[q3]-c5[2],d5=dr5*dr5+dg5*dg5+db5*db5;if(d5<bd2){bd2=d5;bk=k5;}}
+            subjLab[sIdx[q3]]=bk; ar2[bk]+=SR[q3]; ag2[bk]+=SG[q3]; ab2[bk]+=SB[q3]; cn2[bk]++;
+          }
+          for(var k6=0;k6<KS;k6++) if(cn2[k6]) sc2[k6]=[ar2[k6]/cn2[k6],ag2[k6]/cn2[k6],ab2[k6]/cn2[k6]];
+        }
+        subjCol=sc2;
+      }
       // spawn fields for the refinement pass: the subject, and the subject's edges
       subjCum=new Float32Array(n); subjECum=new Float32Array(n);
       var cs2=0, ce2=0;
@@ -1029,7 +1057,7 @@ if (gamesList) {
       }
       subjTot=cs2; subjETot=ce2;
 
-      F={fw:fw,fh:fh,r:r,g:g,b:b,lum:lum,tx:tx,ty:ty,mag:mag,n:n,reg:reg,regCol:regCol,regSize:regSize,minBlk:MINBLK,sal:sal,subj:subj};
+      F={fw:fw,fh:fh,r:r,g:g,b:b,lum:lum,tx:tx,ty:ty,mag:mag,n:n,reg:reg,regCol:regCol,regSize:regSize,minBlk:MINBLK,sal:sal,subj:subj,subjLab:subjLab,subjCol:subjCol};
     }
     function pick(cum,tot){ // binary search a cumulative-weight array
       var lo=0,hi=cum.length-1,r=Math.random()*tot;
@@ -1049,9 +1077,11 @@ if (gamesList) {
     function spawnInk(p){var re=refining&&subjETot>0,ci=pick(re?subjECum:edgeCum,re?subjETot:edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=re?90+Math.random()*160:180+Math.random()*320;p.stray=0;return p;}
     function spawnShade(p){var re=refining&&subjTot>0,ci=pick(re?subjCum:shadeCum,re?subjTot:shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
     // seeded inside a segmented colour block, and confined to it while it paints
-    function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(phaseNow===0?nextUnpainted():-1);
-      if(ci<0) ci=fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot);p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:150+Math.random()*200;p.w=re?4+Math.random()*6:10+Math.random()*14;return p;}
+    function spawnFill(p){var re=refining&&subjTot>0,ci=(phaseNow===0||phaseNow===2)?nextUnpainted():-1;
+      if(ci<0) ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));
+      p.sub=(phaseNow===2&&F.subjCol.length>0)?1:0;p.x=cx(ci);p.y=cy(ci);p.reg=p.sub?F.subjLab[ci]:F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:150+Math.random()*200;p.w=re?4+Math.random()*6:10+Math.random()*14;return p;}
     var phaseNow=0;
+    function inBlock(ci,p){ return p.sub ? (F.subj[ci]&&F.subjLab[ci]===p.reg) : (F.reg[ci]===p.reg); }
     function respawn(p){ return (phaseNow===0||phaseNow===2)?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p)); }
     // ── coverage tracking: fills steer toward ground they haven't painted yet ──
     var painted=null, unpainted=0, scanCur=0;
@@ -1149,7 +1179,7 @@ if (gamesList) {
           for(var t=0;t<7;t++){                 // straight on first, then fan out, preferring bare cells
             var a=p.ang+(t?flip*((t&1)?1:-1)*0.55*Math.ceil(t/2):0);
             var tx2=p.x+Math.cos(a)*SP_FILL, ty2=p.y+Math.sin(a)*SP_FILL, tci=cellAt(tx2,ty2);
-            if(tci<0||F.reg[tci]!==p.reg) continue;
+            if(tci<0||!inBlock(tci,p)) continue;
             if(best<0){best=a;bx=tx2;by=ty2;bci=tci;}
             if(!painted[tci]){best=a;bx=tx2;by=ty2;bci=tci;break;}
           }
@@ -1157,7 +1187,7 @@ if (gamesList) {
           if(!painted[bci]) p.miss=0;
           p.ang=best; p.x=bx; p.y=by; p.life++;
           markPainted(bci, Math.max(0,Math.floor(p.w/2/ts)-1));
-          var rc=F.regCol[p.reg], fgy=(rc[0]+rc[1]+rc[2])/3;       // the block's own representative colour
+          var rc=p.sub?F.subjCol[p.reg]:F.regCol[p.reg], fgy=(rc[0]+rc[1]+rc[2])/3;   // block's own colour (subject palette while refilling)
           var fr=fgy+(rc[0]-fgy)*1.05, fgc=fgy+(rc[1]-fgy)*1.05, fbc=fgy+(rc[2]-fgy)*1.05;
           fr=fr<0?0:fr>255?255:fr; fgc=fgc<0?0:fgc>255?255:fgc; fbc=fbc<0?0:fbc>255?255:fbc;
           ctx.lineWidth=p.w;                                       // fat
