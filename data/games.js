@@ -298,6 +298,23 @@ const CVLAB_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;h
   </g>
 </svg>`;
 
+const BREAKDOWN_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200px;height:auto" xmlns="http://www.w3.org/2000/svg">
+  <!-- source frame -->
+  <rect x="8" y="26" width="52" height="68" rx="3" fill="#101a12" stroke="rgba(255,255,255,.10)"/>
+  <path d="M14 82 L30 52 L42 68 L54 44 L54 88 L14 88 Z" fill="#2f6b3a"/>
+  <circle cx="44" cy="40" r="6" fill="#d9c27a"/>
+  <!-- edges -->
+  <rect x="68" y="26" width="52" height="68" rx="3" fill="#180b2a" stroke="rgba(255,255,255,.10)"/>
+  <path d="M74 82 L90 52 L102 68 L114 44" fill="none" stroke="#4be0c0" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"/>
+  <circle cx="104" cy="40" r="6" fill="none" stroke="#5b8def" stroke-width="1.8"/>
+  <!-- subject -->
+  <rect x="128" y="26" width="52" height="68" rx="3" fill="#f7ece1" stroke="rgba(0,0,0,.12)"/>
+  <circle cx="164" cy="40" r="6.5" fill="#1d1712"/>
+  <path d="M134 84 L150 54 L162 70 L174 48 L174 88 L134 88 Z" fill="none" stroke="#1d1712" stroke-width="1.2" stroke-linejoin="round" opacity=".35"/>
+  <!-- arrows -->
+  <path d="M62 60 h4 M122 60 h4" stroke="#ccf73f" stroke-width="2" stroke-linecap="round"/>
+</svg>`;
+
 export const CARDS = [
   {
     id: 'pool',
@@ -427,6 +444,20 @@ export const CARDS = [
     category: 'component',
     credit: 'Paintings & images from <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>',
     ctaFull: 'Open',
+    ctaShort: 'Open'
+  },
+  {
+    id: 'image-breakdown',
+    type: 'game',
+    title: 'Image Breakdown',
+    descShort: 'Drop in a photo and watch it get taken apart, then redrawn.',
+    descFull: "The drawing engine behind my homepage, opened up. Drop in any image and every stage is shown: Sobel gradients finding the contours, k-means plus connected components carving it into colour blocks, and a border-contrast saliency pass picking out the subject with no model involved. Then pen particles redraw it — laying a base, then going back over the detected subject in finer detail. Tune the clusters, subject threshold and particle count and watch it run again.",
+    href: 'image-breakdown.html',
+    thumbBg: 'linear-gradient(160deg,#0e1410,#1a2416)',
+    thumbSvg: BREAKDOWN_SVG,
+    stack: ['Canvas', 'Sobel', 'k-means'],
+    category: 'component',
+    ctaFull: 'Open breakdown',
     ctaShort: 'Open'
   },
   {

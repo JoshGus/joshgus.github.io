@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<title>Image Breakdown &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<script src="../dark-mode.js"></script>
+<style>
+body{background:var(--bg);color:var(--fg);font-family:var(--body);min-height:100vh;-webkit-font-smoothing:antialiased}
+.wrap{width:100%;max-width:1320px;margin:0 auto;padding:clamp(24px,4vw,48px) clamp(16px,3vw,36px) 90px}
+.head h1{font-family:var(--disp);font-weight:460;font-size:clamp(2rem,5.5vw,3.4rem);line-height:.92;letter-spacing:-.03em}
+.head h1 em{font-style:italic;color:var(--accent-ink)}
+.head p{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;color:var(--dim);
+  margin-top:12px;max-width:78ch;line-height:1.7}
+
+/* ── input ─────────────────────────────────────────── */
+.drop{margin-top:26px;border:1.5px dashed var(--line-strong);border-radius:14px;background:var(--surface);
+  padding:26px;text-align:center;cursor:pointer;transition:.2s}
+.drop:hover,.drop.over{border-color:var(--accent-ink);background:var(--bg)}
+.drop b{font-family:var(--disp);font-weight:520;font-size:1.05rem;display:block}
+.drop span{font-family:var(--mono);font-size:.62rem;letter-spacing:.06em;color:var(--dim);line-height:1.8;display:block;margin-top:8px}
+
+.bar{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;margin-top:20px}
+button{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:9px 14px;border:1px solid var(--line-strong);border-radius:24px;background:var(--surface);
+  color:var(--fg);cursor:pointer;transition:.2s}
+button:hover:not(:disabled){border-color:var(--accent-ink);color:var(--accent-ink)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712}
+.ctl{display:flex;flex-direction:column;gap:5px}
+.ctl label{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:var(--dim)}
+.ctl label b{color:var(--accent-ink)}
+.ctl input[type=range]{width:130px;accent-color:var(--accent-ink);cursor:pointer}
+
+/* ── pipeline strip ────────────────────────────────── */
+.pipe{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin-top:30px}
+.stage{display:flex;flex-direction:column;gap:8px}
+.stage canvas{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:8px;background:var(--surface)}
+.stage .cap{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;color:var(--fg)}
+.stage .sub{font-family:var(--mono);font-size:.55rem;letter-spacing:.04em;color:var(--dim);line-height:1.6}
+.stage .n{color:var(--accent-ink)}
+
+/* ── sketch ────────────────────────────────────────── */
+.sketch-head{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin:38px 0 12px}
+.sketch-head h2{font-family:var(--disp);font-weight:520;font-size:clamp(1.3rem,3vw,1.8rem);letter-spacing:-.02em}
+.phase{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:5px 11px;border-radius:20px;border:1px solid var(--accent-ink);color:var(--accent-ink)}
+.phase.done{border-color:var(--line-strong);color:var(--dim)}
+.prog{flex:1;min-width:120px;height:3px;background:var(--line);border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;width:0;background:var(--accent-ink);transition:width .2s linear}
+#sketch{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:12px;background:var(--bg)}
+.legend{font-family:var(--mono);font-size:.58rem;letter-spacing:.04em;color:var(--dim);line-height:1.9;margin-top:12px}
+.legend b{color:var(--fg);font-weight:500}
+.hidden{display:none}
+</style>
+</head>
+<body class="noise">
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+    <a href="../colormap.html">Color Space</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="wrap">
+  <div class="head">
+    <h1>Image <em>Breakdown</em></h1>
+    <p>The drawing engine from my homepage, opened up. Drop in a photo and watch it get taken apart:
+       Sobel gradients find the contours, k-means + connected components carve it into colour blocks,
+       and a border-contrast saliency pass picks out the subject. Then pen particles redraw it &mdash;
+       laying a base, then going back over the subject in finer detail. All of it runs in your browser.</p>
+  </div>
+
+  <div class="drop" id="drop">
+    <b>Drop an image here</b>
+    <span>click to browse &middot; paste with &#8984;V / Ctrl+V &middot; or use one of my photos</span>
+  </div>
+  <input type="file" id="file" accept="image/*" hidden>
+
+  <div class="bar">
+    <button id="mine">Use one of my photos</button>
+    <button id="replay" class="primary" disabled>&#8635; Redraw</button>
+    <div class="ctl"><label>Colour clusters <b id="kv">7</b></label><input type="range" id="k" min="3" max="12" step="1" value="7"></div>
+    <div class="ctl"><label>Subject threshold <b id="stv">0.45</b></label><input type="range" id="st" min="0.2" max="0.8" step="0.05" value="0.45"></div>
+    <div class="ctl"><label>Particles <b id="nv">440</b></label><input type="range" id="np" min="80" max="900" step="20" value="440"></div>
+  </div>
+
+  <div class="pipe" id="pipe">
+    <div class="stage"><canvas id="s-src"></canvas><span class="cap">1 &middot; Source</span><span class="sub" id="d-src">&mdash;</span></div>
+    <div class="stage"><canvas id="s-lum"></canvas><span class="cap">2 &middot; Luminance</span><span class="sub">0.299R + 0.587G + 0.114B</span></div>
+    <div class="stage"><canvas id="s-edge"></canvas><span class="cap">3 &middot; Sobel edges</span><span class="sub" id="d-edge">&mdash;</span></div>
+    <div class="stage"><canvas id="s-quant"></canvas><span class="cap">4 &middot; Colour blocks</span><span class="sub" id="d-quant">&mdash;</span></div>
+    <div class="stage"><canvas id="s-sal"></canvas><span class="cap">5 &middot; Saliency</span><span class="sub">border-contrast + centre prior</span></div>
+    <div class="stage"><canvas id="s-subj"></canvas><span class="cap">6 &middot; Subject</span><span class="sub" id="d-subj">&mdash;</span></div>
+  </div>
+
+  <div class="sketch-head">
+    <h2>The redraw</h2>
+    <span class="phase" id="phase">waiting for an image</span>
+    <span class="prog"><i id="progbar"></i></span>
+  </div>
+  <canvas id="sketch"></canvas>
+  <div class="legend">
+    <b>Base pass</b> &mdash; ink tracers follow the edge tangents, hatch ticks shade by darkness, fat faint fills wash each colour block in its own colour.<br>
+    <b>Refine pass</b> &mdash; every particle re-aims at the detected subject and draws finer: thinner ink on subject edges, tighter hatching, narrower fills. The canvas locks so detail builds over the base.<br>
+    <b>Settle</b> &mdash; particles are culled away and the loop stops, leaving the finished drawing.
+  </div>
+</div>
+
+<script>try{var clk=document.getElementById('clock');var t=function(){clk.textContent=new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'})+' EST'};t();setInterval(t,30000)}catch(e){}</script>
+
+<script>
+"use strict";
+/* ══════════════════════════════════════════════════════════════════
+   Image Breakdown — the homepage sketch engine, step by step.
+   Everything is computed here in the page: Sobel, k-means, connected
+   components, saliency, then a three-phase particle redraw.
+   ══════════════════════════════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const WORK = 260;                      // working resolution (long side)
+
+let SRC = null;                        // {rgb, w, h}
+let F = null;                          // computed field
+let raf = 0;
+
+/* ── perlin (for stroke jitter) ─────────────────────────────────── */
+const P=[]; let _s=42;
+function rng(){_s=(_s*1664525+1013904223)>>>0;return _s/0xffffffff;}
+for(let i=0;i<256;i++)P[i]=i;
+for(let i=255;i>0;i--){const j=Math.floor(rng()*(i+1));[P[i],P[j]]=[P[j],P[i]];}
+const PERM=P.concat(P);
+const fade=t=>t*t*t*(t*(t*6-15)+10), lerp=(a,b,t)=>a+t*(b-a);
+function grad(h,x,y){h&=7;const u=h<4?x:y,v=h<4?y:x;return((h&1)?-u:u)+((h&2)?-v:v);}
+function pnoise(x,y){
+  const xi=Math.floor(x)&255,yi=Math.floor(y)&255,xf=x-Math.floor(x),yf=y-Math.floor(y);
+  const u=fade(xf),v=fade(yf);
+  return lerp(lerp(grad(PERM[PERM[xi]+yi],xf,yf),grad(PERM[PERM[xi+1]+yi],xf-1,yf),u),
+              lerp(grad(PERM[PERM[xi]+yi+1],xf,yf-1),grad(PERM[PERM[xi+1]+yi+1],xf-1,yf-1),u),v);
+}
+const isDark=()=>document.documentElement.classList.contains('dark');
+
+/* ── load an image into a working buffer ────────────────────────── */
+function toWork(img){
+  let w=img.naturalWidth||img.width, h=img.naturalHeight||img.height;
+  const s=Math.min(1,WORK/Math.max(w,h));
+  w=Math.max(1,Math.round(w*s)); h=Math.max(1,Math.round(h*s));
+  const c=document.createElement('canvas'); c.width=w; c.height=h;
+  const x=c.getContext('2d',{willReadFrequently:true});
+  x.drawImage(img,0,0,w,h);
+  return {rgb:x.getImageData(0,0,w,h), w, h};
+}
+
+/* ── the whole pipeline ─────────────────────────────────────────── */
+function analyse(){
+  const t0=performance.now();
+  const {rgb,w:fw,h:fh}=SRC, d=rgb.data, n=fw*fh;
+  const K=+$('k').value, SUBJ_T=+$('st').value;
+
+  // 1. colour + luminance (colours pushed away from grey so blocks read as colour)
+  const SAT=2.7, cl=v=>v<0?0:v>255?255:v|0;
+  const r=new Uint8Array(n),g=new Uint8Array(n),b=new Uint8Array(n),lum=new Float32Array(n);
+  for(let i=0,p=0;i<n;i++,p+=4){
+    const R=d[p],G=d[p+1],B=d[p+2],gy=(R+G+B)/3;
+    r[i]=cl(gy+(R-gy)*SAT); g[i]=cl(gy+(G-gy)*SAT); b[i]=cl(gy+(B-gy)*SAT);
+    lum[i]=(0.299*R+0.587*G+0.114*B)/255;
+  }
+
+  // 2. Sobel → gradient magnitude + edge tangents
+  const tx=new Float32Array(n),ty=new Float32Array(n),mag=new Float32Array(n); let maxm=1e-6;
+  for(let y=1;y<fh-1;y++)for(let x=1;x<fw-1;x++){
+    const o=y*fw+x;
+    const gx=(lum[o-fw+1]+2*lum[o+1]+lum[o+fw+1])-(lum[o-fw-1]+2*lum[o-1]+lum[o+fw-1]);
+    const gyv=(lum[o+fw-1]+2*lum[o+fw]+lum[o+fw+1])-(lum[o-fw-1]+2*lum[o-fw]+lum[o-fw+1]);
+    const m=Math.sqrt(gx*gx+gyv*gyv); mag[o]=m; if(m>maxm)maxm=m;
+    const gl=m||1; tx[o]=-gyv/gl; ty[o]=gx/gl;      // tangent ⟂ gradient
+  }
+  for(let i=0;i<n;i++) mag[i]/=maxm;
+
+  // 3. k-means colour quantisation
+  const cent=[], lab=new Uint8Array(n);
+  for(let k=0;k<K;k++){const s=Math.floor(n*(k+0.5)/K); cent.push([r[s],g[s],b[s]]);}
+  for(let it=0;it<8;it++){
+    const ar=new Float64Array(K),ag=new Float64Array(K),ab=new Float64Array(K),cn=new Float64Array(K);
+    for(let q=0;q<n;q++){
+      const qr=r[q],qg=g[q],qb=b[q]; let best=0,bd=1e18;
+      for(let kk=0;kk<K;kk++){const c=cent[kk],dr=qr-c[0],dg=qg-c[1],db=qb-c[2],d2=dr*dr+dg*dg+db*db;if(d2<bd){bd=d2;best=kk;}}
+      lab[q]=best; ar[best]+=qr; ag[best]+=qg; ab[best]+=qb; cn[best]++;
+    }
+    for(let k=0;k<K;k++) if(cn[k]) cent[k]=[ar[k]/cn[k],ag[k]/cn[k],ab[k]/cn[k]];
+  }
+
+  // 4. connected components → contiguous colour blocks
+  const reg=new Int32Array(n).fill(-1), regSize=[], regCol=[], stack=new Int32Array(n); let nreg=0;
+  for(let s=0;s<n;s++){
+    if(reg[s]!==-1) continue;
+    const id=nreg++, L=lab[s]; let sp=0,sz=0; stack[sp++]=s; reg[s]=id;
+    while(sp){
+      const t=stack[--sp]; sz++;
+      const qx=t%fw, qy=(t/fw)|0; let a;
+      if(qx>0){a=t-1;     if(reg[a]===-1&&lab[a]===L){reg[a]=id;stack[sp++]=a;}}
+      if(qx<fw-1){a=t+1;  if(reg[a]===-1&&lab[a]===L){reg[a]=id;stack[sp++]=a;}}
+      if(qy>0){a=t-fw;    if(reg[a]===-1&&lab[a]===L){reg[a]=id;stack[sp++]=a;}}
+      if(qy<fh-1){a=t+fw; if(reg[a]===-1&&lab[a]===L){reg[a]=id;stack[sp++]=a;}}
+    }
+    regSize.push(sz); regCol.push(cent[L]);
+  }
+
+  // 5. subject saliency — regions touching the frame read as background
+  const rB=new Float64Array(nreg),rX=new Float64Array(nreg),rY=new Float64Array(nreg),rE=new Float64Array(nreg);
+  for(let y=0;y<fh;y++)for(let x=0;x<fw;x++){
+    const o=y*fw+x,R=reg[o];
+    rX[R]+=x; rY[R]+=y; rE[R]+=mag[o];
+    if(x===0||y===0||x===fw-1||y===fh-1) rB[R]++;
+  }
+  let bgR=0; for(let k=1;k<nreg;k++) if(rB[k]>rB[bgR]) bgR=k;
+  const bgC=regCol[bgR], perim=2*(fw+fh), rS=new Float64Array(nreg); let maxS=1e-6;
+  for(let R=0;R<nreg;R++){
+    const c=regCol[R];
+    const dc=Math.sqrt((c[0]-bgC[0])**2+(c[1]-bgC[1])**2+(c[2]-bgC[2])**2)/441;
+    const bf=rB[R]/perim, ux=rX[R]/regSize[R]/fw-0.5, uy=rY[R]/regSize[R]/fh-0.5;
+    const cd=Math.sqrt(ux*ux+uy*uy)/0.7071;
+    let sc=dc*(1-Math.min(1,bf*3))*(1-0.55*cd)+(rE[R]/regSize[R])*0.6;
+    if(regSize[R]<n*0.0006) sc*=0.3;
+    rS[R]=sc; if(sc>maxS)maxS=sc;
+  }
+  const sal=new Float32Array(n);
+  for(let i=0;i<n;i++) sal[i]=rS[reg[i]]/maxS;
+
+  // 6. spawn fields
+  const MINBLK=Math.max(40,n*0.004);
+  const edgeCum=new Float32Array(n),shadeCum=new Float32Array(n),fillCum=new Float32Array(n),
+        subjCum=new Float32Array(n),subjECum=new Float32Array(n);
+  let ce=0,cs=0,cf=0,c2=0,ce2=0, subjPx=0;
+  for(let i=0;i<n;i++){
+    ce+=mag[i]>0.2?mag[i]**3:0;                    edgeCum[i]=ce;
+    cs+=Math.pow(1-lum[i],1.15)+0.22;              shadeCum[i]=cs;
+    cf+=regSize[reg[i]]>=MINBLK?1:0;               fillCum[i]=cf;
+    const sw=sal[i]>SUBJ_T?sal[i]*sal[i]:0; if(sw>0)subjPx++;
+    c2+=sw;                                        subjCum[i]=c2;
+    ce2+=(mag[i]>0.14?mag[i]*mag[i]:0)*sw;         subjECum[i]=ce2;
+  }
+
+  F={fw,fh,n,r,g,b,lum,mag,tx,ty,reg,regCol,regSize,sal,K,nreg,SUBJ_T,
+     edgeCum,shadeCum,fillCum,subjCum,subjECum,
+     edgeTot:ce,shadeTot:cs,fillTot:cf,subjTot:c2,subjETot:ce2,
+     bigBlocks:regSize.filter(s=>s>=MINBLK).length, subjPx, ms:Math.round(performance.now()-t0)};
+
+  drawStages();
+}
+
+/* ── stage visualisations ───────────────────────────────────────── */
+function put(id,paint){
+  const c=$(id); c.width=F.fw; c.height=F.fh;
+  const x=c.getContext('2d'), im=x.createImageData(F.fw,F.fh);
+  paint(im.data); x.putImageData(im,0,0);
+}
+const VIRIDIS=[[68,1,84],[72,40,120],[62,74,137],[49,104,142],[38,130,142],[31,158,137],[53,183,121],[110,206,88],[181,222,43],[253,231,37]];
+function viridis(t){t=Math.max(0,Math.min(1,t))*(VIRIDIS.length-1);const i=Math.floor(t),f=t-i,a=VIRIDIS[i],b=VIRIDIS[Math.min(i+1,9)];
+  return [a[0]+(b[0]-a[0])*f,a[1]+(b[1]-a[1])*f,a[2]+(b[2]-a[2])*f];}
+
+function drawStages(){
+  const {n,fw,fh}=F;
+  // source
+  const cs=$('s-src'); cs.width=fw; cs.height=fh; cs.getContext('2d').putImageData(SRC.rgb,0,0);
+  $('d-src').textContent=`${SRC.w}×${SRC.h} working px · analysed in ${F.ms} ms`;
+  // luminance
+  put('s-lum',o=>{for(let i=0;i<n;i++){const v=F.lum[i]*255;o[i*4]=o[i*4+1]=o[i*4+2]=v;o[i*4+3]=255;}});
+  // edges
+  put('s-edge',o=>{for(let i=0;i<n;i++){const c=viridis(Math.min(1,F.mag[i]*2.2));o[i*4]=c[0];o[i*4+1]=c[1];o[i*4+2]=c[2];o[i*4+3]=255;}});
+  let strong=0; for(let i=0;i<n;i++) if(F.mag[i]>0.2) strong++;
+  $('d-edge').textContent=`${(100*strong/n).toFixed(1)}% of pixels above the contour threshold`;
+  // colour blocks
+  put('s-quant',o=>{for(let i=0;i<n;i++){const c=F.regCol[F.reg[i]];o[i*4]=c[0];o[i*4+1]=c[1];o[i*4+2]=c[2];o[i*4+3]=255;}});
+  $('d-quant').innerHTML=`<span class="n">${F.K}</span> clusters → <span class="n">${F.nreg}</span> regions, <span class="n">${F.bigBlocks}</span> big enough to fill`;
+  // saliency
+  put('s-sal',o=>{for(let i=0;i<n;i++){const c=viridis(F.sal[i]);o[i*4]=c[0];o[i*4+1]=c[1];o[i*4+2]=c[2];o[i*4+3]=255;}});
+  // subject mask over a dimmed source
+  put('s-subj',o=>{const d=SRC.rgb.data;
+    for(let i=0;i<n;i++){const on=F.sal[i]>F.SUBJ_T;
+      o[i*4]  = on? d[i*4]   : 244;
+      o[i*4+1]= on? d[i*4+1] : 236;
+      o[i*4+2]= on? d[i*4+2] : 225;
+      o[i*4+3]=255;}});
+  $('d-subj').textContent=`${(100*F.subjPx/n).toFixed(1)}% of the frame kept as subject`;
+}
+
+/* ── the redraw ─────────────────────────────────────────────────── */
+const FINISH=420, REFINE=340, CULL=300;
+let parts=[],N=0,active=0,renders=0,refining=false,running=false;
+let ctx=null,cw=0,ch=0,scale=1,ox=0,oy=0;
+const SP_INK=1.8,SP_SHADE=3.9,SP_FILL=2.5;
+const HANG=0.6,HC=Math.cos(HANG),HS=Math.sin(HANG);
+
+function pick(cum,tot){let lo=0,hi=cum.length-1;const r=Math.random()*tot;
+  while(lo<hi){const m=(lo+hi)>>1; if(cum[m]<r)lo=m+1; else hi=m;} return lo;}
+const cellAt=(x,y)=>{const fx=((x-ox)/scale)|0,fy=((y-oy)/scale)|0;
+  return (fx<0||fy<0||fx>=F.fw||fy>=F.fh)?-1:fy*F.fw+fx;};
+const cX=ci=>ox+((ci%F.fw)+0.5)*scale, cY=ci=>oy+(((ci/F.fw)|0)+0.5)*scale;
+
+function spawnInk(p){const re=refining&&F.subjETot>0,ci=pick(re?F.subjECum:F.edgeCum,re?F.subjETot:F.edgeTot);
+  p.x=cX(ci)+(Math.random()-.5)*scale;p.y=cY(ci)+(Math.random()-.5)*scale;p.vx=0;p.vy=0;p.life=0;
+  p.max=re?90+Math.random()*160:180+Math.random()*320;p.stray=0;return p;}
+function spawnShade(p){const re=refining&&F.subjTot>0,ci=pick(re?F.subjCum:F.shadeCum,re?F.subjTot:F.shadeTot);
+  p.x=cX(ci)+(Math.random()-.5)*scale;p.y=cY(ci)+(Math.random()-.5)*scale;p.life=0;
+  p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
+function spawnFill(p){const re=refining&&F.subjTot>0,
+  ci=re?pick(F.subjCum,F.subjTot):(F.fillTot>0?pick(F.fillCum,F.fillTot):pick(F.shadeCum,F.shadeTot));
+  p.x=cX(ci);p.y=cY(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;
+  p.max=re?40+Math.random()*70:70+Math.random()*130;p.w=re?2+Math.random()*4:5+Math.random()*8;return p;}
+const respawn=p=>p.kind===0?spawnInk(p):p.kind===1?spawnShade(p):spawnFill(p);
+
+function seed(){
+  N=+$('np').value;
+  const inkN=Math.round(N*0.40), shadeN=Math.round(N*0.35);
+  parts=[]; active=N; renders=0; refining=false;
+  for(let i=0;i<N;i++){const p={kind:i<inkN?0:(i<inkN+shadeN?1:2)};respawn(p);parts.push(p);}
+}
+
+function setPhase(txt,pct,done){
+  const el=$('phase'); el.textContent=txt; el.classList.toggle('done',!!done);
+  $('progbar').style.width=Math.max(0,Math.min(100,pct))+'%';
+}
+
+function frame(){
+  if(!running) return;
+  raf=requestAnimationFrame(frame);
+  if(!F) return;
+  const dark=isDark();
+  refining = F.subjTot>0 && renders>FINISH && renders<=FINISH+REFINE;
+
+  if(renders<=FINISH){                       // fade only while the base builds
+    ctx.globalCompositeOperation='destination-out';
+    ctx.fillStyle='rgba(0,0,0,'+(dark?.0028:.003)+')';
+    ctx.fillRect(0,0,cw,ch);
+    ctx.globalCompositeOperation='source-over';
+  }
+  ctx.lineCap='round';
+
+  const na=active|0;
+  for(let i=0;i<na;i++){
+    const p=parts[i];
+    if(p.life>=p.max||p.x<-20||p.x>cw+20||p.y<-20||p.y>ch+20){respawn(p);continue;}
+    const ci=cellAt(p.x,p.y); if(ci<0){respawn(p);continue;}
+    const m=F.mag[ci],px=p.x,py=p.y;
+
+    if(p.kind===0){                          // ink contour
+      if(m<0.05||(refining&&F.sal[ci]<0.35)){if(++p.stray>4){spawnInk(p);continue;}} else p.stray=0;
+      let ax=F.tx[ci],ay=F.ty[ci];
+      if(p.vx*ax+p.vy*ay<0){ax=-ax;ay=-ay;}
+      p.vx=ax;p.vy=ay; p.x+=ax*SP_INK; p.y+=ay*SP_INK; p.life++;
+      const a=(dark?0.42:0.38)*(0.4+0.6*m);
+      let er=F.r[ci],eg=F.g[ci],eb=F.b[ci];
+      if(dark){er+=(255-er)*.32;eg+=(255-eg)*.32;eb+=(255-eb)*.32;} else {er*=.68;eg*=.68;eb*=.68;}
+      ctx.lineWidth=refining?0.85:1.2;
+      ctx.strokeStyle=`rgba(${er|0},${eg|0},${eb|0},${a})`;
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
+
+    } else if(p.kind===1){                   // hatch tick
+      let dx,dy;
+      if(m>0.03){dx=F.tx[ci];dy=F.ty[ci];} else {dx=HC;dy=HS;}
+      const j=pnoise(p.x*.012,p.y*.012)*.7,cj=Math.cos(j),sj=Math.sin(j);
+      p.x+=(dx*cj-dy*sj)*SP_SHADE; p.y+=(dx*sj+dy*cj)*SP_SHADE; p.life++;
+      let sr=F.r[ci],sg=F.g[ci],sb=F.b[ci];const sgy=(sr+sg+sb)/3;
+      sr=(sgy+(sr-sgy)*1.6)*.72;sg=(sgy+(sg-sgy)*1.6)*.72;sb=(sgy+(sb-sgy)*1.6)*.72;
+      ctx.lineWidth=1;
+      ctx.strokeStyle=`rgba(${Math.min(255,Math.max(0,sr))|0},${Math.min(255,Math.max(0,sg))|0},${Math.min(255,Math.max(0,sb))|0},${dark?.13:.115})`;
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
+
+    } else {                                 // block fill — confined to its region
+      p.ang+=pnoise(p.x*.006,p.y*.006)*.5-.25;
+      const nx=p.x+Math.cos(p.ang)*SP_FILL, ny=p.y+Math.sin(p.ang)*SP_FILL;
+      const nci=cellAt(nx,ny);
+      if(nci<0||F.reg[nci]!==p.reg){p.ang+=1.9+Math.random()*1.4; if(++p.miss>7)spawnFill(p); p.life++; continue;}
+      p.miss=0;p.x=nx;p.y=ny;p.life++;
+      const rc=F.regCol[p.reg],fgy=(rc[0]+rc[1]+rc[2])/3;
+      const fr=(fgy+(rc[0]-fgy)*1.6)*.78,fg=(fgy+(rc[1]-fgy)*1.6)*.78,fb=(fgy+(rc[2]-fgy)*1.6)*.78;
+      ctx.lineWidth=p.w;
+      ctx.strokeStyle=`rgba(${Math.min(255,Math.max(0,fr))|0},${Math.min(255,Math.max(0,fg))|0},${Math.min(255,Math.max(0,fb))|0},${dark?.05:.045})`;
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
+    }
+  }
+
+  renders++;
+  if(renders===FINISH+1&&F.subjTot>0){ for(let z=0,q=active|0;z<q;z++) respawn(parts[z]); }
+
+  const total=FINISH+REFINE+CULL;
+  if(renders<=FINISH) setPhase('1 · base pass', 100*renders/total);
+  else if(renders<=FINISH+REFINE) setPhase(F.subjTot>0?'2 · refining subject':'2 · refining', 100*renders/total);
+  else setPhase('3 · settling', 100*renders/total);
+
+  if(renders>FINISH+REFINE){
+    active-=N/CULL;
+    if(active<=0){ active=0; running=false; setPhase('finished',100,true); }
+  }
+}
+
+function redraw(){
+  if(!SRC) return;
+  cancelAnimationFrame(raf); running=false;
+  const c=$('sketch'), box=c.parentElement.clientWidth||900;
+  cw=Math.min(box,1400); ch=Math.round(cw*SRC.h/SRC.w);
+  c.width=cw; c.height=ch;
+  ctx=c.getContext('2d'); ctx.clearRect(0,0,cw,ch);
+  scale=Math.max(cw/F.fw,ch/F.fh);
+  ox=(cw-F.fw*scale)/2; oy=(ch-F.fh*scale)/2;
+  seed(); running=true; setPhase('1 · base pass',0);
+  raf=requestAnimationFrame(frame);
+}
+
+function run(img){
+  SRC=toWork(img);
+  analyse();
+  $('replay').disabled=false;
+  $('drop').classList.add('hidden');
+  redraw();
+}
+
+/* ── input plumbing ─────────────────────────────────────────────── */
+function fromFile(f){ if(!f||!/^image\//.test(f.type))return;
+  const fr=new FileReader(); fr.onload=e=>{const im=new Image(); im.onload=()=>run(im); im.src=e.target.result;}; fr.readAsDataURL(f); }
+const drop=$('drop');
+drop.addEventListener('click',()=>$('file').click());
+$('file').addEventListener('change',e=>fromFile(e.target.files[0]));
+['dragenter','dragover'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.add('over');}));
+['dragleave','drop'].forEach(t=>drop.addEventListener(t,e=>{e.preventDefault();drop.classList.remove('over');}));
+drop.addEventListener('drop',e=>fromFile(e.dataTransfer.files[0]));
+window.addEventListener('dragover',e=>e.preventDefault());
+window.addEventListener('drop',e=>{e.preventDefault(); if(e.dataTransfer.files[0])fromFile(e.dataTransfer.files[0]);});
+window.addEventListener('paste',e=>{for(const it of (e.clipboardData||{}).items||[]) if(it.type.startsWith('image/')) fromFile(it.getAsFile());});
+
+// one of my own photos, straight off the CDN
+let ALL=null;
+$('mine').addEventListener('click',async()=>{
+  const btn=$('mine'); btn.disabled=true; btn.textContent='Loading…';
+  try{
+    if(!ALL){ const r=await fetch('../data/photos-web.json'); ALL=(await r.json()).map(x=>x.id); }
+    const id=ALL[Math.floor(Math.random()*ALL.length)];
+    const im=new Image(); im.crossOrigin='anonymous';
+    im.onload=()=>run(im);
+    im.onerror=()=>{btn.textContent='Use one of my photos';btn.disabled=false;};
+    im.src='https://res.cloudinary.com/dgxn8tymb/image/upload/w_900,f_auto,q_auto/'+id;
+  }catch(e){}
+  btn.disabled=false; btn.textContent='Use one of my photos';
+});
+
+$('replay').addEventListener('click',()=>{ if(SRC){ analyse(); redraw(); } });
+[['k','kv'],['st','stv'],['np','nv']].forEach(([id,out])=>{
+  $(id).addEventListener('input',()=>{ $(out).textContent=$(id).value; });
+  $(id).addEventListener('change',()=>{ if(SRC){ analyse(); redraw(); } });
+});
+window.addEventListener('resize',()=>{ if(SRC&&!running) redraw(); });
+</script>
+</body>
+</html>

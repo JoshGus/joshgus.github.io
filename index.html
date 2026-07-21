@@ -296,9 +296,9 @@
     padding:18px 20px;border-radius:12px;   /* no flex:1 — .intro already centres, so this hugs its content */
     background:rgba(247,236,225,.5);        /* --bg tan; hover deepens it just a touch */
     transition:background .32s ease}
-  .intro-inner:hover{background:rgba(247,236,225,.72)}
+  .intro-inner:hover{background:rgba(247,236,225,.9)}
   html.dark .intro-inner{background:rgba(20,18,16,.5)}    /* --bg dark */
-  html.dark .intro-inner:hover{background:rgba(20,18,16,.72)}
+  html.dark .intro-inner:hover{background:rgba(20,18,16,.9)}
 
   /* ---------- custom scrollbar (wide screens only) ---------- */
   #sb{display:none}
@@ -1038,7 +1038,7 @@ if (gamesList) {
       var dark=isDark();
       if(_renders<=FINISH_FRAMES){          // fade only while building; afterwards the finished image is locked in
         ctx.globalCompositeOperation='destination-out';
-        ctx.fillStyle='rgba(0,0,0,'+(dark?.011:.012)+')';
+        ctx.fillStyle='rgba(0,0,0,'+(dark?.0045:.005)+')';
         ctx.fillRect(0,0,w,h);
         ctx.globalCompositeOperation='source-over';
       }
@@ -1068,7 +1068,7 @@ if (gamesList) {
           var j=pnoise(p.x*0.012,p.y*0.012)*0.7, cj=Math.cos(j),sj=Math.sin(j); // slight per-path variation
           var rx=dx*cj-dy*sj, ry=dx*sj+dy*cj;
           p.x+=rx*SP_SHADE; p.y+=ry*SP_SHADE; repel(p); p.life++;
-          var sa=dark?0.085:0.07;
+          var sa=dark?0.11:0.095;
           var sr=F.r[ci],sg=F.g[ci],sb=F.b[ci],sgy=(sr+sg+sb)/3;   // extra chroma so the fill reads as colour, not grey
           sr=sgy+(sr-sgy)*1.6;sg=sgy+(sg-sgy)*1.6;sb=sgy+(sb-sgy)*1.6;
           sr=sr<0?0:sr>255?255:sr;sg=sg<0?0:sg>255?255:sg;sb=sb<0?0:sb>255?255:sb;
@@ -1090,7 +1090,7 @@ if (gamesList) {
           var fr=fgy+(rc[0]-fgy)*1.6, fgc=fgy+(rc[1]-fgy)*1.6, fbc=fgy+(rc[2]-fgy)*1.6;
           fr=fr<0?0:fr>255?255:fr; fgc=fgc<0?0:fgc>255?255:fgc; fbc=fbc<0?0:fbc>255?255:fbc;
           ctx.lineWidth=p.w;                                       // fat
-          ctx.strokeStyle='rgba('+(fr|0)+','+(fgc|0)+','+(fbc|0)+','+(dark?0.032:0.028)+')';  // and faint
+          ctx.strokeStyle='rgba('+(fr|0)+','+(fgc|0)+','+(fbc|0)+','+(dark?0.042:0.038)+')';  // and faint
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         }
       }
