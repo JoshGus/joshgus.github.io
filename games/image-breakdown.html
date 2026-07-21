@@ -109,9 +109,9 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
     <div class="ctl"><label>Subject threshold <b id="stv">0.45</b></label><input type="range" id="st" min="0.2" max="0.8" step="0.05" value="0.45"></div>
     <div class="ctl"><label>Particles <b id="nv">440</b></label><input type="range" id="np" min="80" max="900" step="20" value="440"></div>
     <div class="ctl"><label>Subject palette bias <b id="sbv">1.6</b></label><input type="range" id="sb" min="1" max="2.8" step="0.1" value="1.6"></div>
-    <button id="clearSeed" hidden>&#10005; Clear subject point</button>
+    <button id="clearSeed" hidden>&#10005; Clear subject selection</button>
   </div>
-  <p class="legend" style="margin-top:10px">Subject is found automatically &mdash; or <b>click the Source thumbnail</b> to drop a point and flood-fill the subject yourself.</p>
+  <p class="legend" style="margin-top:10px">Subject is found automatically &mdash; or on the Source thumbnail, <b>drag a box</b> around it to isolate what's inside, or <b>click</b> to flood-fill from a point.</p>
 
   <div class="pipe" id="pipe">
     <div class="stage"><canvas id="s-src" style="cursor:crosshair" title="Click to place a subject point"></canvas><span class="cap">1 &middot; Source</span><span class="sub" id="d-src">&mdash;</span></div>
@@ -289,7 +289,8 @@ function analyse(){
 
   // A hand-placed point wins over the automatic guess: region-grow from it, taking
   // neighbours whose colour is close to the seed's. Classic flood fill with tolerance.
-  if(manualSeed>=0 && manualSeed<n){
+  if(manualRect){ const kk=isolateInRect(manualRect,r,g,b,fw,fh,n); if(kk) subj=kk; }
+  else if(manualSeed>=0 && manualSeed<n){
     const sr0=r[manualSeed], sg0=g[manualSeed], sb0=b[manualSeed];
     const TOL=46*46, cap=Math.floor(n*0.6);
     const grown=new Uint8Array(n), stq=new Int32Array(n);
@@ -395,12 +396,108 @@ function drawStages(){
       o[i*4+1]= on? d[i*4+1] : 236;
       o[i*4+2]= on? d[i*4+2] : 225;
       o[i*4+3]=255;}});
-  $('d-subj').textContent=`${(100*F.subjPx/n).toFixed(1)}% kept · ${manualSeed>=0?'your point':'auto'} · ${F.subjCol.length} subject colours`;
+  $('d-subj').textContent=`${(100*F.subjPx/n).toFixed(1)}% kept · ${manualRect?'your box':(manualSeed>=0?'your point':'auto')} · ${F.subjCol.length} subject colours`;
+}
+
+
+// ── isolate the subject inside a drawn box ─────────────────────────────────
+// Model the background from a ring OUTSIDE the box, then classify every pixel
+// inside by how far it sits from that model (Otsu-thresholded). Works on
+// multi-coloured animals because it segments against the background rather
+// than requiring similarity to a single seed colour.
+function isolateInRect(rect,r,g,b,fw,fh,n){
+  const {x0,y0,x1,y1}=rect;
+  const pad=Math.max(4,Math.round(Math.min(fw,fh)*0.10));
+  const bg=[];
+  for(let y=Math.max(0,y0-pad);y<Math.min(fh,y1+pad);y++)
+    for(let x=Math.max(0,x0-pad);x<Math.min(fw,x1+pad);x++)
+      if(!(x>=x0&&x<x1&&y>=y0&&y<y1)) bg.push(y*fw+x);
+  for(let x=0;x<fw;x+=2){ bg.push(x); bg.push((fh-1)*fw+x); }      // plus the frame edge
+  for(let y=0;y<fh;y+=2){ bg.push(y*fw); bg.push(y*fw+fw-1); }
+  if(bg.length<8) return null;
+
+  const KB=4, cen=[];                                              // k-means the background
+  for(let k=0;k<KB;k++){ const i=bg[Math.floor(bg.length*(k+0.5)/KB)]; cen.push([r[i],g[i],b[i]]); }
+  for(let it=0;it<6;it++){
+    const ar=new Float64Array(KB),ag=new Float64Array(KB),ab=new Float64Array(KB),cn=new Float64Array(KB);
+    for(const i of bg){
+      let bk=0,bd=1e18;
+      for(let k=0;k<KB;k++){const c=cen[k],dr=r[i]-c[0],dg=g[i]-c[1],db=b[i]-c[2],d=dr*dr+dg*dg+db*db;if(d<bd){bd=d;bk=k;}}
+      ar[bk]+=r[i];ag[bk]+=g[i];ab[bk]+=b[i];cn[bk]++;
+    }
+    for(let k=0;k<KB;k++) if(cn[k]) cen[k]=[ar[k]/cn[k],ag[k]/cn[k],ab[k]/cn[k]];
+  }
+
+  // A box says "the subject is the thing in the middle", so model BOTH: background from
+  // the border ring, foreground from the box's centre, then take whichever is closer.
+  // (Modelling only the background picks whatever is most unlike it, which on a dark
+  //  animal against dark branches is the bright foliage rather than the animal.)
+  const bw=x1-x0, bh=y1-y0;
+  const fx0=x0+((bw*0.3)|0), fx1=x1-((bw*0.3)|0), fy0=y0+((bh*0.3)|0), fy1=y1-((bh*0.3)|0);
+  const fg=[];
+  for(let y=fy0;y<fy1;y++)for(let x=fx0;x<fx1;x++) fg.push(y*fw+x);
+  if(fg.length<8) return null;
+  const KF=4, cf=[];
+  for(let k=0;k<KF;k++){ const i=fg[Math.floor(fg.length*(k+0.5)/KF)]; cf.push([r[i],g[i],b[i]]); }
+  for(let it=0;it<6;it++){
+    const ar=new Float64Array(KF),ag=new Float64Array(KF),ab=new Float64Array(KF),cn=new Float64Array(KF);
+    for(const i of fg){
+      let bk=0,bd=1e18;
+      for(let k=0;k<KF;k++){const c=cf[k],dr=r[i]-c[0],dg=g[i]-c[1],db=b[i]-c[2],d=dr*dr+dg*dg+db*db;if(d<bd){bd=d;bk=k;}}
+      ar[bk]+=r[i];ag[bk]+=g[i];ab[bk]+=b[i];cn[bk]++;
+    }
+    for(let k=0;k<KF;k++) if(cn[k]) cf[k]=[ar[k]/cn[k],ag[k]/cn[k],ab[k]/cn[k]];
+  }
+  let m=new Uint8Array(n);
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+    const i=y*fw+x; let db=1e18, df=1e18;
+    for(let k=0;k<KB;k++){const c=cen[k],dr=r[i]-c[0],dg=g[i]-c[1],dbb=b[i]-c[2],d=dr*dr+dg*dg+dbb*dbb;if(d<db)db=d;}
+    for(let k=0;k<KF;k++){const c=cf[k],dr=r[i]-c[0],dg=g[i]-c[1],dbb=b[i]-c[2],d=dr*dr+dg*dg+dbb*dbb;if(d<df)df=d;}
+    if(df<db) m[i]=1;
+  }
+
+  const lab=new Int32Array(n).fill(-1), st=new Int32Array(n);      // keep the largest piece
+  let bi=-1,bs=-1,nl=0;
+  for(let s0=0;s0<n;s0++){
+    if(!m[s0]||lab[s0]!==-1) continue;
+    const id=nl++; let sp=0,sz=0; st[sp++]=s0; lab[s0]=id;
+    while(sp){ const t=st[--sp]; sz++;
+      const qx=t%fw, qy=(t/fw)|0; let a;
+      if(qx>0){a=t-1;    if(m[a]&&lab[a]===-1){lab[a]=id;st[sp++]=a;}}
+      if(qx<fw-1){a=t+1; if(m[a]&&lab[a]===-1){lab[a]=id;st[sp++]=a;}}
+      if(qy>0){a=t-fw;   if(m[a]&&lab[a]===-1){lab[a]=id;st[sp++]=a;}}
+      if(qy<fh-1){a=t+fw;if(m[a]&&lab[a]===-1){lab[a]=id;st[sp++]=a;}}
+    }
+    if(sz>bs){bs=sz;bi=id;}
+  }
+  const keep=new Uint8Array(n);
+  for(let i=0;i<n;i++) if(lab[i]===bi) keep[i]=1;
+
+  const seen=new Uint8Array(n), st2=new Int32Array(n); let sp2=0;  // fill interior holes
+  for(let x=x0;x<x1;x++){ for(const y of [y0,y1-1]){ const i=y*fw+x; if(!keep[i]&&!seen[i]){seen[i]=1;st2[sp2++]=i;} } }
+  for(let y=y0;y<y1;y++){ for(const x of [x0,x1-1]){ const i=y*fw+x; if(!keep[i]&&!seen[i]){seen[i]=1;st2[sp2++]=i;} } }
+  while(sp2){ const t=st2[--sp2], qx=t%fw, qy=(t/fw)|0;
+    const push=k=>{ const kx=k%fw, ky=(k/fw)|0;
+      if(kx<x0||kx>=x1||ky<y0||ky>=y1) return;
+      if(!keep[k]&&!seen[k]){seen[k]=1;st2[sp2++]=k;} };
+    if(qx>0)push(t-1); if(qx<fw-1)push(t+1); if(qy>0)push(t-fw); if(qy<fh-1)push(t+fw);
+  }
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){ const i=y*fw+x; if(!keep[i]&&!seen[i]) keep[i]=1; }
+
+  for(let d=0;d<2;d++){                                            // same slight dilate
+    const k2=new Uint8Array(keep);
+    for(let y=0;y<fh;y++)for(let x=0;x<fw;x++){
+      const o=y*fw+x; if(keep[o]) continue;
+      if((x>0&&keep[o-1])||(x<fw-1&&keep[o+1])||(y>0&&keep[o-fw])||(y<fh-1&&keep[o+fw])) k2[o]=1;
+    }
+    keep.set(k2);
+  }
+  return keep;
 }
 
 /* ── the redraw ─────────────────────────────────────────────────── */
 const BLOCK=420, LINE=320, REFILL=170, DETAIL=300, CULL=240;  // block, line, re-block subject finer, detail
-let parts=[],N=0,active=0,renders=0,refining=false,running=false,manualSeed=-1;
+let parts=[],N=0,active=0,renders=0,refining=false,running=false,manualSeed=-1,manualRect=null;
 let ctx=null,cw=0,ch=0,scale=1,ox=0,oy=0;
 const SP_INK=1.8,SP_SHADE=3.9,SP_FILL=2.5;
 const HANG=0.6,HC=Math.cos(HANG),HS=Math.sin(HANG);
@@ -562,7 +659,7 @@ function redraw(){
 }
 
 function run(img){
-  SRC=toWork(img); manualSeed=-1; $('clearSeed').hidden=true;
+  SRC=toWork(img); manualSeed=-1; manualRect=null; $('clearSeed').hidden=true;
   analyse();
   $('replay').disabled=false; $('save').disabled=false;
   drop.classList.add('compact');                       // stays available for the next image
@@ -614,15 +711,43 @@ $('save').addEventListener('click',()=>{
   }catch(err){ alert('Could not export this image — the source was loaded from a site that blocks canvas reads.'); }
 });
 
-$('s-src').addEventListener('click',e=>{
-  if(!SRC||!F) return;
-  const r0=e.target.getBoundingClientRect();
-  const fx=Math.floor((e.clientX-r0.left)/r0.width*F.fw), fy=Math.floor((e.clientY-r0.top)/r0.height*F.fh);
-  if(fx<0||fy<0||fx>=F.fw||fy>=F.fh) return;
-  manualSeed=fy*F.fw+fx; $('clearSeed').hidden=false;
-  analyse(); redraw();
-});
-$('clearSeed').addEventListener('click',()=>{ manualSeed=-1; $('clearSeed').hidden=true; if(SRC){ analyse(); redraw(); } });
+// Drag a box on the source to isolate the subject inside it; a plain click drops a
+// single flood-fill point instead.
+(function(){
+  const cv=$('s-src'); let drag=null;
+  const toField=e=>{ const r0=cv.getBoundingClientRect();
+    return [Math.floor((e.clientX-r0.left)/r0.width*F.fw), Math.floor((e.clientY-r0.top)/r0.height*F.fh)]; };
+  const paint=box=>{                                  // redraw the source, then the marquee
+    const x=cv.getContext('2d'); x.putImageData(SRC.rgb,0,0);
+    if(!box) return;
+    x.save(); x.strokeStyle='#ccf73f'; x.lineWidth=1.5; x.setLineDash([4,3]);
+    x.strokeRect(box.x0+.5,box.y0+.5,box.x1-box.x0,box.y1-box.y0);
+    x.fillStyle='rgba(204,247,63,.14)'; x.fillRect(box.x0,box.y0,box.x1-box.x0,box.y1-box.y0);
+    x.restore();
+  };
+  cv.addEventListener('pointerdown',e=>{ if(!SRC||!F) return;
+    const [fx,fy]=toField(e); drag={sx:fx,sy:fy,fx,fy,moved:false}; cv.setPointerCapture(e.pointerId); });
+  cv.addEventListener('pointermove',e=>{ if(!drag) return;
+    const [fx,fy]=toField(e); drag.fx=fx; drag.fy=fy;
+    if(Math.abs(fx-drag.sx)>2||Math.abs(fy-drag.sy)>2) drag.moved=true;
+    if(drag.moved) paint({x0:Math.min(drag.sx,fx),y0:Math.min(drag.sy,fy),x1:Math.max(drag.sx,fx),y1:Math.max(drag.sy,fy)});
+  });
+  cv.addEventListener('pointerup',e=>{
+    if(!drag||!SRC||!F) return;
+    const d=drag; drag=null;
+    const cl=(v,m)=>Math.max(0,Math.min(m,v));
+    if(d.moved){
+      const box={x0:cl(Math.min(d.sx,d.fx),F.fw-1), y0:cl(Math.min(d.sy,d.fy),F.fh-1),
+                 x1:cl(Math.max(d.sx,d.fx)+1,F.fw), y1:cl(Math.max(d.sy,d.fy)+1,F.fh)};
+      if(box.x1-box.x0>3 && box.y1-box.y0>3){ manualRect=box; manualSeed=-1; }
+    } else {
+      const fx=cl(d.sx,F.fw-1), fy=cl(d.sy,F.fh-1);
+      manualSeed=fy*F.fw+fx; manualRect=null;
+    }
+    $('clearSeed').hidden=false; analyse(); redraw();
+  });
+})();
+$('clearSeed').addEventListener('click',()=>{ manualSeed=-1; manualRect=null; $('clearSeed').hidden=true; if(SRC){ analyse(); redraw(); } });
 
 $('replay').addEventListener('click',()=>{ if(SRC){ analyse(); redraw(); } });
 [['k','kv'],['st','stv'],['np','nv'],['sb','sbv']].forEach(([id,out])=>{
