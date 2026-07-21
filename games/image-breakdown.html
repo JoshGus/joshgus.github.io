@@ -316,35 +316,35 @@ function spawnInk(p){const re=refining&&F.subjETot>0,ci=pick(re?F.subjECum:F.edg
 function spawnShade(p){const re=refining&&F.subjTot>0,ci=pick(re?F.subjCum:F.shadeCum,re?F.subjTot:F.shadeTot);
   p.x=cX(ci)+(Math.random()-.5)*scale;p.y=cY(ci)+(Math.random()-.5)*scale;p.life=0;
   p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
-function spawnFill(p){const re=refining&&F.subjTot>0,
-  ci=re?pick(F.subjCum,F.subjTot):(F.fillTot>0?pick(F.fillCum,F.fillTot):pick(F.shadeCum,F.shadeTot));
+function spawnFill(p){const re=refining&&F.subjTot>0;
+  let ci=re?pick(F.subjCum,F.subjTot):(phaseNow===0?nextUnpainted():-1);
+  if(ci<0) ci=F.fillTot>0?pick(F.fillCum,F.fillTot):pick(F.shadeCum,F.shadeTot);
   p.x=cX(ci);p.y=cY(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;
   p.max=re?60+Math.random()*90:160+Math.random()*220;p.w=re?4+Math.random()*6:11+Math.random()*15;return p;}
 let phaseNow=0;
 const respawn=p=>phaseNow===0?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p));
 
-// Deterministic underpainting: every cell gets its block's colour, so the frame
-// starts at 100% coverage and the blocking particles add texture on top of it.
-function paintBase(){
-  const o=document.createElement('canvas'); o.width=F.fw; o.height=F.fh;
-  const x=o.getContext('2d'), im=x.createImageData(F.fw,F.fh);
-  for(let i=0;i<F.n;i++){
-    const rc=F.regCol[F.reg[i]], gy=(rc[0]+rc[1]+rc[2])/3;
-    const cl=v=>{v=(gy+(v-gy)*1.05)*.88; return v<0?0:v>255?255:v;};   // match the fill strokes
-    im.data[i*4]=cl(rc[0]); im.data[i*4+1]=cl(rc[1]); im.data[i*4+2]=cl(rc[2]); im.data[i*4+3]=255;
-  }
-  x.putImageData(im,0,0);
-  ctx.save(); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
-  ctx.globalAlpha=0.94;
-  ctx.drawImage(o,0,0,F.fw,F.fh, ox,oy, F.fw*scale, F.fh*scale);
-  ctx.restore();
+// ── coverage tracking: fills steer toward ground they haven't painted yet ──
+let painted=null, unpainted=0, scanCur=0;
+function resetCoverage(){ painted=new Uint8Array(F.n); unpainted=F.n; scanCur=0; }
+function markPainted(ci,rad){
+  const x0=ci%F.fw, y0=(ci/F.fw)|0;
+  for(let dy=-rad;dy<=rad;dy++){ const y=y0+dy; if(y<0||y>=F.fh) continue;
+    for(let dx=-rad;dx<=rad;dx++){ const x=x0+dx; if(x<0||x>=F.fw) continue;
+      const k=y*F.fw+x; if(!painted[k]){painted[k]=1;unpainted--;} } }
+}
+function nextUnpainted(){        // random probes keep the coverage order organic, not raster
+  if(unpainted<=0) return -1;
+  for(let t=0;t<48;t++){ const k=(Math.random()*F.n)|0; if(!painted[k]) return k; }
+  for(let i=0;i<F.n;i++){ const k=(scanCur+i)%F.n; if(!painted[k]){ scanCur=(k+1)%F.n; return k; } }   // last stragglers
+  return -1;
 }
 
 function seed(){
   N=+$('np').value;
   const inkN=Math.round(N*0.45);              // kind only splits ink vs hatch; blocking uses everyone
   parts=[]; active=N; renders=0; refining=false; phaseNow=0;
-  paintBase();
+  resetCoverage();
   for(let i=0;i<N;i++){const p={kind:i<inkN?0:1};respawn(p);parts.push(p);}
 }
 
@@ -359,6 +359,7 @@ function frame(){
   if(!F) return;
   const dark=isDark();
   // 0 = colour blocking, 1 = linework over it, 2 = subject refinement, 3 = settling
+  if(renders<BLOCK && unpainted<=0) renders=BLOCK;   // fully covered — move on to the detail passes
   const phase = renders<=BLOCK ? 0 : renders<=BLOCK+LINE ? 1 : renders<=BLOCK+LINE+REFINE ? 2 : 3;
   phaseNow=phase;
   refining = F.subjTot>0 && phase>=2;   // settle keeps the fine marks too
@@ -394,12 +395,21 @@ function frame(){
       ctx.strokeStyle=`rgba(${Math.min(255,Math.max(0,sr))|0},${Math.min(255,Math.max(0,sg))|0},${Math.min(255,Math.max(0,sb))|0},${dark?.13:.115})`;
       ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
 
-    } else {                                 // block fill — confined to its region
-      p.ang+=pnoise(p.x*.006,p.y*.006)*.5-.25;
-      const nx=p.x+Math.cos(p.ang)*SP_FILL, ny=p.y+Math.sin(p.ang)*SP_FILL;
-      const nci=cellAt(nx,ny);
-      if(nci<0||F.reg[nci]!==p.reg){p.ang+=1.9+Math.random()*1.4; if(++p.miss>7)spawnFill(p); p.life++; continue;}
-      p.miss=0;p.x=nx;p.y=ny;p.life++;
+    } else {                                 // block fill — seeks unpainted ground inside its region
+      p.ang+=pnoise(p.x*.006,p.y*.006)*.8-.4+(Math.random()-.5)*.35;
+      let bx=p.x, by=p.y, bci=-1, best=-1;
+      const flip=Math.random()<.5?1:-1;      // fan direction varies per step
+      for(let t=0;t<7;t++){                  // try straight on, then fan out, preferring bare cells
+        const a=p.ang+(t?flip*((t&1)?1:-1)*0.55*Math.ceil(t/2):0);
+        const tx2=p.x+Math.cos(a)*SP_FILL, ty2=p.y+Math.sin(a)*SP_FILL, tci=cellAt(tx2,ty2);
+        if(tci<0||F.reg[tci]!==p.reg) continue;
+        if(best<0){best=a;bx=tx2;by=ty2;bci=tci;}     // fallback: any legal step
+        if(!painted[tci]){best=a;bx=tx2;by=ty2;bci=tci;break;}
+      }
+      if(bci<0||(painted[bci]&&++p.miss>3)){ spawnFill(p); p.life++; continue; }  // region done — go find bare ground
+      if(!painted[bci]) p.miss=0;
+      p.ang=best; p.x=bx; p.y=by; p.life++;
+      markPainted(bci, Math.max(0,Math.floor(p.w/2/scale)-1));
       const rc=F.regCol[p.reg],fgy=(rc[0]+rc[1]+rc[2])/3;
       const fr=(fgy+(rc[0]-fgy)*1.05)*.88,fg=(fgy+(rc[1]-fgy)*1.05)*.88,fb=(fgy+(rc[2]-fgy)*1.05)*.88;
       ctx.lineWidth=p.w;
