@@ -18,6 +18,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
 <title>Joshua Gustaveson — Index</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1065,11 +1068,12 @@ if (gamesList) {
     // Load it lazily on first interaction so it never weighs on initial page load — the
     // first sketch uses the built-in pool.
     function ensureManifest(){
-      if(_mfStarted) return; _mfStarted=true;
-      fetch('data/photos-web.json').then(function(r){return r.json();}).then(function(a){
+      if(_mfStarted) return _mfStarted;
+      _mfStarted=fetch('data/photos-web.json').then(function(r){return r.json();}).then(function(a){
         ALL=a.map(function(x){return x.id;}); a.forEach(function(x){TITLES[x.id]=x.title;});
         if(srcCap && !srcCap.textContent && PHOTO){ var cur=PHOTO.indexOf('/')>=0?PHOTO:'portfolio/'+PHOTO; srcCap.textContent=TITLES[cur]||''; }
       }).catch(function(){});
+      return _mfStarted;
     }
     function randomId(){ var src=(ALL&&ALL.length)?ALL:POOL; return src[Math.floor(Math.random()*src.length)]; }
 
@@ -1098,7 +1102,14 @@ if (gamesList) {
     });
 
     // Defer the whole effect until the browser is idle so it never competes with first paint.
-    function start(){ loadPhoto(_h?_h[1]:randomId()); }   // ensureLoop() kicks in once the field is built
+    // Wait for the manifest first so the very first sketch can draw from the WHOLE library,
+    // not just the built-in pool; the pool is only a fallback if the manifest is slow/unavailable.
+    function start(){
+      if(_h){ loadPhoto(_h[1]); ensureManifest(); return; }
+      var went=false, go=function(){ if(went) return; went=true; loadPhoto(randomId()); };
+      ensureManifest().then(go);
+      setTimeout(go,2500);
+    }
     if('requestIdleCallback' in window) requestIdleCallback(start,{timeout:1500}); else setTimeout(start,300);
   }();
 
