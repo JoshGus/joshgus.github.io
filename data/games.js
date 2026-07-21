@@ -317,6 +317,20 @@ const BREAKDOWN_SVG = `<svg viewBox="0 0 200 120" style="width:85%;max-width:200
 
 export const CARDS = [
   {
+    id: 'image-breakdown',
+    type: 'game',
+    title: 'Image Breakdown',
+    descShort: 'Drop in a photo and watch it get taken apart, then redrawn.',
+    descFull: "The drawing engine behind my homepage, opened up. Drop in any image and every stage is shown: Sobel gradients finding the contours, k-means plus connected components carving it into colour blocks, and a border-contrast saliency pass picking out the subject with no model involved. Then pen particles redraw it — laying a base, then going back over the detected subject in finer detail. Tune the clusters, subject threshold and particle count and watch it run again.",
+    href: 'image-breakdown.html',
+    thumbBg: 'linear-gradient(160deg,#0e1410,#1a2416)',
+    thumbSvg: BREAKDOWN_SVG,
+    stack: ['Canvas', 'Sobel', 'k-means'],
+    category: 'component',
+    ctaFull: 'Open breakdown',
+    ctaShort: 'Open'
+  },
+  {
     id: 'pool',
     type: 'game',
     title: 'Daily Break',
@@ -444,20 +458,6 @@ export const CARDS = [
     category: 'component',
     credit: 'Paintings & images from <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a>',
     ctaFull: 'Open',
-    ctaShort: 'Open'
-  },
-  {
-    id: 'image-breakdown',
-    type: 'game',
-    title: 'Image Breakdown',
-    descShort: 'Drop in a photo and watch it get taken apart, then redrawn.',
-    descFull: "The drawing engine behind my homepage, opened up. Drop in any image and every stage is shown: Sobel gradients finding the contours, k-means plus connected components carving it into colour blocks, and a border-contrast saliency pass picking out the subject with no model involved. Then pen particles redraw it — laying a base, then going back over the detected subject in finer detail. Tune the clusters, subject threshold and particle count and watch it run again.",
-    href: 'image-breakdown.html',
-    thumbBg: 'linear-gradient(160deg,#0e1410,#1a2416)',
-    thumbSvg: BREAKDOWN_SVG,
-    stack: ['Canvas', 'Sobel', 'k-means'],
-    category: 'component',
-    ctaFull: 'Open breakdown',
     ctaShort: 'Open'
   },
   {

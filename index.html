@@ -294,10 +294,10 @@
   /* matte panel wrapping the bio, photo and experience — lifts them off the sketch, warms on hover */
   .intro-inner{position:relative;z-index:1;display:flex;flex-direction:column;justify-content:center;min-width:0;
     padding:18px 20px;border-radius:12px;   /* no flex:1 — .intro already centres, so this hugs its content */
-    background:rgba(247,236,225,.5);        /* --bg tan; hover deepens it just a touch */
+    background:rgba(247,236,225,.64);       /* --bg tan; hover deepens it just a touch */
     transition:background .32s ease}
   .intro-inner:hover{background:rgba(247,236,225,.9)}
-  html.dark .intro-inner{background:rgba(20,18,16,.5)}    /* --bg dark */
+  html.dark .intro-inner{background:rgba(20,18,16,.64)}    /* --bg dark */
   html.dark .intro-inner:hover{background:rgba(20,18,16,.9)}
 
   /* ---------- custom scrollbar (wide screens only) ---------- */
@@ -896,7 +896,7 @@ if (gamesList) {
       octx.drawImage(img,0,0,fw,fh);
       var d=octx.getImageData(0,0,fw,fh).data, n=fw*fh;
       var r=new Uint8Array(n),g=new Uint8Array(n),b=new Uint8Array(n),lum=new Float32Array(n);
-      var SAT=2.7, cl=function(v){return v<0?0:v>255?255:v|0;};   // push sampled colours away from grey ⇒ more intense
+      var SAT=1.3, cl=function(v){return v<0?0:v>255?255:v|0;};   // gentle lift only — keep the photo's real colour
       for(var i=0,pp=0;i<n;i++,pp+=4){
         var R=d[pp],G=d[pp+1],Bb=d[pp+2],gy=(R+G+Bb)/3;
         r[i]=cl(gy+(R-gy)*SAT); g[i]=cl(gy+(G-gy)*SAT); b[i]=cl(gy+(Bb-gy)*SAT);
@@ -1009,12 +1009,12 @@ if (gamesList) {
     function spawnInk(p){var re=refining&&subjETot>0,ci=pick(re?subjECum:edgeCum,re?subjETot:edgeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.vx=0;p.vy=0;p.life=0;p.max=re?90+Math.random()*160:180+Math.random()*320;p.stray=0;return p;}
     function spawnShade(p){var re=refining&&subjTot>0,ci=pick(re?subjCum:shadeCum,re?subjTot:shadeTot);p.x=cx(ci)+(Math.random()-.5)*ts;p.y=cy(ci)+(Math.random()-.5)*ts;p.life=0;p.max=re?7+F.lum[ci]*18:14+F.lum[ci]*40;return p;}
     // seeded inside a segmented colour block, and confined to it while it paints
-    function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?40+Math.random()*70:70+Math.random()*130;p.w=re?2+Math.random()*4:5+Math.random()*8;return p;}
+    function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:110+Math.random()*160;p.w=re?3+Math.random()*5:6+Math.random()*9;return p;}
     function respawn(p){ return p.kind===0?spawnInk(p):p.kind===1?spawnShade(p):spawnFill(p); }
     function seed(){
       var area=canvas.width*canvas.height;
       N=Math.max(220,Math.min(520,Math.round(area/2200)));
-      var inkN=Math.round(N*0.40), shadeN=Math.round(N*0.35);   // remainder (~25%) are fills
+      var inkN=Math.round(N*0.34), shadeN=Math.round(N*0.30);   // remainder (~36%) are fills
       updTf(); parts=[]; active=N;
       for(var i=0;i<N;i++){var p={kind:i<inkN?0:(i<inkN+shadeN?1:2)};respawn(p);parts.push(p);}
     }
@@ -1070,7 +1070,7 @@ if (gamesList) {
           p.x+=rx*SP_SHADE; p.y+=ry*SP_SHADE; repel(p); p.life++;
           var sa=dark?0.11:0.095;
           var sr=F.r[ci],sg=F.g[ci],sb=F.b[ci],sgy=(sr+sg+sb)/3;   // extra chroma so the fill reads as colour, not grey
-          sr=sgy+(sr-sgy)*1.6;sg=sgy+(sg-sgy)*1.6;sb=sgy+(sb-sgy)*1.6;
+          sr=sgy+(sr-sgy)*1.05;sg=sgy+(sg-sgy)*1.05;sb=sgy+(sb-sgy)*1.05;
           sr=sr<0?0:sr>255?255:sr;sg=sg<0?0:sg>255?255:sg;sb=sb<0?0:sb>255?255:sb;
           ctx.lineWidth=1;
           ctx.strokeStyle='rgba('+(sr|0)+','+(sg|0)+','+(sb|0)+','+sa+')';
@@ -1087,10 +1087,10 @@ if (gamesList) {
           }
           p.miss=0; p.x=nx; p.y=ny; p.life++;
           var rc=F.regCol[p.reg], fgy=(rc[0]+rc[1]+rc[2])/3;       // the block's own representative colour
-          var fr=fgy+(rc[0]-fgy)*1.6, fgc=fgy+(rc[1]-fgy)*1.6, fbc=fgy+(rc[2]-fgy)*1.6;
+          var fr=fgy+(rc[0]-fgy)*1.05, fgc=fgy+(rc[1]-fgy)*1.05, fbc=fgy+(rc[2]-fgy)*1.05;
           fr=fr<0?0:fr>255?255:fr; fgc=fgc<0?0:fgc>255?255:fgc; fbc=fbc<0?0:fbc>255?255:fbc;
           ctx.lineWidth=p.w;                                       // fat
-          ctx.strokeStyle='rgba('+(fr|0)+','+(fgc|0)+','+(fbc|0)+','+(dark?0.042:0.038)+')';  // and faint
+          ctx.strokeStyle='rgba('+(fr|0)+','+(fgc|0)+','+(fbc|0)+','+(dark?0.085:0.078)+')';  // and faint
           ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(p.x,p.y);ctx.stroke();
         }
       }
