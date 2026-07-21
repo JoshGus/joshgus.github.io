@@ -1012,12 +1012,31 @@ if (gamesList) {
     function spawnFill(p){var re=refining&&subjTot>0,ci=re?pick(subjCum,subjTot):(fillTot>0?pick(fillCum,fillTot):pick(shadeCum,shadeTot));p.x=cx(ci);p.y=cy(ci);p.reg=F.reg[ci];p.ang=Math.random()*6.283;p.miss=0;p.life=0;p.max=re?55+Math.random()*85:150+Math.random()*200;p.w=re?4+Math.random()*6:10+Math.random()*14;return p;}
     var phaseNow=0;
     function respawn(p){ return phaseNow===0?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p)); }
+    // Deterministic underpainting: every cell gets its block's colour, so the frame
+    // starts at 100% coverage and the blocking particles add texture on top of it.
+    function paintBase(){
+      var o=document.createElement('canvas'); o.width=F.fw; o.height=F.fh;
+      var x=o.getContext('2d'), im=x.createImageData(F.fw,F.fh);
+      for(var i=0;i<F.n;i++){
+        var rc=F.regCol[F.reg[i]], gy=(rc[0]+rc[1]+rc[2])/3;
+        var r2=gy+(rc[0]-gy)*1.05, g2=gy+(rc[1]-gy)*1.05, b2=gy+(rc[2]-gy)*1.05;
+        im.data[i*4]=r2<0?0:r2>255?255:r2; im.data[i*4+1]=g2<0?0:g2>255?255:g2;
+        im.data[i*4+2]=b2<0?0:b2>255?255:b2; im.data[i*4+3]=255;
+      }
+      x.putImageData(im,0,0);
+      ctx.save(); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+      ctx.globalAlpha=0.94;
+      ctx.drawImage(o,0,0,F.fw,F.fh, tox,toy, F.fw*ts, F.fh*ts);
+      ctx.restore();
+    }
+
     function seed(){
       var area=canvas.width*canvas.height;
       N=Math.max(220,Math.min(520,Math.round(area/2200)));
       var inkN=Math.round(N*0.45);              // kind only splits ink vs hatch; blocking uses everyone
       updTf(); parts=[]; active=N;
       phaseNow=0;
+      paintBase();
       for(var i=0;i<N;i++){var p={kind:i<inkN?0:1};respawn(p);parts.push(p);}
     }
 

@@ -323,10 +323,28 @@ function spawnFill(p){const re=refining&&F.subjTot>0,
 let phaseNow=0;
 const respawn=p=>phaseNow===0?spawnFill(p):(p.kind===0?spawnInk(p):spawnShade(p));
 
+// Deterministic underpainting: every cell gets its block's colour, so the frame
+// starts at 100% coverage and the blocking particles add texture on top of it.
+function paintBase(){
+  const o=document.createElement('canvas'); o.width=F.fw; o.height=F.fh;
+  const x=o.getContext('2d'), im=x.createImageData(F.fw,F.fh);
+  for(let i=0;i<F.n;i++){
+    const rc=F.regCol[F.reg[i]], gy=(rc[0]+rc[1]+rc[2])/3;
+    const cl=v=>{v=(gy+(v-gy)*1.05)*.88; return v<0?0:v>255?255:v;};   // match the fill strokes
+    im.data[i*4]=cl(rc[0]); im.data[i*4+1]=cl(rc[1]); im.data[i*4+2]=cl(rc[2]); im.data[i*4+3]=255;
+  }
+  x.putImageData(im,0,0);
+  ctx.save(); ctx.imageSmoothingEnabled=true; ctx.imageSmoothingQuality='high';
+  ctx.globalAlpha=0.94;
+  ctx.drawImage(o,0,0,F.fw,F.fh, ox,oy, F.fw*scale, F.fh*scale);
+  ctx.restore();
+}
+
 function seed(){
   N=+$('np').value;
   const inkN=Math.round(N*0.45);              // kind only splits ink vs hatch; blocking uses everyone
   parts=[]; active=N; renders=0; refining=false; phaseNow=0;
+  paintBase();
   for(let i=0;i<N;i++){const p={kind:i<inkN?0:1};respawn(p);parts.push(p);}
 }
 
