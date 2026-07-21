@@ -70,11 +70,20 @@
   h1 .out{color:transparent;-webkit-text-stroke:1px var(--fg)}
   .intro-head{display:flex;align-items:flex-start;justify-content:space-between;gap:24px}
   .intro-head>div{flex:1;min-width:0}
-  .headshot{width:130px;height:168px;border-radius:2px;object-fit:cover;flex-shrink:0;
+  /* matte panel behind the bio photo — lifts it off the sketch, warms on hover */
+  .intro-head>.headshot-wrap{flex:0 0 auto}   /* beat .intro-head>div{flex:1} — hug the photo */
+  .headshot-wrap{padding:10px;border-radius:6px;margin-top:2px;
+    background:rgba(247,236,225,.45);
+    transition:background .32s ease,box-shadow .32s ease}
+  .headshot-wrap:hover{background:rgba(236,219,199,.88);
+    box-shadow:0 6px 22px -12px rgba(29,23,18,.35)}
+  html.dark .headshot-wrap{background:rgba(40,34,28,.42)}
+  html.dark .headshot-wrap:hover{background:rgba(58,49,40,.85)}
+  .headshot{width:130px;height:168px;border-radius:2px;object-fit:cover;
     border:1px solid var(--line-strong);
     border-bottom:2px solid var(--accent);
     box-shadow:6px 12px 36px -10px rgba(29,23,18,.28);
-    background:var(--surface);display:block;margin-top:2px}
+    background:var(--surface);display:block}
   .lede{max-width:42ch;margin-top:28px;color:var(--dim);font-size:clamp(1rem,1.7vw,1.18rem);font-weight:300;line-height:1.55}
   .lede b{color:var(--fg);font-weight:500}
 
@@ -326,7 +335,9 @@
         </h1>
       </div>
       <!-- replace src with your headshot path, e.g. src="img/headshot.jpg" -->
-      <img class="headshot" src="718B8CEB-3B6B-4681-B361-BA7F3F3E6A6D_1_105_c.jpeg" alt="Joshua Gustaveson">
+      <div class="headshot-wrap">
+        <img class="headshot" src="718B8CEB-3B6B-4681-B361-BA7F3F3E6A6D_1_105_c.jpeg" alt="Joshua Gustaveson">
+      </div>
     </div>
     <p class="lede">Computer science student at the University of Michigan. <b>I build across systems, ML, and the web.</b> Games and bird photography fill the rest.</p>
 
