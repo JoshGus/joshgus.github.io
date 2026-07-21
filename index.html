@@ -112,6 +112,20 @@
 
   /* ---------- section scaffolding ---------- */
   section{padding:clamp(60px,10vh,110px) 0;border-bottom:1px solid var(--line)}
+  /* stack the sections like sheets: each casts a slight shadow onto the one below.
+     Needs an opaque background to catch it, and reversed z-index so an earlier
+     section sits above the next (siblings otherwise paint later-on-top). */
+  main.content > section{position:relative;background:var(--bg);
+    padding-left:clamp(14px,1.6vw,26px);padding-right:clamp(14px,1.6vw,26px);
+    margin-left:calc(-1*clamp(14px,1.6vw,26px));margin-right:calc(-1*clamp(14px,1.6vw,26px));
+    box-shadow:0 14px 26px -20px rgba(29,23,18,.55)}
+  main.content > section:nth-of-type(1){z-index:8}
+  main.content > section:nth-of-type(2){z-index:7}
+  main.content > section:nth-of-type(3){z-index:6}
+  main.content > section:nth-of-type(4){z-index:5}
+  main.content > section:nth-of-type(5){z-index:4}
+  main.content > section:nth-of-type(6){z-index:3}
+  html.dark main.content > section{box-shadow:0 14px 26px -20px rgba(0,0,0,.8)}
   .sec-head{display:flex;align-items:baseline;gap:20px;margin-bottom:48px;flex-wrap:wrap}
   .sec-head .idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.1em;color:var(--accent-ink)}
   .sec-head h2{font-family:var(--disp);font-weight:520;font-size:clamp(1.8rem,4.5vw,3.1rem);line-height:.92;letter-spacing:-.03em;font-variation-settings:"opsz" 56}
