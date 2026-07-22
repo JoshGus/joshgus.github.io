@@ -36,5 +36,50 @@
     // Insert before the clock if it exists, otherwise append
     const clock = status.querySelector('#clock');
     clock ? status.insertBefore(btn, clock) : status.appendChild(btn);
+
+    buildMobileNav(status);
   });
+
+  // The desktop nav is hidden under 640px, which left phones with no way to
+  // navigate at all. Clone its links into a slide-down panel behind a burger.
+  function buildMobileNav(status) {
+    const nav = status.querySelector('nav');
+    if (!nav || status.querySelector('#nav-toggle')) return;
+
+    const toggle = document.createElement('button');
+    toggle.id = 'nav-toggle';
+    toggle.setAttribute('aria-label', 'Menu');
+    toggle.setAttribute('aria-expanded', 'false');
+    toggle.innerHTML = '<span></span><span></span><span></span>';
+
+    const panel = document.createElement('div');
+    panel.id = 'nav-panel';
+    panel.hidden = true;
+    nav.querySelectorAll('a').forEach(a => {
+      const link = a.cloneNode(true);
+      link.removeAttribute('style');
+      panel.appendChild(link);
+    });
+
+    function setOpen(on) {
+      toggle.setAttribute('aria-expanded', on ? 'true' : 'false');
+      toggle.classList.toggle('open', on);
+      panel.classList.toggle('open', on);
+      if (on) panel.hidden = false;
+      else setTimeout(() => { if (!panel.classList.contains('open')) panel.hidden = true; }, 200);
+    }
+
+    toggle.addEventListener('click', e => {
+      e.stopPropagation();
+      setOpen(!panel.classList.contains('open'));
+    });
+    panel.addEventListener('click', e => { if (e.target.tagName === 'A') setOpen(false); });
+    document.addEventListener('click', e => {
+      if (panel.classList.contains('open') && !panel.contains(e.target)) setOpen(false);
+    });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') setOpen(false); });
+
+    status.appendChild(toggle);
+    status.appendChild(panel);
+  }
 })();

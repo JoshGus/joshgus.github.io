@@ -92,6 +92,24 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
   color:rgba(255,255,255,.28);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);z-index:25
 }
 .notes-toggle:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.28)}
+
+/* ── mobile: the 220px floating panel covers most of a phone screen, so dock
+   it to the bottom as a scrollable sheet and lay the sliders out two-up ── */
+@media(max-width:680px){
+  .panel{
+    top:auto;bottom:0;left:0;right:0;width:auto;
+    max-height:40vh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+    padding:12px 14px calc(12px + env(safe-area-inset-bottom));
+    border:0;border-top:1px solid rgba(255,255,255,.1);
+    display:grid;grid-template-columns:1fr 1fr;gap:0 16px;align-content:start
+  }
+  .panel-title{grid-column:1/-1;margin-bottom:8px}
+  .panel-sep,.panel-label,.mode-btns{grid-column:1/-1}
+  .slider-row{margin-bottom:8px}
+  .drag-hint{bottom:auto;top:12px;left:12px}
+  .notes-toggle{bottom:auto;top:8px;right:12px}
+  .notes-section.open{max-height:60vh}
+}
 </style>
 </head>
 <body>
@@ -223,15 +241,27 @@ const params = {
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
 let cx, cy, scaleS;
+// Logical (CSS-pixel) canvas size. The backing store is this times the device
+// pixel ratio so the flock stays sharp on phone screens, while all the drawing
+// code below keeps working in CSS pixels.
+let VW = 800, VH = 600;
 
 function resize() {
-  canvas.width  = canvas.offsetWidth  || 800;
-  canvas.height = canvas.offsetHeight || 600;
-  cx = canvas.width  / 2;
-  cy = canvas.height / 2;
-  scaleS = Math.min(canvas.width / WX, canvas.height / WY);
+  const dpr = window.devicePixelRatio || 1;
+  VW = canvas.offsetWidth  || 800;
+  VH = canvas.offsetHeight || 600;
+  canvas.width  = Math.round(VW * dpr);
+  canvas.height = Math.round(VH * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  cx = VW / 2;
+  cy = VH / 2;
+  scaleS = Math.min(VW / WX, VH / WY);
 }
-window.addEventListener('resize', resize);
+// A window resize listener misses layout changes that don't resize the window
+// (fonts loading, the status bar reflowing, the mobile control sheet opening),
+// which leaves the backing store stretched against its CSS box.
+new ResizeObserver(resize).observe(canvas);
+window.addEventListener('orientationchange', resize);
 resize();
 
 // ── projection (Y-rotation then X-rotation) ───────────────────────────────────
@@ -435,7 +465,7 @@ function drawBox() {
 // ── boid drawing ──────────────────────────────────────────────────────────────
 function drawBoid(boid) {
   const {sx, sy, scale} = project(boid.x, boid.y, boid.z);
-  if (sx < -20 || sx > canvas.width+20 || sy < -20 || sy > canvas.height+20) return;
+  if (sx < -20 || sx > VW+20 || sy < -20 || sy > VH+20) return;
 
   const p2 = project(boid.x + boid.vx*4, boid.y + boid.vy*4, boid.z + boid.vz*4);
   const angle = Math.atan2(p2.sy - sy, p2.sx - sx);
@@ -460,7 +490,7 @@ function loop() {
   requestAnimationFrame(loop);
 
   ctx.fillStyle = '#080c16';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, VW, VH);
 
   if (cam.autoRotate && !drag.active) cam.theta += 0.004;
 

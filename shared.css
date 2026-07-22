@@ -39,11 +39,66 @@ body.noise::after {
 .status nav a { color:var(--dim); }
 .status nav a:hover, .status nav a.active { color:var(--accent-ink); }
 #clock { color:var(--dimmer); }
-@media(max-width:640px) { .status nav { display:none; } }
+@media(max-width:680px) { .status nav { display:none; } }
+
+/* ── mobile nav (burger + slide-down panel, injected by dark-mode.js) ─── */
+#nav-toggle {
+  display:none; /* shown under 680px */
+  flex-direction:column; justify-content:center; gap:4px;
+  width:44px; height:44px; margin-left:4px; margin-right:-10px;
+  padding:0; background:none; border:0; cursor:pointer;
+}
+#nav-toggle span {
+  display:block; width:18px; height:1.5px; margin:0 auto;
+  background:var(--dim); transition:transform .2s, opacity .2s;
+}
+#nav-toggle.open span:nth-child(1) { transform:translateY(5.5px) rotate(45deg); }
+#nav-toggle.open span:nth-child(2) { opacity:0; }
+#nav-toggle.open span:nth-child(3) { transform:translateY(-5.5px) rotate(-45deg); }
+
+#nav-panel {
+  position:absolute; top:100%; left:0; right:0; z-index:60;
+  display:flex; flex-direction:column;
+  background:var(--surface); border-bottom:1px solid var(--line);
+  box-shadow:0 12px 28px rgba(0,0,0,.12);
+  opacity:0; transform:translateY(-6px); pointer-events:none;
+  transition:opacity .18s, transform .18s;
+}
+#nav-panel.open { opacity:1; transform:none; pointer-events:auto; }
+#nav-panel a {
+  padding:15px clamp(18px,3.5vw,56px);
+  font-family:var(--mono); font-size:.72rem; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--dim); border-top:1px solid var(--line);
+}
+#nav-panel a:first-child { border-top:0; }
+#nav-panel a.active { color:var(--accent-ink); }
+@media(max-width:680px) {
+  /* The burger needs a 44px touch height, but the game pages hardcode a 47px
+     status-bar offset for their fixed layers. Negative block margins keep the
+     full hit area without letting it grow the bar. */
+  #nav-toggle { display:flex; margin-top:-12px; margin-bottom:-12px; }
+  /* The bar holds a label, the toggle, a clock and now a burger. Keep it to a
+     single line: the label truncates rather than wrapping into the clock. */
+  .status { gap:8px; }
+  .status .sig, .status .live {
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; min-width:0;
+  }
+  #dark-toggle { margin-left:auto; flex-shrink:0; }
+  #clock { flex-shrink:0; }
+}
+@media(max-width:430px) {
+  /* Below this the clock is the first thing worth losing. */
+  #clock { display:none; }
+}
+
+.status.dark #nav-toggle span { background:rgba(255,255,255,.5); }
+.status.dark #nav-panel { background:#141210; border-bottom-color:rgba(255,255,255,.08); }
+.status.dark #nav-panel a { color:rgba(255,255,255,.6); border-top-color:rgba(255,255,255,.07); }
+.status.dark #nav-panel a.active { color:var(--accent); }
 
 /* dark status variant — add class="status dark" on game pages */
 .status.dark {
-  position:static; flex-shrink:0;
+  position:relative; flex-shrink:0;
   color:rgba(255,255,255,.28);
   border-bottom-color:rgba(255,255,255,.07);
   background:rgba(8,8,7,.92);
@@ -87,3 +142,44 @@ html.dark #dark-toggle,
 .status.dark #dark-toggle { color:rgba(237,227,216,.4); border-color:rgba(237,227,216,.18); }
 html.dark #dark-toggle:hover,
 .status.dark #dark-toggle:hover { color:rgba(237,227,216,.8); }
+
+/* ── touch hardening ────────────────────────────────────────────────────
+   Applies only to coarse pointers so the desktop layout is untouched. The
+   hit areas are grown with pseudo-elements rather than padding, so nothing
+   reflows — the status bar keeps its height. */
+@media (pointer:coarse) {
+  /* Media never pushes a page wider than the viewport. */
+  img, video, canvas { max-width:100%; }
+
+  /* Long unbroken strings (URLs, hashes, base64 links) are a common source
+     of horizontal overflow on phones. */
+  p, li, dd, td, .mono { overflow-wrap:anywhere; }
+
+  a, button, summary, select, [role="button"] { touch-action:manipulation; }
+
+  .status .sig, #dark-toggle, .status nav a {
+    position:relative;
+  }
+  .status .sig::after, #dark-toggle::after, .status nav a::after {
+    content:""; position:absolute; left:0; right:0; top:50%;
+    height:44px; transform:translateY(-50%);
+    min-width:44px; /* widen narrow controls like the ◑ toggle */
+  }
+  #dark-toggle::after { left:50%; width:44px; right:auto; transform:translate(-50%,-50%); }
+
+  /* Sliders are a few px tall by default and nearly impossible to grab.
+     Only the hit area grows — accent-color keeps the native look. Pages that
+     style the track to a hairline need the transparent-border trick so the
+     visible track stays thin while the touch area is finger-sized. */
+  input[type=range] { height:28px; }
+  input[type=range][class] {
+    box-sizing:content-box;
+    border-top:12px solid transparent;
+    border-bottom:12px solid transparent;
+    background-clip:padding-box;
+  }
+
+  /* <summary> rows are text-height and act as the only control on a
+     disclosure, so give them a finger-sized row. */
+  summary { padding-top:9px; padding-bottom:9px; }
+}

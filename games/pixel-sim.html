@@ -84,6 +84,18 @@ body{background:#0b0a09;color:#fff;font-family:var(--mono);overflow:hidden;displ
   color:rgba(255,255,255,.3);cursor:pointer;transition:all .15s;backdrop-filter:blur(8px);z-index:25
 }
 .notes-toggle:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.3)}
+
+/* ── mobile ── an absolutely-positioned box with left:50% and no right only
+   gets (container - 50%) of shrink-to-fit width, so the HUD crushes itself
+   into a narrow stack. Anchor both edges and give it room to lay out. ── */
+@media(max-width:680px){
+  .hud{left:6px;right:6px;transform:none;justify-content:center;
+    gap:6px;padding:8px 10px calc(8px + env(safe-area-inset-bottom));
+    bottom:0;max-height:34vh;overflow-y:auto}
+  .mat-btn{padding:7px 10px;font-size:.46rem}
+  .notes-toggle{bottom:auto;top:10px;right:10px}
+  .notes-section.open{max-height:60vh}
+}
 </style>
 </head>
 <body>
@@ -190,11 +202,17 @@ function initGrid() {
 }
 
 function resize() {
-  canvas.width  = canvas.offsetWidth  || 800;
-  canvas.height = canvas.offsetHeight || 600;
+  const w = canvas.offsetWidth || 800, h = canvas.offsetHeight || 600;
+  // initGrid() wipes the simulation, so ignore observer ticks that don't
+  // actually change the canvas size (fonts loading, the HUD reflowing).
+  if (w === canvas.width && h === canvas.height) return;
+  canvas.width = w; canvas.height = h;
   initGrid();
 }
-window.addEventListener('resize', resize);
+// A window listener misses layout changes that don't resize the window, which
+// leaves the grid sized against a stale canvas box.
+new ResizeObserver(resize).observe(canvas);
+window.addEventListener('orientationchange', resize);
 resize();
 
 // ── grid accessors ───────────────────────────────────────────────────────────

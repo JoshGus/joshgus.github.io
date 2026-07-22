@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -142,6 +142,27 @@ body.ping-mode #canvas{cursor:crosshair!important}
   font-family:var(--mono);transition:color .15s,background .15s;z-index:6;line-height:1;
 }
 #side-toggle:hover{color:#ccf73f;background:rgba(14,28,6,.97);}
+
+/* ── mobile ── the side panel floats over the map instead of insetting the
+   canvas (see resizeCanvas), and the tall zoom rail is shortened ── */
+@media(max-width:680px){
+  #side-panel{width:min(180px,62vw);box-shadow:6px 0 22px rgba(0,0,0,.5)}
+  #side-panel.collapsed{transform:translateX(calc(-100% + 22px))}
+  #side-toggle{padding:16px 6px}
+  #zoom-wrap{right:6px;padding:6px 4px;gap:4px}
+  #zoom-slider{height:120px}
+  #hud{font-size:.52rem;padding:3px 8px;gap:6px}
+}
+/* Landscape phones are short, not narrow: the HUD and selection panel eat the
+   vertical budget and leave a ~180px map. Trim their chrome instead. */
+@media(max-height:520px){
+  #hud{font-size:.46rem;padding:2px 6px;gap:5px}
+  .hud-val{font-size:.62rem}
+  .hud-lbl{font-size:.36rem}
+  .hud-sep{height:16px}
+  .pchip{min-width:44px;padding:1px 4px}
+  #zoom-slider{height:96px}
+}
 #side-content{
   flex:1;overflow-y:auto;overflow-x:hidden;padding:6px 10px 10px;
   scrollbar-width:thin;scrollbar-color:rgba(100,160,50,.2) transparent;
@@ -962,7 +983,10 @@ function resizeCanvas(){
   const hudH=hudEl.offsetHeight;
   const selH=selEl.offsetHeight;
   const sp=document.getElementById('side-panel');
-  const panelW=(sp&&!sp.classList.contains('collapsed'))?180:0;
+  // On a phone the 180px panel would eat half the viewport, leaving a ~210px
+  // battlefield. There it floats over the map instead of insetting the canvas.
+  const panelOverlays=window.matchMedia('(max-width:680px)').matches;
+  const panelW=(sp&&!sp.classList.contains('collapsed')&&!panelOverlays)?180:0;
   if(sp){sp.style.top=hudEl.getBoundingClientRect().bottom+'px';sp.style.bottom=selH+'px';}
   viewW=Math.max(120,wrap.clientWidth-panelW);
   viewH=Math.max(120,wrap.clientHeight-hudH-selH);
@@ -5473,9 +5497,16 @@ function rtsInitOnline(){
 }
 
 function init(){
+  // Phones start with the side panel tucked away so the map gets the full
+  // width; it overlays the map when opened rather than shrinking the canvas.
+  if(window.matchMedia('(max-width:680px)').matches){
+    const sp=document.getElementById('side-panel'),tog=document.getElementById('side-toggle');
+    if(sp){sp.classList.add('collapsed');if(tog)tog.textContent='▶';}
+  }
   resizeCanvas();
   if(!rtsInitOnline())showSetup(true);
   window.addEventListener('resize',resizeCanvas);
+  window.addEventListener('orientationchange',()=>setTimeout(resizeCanvas,150));
   if(window.ResizeObserver){
     const ro=new ResizeObserver(()=>resizeCanvas());
     ro.observe(document.getElementById('hud'));

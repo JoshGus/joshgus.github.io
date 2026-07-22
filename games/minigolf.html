@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -28,8 +28,11 @@ html,body{height:100%;overflow:hidden;background:#1a2e1a;-webkit-font-smoothing:
 
 .status.fixed-bar{z-index:100;top:0;left:0;right:0}
 
-.game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;align-items:center;justify-content:center;background:#111a11}
+.game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111a11}
 canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
+/* Turned on its side the layout box is the long axis wide; scaleCanvas() has
+   already fitted it, so the clamp above (and shared.css) must not squash it. */
+canvas.rotated{max-width:none;max-height:none}
 
 .hud{position:fixed;top:58px;left:50%;transform:translateX(-50%);
   display:flex;gap:22px;align-items:center;
@@ -169,6 +172,28 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
   color:rgba(160,220,90,.45);cursor:pointer;transition:all .15s;backdrop-filter:blur(6px)
 }
 .notes-toggle:hover{color:rgba(200,250,120,.85);border-color:rgba(120,200,60,.5)}
+
+/* ── mobile ── three separately-fixed HUD pieces sit at top:58px and collide
+   on a phone. Shrink them and give the score bar the gap between the wind
+   readout and the restart button. ── */
+@media(max-width:680px){
+  #wind-hud{left:6px;padding:5px 8px;font-size:.48rem;min-width:0}
+  #restart-btn{right:6px;padding:7px 10px;font-size:.54rem}
+  .hud{gap:10px;padding:6px 10px;font-size:.56rem;
+    max-width:calc(100vw - 165px);overflow:hidden}
+  .hud .sv{font-size:1.15rem}
+  .hud .sl{font-size:.46rem}
+  .hud .sep{height:20px}
+  /* Bottom stack, from the screen edge up: clubs, notes toggle, shot hint. */
+  #clubs{bottom:calc(10px + env(safe-area-inset-bottom));max-width:calc(100vw - 12px)}
+  .notes-toggle{bottom:calc(72px + env(safe-area-inset-bottom));right:6px;font-size:.46rem;padding:4px 8px}
+  .info{bottom:calc(104px + env(safe-area-inset-bottom));font-size:.5rem;
+    width:max-content;max-width:calc(100vw - 24px);text-align:center}
+}
+@media(max-width:430px){
+  /* Below this the date is the first thing worth dropping. */
+  .hud .dv,.hud .sep:last-of-type{display:none}
+}
 </style>
 </head>
 <body>
@@ -349,11 +374,41 @@ var lastShotX=0, lastShotY=0;
 var inWaterHazard=false, hasShot=false;
 
 // ── Scale canvas display to fit viewport (internal size never changes) ──
+// The course is a 5:3 landscape rectangle. On a portrait phone that fits to a
+// ~230px-tall strip, so there we turn the course on its side and play it
+// lengthways. courseRotated/courseScale drive the inverse map in canvasPos().
+var courseRotated=false, courseScale=1;
+// Fixed HUD layers that must never sit on top of the course in portrait.
+var TOP_CHROME=['.hud','#wind-hud','#restart-btn'];
+var BOT_CHROME=['#clubs','.notes-toggle','.info'];
 function scaleCanvas(){
   var wrap=document.querySelector('.game-wrap');
-  var sc=Math.min(wrap.clientWidth/W,(wrap.clientHeight)/H);
-  canvas.style.width=Math.round(W*sc)+'px';
-  canvas.style.height=Math.round(H*sc)+'px';
+  var portrait = wrap.clientHeight>wrap.clientWidth && wrap.clientWidth<=680;
+  // In portrait the HUD is fixed on top of the course. Pad the wrap out to the
+  // bands it occupies so the flex centring drops the course into the gap.
+  var padTop=47, padBot=0;
+  if(portrait){
+    var wr=wrap.getBoundingClientRect();
+    // offsetParent is always null for position:fixed, so test display instead.
+    var shown=function(e){ if(!e) return false; var s=getComputedStyle(e);
+      return s.display!=='none'&&s.visibility!=='hidden'; };
+    TOP_CHROME.forEach(function(s){ var e=document.querySelector(s);
+      if(shown(e)) padTop=Math.max(padTop, e.getBoundingClientRect().bottom-wr.top+8); });
+    BOT_CHROME.forEach(function(s){ var e=document.querySelector(s);
+      if(shown(e)) padBot=Math.max(padBot, wr.bottom-e.getBoundingClientRect().top+8); });
+  }
+  wrap.style.paddingTop=padTop+'px';
+  wrap.style.paddingBottom=padBot+'px';
+  var cw=wrap.clientWidth;
+  // clientHeight includes padding, so only discount it in the portrait case —
+  // the desktop fit keeps its original margins.
+  var ch=wrap.clientHeight-(portrait?padTop+padBot:0);
+  courseRotated = portrait;
+  courseScale = courseRotated ? Math.min(ch/W, cw/H) : Math.min(cw/W, ch/H);
+  canvas.style.width=Math.round(W*courseScale)+'px';
+  canvas.style.height=Math.round(H*courseScale)+'px';
+  canvas.style.transform = courseRotated?'rotate(90deg)':'';
+  canvas.classList.toggle('rotated',courseRotated);
 }
 
 // ── Wind ───────────────────────────────────────────────────────────
@@ -1121,9 +1176,14 @@ function loop(ts){
 // ── Input helpers ──────────────────────────────────────────────────
 function canvasPos(e){
   var r=canvas.getBoundingClientRect();
-  var sx=W/r.width, sy=H/r.height;
   var src=e.changedTouches?e.changedTouches[0]||e.touches[0]:e;
-  return{x:(src.clientX-r.left)*sx, y:(src.clientY-r.top)*sy};
+  if(!courseRotated){
+    return{x:(src.clientX-r.left)*(W/r.width), y:(src.clientY-r.top)*(H/r.height)};
+  }
+  // r is the axis-aligned box of the rotated canvas, so work from its centre
+  // and undo the 90° turn: local (u,v) draws at screen (-v,u).
+  var dx=src.clientX-(r.left+r.width/2), dy=src.clientY-(r.top+r.height/2);
+  return{x:W/2+dy/courseScale, y:H/2-dx/courseScale};
 }
 function moving(){return Math.hypot(ball.vx,ball.vy)>STOP_SPD||ball.z>0.002;}
 
@@ -1338,6 +1398,15 @@ window.addEventListener('resize',function(){
   clearTimeout(window._rz);
   window._rz=setTimeout(scaleCanvas,80);
 });
+window.addEventListener('orientationchange',function(){setTimeout(scaleCanvas,150);});
+// How much room the HUD needs changes as the score, wind readout and club row
+// change, so re-fit whenever any of that chrome resizes.
+if(window.ResizeObserver){
+  var chromeRO=new ResizeObserver(function(){scaleCanvas();});
+  TOP_CHROME.concat(BOT_CHROME).forEach(function(s){
+    var e=document.querySelector(s); if(e) chromeRO.observe(e);
+  });
+}
 
 // ── Init ───────────────────────────────────────────────────────────
 buildTerrain();

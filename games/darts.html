@@ -399,6 +399,9 @@ body {
   left: 50%;
   transform: translateX(-50%);
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: calc(100vw - 20px);
   gap: 8px;
   align-items: center;
   z-index: 10;
@@ -440,6 +443,7 @@ body {
   bottom: calc(100% + 8px);
   right: 0;
   width: 230px;
+  max-width: calc(100vw - 24px);
   background: rgba(247,236,225,.97);
   border: 1px solid var(--line-strong);
   backdrop-filter: blur(10px);
@@ -1185,9 +1189,19 @@ document.getElementById('loading-screen').style.display = 'none';
 // ── Canvas ───────────────────────────────────────────────────────────────────
 const canvas = document.getElementById('canvas');
 const ctx    = canvas.getContext('2d');
+// CW/CH are the canvas size in CSS pixels. The backing store is that times the
+// device pixel ratio and the context is pre-scaled to match, so every draw call
+// below keeps working in CSS pixels while rendering sharp on phone screens.
+let CW = 0, CH = 0;
 function resizeCanvas() {
   const w = document.getElementById('game-wrap');
-  canvas.width = w.offsetWidth; canvas.height = w.offsetHeight;
+  const dpr = window.devicePixelRatio || 1;
+  CW = w.offsetWidth; CH = w.offsetHeight;
+  canvas.width  = Math.round(CW * dpr);
+  canvas.height = Math.round(CH * dpr);
+  canvas.style.width  = CW + 'px';
+  canvas.style.height = CH + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 }
 resizeCanvas();
 new ResizeObserver(resizeCanvas).observe(document.getElementById('game-wrap'));
@@ -1207,7 +1221,7 @@ const CONNECTIONS = [
 let camOpacityVal = 0;
 
 function getBoardLayout() {
-  const W = canvas.width, H = canvas.height;
+  const W = CW, H = CH;
   const size = Math.min(W * .72, H * .78);
   return { cx: W/2, cy: H * 0.40, R: size * 0.26 };
 }
@@ -1221,18 +1235,18 @@ function drawWall() {
 
   // Painted wall — radial gradient so center is slightly warmer/lighter
   const { cx, cy } = getBoardLayout();
-  const diag = Math.hypot(canvas.width, canvas.height) * 0.65;
+  const diag = Math.hypot(CW, CH) * 0.65;
   const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, diag);
   g.addColorStop(0, '#2e2824');
   g.addColorStop(1, '#0e0c0a');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  ctx.fillRect(0, 0, CW, CH);
 
   // Subtle horizontal grain (painted wall texture)
   ctx.globalAlpha = fade * 0.025;
-  for (let y = 0; y < canvas.height; y += 4) {
+  for (let y = 0; y < CH; y += 4) {
     ctx.fillStyle = (y >> 2) % 3 === 0 ? '#fff' : '#000';
-    ctx.fillRect(0, y, canvas.width, 2);
+    ctx.fillRect(0, y, CW, 2);
   }
   ctx.restore();
 }
@@ -1244,12 +1258,12 @@ function drawBoardMount() {
   const { cx, cy, R } = getBoardLayout();
   const fade = 1 - camOpacityVal * 0.85;
   if (fade <= 0) return;
-  const key = `${canvas.width},${canvas.height}`;
+  const key = `${CW},${CH}`;
   if (_shadowKey !== key) {
     _shadowKey  = key;
     _shadowCache = document.createElement('canvas');
-    _shadowCache.width  = canvas.width;
-    _shadowCache.height = canvas.height;
+    _shadowCache.width  = CW;
+    _shadowCache.height = CH;
     const sc = _shadowCache.getContext('2d');
     sc.filter = 'blur(22px)';
     sc.beginPath(); sc.arc(cx + 9, cy + 13, R * 1.12, 0, Math.PI * 2);
@@ -1342,7 +1356,7 @@ function scoreDart(bx, by) {
 
 // ── Hand landmarks ────────────────────────────────────────────────────────────
 function drawHandLandmarks(lm, pinchActive) {
-  const W = canvas.width, H = canvas.height;
+  const W = CW, H = CH;
   const pts = lm.map(p => ({ x:(1-p.x)*W, y:p.y*H }));
 
   ctx.lineWidth = 1.5;
@@ -1367,7 +1381,7 @@ function drawHandLandmarks(lm, pinchActive) {
 function drawDartInHand(lm, dartCol) {
   if (anims.length > 0) return;
   // Show a bright dot between thumb tip and index tip (the grip point)
-  const W = canvas.width, H = canvas.height;
+  const W = CW, H = CH;
   const ix = (1-lm[8].x)*W, iy = lm[8].y*H;
   const tx = (1-lm[4].x)*W, ty = lm[4].y*H;
   const px = (ix+tx)/2, py = (iy+ty)/2;
@@ -1532,12 +1546,12 @@ function processHandFrame(lm, now) {
   //   spawnX/Y  — wrist + middle knuckle midpoint: stable hand-center for dart origin
   //   wristX/Y  — pure wrist: arm velocity component
   //   fingerX/Y — thumb+index midpoint: finger-flick velocity component
-  const wristX  = (1-lm[0].x) * canvas.width;
-  const wristY  =    lm[0].y  * canvas.height;
-  const fingerX = ((1-lm[4].x) + (1-lm[8].x)) * 0.5 * canvas.width;
-  const fingerY = (   lm[4].y  +    lm[8].y)   * 0.5 * canvas.height;
-  const spawnX  = (wristX + (1-lm[9].x)*canvas.width)  * 0.5;
-  const spawnY  = (wristY +    lm[9].y *canvas.height)  * 0.5;
+  const wristX  = (1-lm[0].x) * CW;
+  const wristY  =    lm[0].y  * CH;
+  const fingerX = ((1-lm[4].x) + (1-lm[8].x)) * 0.5 * CW;
+  const fingerY = (   lm[4].y  +    lm[8].y)   * 0.5 * CH;
+  const spawnX  = (wristX + (1-lm[9].x)*CW)  * 0.5;
+  const spawnY  = (wristY +    lm[9].y *CH)  * 0.5;
 
   // EMA: continuously track hand position to stay settled when a pinch starts.
   if (_sm === null) {
@@ -1998,7 +2012,7 @@ function drawAim() { /* crosshair removed */ }
 
 // Faint dot showing the virtual camera center (helps with calibration)
 function drawVirtualCenter() {
-  const vx = CAM_VCX * canvas.width, vy = CAM_VCY * canvas.height;
+  const vx = CAM_VCX * CW, vy = CAM_VCY * CH;
   ctx.save();
   ctx.globalAlpha = 0.25;
   ctx.strokeStyle = '#ccf73f'; ctx.lineWidth = 1;
@@ -2313,7 +2327,7 @@ function tickFps() {
 }
 
 function loop() {
-  ctx.clearRect(0,0,canvas.width,canvas.height);
+  ctx.clearRect(0,0,CW,CH);
   drawWall();
   drawBoardMount();
   drawBoard();

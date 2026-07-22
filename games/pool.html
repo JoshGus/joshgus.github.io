@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,user-scalable=no">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
 <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -29,7 +29,7 @@ html,body{height:100%;overflow:hidden;background:#0c1512;-webkit-font-smoothing:
 .status.fixed-bar{z-index:100;top:0;left:0;right:0}
 
 .game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;
-  align-items:center;justify-content:center;
+  align-items:center;justify-content:center;overflow:hidden;
   background-color:#2a1b0f;
   background-image:
     repeating-linear-gradient(0deg, rgba(0,0,0,.5) 0 2px, rgba(200,150,90,.06) 3px 5px, rgba(0,0,0,0) 6px 104px),
@@ -37,6 +37,10 @@ html,body{height:100%;overflow:hidden;background:#0c1512;-webkit-font-smoothing:
     repeating-linear-gradient(90deg, rgba(255,225,175,.03) 0 3px, rgba(0,0,0,0) 3px 8px, rgba(0,0,0,.04) 8px 13px),
     linear-gradient(101deg,#3d2816,#231607 52%,#35200f 80%,#22150a)}
 canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%;max-height:100%}
+/* When the table is turned on its side its layout box is the long axis wide,
+   which the max-width clamp above (and the shared touch stylesheet) would
+   squash. fitCanvas() has already sized it to fit. */
+canvas.rotated{max-width:none;max-height:none}
 
 /* ── HUD ── */
 .hud{position:fixed;top:56px;left:50%;transform:translateX(-50%);
@@ -102,6 +106,7 @@ canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%;max-heigh
 .pbtn.primary:hover{background:rgba(150,210,60,.4)}
 .pbtn.ghost{background:none}
 .pbtn:disabled{opacity:.3;cursor:default}
+
 
 #restart-btn,#menu-btn2{position:fixed;top:98px;z-index:50;font-family:var(--mono);font-size:.58rem;
   letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:1px solid rgba(120,180,60,.3);
@@ -244,6 +249,39 @@ a.mini:hover{color:#ccf73f}
 .close-x{position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:1rem;cursor:pointer;
   color:rgba(160,210,100,.6);line-height:1}
 .close-x:hover{color:#ccf73f}
+/* ── mobile ── the dock wraps to ~230px tall on a phone and buries the table,
+   so tighten it to a single row. fitCanvas() then fits the rotated table into
+   whatever vertical space the HUD and dock leave. ── */
+@media(max-width:680px){
+  /* A fixed element with left:50% and no right gets a shrink-to-fit width of
+     only (viewport - 50%) = 195px, which forced both of these to wrap into
+     tall stacks. Anchoring both edges gives them the full width to lay out in. */
+  .hud{left:6px;right:6px;transform:none;max-width:none;justify-content:center;
+    gap:10px;padding:6px 12px;font-size:.58rem}
+  .hud .sv{font-size:1.15rem}
+  .hud .sep{height:20px}
+  #hud-main{gap:8px}
+  .controls{left:6px;right:6px;transform:none;max-width:none;
+    gap:8px;bottom:calc(10px + env(safe-area-inset-bottom))}
+  .ctl-box{padding:6px 9px;gap:3px}
+  .ctl-lbl{font-size:.42rem}
+  /* Sized so power + spin + buttons total under 378px and stay on one row;
+     a second row costs ~110px of table height. */
+  #power-wrap{width:94px;height:20px}
+  #spin-wrap{width:38px;height:38px}
+  #spin-dot{width:9px;height:9px}
+  .pbtn{padding:9px 10px;font-size:.55rem}
+  .chip{padding:6px 9px;font-size:.5rem;min-width:0}
+  #chip-left{left:6px} #chip-right{right:6px}
+  #ai-review{left:6px;right:6px;width:auto;bottom:auto;top:132px;max-height:34vh;overflow-y:auto}
+  #timeline{left:6px;width:min(232px,72vw)}
+  /* The HUD is full-width here, so the desktop positions (top:98px / top:142px)
+     land on top of it. Put all three on one row directly beneath it. */
+  #menu-btn2{top:119px;left:6px;right:auto}
+  #tl-btn{top:119px;left:88px;padding:8px 10px;font-size:.54rem}
+  #restart-btn{top:119px;right:6px;left:auto}
+}
+
 </style>
 </head>
 <body>
@@ -1058,19 +1096,73 @@ function frame(t){
 }
 requestAnimationFrame(frame);
 
-/* ── responsive canvas scaling ── */
+/* ── responsive canvas scaling ──
+   The table is a 2:1 landscape rectangle. Fitting it into a portrait phone
+   leaves it about a third of the screen wide with most of the viewport empty,
+   so on narrow portrait screens we turn the table on its side and play it
+   lengthways. `tableRotated` / `tableScale` are the single source of truth for
+   the inverse mapping in toTable(). */
+var tableRotated=false, tableScale=1;
+// Fixed HUD layers that must never sit on top of the table in portrait.
+var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','#restart-btn','#menu-btn2','#tl-btn'];
+var POOL_BOT_CHROME=['.controls'];
 function fitCanvas(){
   var wrap=document.querySelector('.game-wrap');
-  var availW=wrap.clientWidth-72, availH=wrap.clientHeight-64;   // leave a wood-floor border
-  var scale=Math.min(availW/W, availH/H, 1.12);
-  canvas.style.width=(W*scale)+'px'; canvas.style.height=(H*scale)+'px';
+  var portrait=wrap.clientHeight>wrap.clientWidth && wrap.clientWidth<=680;
+  // In portrait the HUD and the control dock are fixed overlays that would sit
+  // on top of the table. Pad the wrap out to whatever room they occupy so the
+  // flex centring drops the table into the gap between them instead.
+  var padTop=47, padBot=0;
+  if(portrait){
+    var wr=wrap.getBoundingClientRect();
+    // offsetParent is always null for position:fixed elements, so test display.
+    var shown=function(e){ if(!e) return false; var s=getComputedStyle(e);
+      return s.display!=='none'&&s.visibility!=='hidden'; };
+    // Every top-anchored layer counts, not just .hud — the menu/reset buttons
+    // and the classic-mode chips sit lower than it and would cover the table.
+    POOL_TOP_CHROME.forEach(function(s){ var e=document.querySelector(s);
+      if(shown(e)) padTop=Math.max(padTop, e.getBoundingClientRect().bottom-wr.top+8); });
+    POOL_BOT_CHROME.forEach(function(s){ var e=document.querySelector(s);
+      if(shown(e)) padBot=Math.max(padBot, wr.bottom-e.getBoundingClientRect().top+8); });
+  }
+  wrap.style.paddingTop=padTop+'px';
+  wrap.style.paddingBottom=padBot+'px';
+  var pad=portrait?16:72, padV=portrait?16:64;
+  // clientHeight includes the padding, so only discount it in the portrait
+  // case — the desktop fit keeps its original margins untouched.
+  var availW=wrap.clientWidth-pad;
+  var availH=wrap.clientHeight-padV-(portrait?padTop+padBot:0);
+  // When rotated the table's long axis runs down the screen, so it is fitted
+  // against the opposite viewport dimensions.
+  tableRotated=portrait;
+  tableScale=tableRotated
+    ? Math.min(availH/W, availW/H, 1.12)
+    : Math.min(availW/W, availH/H, 1.12);
+  canvas.style.width=(W*tableScale)+'px';
+  canvas.style.height=(H*tableScale)+'px';
+  canvas.style.transform=tableRotated?'rotate(90deg)':'';
+  canvas.classList.toggle('rotated',tableRotated);
 }
-window.addEventListener('resize',fitCanvas); fitCanvas();
+window.addEventListener('resize',fitCanvas);
+window.addEventListener('orientationchange',function(){setTimeout(fitCanvas,150);});
+// The reserved space depends on how tall the HUD and dock currently are, and
+// both change as the score, group tag and button set change mid-game.
+if(window.ResizeObserver){
+  var fitRO=new ResizeObserver(function(){fitCanvas();});
+  POOL_TOP_CHROME.concat(POOL_BOT_CHROME).forEach(function(s){
+    var e=document.querySelector(s); if(e) fitRO.observe(e);
+  });
+}
+fitCanvas();
 
 /* map a client point to table coordinates */
 function toTable(clientX,clientY){
   var r=canvas.getBoundingClientRect();
-  return {x:(clientX-r.left)/r.width*W, y:(clientY-r.top)/r.height*H};
+  if(!tableRotated) return {x:(clientX-r.left)/r.width*W, y:(clientY-r.top)/r.height*H};
+  // getBoundingClientRect gives the axis-aligned box of the rotated canvas, so
+  // work from its centre and undo the 90° turn: local (u,v) → screen (-v,u).
+  var dx=clientX-(r.left+r.width/2), dy=clientY-(r.top+r.height/2);
+  return { x:W/2+dy/tableScale, y:H/2-dx/tableScale };
 }
 
 /* ═══════════════════════ INPUT / SHOT FLOW / UI ═══════════════════════ */
