@@ -33,7 +33,7 @@
 // Deployed relay Worker. Set this to your workers.dev URL or custom route; see
 // workers/relay/README.md. `?relay=ws://127.0.0.1:8787` overrides it for local
 // testing against `wrangler dev`.
-const RELAY_URL = null;   // e.g. 'wss://joshgus-relay.<subdomain>.workers.dev'
+const RELAY_URL = 'wss://joshgus-relay.games-connect.workers.dev';
 
 const MAX_MSG_BYTES = 24 * 1024;    // reject any single message larger than this
 const HELLO_TIMEOUT_MS = 12000;     // client: give up if no welcome/reject in time

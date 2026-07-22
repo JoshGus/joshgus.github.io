@@ -35,13 +35,15 @@ on some school and corporate networks. Uncomment the `routes` line in
 Then set `RELAY_URL` in `games/net/p2p.js` to the `wss://` URL:
 
 ```js
-const RELAY_URL = 'wss://joshgus-relay.<subdomain>.workers.dev';
+const RELAY_URL = 'wss://joshgus-relay.games-connect.workers.dev';
 ```
 
 Until that is set, multiplayer reports that it is not configured rather than
 failing obscurely.
 
-Check it: `curl https://<your-worker-url>/health` → `ok`.
+Check it: `curl https://joshgus-relay.games-connect.workers.dev/health` → `ok`.
+A freshly created workers.dev subdomain takes a few minutes to get its TLS
+certificate; until then curl fails with an SSL handshake error.
 
 ## Local development
 
