@@ -33,7 +33,7 @@ anyone can read and modify. What this code *does* buy you:
 | Wrong password / room full | **Yes** | Enforced host-side over the DTLS-encrypted data channel (the broker never sees the password). |
 | Malicious **host** (sees hidden info, edits state) | **No — impossible in P2P** | The host *is* the server. Mitigation is social: host = whoever players trust. |
 | Fully modified client that still sends only *legal* commands | **No** | Indistinguishable from honest play. Out of scope for P2P. |
-| **IP-address leakage** to other peers (WebRTC ICE) | **Opt-in** | Off by default (peers learn each other's IPs). The lobby's **"Hide my IP"** toggle forces a TURN relay so no direct connection happens. See "Privacy" below. |
+| **IP-address leakage** to other peers (WebRTC ICE) | **Yes, by default** | The lobby's **"Hide my IP"** toggle is **on by default** and forces a TURN relay, so no direct connection (and no IP exchange) happens. Both peers must have it on. See "Privacy" below. |
 
 The realistic goal is: block casual cheating and griefing, keep the host tab alive,
 and don't pretend the password is real security — it's an "unlisted / friends-only"
@@ -64,22 +64,31 @@ out of scope for P2P (see the table above). Host→client messages are **not**
 size-capped, which is why the host can send the large one-time Frontline init.
 
 ### Privacy (IP leakage) mitigation
-WebRTC exposes peers' IPs to each other by default. The lobby now has a **"Hide my
-IP"** checkbox (both Host and Join). It sets `relayOnly`, which forces
-`iceTransportPolicy: 'relay'` in `p2p.js` — all traffic goes through a **TURN relay**
-so no direct peer connection (and no IP exchange) ever happens.
+WebRTC exposes peers' IPs to each other by default. The lobby has a **"Hide my
+IP"** checkbox (both Host and Join) which is now **checked by default**. It sets
+`relayOnly`, which forces `iceTransportPolicy: 'relay'` in `p2p.js` — all traffic
+goes through a **TURN relay** so no direct peer connection (and no IP exchange)
+ever happens.
 
 Two things to know:
-- **Both players must enable it.** If only one side is relay-only, the *other* side
-  still offers its direct (host) candidate and reveals its IP. To hide both IPs, both
-  toggle it on.
-- The default TURN server is the free, no-signup **Open Relay (Metered)** project
-  (`DEFAULT_ICE` in `p2p.js`). It's rate-limited and can be flaky, so relay mode may
-  be slow or fail to connect. For reliable relaying, drop your own TURN credentials
-  into `DEFAULT_ICE` (metered.ca has a free tier, or self-host coturn) — or pass
-  `iceServers` through `hostRoom`/`joinRoom`.
+- **Both players must have it on.** If only one side is relay-only, the *other*
+  side still offers its direct (host) candidate and reveals its IP. Defaulting
+  the box to on is what makes this hold in practice.
+- **Where the TURN server comes from.** `TURN_ENDPOINT` in `p2p.js` points at a
+  small Cloudflare Worker (`workers/turn/`) that mints short-lived
+  [Cloudflare Realtime TURN](https://developers.cloudflare.com/realtime/turn/)
+  credentials. Credentials are minted with an API token that must never ship in
+  client JS, which is the whole reason the Worker exists. See
+  `workers/turn/README.md` to deploy it.
 
-For friends-only play the default (direct, no relay) is fine and fastest.
+  Until `TURN_ENDPOINT` is set (it ships as `null`), and any time that fetch
+  fails, `p2p.js` falls back to `DEFAULT_ICE` — the free, no-signup Open Relay
+  (Metered) project. That fallback is rate-limited and can be flaky, so relay
+  mode may be slow or fail to connect until the Worker is deployed. The game
+  degrades rather than refusing to start.
+
+Unchecking the box connects peers directly: fastest, but you and everyone in the
+room exchange IP addresses. Fine for friends, not for strangers.
 
 ---
 

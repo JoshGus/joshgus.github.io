@@ -167,7 +167,7 @@ export function openLobby(opts) {
       <div class="mpl-field"><label>Your name</label><input type="text" id="mpl-name" maxlength="24" placeholder="Host" value="${esc(localStorage.getItem('mpl-name') || '')}"></div>
       <label class="mpl-toggle" style="margin-bottom:12px"><input type="checkbox" id="mpl-usepw"> Require a password</label>
       <div class="mpl-field" id="mpl-pw-wrap" style="display:none"><label>Password</label><input type="password" id="mpl-pw" maxlength="40"></div>
-      <label class="mpl-toggle" style="margin-bottom:14px"><input type="checkbox" id="mpl-relay"> Hide my IP <span style="color:var(--dim,#8a7a66);font-size:.8em">(route through a relay — slower, may fail)</span></label>
+      <label class="mpl-toggle" style="margin-bottom:14px"><input type="checkbox" id="mpl-relay" checked> Hide my IP <span style="color:var(--dim,#8a7a66);font-size:.8em">(route through a relay — slightly slower; uncheck only for friends)</span></label>
       <div class="mpl-status"></div>
       <button class="mpl-btn" id="mpl-host-btn">Create game</button>`;
     statusEl = body.querySelector('.mpl-status');
@@ -245,7 +245,7 @@ export function openLobby(opts) {
       <div class="mpl-field"><label>Game code</label><input type="text" id="mpl-code" class="mpl-code-in" maxlength="4" placeholder="ABCD" value="${esc(urlCode.toUpperCase())}"></div>
       <div class="mpl-field"><label>Your name</label><input type="text" id="mpl-jname" maxlength="24" placeholder="Player" value="${esc(localStorage.getItem('mpl-name') || '')}"></div>
       <div class="mpl-field"><label>Password (if any)</label><input type="password" id="mpl-jpw" maxlength="40"></div>
-      <label class="mpl-toggle" style="margin-bottom:14px"><input type="checkbox" id="mpl-jrelay"> Hide my IP <span style="color:var(--dim,#8a7a66);font-size:.8em">(route through a relay — slower, may fail)</span></label>
+      <label class="mpl-toggle" style="margin-bottom:14px"><input type="checkbox" id="mpl-jrelay" checked> Hide my IP <span style="color:var(--dim,#8a7a66);font-size:.8em">(route through a relay — slightly slower; uncheck only for friends)</span></label>
       <div class="mpl-status"></div>
       <button class="mpl-btn" id="mpl-join-btn">Join game</button>`;
     statusEl = body.querySelector('.mpl-status');

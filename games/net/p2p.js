@@ -16,8 +16,9 @@
 //   • Passwords are enforced host-side over the DTLS-encrypted data channel, so
 //     the PeerJS broker never sees them and a client can't bypass the check. They
 //     are an "unlisted / friends-only" gate, not real security.
-//   • WebRTC leaks peers' IP addresses to each other (ICE). Don't invite people
-//     you wouldn't share your IP with. See README for TURN-relay mitigation.
+//   • WebRTC leaks peers' IP addresses to each other (ICE). The lobby's "Hide my
+//     IP" toggle (on by default) forces a TURN relay so no direct connection is
+//     made. Both peers need it on. See README + workers/turn/ for the relay.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const PEERJS_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
@@ -36,9 +37,9 @@ const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 // ICE servers. STUN is only for NAT discovery (still leaks your IP to peers). TURN
 // relays the media — needed for (a) symmetric-NAT connectivity and (b) HIDING your
 // IP: with `relayOnly` we force `iceTransportPolicy:'relay'` so no direct peer
-// connection (and no IP exchange) ever happens. The default TURN below is the free,
-// no-signup Open Relay (Metered) project; it's rate-limited, so for reliable relay
-// swap in your own TURN credentials (metered.ca has a free tier) via opts.iceServers.
+// connection (and no IP exchange) ever happens. The list below is only the
+// FALLBACK — the free, no-signup Open Relay (Metered) project, which is
+// rate-limited and often flaky. The real relay comes from TURN_ENDPOINT below.
 const DEFAULT_ICE = [
   { urls: 'stun:stun.l.google.com:19302' },
   { urls: 'turn:openrelay.metered.ca:80',                 username: 'openrelayproject', credential: 'openrelayproject' },
@@ -46,8 +47,48 @@ const DEFAULT_ICE = [
   { urls: 'turn:openrelay.metered.ca:443?transport=tcp',  username: 'openrelayproject', credential: 'openrelayproject' },
 ];
 
-function iceConfig(opts) {
-  const cfg = { iceServers: opts.iceServers || DEFAULT_ICE };
+// Cloudflare Realtime TURN. Its credentials are short-lived and have to be
+// minted with an API token, which cannot live in client JS — anyone could spend
+// the quota — so a tiny Worker mints them and we fetch from there. See
+// workers/turn/ for the Worker and its deploy steps.
+//
+// If TURN_ENDPOINT is null, or the fetch fails for any reason, we fall back to
+// DEFAULT_ICE above: relaying gets flaky rather than the game failing to start.
+const TURN_ENDPOINT = null;      // e.g. 'https://turn.joshg.us/'
+const TURN_EARLY_REFRESH_MS = 60 * 1000;   // renew a minute before expiry
+
+let _icePromise = null;          // in-flight fetch, so host+join share one call
+let _iceCache = null;            // { servers, expiresAt }
+
+async function fetchTurnServers() {
+  if (!TURN_ENDPOINT) return null;
+  if (_iceCache && Date.now() < _iceCache.expiresAt - TURN_EARLY_REFRESH_MS) return _iceCache.servers;
+  if (_icePromise) return _icePromise;
+
+  _icePromise = (async () => {
+    try {
+      const res = await fetch(TURN_ENDPOINT, { cache: 'no-store' });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const servers = Array.isArray(data.iceServers) ? data.iceServers : null;
+      if (!servers || !servers.length) throw new Error('no iceServers in response');
+      const ttl = Number(data.ttl) > 0 ? Number(data.ttl) : 600;
+      _iceCache = { servers, expiresAt: Date.now() + ttl * 1000 };
+      return servers;
+    } catch (e) {
+      console.warn('[net] TURN credentials unavailable, using fallback relay:', e.message);
+      return null;
+    } finally {
+      _icePromise = null;
+    }
+  })();
+  return _icePromise;
+}
+
+// Async because credentials may need fetching. Callers are already async.
+async function iceConfig(opts) {
+  const servers = opts.iceServers || (await fetchTurnServers()) || DEFAULT_ICE;
+  const cfg = { iceServers: servers };
   if (opts.relayOnly) cfg.iceTransportPolicy = 'relay';   // never connect directly → no IP leak
   return cfg;
 }
@@ -156,7 +197,7 @@ export async function hostRoom(opts) {
   for (let attempt = 0; attempt < 6; attempt++) {
     code = makeCode();
     try {
-      peer = await openPeer(Peer, roomPeerId(gameId, code), iceConfig(opts));
+      peer = await openPeer(Peer, roomPeerId(gameId, code), await iceConfig(opts));
       break;
     } catch (e) {
       if (e && e.type === 'unavailable-id' && attempt < 5) continue;
@@ -339,7 +380,7 @@ export async function joinRoom(opts) {
   const hooks  = opts.hooks || {};
   if (!code) throw new Error('joinRoom: code required');
 
-  const peer = await openPeer(Peer, null, iceConfig(opts));  // random client id
+  const peer = await openPeer(Peer, null, await iceConfig(opts));  // random client id
   const conn = peer.connect(roomPeerId(gameId, code), { reliable: true });
 
   return await new Promise((resolve, reject) => {
