@@ -283,7 +283,11 @@ a.mini:hover{color:#ccf73f}
   .hud{left:6px;right:6px;transform:none;max-width:none;justify-content:center}
   .controls{left:6px;right:6px;transform:none;max-width:none;
     gap:8px;bottom:calc(10px + env(safe-area-inset-bottom))}
-  #ai-review{left:6px;right:6px;width:auto;bottom:auto;top:132px;max-height:34vh;overflow-y:auto}
+  /* The opponent-shot panel used to sit at top:132px, straight over the table
+     and the button row. It now docks above the control dock (fitCanvas sets
+     the exact offset) and the table is fitted above it. */
+  #ai-review{left:6px;right:6px;width:auto;top:auto;max-height:26vh;overflow-y:auto;
+    padding:8px 10px;font-size:.54rem}
   /* The HUD is full-width here, so the desktop positions (top:98px / top:142px)
      land on top of it. Put all three on one row directly beneath it. */
   #menu-btn2{top:119px;left:6px;right:auto}
@@ -306,7 +310,8 @@ a.mini:hover{color:#ccf73f}
   .controls{left:auto;right:6px;bottom:auto;top:50%;transform:translateY(-50%);
     flex-direction:column;align-items:center;max-width:none;width:auto;gap:6px}
   #chip-left{top:52px} #chip-right{top:52px;right:6px}
-  #ai-review{left:6px;bottom:6px;top:auto;width:min(210px,32vw);max-height:40vh;overflow-y:auto}
+  #ai-review{left:6px;right:auto;top:auto;bottom:6px;width:min(210px,30vw);
+    max-height:34vh;overflow-y:auto;padding:8px 10px;font-size:.54rem}
 }
 
 </style>
@@ -1141,7 +1146,7 @@ var tableRotated=false, tableScale=1;
 var viewW=0, viewH=0, viewDpr=1, tableCX=0, tableCY=0;
 // Fixed HUD layers that must never sit on top of the table in portrait.
 var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','#restart-btn','#menu-btn2','#tl-btn'];
-var POOL_BOT_CHROME=['.controls'];
+var POOL_BOT_CHROME=['.controls','#ai-review'];
 function fitCanvas(){
   var wrap=document.querySelector('.game-wrap');
   // These three must stay in step with the media queries in the stylesheet,
@@ -1159,6 +1164,16 @@ function fitCanvas(){
     // offsetParent is always null for position:fixed elements, so test display.
     var shown=function(e){ if(!e) return false; var s=getComputedStyle(e);
       return s.display!=='none'&&s.visibility!=='hidden'; };
+    // Park the opponent-shot review directly above the control dock. Its own
+    // height varies with the shot summary, and the dock's varies with the mode,
+    // so this can't be a fixed CSS offset.
+    var ai=document.querySelector('#ai-review'), dock=document.querySelector('.controls');
+    if(shown(ai)){
+      ai.style.top='auto';
+      ai.style.bottom = (landscapePhone || !shown(dock))
+        ? '6px'
+        : (wr.bottom-dock.getBoundingClientRect().top+8)+'px';
+    }
     // Every top-anchored layer counts, not just .hud — the menu/reset buttons
     // and the classic-mode chips sit lower than it and would cover the table.
     POOL_TOP_CHROME.forEach(function(s){ var e=document.querySelector(s);
