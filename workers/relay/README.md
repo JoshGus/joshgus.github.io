@@ -22,11 +22,17 @@ only authority exactly as before. See `games/net/README.md` for the threat model
 ## Deploy
 
 ```sh
+npx wrangler login          # one-time, opens a browser
 cd workers/relay
 npx wrangler deploy
 ```
 
-Then set `RELAY_URL` in `games/net/p2p.js` to the `wss://` URL wrangler prints:
+`joshg.us` is already on Cloudflare, so you can put this on `relay.joshg.us`
+instead of the `workers.dev` URL — worth doing, since `workers.dev` is blocked
+on some school and corporate networks. Uncomment the `routes` line in
+`wrangler.jsonc` and deploy again; Cloudflare creates the DNS record itself.
+
+Then set `RELAY_URL` in `games/net/p2p.js` to the `wss://` URL:
 
 ```js
 const RELAY_URL = 'wss://joshgus-relay.<subdomain>.workers.dev';
