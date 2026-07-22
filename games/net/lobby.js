@@ -154,6 +154,12 @@ export function openLobby(opts) {
   }
 
   // Client wraps onEvent so the host's start signal never reaches the game hooks.
+  // hostWaitView() installs the real implementation once it has rendered. Going
+  // through a variable rather than mutating opts.hostHooks afterwards matters:
+  // hostRoom() keeps its own copy of the hooks object, so late mutation of the
+  // caller's object silently never reaches it.
+  let refreshRoster = () => {};
+
   const wrappedClientHooks = Object.assign({}, opts.clientHooks, {
     onEvent(evt) {
       if (evt && evt.__lobby === 'start') { begin(evt.roster || (net && net.roster) || []); return; }
@@ -290,9 +296,19 @@ export function openLobby(opts) {
           open: body.querySelector('#mpl-open').checked && !!creds,
           username: creds && creds.username,
           token: creds && creds.token,
-          hooks: Object.assign({
+          hooks: Object.assign({}, opts.hostHooks || {}, {
             onUnlisted: () => status('Couldn\u2019t list publicly \u2014 game is private, code still works', true),
-          }, opts.hostHooks || {}),
+            // Keep the game's own hooks working, and refresh the waiting-room
+            // roster so the host can actually see players arrive and start.
+            onJoin: (p) => {
+              if (opts.hostHooks && opts.hostHooks.onJoin) opts.hostHooks.onJoin(p);
+              refreshRoster();
+            },
+            onLeave: (p) => {
+              if (opts.hostHooks && opts.hostHooks.onLeave) opts.hostHooks.onLeave(p);
+              refreshRoster();
+            },
+          }),
         });
         role = 'host';
         net.onError(() => status('Network hiccup — players may need to rejoin', true));
@@ -329,10 +345,8 @@ export function openLobby(opts) {
       begin(roster);
     };
 
-    // Re-render roster + gate the Start button as players come and go. The host
-    // hooks the game passed us still fire; we only *wrap* to refresh this view.
-    const origJoin = opts.hostHooks && opts.hostHooks.onJoin;
-    const origLeave = opts.hostHooks && opts.hostHooks.onLeave;
+    // Re-render roster + gate the Start button as players come and go. The
+    // wrapper installed at hostRoom() time calls through to this.
     const refresh = () => {
       if (destroyed) return;
       const list = net.players();
@@ -340,10 +354,7 @@ export function openLobby(opts) {
       startBtn.disabled = list.length < minPlayers;
       status(list.length < minPlayers ? `Need at least ${minPlayers} players` : 'Ready when you are');
     };
-    if (opts.hostHooks) {
-      opts.hostHooks.onJoin = (p) => { if (origJoin) origJoin(p); refresh(); };
-      opts.hostHooks.onLeave = (p) => { if (origLeave) origLeave(p); refresh(); };
-    }
+    refreshRoster = refresh;   // wired at hostRoom() time, implemented here
     refresh();
   }
 

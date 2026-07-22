@@ -5256,6 +5256,14 @@ function startGame(){
   if(aiLogOpen)renderAILog();
   if(rtsOnline==='host'){try{rtsAfterStart();}catch(e){console.error('rtsAfterStart',e);}}
 }
+// Netcode diagnostics. The guest renders what the host sends, so when a joiner
+// sees nothing there is no local state to inspect from the console otherwise.
+window.__rtsDbg=()=>({rtsOnline,HUMAN,gameStarted,paused,gridRows:grid.length,
+  units:units.length,players:players.length,mapBaked,
+  map:{W,H,COLS,ROWS,canvas:mapCanvas.width+'x'+mapCanvas.height},
+  cam:{x:Math.round(cam.x),y:Math.round(cam.y),zoom:+cam.zoom.toFixed(3)},
+  view:{w:viewW,h:viewH},camMinZoom:+camMinZoom.toFixed(3)});
+
 function loop(t){
   const raw=Math.min((t-lastT)/1000,.05);lastT=t;
   updateCamera(raw);
@@ -5323,7 +5331,10 @@ function rtsTerrainPayload(){
 function rtsApplyTerrain(m){
   if(!m||!m.data)return;
   const img=new Image();
-  img.onload=()=>{try{mapCanvas.width=W;mapCanvas.height=H;mctx.clearRect(0,0,W,H);mctx.drawImage(img,0,0,W,H);}catch(e){}};
+  img.onload=()=>{try{
+    mapCanvas.width=W;mapCanvas.height=H;mctx.clearRect(0,0,W,H);mctx.drawImage(img,0,0,W,H);
+    mapBaked=true;   // resizing the canvas cleared it; never re-bake over this
+  }catch(e){}};
   img.src=m.data;
 }
 function rtsApplyInit(m){
@@ -5337,6 +5348,16 @@ function rtsApplyInit(m){
   constructions=(m.constructions||[]).map(c=>Object.assign({},c));
   projs=[];wildlife=[];selected.clear();
   gameOver=false;gameWin=false;gameMsg='';gameStarted=true;paused=false;
+  // A guest never generates a map, so it has no `grid` — and the render gate in
+  // loop() is `gameStarted && grid.length`, which left joiners staring at a
+  // blank screen. Allocate one at the right size: nothing on the guest reads
+  // its cells (terrain is drawn from the host's image), it just has to exist.
+  grid=Array.from({length:ROWS},()=>new Uint8Array(COLS));
+  waterTiles=[];
+  // And keep bakeMap() away from it. Baking regenerates terrain from `grid`,
+  // which here is empty — it would paint flat ground straight over the map the
+  // host sent us.
+  mapBaked=true;
   try{mctx.fillStyle='#0e1a0a';mctx.fillRect(0,0,W,H);}catch(e){}  // placeholder until terrain arrives
   try{resizeCanvas();initCamera();syncZoomSlider();buildPchips();updateHud();updateSelPanel();
     // Comms panel is available when this commander has teammates (host routes
