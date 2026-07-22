@@ -29,7 +29,7 @@ html,body{height:100%;overflow:hidden;background:#0c1512;-webkit-font-smoothing:
 .status.fixed-bar{z-index:100;top:0;left:0;right:0}
 
 .game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;
-  align-items:center;justify-content:center;overflow:hidden;
+  align-items:center;justify-content:center;overflow:hidden;touch-action:none;
   background-color:#2a1b0f;
   background-image:
     repeating-linear-gradient(0deg, rgba(0,0,0,.5) 0 2px, rgba(200,150,90,.06) 3px 5px, rgba(0,0,0,0) 6px 104px),
@@ -249,20 +249,15 @@ a.mini:hover{color:#ccf73f}
 .close-x{position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:1rem;cursor:pointer;
   color:rgba(160,210,100,.6);line-height:1}
 .close-x:hover{color:#ccf73f}
-/* ── mobile ── the dock wraps to ~230px tall on a phone and buries the table,
-   so tighten it to a single row. fitCanvas() then fits the rotated table into
-   whatever vertical space the HUD and dock leave. ── */
-@media(max-width:680px){
-  /* A fixed element with left:50% and no right gets a shrink-to-fit width of
-     only (viewport - 50%) = 195px, which forced both of these to wrap into
-     tall stacks. Anchoring both edges gives them the full width to lay out in. */
-  .hud{left:6px;right:6px;transform:none;max-width:none;justify-content:center;
-    gap:10px;padding:6px 12px;font-size:.58rem}
+/* ── phone chrome ── the dock wraps to ~230px tall at this size and buries the
+   table, so tighten everything down. Applies in BOTH orientations: a landscape
+   phone is 844px wide, so a width-only query misses it entirely. fitCanvas()
+   then fits the table into whatever space this chrome leaves. ── */
+@media(max-width:680px), (max-height:560px) and (max-width:1100px){
+  .hud{gap:10px;padding:6px 12px;font-size:.58rem}
   .hud .sv{font-size:1.15rem}
   .hud .sep{height:20px}
   #hud-main{gap:8px}
-  .controls{left:6px;right:6px;transform:none;max-width:none;
-    gap:8px;bottom:calc(10px + env(safe-area-inset-bottom))}
   .ctl-box{padding:6px 9px;gap:3px}
   .ctl-lbl{font-size:.42rem}
   /* Sized so power + spin + buttons total under 378px and stay on one row;
@@ -273,13 +268,42 @@ a.mini:hover{color:#ccf73f}
   .pbtn{padding:9px 10px;font-size:.55rem}
   .chip{padding:6px 9px;font-size:.5rem;min-width:0}
   #chip-left{left:6px} #chip-right{right:6px}
-  #ai-review{left:6px;right:6px;width:auto;bottom:auto;top:132px;max-height:34vh;overflow-y:auto}
   #timeline{left:6px;width:min(232px,72vw)}
+  #tl-btn{padding:8px 10px;font-size:.54rem}
+}
+
+/* ── portrait phone ── stack: HUD, button row, table, dock along the bottom ── */
+@media(max-width:680px) and (orientation:portrait){
+  /* A fixed element with left:50% and no right gets a shrink-to-fit width of
+     only (viewport - 50%) = 195px, which forced both of these to wrap into
+     tall stacks. Anchoring both edges gives them the full width to lay out in. */
+  .hud{left:6px;right:6px;transform:none;max-width:none;justify-content:center}
+  .controls{left:6px;right:6px;transform:none;max-width:none;
+    gap:8px;bottom:calc(10px + env(safe-area-inset-bottom))}
+  #ai-review{left:6px;right:6px;width:auto;bottom:auto;top:132px;max-height:34vh;overflow-y:auto}
   /* The HUD is full-width here, so the desktop positions (top:98px / top:142px)
      land on top of it. Put all three on one row directly beneath it. */
   #menu-btn2{top:119px;left:6px;right:auto}
-  #tl-btn{top:119px;left:88px;padding:8px 10px;font-size:.54rem}
+  #tl-btn{top:119px;left:88px}
   #restart-btn{top:119px;right:6px;left:auto}
+}
+
+/* ── landscape phone ── only ~390px of height, so a bottom dock would leave the
+   table about 140px tall. There is width to spare instead: the dock becomes a
+   column down the right edge and the HUD a thin strip along the top. ── */
+@media(max-height:560px) and (max-width:1100px) and (orientation:landscape){
+  .hud{left:6px;right:auto;top:52px;transform:none;max-width:60vw;
+    padding:4px 10px;font-size:.5rem;gap:8px}
+  .hud .sv{font-size:.95rem}
+  .hud .sep{height:16px}
+  #hud-main{gap:6px}
+  #restart-btn{top:52px;right:6px;left:auto}
+  #menu-btn2{top:52px;right:88px;left:auto}
+  #tl-btn{top:52px;right:172px;left:auto}
+  .controls{left:auto;right:6px;bottom:auto;top:50%;transform:translateY(-50%);
+    flex-direction:column;align-items:center;max-width:none;width:auto;gap:6px}
+  #chip-left{top:52px} #chip-right{top:52px;right:6px}
+  #ai-review{left:6px;bottom:6px;top:auto;width:min(210px,32vw);max-height:40vh;overflow-y:auto}
 }
 
 </style>
@@ -1108,12 +1132,17 @@ var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','#restart-btn','#menu-btn
 var POOL_BOT_CHROME=['.controls'];
 function fitCanvas(){
   var wrap=document.querySelector('.game-wrap');
-  var portrait=wrap.clientHeight>wrap.clientWidth && wrap.clientWidth<=680;
-  // In portrait the HUD and the control dock are fixed overlays that would sit
-  // on top of the table. Pad the wrap out to whatever room they occupy so the
-  // flex centring drops the table into the gap between them instead.
-  var padTop=47, padBot=0;
-  if(portrait){
+  // These three must stay in step with the media queries in the stylesheet,
+  // or the reserved bands won't match where the chrome actually sits.
+  var compact=wrap.clientWidth<=680 || (wrap.clientHeight<=560 && wrap.clientWidth<=1100);
+  var portrait=compact && wrap.clientHeight>wrap.clientWidth && wrap.clientWidth<=680;
+  var landscapePhone=compact && !portrait;
+  // The HUD and dock are fixed overlays that would sit on top of the table.
+  // Pad the wrap out to whatever room they occupy so the flex centring drops
+  // the table into the gap. In landscape the dock is a right-hand column, so
+  // the space comes out of the width instead of the height.
+  var padTop=47, padBot=0, padRight=0;
+  if(compact){
     var wr=wrap.getBoundingClientRect();
     // offsetParent is always null for position:fixed elements, so test display.
     var shown=function(e){ if(!e) return false; var s=getComputedStyle(e);
@@ -1122,16 +1151,22 @@ function fitCanvas(){
     // and the classic-mode chips sit lower than it and would cover the table.
     POOL_TOP_CHROME.forEach(function(s){ var e=document.querySelector(s);
       if(shown(e)) padTop=Math.max(padTop, e.getBoundingClientRect().bottom-wr.top+8); });
-    POOL_BOT_CHROME.forEach(function(s){ var e=document.querySelector(s);
-      if(shown(e)) padBot=Math.max(padBot, wr.bottom-e.getBoundingClientRect().top+8); });
+    POOL_BOT_CHROME.forEach(function(s){ var e=document.querySelector(s); if(!shown(e)) return;
+      var b=e.getBoundingClientRect();
+      // Reserve against whichever edge the chrome actually hugs — in landscape
+      // the dock is a right-hand column, in portrait it is a bottom bar.
+      if(landscapePhone && b.left>wr.left+wr.width*0.6) padRight=Math.max(padRight, wr.right-b.left+8);
+      else                                              padBot  =Math.max(padBot,   wr.bottom-b.top+8);
+    });
   }
   wrap.style.paddingTop=padTop+'px';
   wrap.style.paddingBottom=padBot+'px';
-  var pad=portrait?16:72, padV=portrait?16:64;
-  // clientHeight includes the padding, so only discount it in the portrait
-  // case — the desktop fit keeps its original margins untouched.
-  var availW=wrap.clientWidth-pad;
-  var availH=wrap.clientHeight-padV-(portrait?padTop+padBot:0);
+  wrap.style.paddingRight=padRight+'px';
+  var pad=compact?16:72, padV=compact?16:64;
+  // clientWidth/clientHeight include the padding, so only discount it in the
+  // compact cases — the desktop fit keeps its original margins untouched.
+  var availW=wrap.clientWidth-pad-(compact?padRight:0);
+  var availH=wrap.clientHeight-padV-(compact?padTop+padBot:0);
   // When rotated the table's long axis runs down the screen, so it is fitted
   // against the opposite viewport dimensions.
   tableRotated=portrait;

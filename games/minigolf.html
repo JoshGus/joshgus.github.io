@@ -28,7 +28,7 @@ html,body{height:100%;overflow:hidden;background:#1a2e1a;-webkit-font-smoothing:
 
 .status.fixed-bar{z-index:100;top:0;left:0;right:0}
 
-.game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;align-items:center;justify-content:center;overflow:hidden;background:#111a11}
+.game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;background:#111a11}
 canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
 /* Turned on its side the layout box is the long axis wide; scaleCanvas() has
    already fitted it, so the clamp above (and shared.css) must not squash it. */
@@ -173,10 +173,11 @@ canvas.rotated{max-width:none;max-height:none}
 }
 .notes-toggle:hover{color:rgba(200,250,120,.85);border-color:rgba(120,200,60,.5)}
 
-/* ── mobile ── three separately-fixed HUD pieces sit at top:58px and collide
-   on a phone. Shrink them and give the score bar the gap between the wind
-   readout and the restart button. ── */
-@media(max-width:680px){
+/* ── phone chrome ── three separately-fixed HUD pieces sit at top:58px and
+   collide on a phone. Shrink them and give the score bar the gap between the
+   wind readout and the restart button. Applies in BOTH orientations — a
+   landscape phone is ~844px wide, so a width-only query misses it. ── */
+@media(max-width:680px), (max-height:560px) and (max-width:1100px){
   #wind-hud{left:6px;padding:5px 8px;font-size:.48rem;min-width:0}
   #restart-btn{right:6px;padding:7px 10px;font-size:.54rem}
   .hud{gap:10px;padding:6px 10px;font-size:.56rem;
@@ -184,11 +185,36 @@ canvas.rotated{max-width:none;max-height:none}
   .hud .sv{font-size:1.15rem}
   .hud .sl{font-size:.46rem}
   .hud .sep{height:20px}
-  /* Bottom stack, from the screen edge up: clubs, notes toggle, shot hint. */
+  .notes-toggle{font-size:.46rem;padding:4px 8px}
+}
+
+/* ── portrait phone ── bottom stack, from the screen edge up: clubs, notes
+   toggle, shot hint. scaleCanvas() reserves the band they occupy. ── */
+@media(max-width:680px) and (orientation:portrait){
   #clubs{bottom:calc(10px + env(safe-area-inset-bottom));max-width:calc(100vw - 12px)}
-  .notes-toggle{bottom:calc(72px + env(safe-area-inset-bottom));right:6px;font-size:.46rem;padding:4px 8px}
+  .notes-toggle{bottom:calc(72px + env(safe-area-inset-bottom));right:6px}
   .info{bottom:calc(104px + env(safe-area-inset-bottom));font-size:.5rem;
     width:max-content;max-width:calc(100vw - 24px);text-align:center}
+}
+
+/* ── landscape phone ── only ~390px of height, so a bottom club row would
+   leave almost no course. Stand the clubs up as a column on the right. ── */
+@media(max-height:560px) and (max-width:1100px) and (orientation:landscape){
+  #clubs{left:auto;right:6px;bottom:auto;top:50%;transform:translateY(-50%);
+    flex-direction:column;max-width:none}
+  /* The dividers run down the row on desktop; stacked they need to run across. */
+  .club-btn{padding:6px 12px;font-size:.5rem;text-align:center;
+    border-right:none;border-bottom:1px solid rgba(120,180,60,.35)}
+  .club-btn:last-child{border-bottom:none}
+  .notes-toggle{bottom:6px;right:auto;left:6px}
+  .info{bottom:6px;left:50%;transform:translateX(-50%);font-size:.46rem;
+    width:max-content;max-width:60vw;text-align:center}
+  /* The wind box stacks label/arrow/strength ~62px tall, and it sets the top
+     band that the course height is measured against. Lay it out in a row to
+     hand those pixels back to the course. */
+  #wind-hud{top:52px;padding:4px 9px;display:flex;align-items:center;gap:7px}
+  #wind-hud>div{margin-bottom:0!important}
+  .hud{top:52px} #restart-btn{top:52px}
 }
 @media(max-width:430px){
   /* Below this the date is the first thing worth dropping. */
@@ -383,26 +409,38 @@ var TOP_CHROME=['.hud','#wind-hud','#restart-btn'];
 var BOT_CHROME=['#clubs','.notes-toggle','.info'];
 function scaleCanvas(){
   var wrap=document.querySelector('.game-wrap');
-  var portrait = wrap.clientHeight>wrap.clientWidth && wrap.clientWidth<=680;
-  // In portrait the HUD is fixed on top of the course. Pad the wrap out to the
-  // bands it occupies so the flex centring drops the course into the gap.
-  var padTop=47, padBot=0;
-  if(portrait){
+  // These must stay in step with the media queries in the stylesheet, or the
+  // reserved bands won't match where the chrome actually sits.
+  var compact = wrap.clientWidth<=680 || (wrap.clientHeight<=560 && wrap.clientWidth<=1100);
+  var portrait = compact && wrap.clientHeight>wrap.clientWidth && wrap.clientWidth<=680;
+  var landscapePhone = compact && !portrait;
+  // The HUD is fixed on top of the course. Pad the wrap out to the bands it
+  // occupies so the flex centring drops the course into the gap. In landscape
+  // the clubs are a right-hand column, so that space comes out of the width.
+  var padTop=47, padBot=0, padRight=0;
+  if(compact){
     var wr=wrap.getBoundingClientRect();
     // offsetParent is always null for position:fixed, so test display instead.
     var shown=function(e){ if(!e) return false; var s=getComputedStyle(e);
       return s.display!=='none'&&s.visibility!=='hidden'; };
     TOP_CHROME.forEach(function(s){ var e=document.querySelector(s);
       if(shown(e)) padTop=Math.max(padTop, e.getBoundingClientRect().bottom-wr.top+8); });
-    BOT_CHROME.forEach(function(s){ var e=document.querySelector(s);
-      if(shown(e)) padBot=Math.max(padBot, wr.bottom-e.getBoundingClientRect().top+8); });
+    BOT_CHROME.forEach(function(s){ var e=document.querySelector(s); if(!shown(e)) return;
+      var b=e.getBoundingClientRect();
+      // In landscape only some of this chrome moves to a right-hand column
+      // (the clubs); the hint and notes button stay along the bottom. Reserve
+      // against whichever edge each one actually hugs.
+      if(landscapePhone && b.left>wr.left+wr.width*0.6) padRight=Math.max(padRight, wr.right-b.left+8);
+      else                                              padBot  =Math.max(padBot,   wr.bottom-b.top+8);
+    });
   }
   wrap.style.paddingTop=padTop+'px';
   wrap.style.paddingBottom=padBot+'px';
-  var cw=wrap.clientWidth;
-  // clientHeight includes padding, so only discount it in the portrait case —
-  // the desktop fit keeps its original margins.
-  var ch=wrap.clientHeight-(portrait?padTop+padBot:0);
+  wrap.style.paddingRight=padRight+'px';
+  // clientWidth/clientHeight include padding, so only discount it in the
+  // compact cases — the desktop fit keeps its original margins.
+  var cw=wrap.clientWidth-(compact?padRight:0);
+  var ch=wrap.clientHeight-(compact?padTop+padBot:0);
   courseRotated = portrait;
   courseScale = courseRotated ? Math.min(ch/W, cw/H) : Math.min(cw/W, ch/H);
   canvas.style.width=Math.round(W*courseScale)+'px';
@@ -1224,12 +1262,18 @@ function onUp(e){
   }
 }
 
-canvas.addEventListener('mousedown',onDown);
-canvas.addEventListener('mousemove',onMove);
-canvas.addEventListener('mouseup',onUp);
-canvas.addEventListener('touchstart',function(e){e.preventDefault();onDown(e);},{passive:false});
-canvas.addEventListener('touchmove',function(e){e.preventDefault();onMove(e);},{passive:false});
-canvas.addEventListener('touchend',function(e){e.preventDefault();onUp(e);},{passive:false});
+// Pointer events with capture, so a drag keeps tracking once it leaves the
+// canvas and still registers when it comes back. Mouse listeners bound to the
+// canvas stopped dead at its edge, which made aiming awkward on the smaller
+// mobile board where you run out of room to pull back.
+canvas.addEventListener('pointerdown',function(e){
+  e.preventDefault();
+  canvas.setPointerCapture&&canvas.setPointerCapture(e.pointerId);
+  onDown(e);
+});
+canvas.addEventListener('pointermove',function(e){e.preventDefault();onMove(e);});
+canvas.addEventListener('pointerup',function(e){e.preventDefault();onUp(e);});
+canvas.addEventListener('pointercancel',function(e){onUp(e);});
 
 // ── Score storage (localStorage) ──────────────────────────────────
 function getBest(seed){
