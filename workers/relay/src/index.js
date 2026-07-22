@@ -124,6 +124,91 @@ export default {
       }
     }
 
+    // ── daily leaderboard ────────────────────────────────────────────────
+    // GET  /scores?game=pool&day=YYYY-MM-DD   → today's board
+    // POST /scores {game, day, score, detail, name, token}
+    //
+    // Scores cannot be verified — the game runs in the browser and no server
+    // sees it played. What this does enforce: you must hold the username you
+    // post under, one entry per person per game per day, and the value has to
+    // be inside the range the game can actually produce. The UI labels the
+    // board unverified rather than implying more than that.
+    if (url.pathname === '/scores') {
+      const cors = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      };
+      const reply = (body, status = 200) => new Response(JSON.stringify(body), { status, headers: cors });
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+
+      const GAMES = {
+        // min/max are the plausible range for a completed daily round; anything
+        // outside is a typo or a forgery and is refused outright.
+        pool:     { min: 1, max: 200 },
+        minigolf: { min: 1, max: 200 },
+      };
+
+      if (request.method === 'GET') {
+        const game = url.searchParams.get('game');
+        const day  = url.searchParams.get('day');
+        if (!GAMES[game] || !/^\d{4}-\d{2}-\d{2}$/.test(day || '')) return reply({ error: 'bad request' }, 400);
+        try {
+          const { results } = await env.DB.prepare(
+            'SELECT name, score, detail, updated_at FROM scores WHERE game = ? AND day = ? ORDER BY score ASC, updated_at ASC LIMIT 50'
+          ).bind(game, day).all();
+          return reply({ scores: results || [] });
+        } catch {
+          return reply({ scores: [], error: 'unavailable' });
+        }
+      }
+
+      if (request.method !== 'POST') return reply({ error: 'method' }, 405);
+
+      let body;
+      try { body = await request.json(); } catch { body = null; }
+      if (!body) return reply({ error: 'bad request' }, 400);
+      const spec = GAMES[body.game];
+      if (!spec) return reply({ error: 'unknown game' }, 400);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(body.day || ''))) return reply({ error: 'bad day' }, 400);
+      const score = Number(body.score);
+      if (!Number.isInteger(score) || score < spec.min || score > spec.max) {
+        return reply({ error: 'score out of range' }, 400);
+      }
+      // Only today's and yesterday's boards accept writes, so old days can't be
+      // back-filled once they've stopped being visible.
+      const today = new Date().toISOString().slice(0, 10);
+      const yday  = new Date(Date.now() - 864e5).toISOString().slice(0, 10);
+      if (body.day !== today && body.day !== yday) return reply({ error: 'that day is closed' }, 400);
+
+      const token = typeof body.token === 'string' ? body.token : '';
+      if (token.length < 16) return reply({ error: 'Set a username to post a score' }, 400);
+      try {
+        const key = nameKey(body.name);
+        const row = await env.DB.prepare('SELECT name, token_hash FROM usernames WHERE name_key = ?').bind(key).first();
+        if (!row || row.token_hash !== (await hashToken(token))) {
+          return reply({ error: 'Set a username to post a score' }, 403);
+        }
+        const detail = cleanName(body.detail, '').slice(0, 40);
+        const now = Date.now();
+        // Keep the best score for the day rather than the latest.
+        await env.DB.prepare(
+          `INSERT INTO scores (id, game, day, name_key, name, score, detail, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+           ON CONFLICT(id) DO UPDATE SET
+             score = MIN(scores.score, excluded.score),
+             detail = CASE WHEN excluded.score < scores.score THEN excluded.detail ELSE scores.detail END,
+             name = excluded.name,
+             updated_at = excluded.updated_at`
+        ).bind(`${body.game}:${body.day}:${key}`, body.game, body.day, key, row.name, score, detail, now, now).run();
+        return reply({ ok: true });
+      } catch {
+        return reply({ error: 'unavailable' }, 500);
+      }
+    }
+
     // Public directory of open lobbies. Read-only: rooms publish themselves
     // from the Durable Object, so there is no client-writable path here.
     if (url.pathname === '/lobbies') {

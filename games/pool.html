@@ -188,6 +188,7 @@ canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshai
 
 /* win card extras */
 .wscore{font-family:var(--disp);font-weight:700;font-size:3.4rem;color:#ccf73f;line-height:1;margin:8px 0}
+.win-lb{margin:14px 0 4px;text-align:left;max-height:34vh;overflow-y:auto}
 .wb{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:rgba(150,200,80,.6);
   margin:10px 0 20px;min-height:1.3em}
 .wb.newpb{color:#ccf73f}
@@ -454,6 +455,7 @@ a.mini:hover{color:#ccf73f}
     <h1 id="win-title"></h1>
     <div class="wscore" id="win-score"></div>
     <div class="wb" id="win-best"></div>
+    <div id="win-lb" class="win-lb"></div>
     <div id="win-btns"></div>
   </div>
 </div>
@@ -1576,6 +1578,29 @@ function saveDaily(seed,score,win){
   if(better){try{localStorage.setItem(dailyKey(seed),JSON.stringify({s:score,w:win?1:0}));}catch(e){}}
 }
 
+// Daily leaderboard. Loaded lazily so a failure here can never stop the game
+// from showing its own result — the board is an extra, not the point.
+function poolShowLeaderboard(score){
+  var box=el('win-lb'); if(!box) return;
+  box.innerHTML='';
+  import('./net/leaderboard.js').then(function(LB){
+    LB.injectStyles();
+    // SEED is YYYYMMDD, so derive the exact day rather than assuming today —
+    // the daily can be replayed for past dates via dayOffset.
+    var day=String(SEED).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+    function show(){ LB.renderBoard(box,'pool',{day:day,emptyText:'No scores yet today — be first.'}); }
+    LB.submitScore('pool',score,score+'/7',day).then(function(r){
+      if(r.ok){ show(); return; }
+      if(r.needsName){
+        // First run: offer to claim a name rather than showing an error.
+        LB.promptForName(box,function(){ LB.submitScore('pool',score,score+'/7',day).then(show); });
+        return;
+      }
+      show();   // still show the board even if our own post failed
+    });
+  }).catch(function(){});
+}
+
 function showDailyEnd(win,bust,reason){
   el('win-sub').textContent='Daily Break · '+dateStr;
   el('win-title').textContent=win?'Cleared the rack!':bust?'8-ball too early':'Run over';
@@ -1593,6 +1618,7 @@ function showDailyEnd(win,bust,reason){
     '<button class="pbtn" id="w-again">Retry</button>'+
     '<button class="pbtn ghost" id="w-menu">Menu</button>';
   el('win').classList.remove('hidden');
+  poolShowLeaderboard(daily.score);
   el('w-share').onclick=function(){shareDaily(win,g);};
   el('w-again').onclick=function(){el('win').classList.add('hidden');startDaily();};
   el('w-menu').onclick=function(){el('win').classList.add('hidden');openMenu();};

@@ -89,7 +89,8 @@ canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshai
 .wcard{background:#0e1f0e;border:1px solid rgba(120,180,60,.3);padding:48px 56px;text-align:center;max-width:340px;width:90%}
 .wcard .wt{font-family:var(--disp);font-weight:520;font-size:clamp(1.8rem,5vw,2.6rem);letter-spacing:-.02em;line-height:1;color:#d8f0a0;margin-bottom:6px}
 .wcard .ws{font-family:var(--mono);font-size:.7rem;letter-spacing:.1em;color:rgba(140,190,80,.6);margin-bottom:12px}
-.wcard .wb{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:rgba(120,170,60,.55);margin-bottom:20px;min-height:1.4em}
+.wcard .win-lb{margin:12px 0 6px;text-align:left;max-height:34vh;overflow-y:auto}
+.wb{font-family:var(--mono);font-size:.58rem;letter-spacing:.08em;color:rgba(120,170,60,.55);margin-bottom:20px;min-height:1.4em}
 .wcard .wb.newpb{color:#ccf73f}
 .wcard .ws b{color:#ccf73f;font-size:2.2rem;display:block;font-family:var(--disp);font-weight:700;letter-spacing:-.02em;line-height:1;margin:6px 0}
 .wbtn{display:inline-block;margin:4px;font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
@@ -269,6 +270,7 @@ canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshai
     <div class="wt" id="win-title">Finished!</div>
     <div class="ws">You holed out in<b id="win-shots">—</b></div>
     <div class="wb" id="win-best"></div>
+    <div id="win-lb" class="win-lb"></div>
     <button class="wbtn" id="win-copy">Copy result</button>
     <button class="wbtn" onclick="resetGame()">Play again</button>
   </div>
@@ -1403,6 +1405,25 @@ document.getElementById('clubs').addEventListener('click',function(e){ e.stopPro
   }
 })();
 
+// Daily leaderboard. Imported lazily so a network problem here can never stop
+// the win card from appearing — the board is an extra, not the result.
+function golfShowLeaderboard(shotCount){
+  var box=document.getElementById('win-lb'); if(!box) return;
+  box.innerHTML='';
+  import('./net/leaderboard.js').then(function(LB){
+    LB.injectStyles();
+    // SEED is YYYYMMDD; derive the exact day the course was generated for.
+    var day=String(SEED).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
+    var detail=shotCount+(shotCount===1?' shot':' shots');
+    function show(){ LB.renderBoard(box,'minigolf',{day:day,emptyText:'No rounds posted yet today — be first.'}); }
+    LB.submitScore('minigolf',shotCount,detail,day).then(function(r){
+      if(r.ok){ show(); return; }
+      if(r.needsName){ LB.promptForName(box,function(){ LB.submitScore('minigolf',shotCount,detail,day).then(show); }); return; }
+      show();
+    });
+  }).catch(function(){});
+}
+
 // ── Win ────────────────────────────────────────────────────────────
 function onWin(){
   var s=shots;
@@ -1427,6 +1448,7 @@ function onWin(){
   }
 
   document.getElementById('win').classList.add('show');
+  golfShowLeaderboard(s);
   document.getElementById('win-copy').onclick=function(){
     var txt='Daily Links — '+dateStr+'\n⛳ '+s+(s===1?' shot':' shots');
     navigator.clipboard&&navigator.clipboard.writeText(txt).then(function(){
