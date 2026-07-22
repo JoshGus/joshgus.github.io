@@ -296,6 +296,9 @@ a.mini:hover{color:#ccf73f}
      land on top of it. Put all three on one row directly beneath it. */
   #menu-btn2{top:119px;left:6px;right:auto}
   #tl-btn{top:119px;left:88px}
+  /* Was left at the desktop top:98px, which sits under the full-width mobile
+     HUD (z-index 50) — the HUD swallowed every click on it. */
+  #lb-btn{top:119px;left:170px}
   #restart-btn{top:119px;right:6px;left:auto}
 }
 
@@ -311,6 +314,7 @@ a.mini:hover{color:#ccf73f}
   #restart-btn{top:52px;right:6px;left:auto}
   #menu-btn2{top:52px;right:88px;left:auto}
   #tl-btn{top:52px;right:172px;left:auto}
+  #lb-btn{top:52px;right:256px;left:auto}
   .controls{left:auto;right:6px;bottom:auto;top:50%;transform:translateY(-50%);
     flex-direction:column;align-items:center;max-width:none;width:auto;gap:6px}
   #chip-left{top:52px} #chip-right{top:52px;right:6px}
@@ -1155,7 +1159,7 @@ var tableRotated=false, tableScale=1;
 // Canvas viewport (CSS px) and where the table's centre sits inside it.
 var viewW=0, viewH=0, viewDpr=1, tableCX=0, tableCY=0;
 // Fixed HUD layers that must never sit on top of the table in portrait.
-var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','#restart-btn','#menu-btn2','#tl-btn'];
+var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','#restart-btn','#menu-btn2','#tl-btn','#lb-btn'];
 var POOL_BOT_CHROME=['.controls','#ai-review'];
 function fitCanvas(){
   var wrap=document.querySelector('.game-wrap');

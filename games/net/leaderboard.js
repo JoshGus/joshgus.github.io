@@ -183,28 +183,38 @@ export function injectStyles() {
   const s = document.createElement('style');
   s.id = 'lb-styles';
   s.textContent = `
-    .lb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+    /* This board is injected into two very different surfaces: inline on a
+       game's win card (always dark) and inside .lb-modal (a light panel). It
+       must never inherit the page's text colour — the game pages leave body
+       colour at the default black, which rendered the whole board black on
+       dark green. Everything below is coloured from --lb-fg, which defaults to
+       light and is overridden inside the modal. */
+    .lb-list,.lb-row,.lb-note,.lb-claim{--lb-fg:#ede3d8}
+    .lb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;
+      color:var(--lb-fg)}
     .lb-row{display:flex;align-items:center;gap:10px;padding:7px 9px;border-radius:7px;
-      font-family:var(--mono,monospace);font-size:.72rem}
+      font-family:var(--mono,monospace);font-size:.72rem;color:var(--lb-fg)}
     .lb-row.me{background:rgba(204,247,63,.16);font-weight:700}
     .lb-rank{width:1.4em;text-align:right;opacity:.6;flex-shrink:0}
     .lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
       font-family:var(--body,system-ui,sans-serif);font-size:.9rem;letter-spacing:0;text-transform:none}
     .lb-score{flex-shrink:0;opacity:.85}
     .lb-note{font-family:var(--mono,monospace);font-size:.58rem;letter-spacing:.06em;
-      opacity:.55;margin-top:9px;text-align:center}
+      color:var(--lb-fg);opacity:.6;margin-top:9px;text-align:center}
     .lb-claim label{display:block;font-family:var(--mono,monospace);font-size:.6rem;
-      letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-bottom:8px;line-height:1.4}
+      letter-spacing:.1em;text-transform:uppercase;color:var(--lb-fg);opacity:.8;
+      margin-bottom:8px;line-height:1.4}
     .lb-claim-row{display:flex;gap:7px}
     .lb-claim-in{flex:1;min-width:0;padding:10px 11px;border-radius:8px;
       font-family:var(--body,system-ui,sans-serif);font-size:.95rem;font-weight:400;letter-spacing:0;
       text-transform:none;line-height:1.3;
-      border:1px solid rgba(128,128,128,.45);background:rgba(255,255,255,.07);color:inherit}
+      border:1px solid rgba(128,128,128,.45);background:rgba(255,255,255,.07);color:var(--lb-fg)}
     .lb-claim-go{padding:10px 16px;border-radius:8px;border:0;
       font-family:var(--body,system-ui,sans-serif);font-size:.9rem;font-weight:600;letter-spacing:0;
       text-transform:none;cursor:pointer;background:#5e7d0f;color:#fff;min-height:40px;white-space:nowrap}
     .lb-claim-go:disabled{opacity:.5;cursor:default}
-    .lb-claim-msg{font-family:var(--mono,monospace);font-size:.62rem;opacity:.75;margin-top:6px;min-height:1em}
+    .lb-claim-msg{font-family:var(--mono,monospace);font-size:.62rem;color:var(--lb-fg);
+      opacity:.8;margin-top:6px;min-height:1em}
     /* overlay — the games it sits over are dark, so it brings its own surface
        rather than inheriting whatever the page happens to use */
     .lb-overlay{position:fixed;inset:0;z-index:400;display:grid;place-items:center;
@@ -213,6 +223,8 @@ export function injectStyles() {
       background:var(--surface,#fdf5ea);color:var(--fg,#1d1712);
       border:1px solid var(--line,rgba(0,0,0,.14));border-radius:14px;
       padding:22px 20px 18px;box-shadow:0 30px 70px -30px rgba(0,0,0,.7)}
+    .lb-modal .lb-list,.lb-modal .lb-row,.lb-modal .lb-note,.lb-modal .lb-claim{
+      --lb-fg:var(--fg,#1d1712)}
     .lb-x{position:absolute;top:9px;right:11px;background:none;border:0;cursor:pointer;
       font-size:1.5rem;line-height:1;color:var(--dim,#8a7a66);padding:6px;min-width:38px;min-height:38px}
     .lb-x:hover{color:var(--fg,#1d1712)}
