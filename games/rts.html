@@ -283,6 +283,18 @@ html:not(.dark) .ai-entry{color:#5a4a44;}
   cursor:pointer;border-radius:4px;transition:all .15s;
 }
 #btn-start:hover{background:rgba(75,125,30,.95);color:#eeffaa}
+.setup-online{margin-top:12px;padding-top:12px;border-top:1px solid rgba(60,100,25,.35)}
+.setup-online-lbl{display:block;font-family:var(--mono);font-size:.46rem;letter-spacing:.14em;
+  text-transform:uppercase;color:rgba(140,190,70,.65);margin-bottom:7px}
+.setup-online-btns{display:flex;gap:8px}
+.setup-online-btns a{flex:1;text-align:center;padding:9px 8px;border-radius:4px;
+  background:rgba(18,34,9,.9);border:1px solid rgba(60,110,30,.5);color:rgba(170,225,90,.9);
+  font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;
+  text-decoration:none;cursor:pointer;transition:all .15s}
+.setup-online-btns a:hover{border-color:rgba(140,210,60,.75);color:#ddff66;background:rgba(30,55,14,.95)}
+html:not(.dark) .setup-online-btns a{background:#efe4d2;border-color:rgba(29,23,18,.25);color:#3f5410}
+html:not(.dark) .setup-online-btns a:hover{border-color:#5e7d0f;color:#33430f;background:#e7d9c4}
+html:not(.dark) .setup-online-lbl{color:#6a7a4a}
 .setup-note{font-size:.48rem;color:rgba(220,170,60,.75);min-height:12px;margin-top:6px;}
 /* ── dev console ── */
 #dev-console{
@@ -607,6 +619,13 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <div id="slot-list"></div>
     <div class="setup-note" id="setup-note"></div>
     <button id="btn-start">▶ Start Operation</button>
+    <div class="setup-online">
+      <span class="setup-online-lbl">Or play people</span>
+      <div class="setup-online-btns">
+        <a id="btn-host-online" href="?mp=host">&#127760; Host online</a>
+        <a id="btn-browse-online" href="server.html">Browse open games</a>
+      </div>
+    </div>
   </div>
 </div>
 <div id="help-modal">
@@ -5145,6 +5164,10 @@ try{if(!localStorage.getItem('rts-seen-help')){toggleHelp(true);localStorage.set
 function showSetup(show){
   const su=document.getElementById('setup');if(!su)return;
   su.classList.toggle('open',show);
+  // The host reaches this same screen from the lobby to configure the match —
+  // offering "Host online" there would be nonsense, so hide it once online.
+  const on=su.querySelector('.setup-online');
+  if(on)on.style.display=rtsOnline?'none':'';
   if(show){setPaused(true);buildSetupUI();}
 }
 function buildSetupUI(){
