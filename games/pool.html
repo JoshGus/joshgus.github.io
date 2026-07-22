@@ -262,9 +262,12 @@ a.mini:hover{color:#ccf73f}
   .ctl-lbl{font-size:.42rem}
   /* Sized so power + spin + buttons total under 378px and stay on one row;
      a second row costs ~110px of table height. */
-  #power-wrap{width:94px;height:20px}
-  #spin-wrap{width:38px;height:38px}
-  #spin-dot{width:9px;height:9px}
+  #power-wrap{width:94px;height:24px}
+  /* Spin is a precision control and was below the 44px touch minimum. The
+     surrounding label already sets the box width, so enlarging the ball costs
+     no room in the row. */
+  #spin-wrap{width:48px;height:48px}
+  #spin-dot{width:10px;height:10px}
   .pbtn{padding:9px 10px;font-size:.55rem}
   .chip{padding:6px 9px;font-size:.5rem;min-width:0}
   #chip-left{left:6px} #chip-right{right:6px}
@@ -1393,8 +1396,12 @@ canvas.addEventListener('pointercancel',function(){ canvasUp(); });
 })();
 /* spin widget drag */
 (function(){
-  var sw=el('spin-wrap'), dragging=false;
-  function set(cx,cy){ var r=sw.getBoundingClientRect(); var rad=(r.width/2)-6;
+  var sw=el('spin-wrap'), sd=el('spin-dot'), dragging=false;
+  function set(cx,cy){ var r=sw.getBoundingClientRect();
+    // The inset keeps the dot inside the ball, so it has to track the dot's
+    // actual size. Hardcoding 6 (half the 11px desktop dot) meant the smaller
+    // mobile widget saturated to full english after ~13px of travel.
+    var rad=(r.width/2)-(sd.offsetWidth/2||6);
     var ox=(cx-r.left-r.width/2)/rad, oy=(cy-r.top-r.height/2)/rad, m=hypot(ox,oy);
     if(m>1){ox/=m;oy/=m;} aim.spin={x:ox,y:-oy}; updateSpinUI(); }
   sw.addEventListener('pointerdown',function(e){ if(!interaction)return; dragging=true; sw.setPointerCapture(e.pointerId); set(e.clientX,e.clientY); });
