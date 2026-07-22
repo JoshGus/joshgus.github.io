@@ -29,10 +29,11 @@ html,body{height:100%;overflow:hidden;background:#1a2e1a;-webkit-font-smoothing:
 .status.fixed-bar{z-index:100;top:0;left:0;right:0}
 
 .game-wrap{position:fixed;top:0;left:0;right:0;bottom:0;padding-top:47px;display:flex;align-items:center;justify-content:center;overflow:hidden;touch-action:none;background:#111a11}
-canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%}
-/* Turned on its side the layout box is the long axis wide; scaleCanvas() has
-   already fitted it, so the clamp above (and shared.css) must not squash it. */
-canvas.rotated{max-width:none;max-height:none}
+/* The canvas covers the entire play area and the course is drawn into it, so
+   a drag can run off the green and keep aiming. max-width:none defeats the
+   clamp in the shared touch stylesheet; scaleCanvas() sizes it exactly. */
+canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshair;
+  max-width:none;max-height:none}
 
 .hud{position:fixed;top:58px;left:50%;transform:translateX(-50%);
   display:flex;gap:22px;align-items:center;
@@ -404,6 +405,8 @@ var inWaterHazard=false, hasShot=false;
 // ~230px-tall strip, so there we turn the course on its side and play it
 // lengthways. courseRotated/courseScale drive the inverse map in canvasPos().
 var courseRotated=false, courseScale=1;
+// Canvas viewport (CSS px) and where the course's centre sits inside it.
+var viewW=0, viewH=0, viewDpr=1, courseCX=0, courseCY=0;
 // Fixed HUD layers that must never sit on top of the course in portrait.
 var TOP_CHROME=['.hud','#wind-hud','#restart-btn'];
 var BOT_CHROME=['#clubs','.notes-toggle','.info'];
@@ -443,10 +446,16 @@ function scaleCanvas(){
   var ch=wrap.clientHeight-(compact?padTop+padBot:0);
   courseRotated = portrait;
   courseScale = courseRotated ? Math.min(ch/W, cw/H) : Math.min(cw/W, ch/H);
-  canvas.style.width=Math.round(W*courseScale)+'px';
-  canvas.style.height=Math.round(H*courseScale)+'px';
-  canvas.style.transform = courseRotated?'rotate(90deg)':'';
-  canvas.classList.toggle('rotated',courseRotated);
+  // The canvas fills the whole play area rather than being sized to the course,
+  // so a drag that runs off the green stays on the canvas and keeps aiming.
+  viewDpr=window.devicePixelRatio||1;
+  viewW=wrap.clientWidth; viewH=wrap.clientHeight;
+  canvas.style.width=viewW+'px'; canvas.style.height=viewH+'px';
+  canvas.width =Math.round(viewW*viewDpr);
+  canvas.height=Math.round(viewH*viewDpr);
+  // Centre the course in the space the chrome leaves free, not the raw viewport.
+  courseCX=(padRight?(viewW-padRight):viewW)/2;
+  courseCY=(padTop+(viewH-padBot))/2;
 }
 
 // ── Wind ───────────────────────────────────────────────────────────
@@ -994,7 +1003,17 @@ function updateParticles(dt){
 
 // ── Draw ───────────────────────────────────────────────────────────
 function draw(t){
-  ctx.clearRect(0,0,W,H);
+  // The canvas spans the whole play area; map course space into the region the
+  // HUD leaves free so everything below keeps drawing in course coordinates.
+  // Re-setting the transform every frame means a stray save/restore imbalance
+  // can't accumulate.
+  ctx.setTransform(viewDpr,0,0,viewDpr,0,0);
+  ctx.clearRect(0,0,viewW,viewH);
+  ctx.save();
+  ctx.translate(courseCX,courseCY);
+  if(courseRotated) ctx.rotate(Math.PI/2);
+  ctx.scale(courseScale,courseScale);
+  ctx.translate(-W/2,-H/2);
   ctx.drawImage(offscreen,0,0);
 
   // Course border
@@ -1199,6 +1218,7 @@ function draw(t){
     ctx.fillStyle=bg; ctx.fill();
     ctx.strokeStyle='rgba(0,0,0,0.14)'; ctx.lineWidth=0.8; ctx.stroke();
   }
+  ctx.restore();
 }
 
 // ── Game loop ──────────────────────────────────────────────────────
@@ -1212,16 +1232,15 @@ function loop(ts){
 }
 
 // ── Input helpers ──────────────────────────────────────────────────
+// Exact inverse of the transform draw() applies, so it stays valid off the
+// green as well as on it.
 function canvasPos(e){
   var r=canvas.getBoundingClientRect();
   var src=e.changedTouches?e.changedTouches[0]||e.touches[0]:e;
-  if(!courseRotated){
-    return{x:(src.clientX-r.left)*(W/r.width), y:(src.clientY-r.top)*(H/r.height)};
-  }
-  // r is the axis-aligned box of the rotated canvas, so work from its centre
-  // and undo the 90° turn: local (u,v) draws at screen (-v,u).
-  var dx=src.clientX-(r.left+r.width/2), dy=src.clientY-(r.top+r.height/2);
-  return{x:W/2+dy/courseScale, y:H/2-dx/courseScale};
+  var dx=src.clientX-r.left-courseCX, dy=src.clientY-r.top-courseCY;
+  // Rotated draws local (u,v) at screen (-v,u), so undo that turn here.
+  if(courseRotated) return{x:W/2+dy/courseScale, y:H/2-dx/courseScale};
+  return{x:W/2+dx/courseScale, y:H/2+dy/courseScale};
 }
 function moving(){return Math.hypot(ball.vx,ball.vy)>STOP_SPD||ball.z>0.002;}
 

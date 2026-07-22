@@ -36,11 +36,11 @@ html,body{height:100%;overflow:hidden;background:#0c1512;-webkit-font-smoothing:
     repeating-linear-gradient(0deg, rgba(122,84,46,.17) 0 52px, rgba(56,35,18,.19) 52px 104px),
     repeating-linear-gradient(90deg, rgba(255,225,175,.03) 0 3px, rgba(0,0,0,0) 3px 8px, rgba(0,0,0,.04) 8px 13px),
     linear-gradient(101deg,#3d2816,#231607 52%,#35200f 80%,#22150a)}
-canvas{display:block;touch-action:none;cursor:crosshair;max-width:100%;max-height:100%}
-/* When the table is turned on its side its layout box is the long axis wide,
-   which the max-width clamp above (and the shared touch stylesheet) would
-   squash. fitCanvas() has already sized it to fit. */
-canvas.rotated{max-width:none;max-height:none}
+/* The canvas covers the entire play area and the table is drawn into it, so
+   a drag can run off the cloth and keep aiming. max-width:none defeats the
+   clamp in the shared touch stylesheet; fitCanvas() sizes it exactly. */
+canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshair;
+  max-width:none;max-height:none}
 
 /* ── HUD ── */
 .hud{position:fixed;top:56px;left:50%;transform:translateX(-50%);
@@ -1076,8 +1076,15 @@ function drawSinkFX(){
   }
 }
 function render(){
-  ctx.clearRect(0,0,W,H);
+  // The canvas spans the whole play area; map table space into the region the
+  // HUD leaves free so everything below can keep drawing in table coordinates.
+  ctx.setTransform(viewDpr,0,0,viewDpr,0,0);
+  ctx.clearRect(0,0,viewW,viewH);
   ctx.save();
+  ctx.translate(tableCX,tableCY);
+  if(tableRotated) ctx.rotate(Math.PI/2);
+  ctx.scale(tableScale,tableScale);
+  ctx.translate(-W/2,-H/2);
   if(shake>0.1){ ctx.translate((Math.random()*2-1)*shake,(Math.random()*2-1)*shake); shake*=0.86; }
   else shake=0;
   drawTable();
@@ -1127,6 +1134,8 @@ requestAnimationFrame(frame);
    lengthways. `tableRotated` / `tableScale` are the single source of truth for
    the inverse mapping in toTable(). */
 var tableRotated=false, tableScale=1;
+// Canvas viewport (CSS px) and where the table's centre sits inside it.
+var viewW=0, viewH=0, viewDpr=1, tableCX=0, tableCY=0;
 // Fixed HUD layers that must never sit on top of the table in portrait.
 var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','#restart-btn','#menu-btn2','#tl-btn'];
 var POOL_BOT_CHROME=['.controls'];
@@ -1173,10 +1182,18 @@ function fitCanvas(){
   tableScale=tableRotated
     ? Math.min(availH/W, availW/H, 1.12)
     : Math.min(availW/W, availH/H, 1.12);
-  canvas.style.width=(W*tableScale)+'px';
-  canvas.style.height=(H*tableScale)+'px';
-  canvas.style.transform=tableRotated?'rotate(90deg)':'';
-  canvas.classList.toggle('rotated',tableRotated);
+  // The canvas itself fills the whole play area rather than being sized to the
+  // table. That way a drag that runs off the cloth is still on the canvas and
+  // keeps aiming, instead of dying at the table edge.
+  viewDpr=window.devicePixelRatio||1;
+  viewW=wrap.clientWidth; viewH=wrap.clientHeight;
+  canvas.style.width=viewW+'px'; canvas.style.height=viewH+'px';
+  canvas.width =Math.round(viewW*viewDpr);
+  canvas.height=Math.round(viewH*viewDpr);
+  // Centre the table in the space the chrome leaves free, not in the raw
+  // viewport, so the reserved bands still keep the HUD off the cloth.
+  tableCX=(padRight?(viewW-padRight):viewW)/2;
+  tableCY=(padTop+(viewH-padBot))/2;
 }
 window.addEventListener('resize',fitCanvas);
 window.addEventListener('orientationchange',function(){setTimeout(fitCanvas,150);});
@@ -1190,14 +1207,14 @@ if(window.ResizeObserver){
 }
 fitCanvas();
 
-/* map a client point to table coordinates */
+/* map a client point to table coordinates — the exact inverse of the transform
+   render() applies, so it stays valid off the cloth as well as on it */
 function toTable(clientX,clientY){
   var r=canvas.getBoundingClientRect();
-  if(!tableRotated) return {x:(clientX-r.left)/r.width*W, y:(clientY-r.top)/r.height*H};
-  // getBoundingClientRect gives the axis-aligned box of the rotated canvas, so
-  // work from its centre and undo the 90° turn: local (u,v) → screen (-v,u).
-  var dx=clientX-(r.left+r.width/2), dy=clientY-(r.top+r.height/2);
-  return { x:W/2+dy/tableScale, y:H/2-dx/tableScale };
+  var dx=clientX-r.left-tableCX, dy=clientY-r.top-tableCY;
+  // Rotated draws local (u,v) at screen (-v,u), so invert that turn here.
+  if(tableRotated) return { x:W/2+dy/tableScale, y:H/2-dx/tableScale };
+  return { x:W/2+dx/tableScale, y:H/2+dy/tableScale };
 }
 
 /* ═══════════════════════ INPUT / SHOT FLOW / UI ═══════════════════════ */
