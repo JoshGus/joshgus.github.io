@@ -25,7 +25,9 @@
 <style>
 html,body{height:100%;overflow:hidden;background:#080b05;-webkit-font-smoothing:antialiased}
 .game-wrap{position:fixed;top:47px;left:0;right:0;bottom:0;display:flex;flex-direction:column;align-items:flex-start;background:#080b05;overflow:hidden}
-#canvas{display:block;flex-shrink:0}
+#canvas{display:block;flex-shrink:0;touch-action:none}
+.help-item.touch-only{display:none}
+@media (pointer:coarse){.help-item.touch-only{display:block}}
 #hud{
   width:100%;display:flex;align-items:center;gap:8px;padding:4px 12px;
   background:rgba(8,12,5,.97);border-bottom:1px solid rgba(60,100,25,.3);
@@ -145,7 +147,7 @@ body.ping-mode #canvas{cursor:crosshair!important}
 
 /* ── mobile ── the side panel floats over the map instead of insetting the
    canvas (see resizeCanvas), and the tall zoom rail is shortened ── */
-@media(max-width:680px){
+@media(max-width:680px), (max-height:520px){
   #side-panel{width:min(180px,62vw);box-shadow:6px 0 22px rgba(0,0,0,.5)}
   #side-panel.collapsed{transform:translateX(calc(-100% + 22px))}
   #side-toggle{padding:16px 6px}
@@ -153,6 +155,25 @@ body.ping-mode #canvas{cursor:crosshair!important}
   #zoom-slider{height:120px}
   #hud{font-size:.52rem;padding:3px 8px;gap:6px}
 }
+/* Command and build buttons are ~20px tall, which is unusable by thumb. Give
+   them a real touch height wherever the pointer is coarse — the selection
+   panel scrolls, so the extra height costs the map nothing. */
+@media (pointer:coarse){
+  .cmd-btn{padding:10px 12px;font-size:.56rem;min-height:38px}
+  .diff-btn{padding:8px 12px;min-height:34px}
+  #side-toggle{padding:18px 7px}
+  .pchip{min-height:32px}
+  /* resizeCanvas() subtracts this panel's height from the map, and the taller
+     buttons above make it grow. Cap it and let it scroll instead of eating
+     the battlefield. */
+  #sel-panel{min-height:0;max-height:30vh;overflow-y:auto}
+  #sel-panel>*{overflow-y:auto;min-width:0}
+}
+@media (pointer:coarse) and (max-height:520px){
+  /* Landscape phones only have ~390px of height to divide up. */
+  #sel-panel{max-height:104px}
+}
+
 /* Landscape phones are short, not narrow: the HUD and selection panel eat the
    vertical budget and leave a ~180px map. Trim their chrome instead. */
 @media(max-height:520px){
@@ -599,6 +620,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
       <dl class="help-item"><dt>Production buildings</dt><dd><b>Barracks</b> trains infantry (Rifleman→Sniper/Rocketeer with Adv. Training). <b>Vehicle Depot</b> builds ATVs, APCs and Tanks (Heavy Division). <b>Airbase</b> fields Helicopters and Gunships (Flight Tech). <b>Engineer Hall</b> trains engineers and researches engineer upgrades.</dd></dl>
       <dl class="help-item"><dt>Towers</dt><dd>Five tower types, each built by engineers: <b>Guard</b> (balanced), <b>MG Nest</b> (fast, short), <b>Flak</b> (anti-air only), <b>Artillery</b> (long-range AoE, arcs over walls) and <b>Sniper Post</b> (extreme range, needs line of sight).</dd></dl>
       <dl class="help-item"><dt>Selecting &amp; moving</dt><dd><b>Left-click / drag</b> to select. <b>Right-click</b> ground to move, or <b>right-click an enemy</b> to lock on. <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click a portrait selects all of that type. Press <kbd>.</kbd> to grab idle engineers. <kbd>Space</kbd> pauses, <kbd>+</kbd>/<kbd>-</kbd> game speed.</dd></dl>
+      <dl class="help-item touch-only"><dt>Touch controls</dt><dd>On a phone or tablet: <b>tap</b> your unit or base to select, <b>tap ground or an enemy</b> while something is selected to give the order (the right-click), and <b>drag</b> across the map to box-select — a short drag over empty ground clears the selection. <b>Two fingers</b> drag to pan and pinch to zoom. The left panel tucks away behind the <b>▶</b> tab.</dd></dl>
       <dl class="help-item"><dt>Camera &amp; overlays</dt><dd><b>Scroll</b> zooms to the cursor, <b>middle-drag</b> or <kbd>WASD</kbd> pans. Toggles: <b>Ally</b>/<b>Heat</b> density maps, <b>Threat</b> (enemy firing ranges), and <b>🧠 Overlay</b> — see each bot's stance, objective, approach weights and team chatter.</dd></dl>
       <dl class="help-item"><dt>Dev console</dt><dd>Press <kbd>`</kbd> for the console. <b>help</b> lists commands — gold, spawn, speed, tech, reveal AI state, and more.</dd></dl>
       <dl class="help-item"><dt>Engineers</dt><dd>Select engineers for <b>↩ Return Gold</b> (bank what they carry) and <b>⛏ Mine Zone</b> — click to mark areas they should mine (multiple; keeps them out of the firefight). Right-click any friendly building to <b>repair</b> it (cheaper with Salvage Kits). <b>Medics</b> take Seek / Hold / Heal-Zone orders.</dd></dl>
@@ -985,7 +1007,7 @@ function resizeCanvas(){
   const sp=document.getElementById('side-panel');
   // On a phone the 180px panel would eat half the viewport, leaving a ~210px
   // battlefield. There it floats over the map instead of insetting the canvas.
-  const panelOverlays=window.matchMedia('(max-width:680px)').matches;
+  const panelOverlays=window.matchMedia('(max-width:680px), (max-height:520px)').matches;
   const panelW=(sp&&!sp.classList.contains('collapsed')&&!panelOverlays)?180:0;
   if(sp){sp.style.top=hudEl.getBoundingClientRect().bottom+'px';sp.style.bottom=selH+'px';}
   viewW=Math.max(120,wrap.clientWidth-panelW);
@@ -4841,6 +4863,102 @@ canvas.addEventListener('mouseup',e=>{
   } else{mouseDown=false;mouseBtn=-1;}
 });
 canvas.addEventListener('mouseleave',()=>{mouseScreen={x:-1,y:-1};if(mouseDown&&mouseBtn===0&&boxSel)commitBoxSel();});
+
+/* ── touch controls ─────────────────────────────────────────────────────────
+   Everything above is mouse-only: left-drag box-selects, right-click issues an
+   order, middle-drag pans, wheel zooms. None of that exists on a phone, so this
+   layer maps touches onto those same events and the game logic stays untouched.
+     one finger  — tap your unit/base selects, tap elsewhere with a selection
+                   gives the order, drag box-selects
+     two fingers — drag pans, pinch zooms
+   Nothing is dispatched until a drag passes the slop threshold, so a tap can
+   still decide whether it is a left click or a right click when the finger
+   lifts. preventDefault stops the browser synthesising a second mouse event. */
+(function(){
+  const TAP_SLOP = 10;                 // px of travel still counted as a tap
+  let mode = null;                     // 'point' | 'box' | 'gesture'
+  let sx0 = 0, sy0 = 0, lastX = 0, lastY = 0, downSent = false, pinch = null;
+
+  const fire = (type, x, y, button) => canvas.dispatchEvent(new MouseEvent(type, {
+    clientX: x, clientY: y, button, buttons: button === 2 ? 2 : 1,
+    bubbles: true, cancelable: true
+  }));
+  const gap = (a, b) => Math.hypot(a.clientX - b.clientX, a.clientY - b.clientY);
+  const mid = (a, b) => ({ x: (a.clientX + b.clientX) / 2, y: (a.clientY + b.clientY) / 2 });
+
+  // Build/airstrike/ping/zone all place with a LEFT click, so a tap in those
+  // modes must never be promoted to an order.
+  const placing = () => !!(buildMode || pendingAirstrike || pingMode || zoneMode);
+
+  function finishTap(){
+    const w = cxy({ clientX: lastX, clientY: lastY });
+    const ownUnit = units.find(u => u.owner === HUMAN && u.hp > 0 &&
+                                    Math.hypot(u.x - w.x, u.y - w.y) <= u.r + 3);
+    const hasSel = (selected && selected.size > 0) || baseSelected;
+    const order = !placing() && !ownUnit && !inPlayerBase(w.x, w.y) && hasSel;
+    const btn = order ? 2 : 0;
+    fire('mousedown', lastX, lastY, btn);
+    fire('mouseup',   lastX, lastY, btn);
+  }
+
+  function settle(){
+    if (mode === 'box' && downSent) fire('mouseup', lastX, lastY, 0);
+    else if (mode === 'point')      finishTap();
+    mode = null; pinch = null; downSent = false;
+  }
+
+  canvas.addEventListener('touchstart', e => {
+    e.preventDefault();
+    if (e.touches.length === 1){
+      const t = e.touches[0];
+      mode = 'point'; sx0 = lastX = t.clientX; sy0 = lastY = t.clientY; downSent = false;
+    } else if (e.touches.length === 2){
+      if (downSent){ fire('mouseup', lastX, lastY, 0); downSent = false; }  // abandon the box
+      mode = 'gesture';
+      const m = mid(e.touches[0], e.touches[1]);
+      pinch = { d: gap(e.touches[0], e.touches[1]), mx: m.x, my: m.y,
+                cx: cam.x, cy: cam.y, zoom: cam.zoom };
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (mode === 'gesture' && e.touches.length === 2 && pinch && pinch.d > 0){
+      const a = e.touches[0], b = e.touches[1];
+      const d = gap(a, b), m = mid(a, b), r = canvas.getBoundingClientRect();
+      // Keep the world point that was under the pinch centre pinned to it —
+      // the same trick the wheel handler uses, which pans and zooms together.
+      const w = { x: pinch.cx + (pinch.mx - r.left) / pinch.zoom,
+                  y: pinch.cy + (pinch.my - r.top)  / pinch.zoom };
+      cam.zoom = clamp(pinch.zoom * (d / pinch.d), camMinZoom, camMaxZoom);
+      cam.x = w.x - (m.x - r.left) / cam.zoom;
+      cam.y = w.y - (m.y - r.top)  / cam.zoom;
+      clampCam(); syncZoomSlider();
+      return;
+    }
+    if (mode !== 'point' && mode !== 'box') return;
+    const t = e.touches[0]; if (!t) return;
+    lastX = t.clientX; lastY = t.clientY;
+    if (mode === 'point' && Math.hypot(lastX - sx0, lastY - sy0) > TAP_SLOP) mode = 'box';
+    if (mode === 'box'){
+      if (!downSent){ fire('mousedown', sx0, sy0, 0); downSent = true; }
+      fire('mousemove', lastX, lastY, 0);
+    }
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => {
+    e.preventDefault();
+    // Stay in 'gesture' until every finger is up, so lifting the second finger
+    // of a pinch is never mistaken for a tap.
+    if (e.touches.length === 0) settle();
+  }, { passive: false });
+
+  canvas.addEventListener('touchcancel', () => {
+    if (downSent) fire('mouseup', lastX, lastY, 0);
+    mode = null; pinch = null; downSent = false;
+  });
+})();
+
 window.addEventListener('mouseup',e=>{if(e.button===1)camDrag=null;if(zonePainting&&e.button===0){zonePainting=false;if(rtsOnline==='guest'&&rtsNet)rtsNet.sendCmd({k:'mzoneSet',zones:mineZones.map(z=>({x:z.x,y:z.y}))});}if(!mouseDown||e.button!==0)return;if(boxSel)commitBoxSel();mouseDown=false;mouseBtn=-1;});
 
 // hotkeys spawn at base or route to the right building automatically
@@ -5499,7 +5617,7 @@ function rtsInitOnline(){
 function init(){
   // Phones start with the side panel tucked away so the map gets the full
   // width; it overlays the map when opened rather than shrinking the canvas.
-  if(window.matchMedia('(max-width:680px)').matches){
+  if(window.matchMedia('(max-width:680px), (max-height:520px)').matches){
     const sp=document.getElementById('side-panel'),tog=document.getElementById('side-toggle');
     if(sp){sp.classList.add('collapsed');if(tog)tog.textContent='▶';}
   }
