@@ -8,7 +8,7 @@
   // joshg.us is already on Cloudflare, so the relay can live on a subdomain of
   // it instead of workers.dev (which some school/corp networks block).
   // Uncomment, deploy, and Cloudflare creates the DNS record for you.
-  // "routes": [{ "pattern": "relay.joshg.us", "custom_domain": true }],
+  "routes": [{ "pattern": "relay.joshg.us", "custom_domain": true }],
 
   "durable_objects": {
     "bindings": [{ "name": "ROOMS", "class_name": "Room" }]

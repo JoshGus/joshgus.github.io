@@ -27,21 +27,25 @@ cd workers/relay
 npx wrangler deploy
 ```
 
-`joshg.us` is already on Cloudflare, so you can put this on `relay.joshg.us`
-instead of the `workers.dev` URL — worth doing, since `workers.dev` is blocked
-on some school and corporate networks. Uncomment the `routes` line in
-`wrangler.jsonc` and deploy again; Cloudflare creates the DNS record itself.
+It serves from **`relay.joshg.us`** (the `routes` entry in `wrangler.jsonc`)
+rather than a `workers.dev` URL, because `workers.dev` is a shared domain that
+many school and corporate filters block wholesale — which would let someone load
+the game from `joshg.us` and then have multiplayer silently time out.
+
+Note that declaring a route **disables the workers.dev URL** for this Worker; it
+now returns error 1042. If you ever remove the route, re-enable it with
+`"workers_dev": true`.
 
 Then set `RELAY_URL` in `games/net/p2p.js` to the `wss://` URL:
 
 ```js
-const RELAY_URL = 'wss://joshgus-relay.games-connect.workers.dev';
+const RELAY_URL = 'wss://relay.joshg.us';
 ```
 
 Until that is set, multiplayer reports that it is not configured rather than
 failing obscurely.
 
-Check it: `curl https://joshgus-relay.games-connect.workers.dev/health` → `ok`.
+Check it: `curl https://relay.joshg.us/health` → `ok`.
 A freshly created workers.dev subdomain takes a few minutes to get its TLS
 certificate; until then curl fails with an SSL handshake error.
 
