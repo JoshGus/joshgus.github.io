@@ -91,6 +91,71 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
   color:var(--dimmer)}
 
 /* multiplayer hub */
+/* link card through to the server page */
+.srv-card{display:flex;align-items:center;gap:18px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  padding:20px 22px;text-decoration:none;color:inherit;transition:border-color .25s,transform .25s}
+.srv-card:hover{border-color:var(--accent-ink);transform:translateY(-2px)}
+.srv-card .srv-txt{flex:1;min-width:200px}
+.srv-card h3{font-family:var(--disp);font-weight:560;font-size:1.35rem;margin:0 0 4px}
+.srv-card p{color:var(--dim);font-size:.9rem;font-weight:300;margin:0}
+.srv-card .srv-live{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent-ink);border:1px solid var(--accent-ink);border-radius:30px;padding:7px 13px;flex-shrink:0}
+.section-label{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:clamp(16px,2.5vw,26px);display:flex;align-items:center;gap:14px}
+.section-label::after{content:'';flex:1;height:1px;background:var(--line)}
+.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:clamp(14px,2vw,22px)}
+@media(max-width:580px){.games-grid{grid-template-columns:1fr}}
+
+/* game card */
+a.game-card{display:flex;flex-direction:column;text-decoration:none;
+  background:var(--surface);border:1px solid var(--line);
+  transition:transform .4s cubic-bezier(.2,.7,.3,1),border-color .4s,box-shadow .4s}
+a.game-card:hover{transform:translateY(-8px);border-color:var(--line-strong);
+  box-shadow:0 20px 40px -24px rgba(29,23,18,.35)}
+a.game-card.coming-soon{opacity:.55;pointer-events:none}
+
+/* card thumb */
+.card-thumb{padding:clamp(20px,3vw,32px) clamp(16px,2.5vw,26px);
+  display:grid;place-items:center;overflow:hidden;
+  background:linear-gradient(135deg,#fbf3ea,#f0e1d0);
+  border-bottom:1px solid var(--line)}
+.card-thumb.has-img{padding:0;height:132px;display:block}
+.thumb-img{width:100%;height:100%;object-fit:cover;display:block;
+  transform:scale(1.08);transition:transform .55s cubic-bezier(.2,.7,.3,1)}
+a.game-card:hover .thumb-img{transform:scale(1)}
+.tiles{display:flex;gap:8px}
+.t{width:clamp(36px,7vw,50px);aspect-ratio:1;display:grid;place-items:center;
+  font-family:var(--disp);font-weight:700;font-size:clamp(1rem,2vw,1.2rem);
+  color:var(--fg);border:1px solid var(--line-strong);border-radius:5px;
+  background:#f3e8da;transition:transform .35s cubic-bezier(.2,.7,.3,1)}
+.t.correct{background:var(--accent);color:var(--fg);border-color:var(--accent)}
+.t.present{background:#dba93a;color:var(--fg);border-color:#dba93a}
+.t.absent{background:#e6d8c8;color:var(--dim);border-color:transparent}
+a.game-card:hover .tiles .t{transform:translateY(-6px)}
+a.game-card:hover .tiles .t:nth-child(2){transition-delay:.05s}
+a.game-card:hover .tiles .t:nth-child(3){transition-delay:.1s}
+a.game-card:hover .tiles .t:nth-child(4){transition-delay:.15s}
+a.game-card:hover .tiles .t:nth-child(5){transition-delay:.2s}
+
+/* card body */
+.card-body{padding:clamp(15px,2vw,20px);display:flex;flex-direction:column;gap:9px;flex:1}
+.card-body h2{font-family:var(--disp);font-weight:520;font-size:clamp(1.15rem,1.8vw,1.4rem);
+  letter-spacing:-.02em;line-height:1;font-variation-settings:"opsz" 40;transition:color .3s}
+a.game-card:hover .card-body h2{color:var(--accent-ink)}
+.card-body p{color:var(--dim);font-size:.84rem;font-weight:300;line-height:1.55;flex:1}
+.card-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:4px}
+.stack{display:flex;gap:7px;flex-wrap:wrap}
+.stack b{font-family:var(--mono);font-weight:500;font-size:.58rem;letter-spacing:.08em;
+  text-transform:uppercase;color:var(--dim);border:1px solid var(--line-strong);
+  padding:4px 9px;border-radius:30px}
+.play-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--accent-ink);display:inline-flex;gap:8px;align-items:center;white-space:nowrap}
+.play-label .arr{transition:transform .3s}
+a.game-card:hover .play-label .arr{transform:translateX(5px)}
+.soon-label{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dimmer)}
+
+/* multiplayer hub */
 /* ── game server: live directory of open games ───────────────────────── */
 .mp-server{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .mp-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
@@ -156,17 +221,13 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
 </div>
 
 <div class="games-wrap">
-  <div id="mp-hub-wrap">
-    <div class="section-label">Game server</div>
-    <div class="mp-server">
-      <div class="mp-bar">
-        <input type="search" id="mp-search" class="mp-search" placeholder="Search host or game&hellip;" autocomplete="off">
-        <div class="mp-filters" id="mp-filters"></div>
-        <button class="mp-refresh" id="mp-refresh" title="Refresh">&#8635;</button>
-      </div>
-      <div class="mp-list" id="mp-list"><div class="mp-empty">Loading open games&hellip;</div></div>
-      <div class="mp-host-row" id="mp-host-row"></div>
+  <a class="srv-card" href="server.html">
+    <div class="srv-txt">
+      <h3>Game server</h3>
+      <p>Browse every open game and join one — or host your own.</p>
     </div>
+    <span class="srv-live" id="srv-live">Open games &rarr;</span>
+  </a>
   </div>
   <div>
     <div class="section-label">Games</div>
@@ -229,86 +290,17 @@ if (grid)        renderCards(grid, games);
 if (solversGrid) renderCards(solversGrid, solvers);
 if (compGrid)    renderCards(compGrid, components);
 
-// ── Game server: one live directory of every open game, rather than a tile
-// per game. Rooms publish themselves from the relay's Durable Object (see
-// games/net/README.md), so this list is authoritative — a room cannot appear
-// here unless it actually exists, and it disappears on its own within ~2min of
-// the host going away.
-const mpGames = CARDS.filter(g => g.mp);
-const byId = Object.fromEntries(mpGames.map(g => [g.id, g]));
-const listEl = document.getElementById('mp-list');
-const searchEl = document.getElementById('mp-search');
-const filtersEl = document.getElementById('mp-filters');
-const refreshEl = document.getElementById('mp-refresh');
-const hostRow = document.getElementById('mp-host-row');
-
-let activeGame = 'all';
-let rows = [];
-
-hostRow.innerHTML = '<span style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;'
-  + 'text-transform:uppercase;color:var(--dim);align-self:center;margin-right:2px">Host a game</span>'
-  + mpGames.map(g => `<a href="${g.href}?mp=host">${g.title}</a>`).join('');
-
-filtersEl.innerHTML = [{ id: 'all', title: 'All' }].concat(mpGames)
-  .map(g => `<button class="mp-chip${g.id === 'all' ? ' on' : ''}" data-game="${g.id}">${g.title}</button>`).join('');
-filtersEl.querySelectorAll('.mp-chip').forEach(b => {
-  b.onclick = () => {
-    activeGame = b.dataset.game;
-    filtersEl.querySelectorAll('.mp-chip').forEach(x => x.classList.toggle('on', x === b));
-    draw();
-  };
-});
-
-function draw() {
-  const q = searchEl.value.trim().toLowerCase();
-  const shown = rows.filter(r => {
-    if (activeGame !== 'all' && r.game !== activeGame) return false;
-    if (!q) return true;
-    const title = (byId[r.game] && byId[r.game].title) || r.game;
-    return r.host_name.toLowerCase().includes(q) || title.toLowerCase().includes(q);
-  });
-  if (!shown.length) {
-    listEl.innerHTML = `<div class="mp-empty">${rows.length
-      ? 'No games match that filter'
-      : 'No open games right now — host one below'}</div>`;
-    return;
-  }
-  listEl.innerHTML = shown.map(r => {
-    const g = byId[r.game];
-    const title = g ? g.title : r.game;
-    const href = g ? `${g.href}?mp=join&room=${encodeURIComponent(r.code)}` : '#';
-    const full = r.players >= r.max_players;
-    return `<a class="mp-row${full ? ' full' : ''}" href="${href}">
-        <div class="mp-who">
-          <b>${esc(r.host_name)}${r.has_password ? ' &#128274;' : ''}</b>
-          <span>${esc(title)}</span>
-        </div>
-        <div class="mp-count">${r.players}/${r.max_players}</div>
-        <div class="mp-go">${full ? 'Full' : 'Join &#8594;'}</div>
-      </a>`;
-  }).join('');
-}
-
-function esc(x) {
-  return String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-}
-
-async function load() {
-  refreshEl.classList.add('spin');
-  setTimeout(() => refreshEl.classList.remove('spin'), 650);
+// The server browser lives on its own page (games/server.html); here we only
+// show how many games are open right now, so the card is worth clicking.
+(async () => {
+  const badge = document.getElementById('srv-live');
+  if (!badge) return;
   try {
     const { listLobbies } = await import('./net/p2p.js');
-    rows = await listLobbies();          // every game; filtered client-side
-  } catch { rows = []; }
-  draw();
-}
-
-searchEl.addEventListener('input', draw);
-refreshEl.addEventListener('click', load);
-load();
-// Listings expire on their own, so poll slowly to keep the view honest without
-// hammering the directory.
-setInterval(load, 20000);
+    const n = (await listLobbies()).length;
+    badge.textContent = n ? `${n} open game${n === 1 ? '' : 's'} \u2192` : 'No open games \u2192';
+  } catch { /* leave the default label */ }
+})();
 </script>
 </body>
 </html>

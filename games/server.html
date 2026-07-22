@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="Computer science student at the University of Michigan. I build across systems, ML, and the web. Games and bird photography fill the rest.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Joshua Gustaveson">
+<meta property="og:title" content="Game Server — Field Notes">
+<meta property="og:description" content="Computer science student at the University of Michigan. I build across systems, ML, and the web. Games and bird photography fill the rest.">
+<meta property="og:url" content="https://joshg.us/games/server.html">
+<meta property="og:image" content="https://joshg.us/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://joshg.us/og-image.png">
+<title>Game Server &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../shared.css">
+<script src="../dark-mode.js"></script>
+<style>
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;
+  line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+.page-header{padding:clamp(48px,8vh,90px) clamp(20px,5vw,72px) clamp(28px,4vh,48px);border-bottom:1px solid var(--line)}
+.ph-idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;color:var(--accent-ink);display:block;margin-bottom:14px}
+.page-header h1{font-family:var(--disp);font-weight:440;font-size:clamp(2.6rem,7vw,5.2rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
+.page-header h1 em{font-style:italic;color:var(--accent-ink)}
+.page-header p{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:var(--dim);margin-top:18px;max-width:56ch}
+
+.wrap{padding:clamp(32px,5vw,60px) clamp(20px,5vw,72px) 90px;max-width:1100px;margin:0 auto}
+.back{display:inline-block;font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--dim);margin-bottom:22px;text-decoration:none}
+.back:hover{color:var(--accent-ink)}
+
+/* ── game server: live directory of open games ───────────────────────── */
+.mp-server{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.mp-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+  padding:14px 16px;border-bottom:1px solid var(--line)}
+.mp-search{flex:1;min-width:180px;padding:10px 12px;border-radius:9px;
+  border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:.9rem}
+.mp-search:focus{outline:none;border-color:var(--accent-ink)}
+.mp-filters{display:flex;gap:6px;flex-wrap:wrap}
+.mp-chip{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:7px 12px;border:1px solid var(--line-strong);border-radius:30px;background:transparent;
+  color:var(--dim);cursor:pointer;transition:all .2s;min-height:32px}
+.mp-chip:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+.mp-chip.on{background:var(--accent-ink);border-color:var(--accent-ink);color:var(--bg)}
+.mp-refresh{background:none;border:0;color:var(--dim);font-size:1.1rem;cursor:pointer;
+  padding:6px;border-radius:7px;min-width:36px;min-height:36px}
+.mp-refresh:hover{color:var(--fg)}
+.mp-refresh.spin{animation:mpspin .6s linear}
+@keyframes mpspin{to{transform:rotate(360deg)}}
+.mp-list{display:flex;flex-direction:column;max-height:420px;overflow-y:auto}
+.mp-empty{padding:26px 18px;text-align:center;color:var(--dim);font-size:.9rem}
+.mp-row{display:flex;align-items:center;gap:14px;padding:13px 16px;
+  border-bottom:1px solid var(--line);text-decoration:none;color:inherit;transition:background .15s}
+.mp-row:last-child{border-bottom:0}
+.mp-row:hover{background:rgba(204,247,63,.1)}
+.mp-row.full{opacity:.5;pointer-events:none}
+.mp-who{flex:1;min-width:0}
+.mp-who b{display:block;font-size:.98rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mp-who span{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.mp-count{font-family:var(--mono);font-size:.72rem;color:var(--dim);flex-shrink:0}
+.mp-go{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+  color:var(--accent-ink);flex-shrink:0}
+.mp-host-row{display:flex;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--line);
+  background:var(--bg)}
+.mp-host-row a{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+  padding:9px 14px;border:1px solid var(--line-strong);border-radius:30px;color:var(--fg);
+  text-decoration:none;transition:all .2s}
+.mp-host-row a:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
+
+/* privacy-ish footnote under the list */
+.srv-note{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;color:var(--dimmer);
+  margin-top:18px;line-height:1.8;max-width:70ch}
+</style>
+</head>
+<body class="noise">
+
+<div class="status">
+  <a href="../index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="../code.html">Code</a>
+    <a href="index.html" class="active">Games</a>
+    <a href="../gallery.html">Photography</a>
+    <a href="../colormap.html">Color Space</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="page-header">
+  <span class="ph-idx">02 / Games &middot; Server</span>
+  <h1>Game <em>server</em></h1>
+  <p>Every open game, live. Join one or start your own.</p>
+</div>
+
+<div class="wrap">
+  <a class="back" href="index.html">&larr; All games</a>
+  <div class="mp-server">
+    <div class="mp-bar">
+      <input type="search" id="mp-search" class="mp-search" placeholder="Search host or game&hellip;" autocomplete="off">
+      <div class="mp-filters" id="mp-filters"></div>
+      <button class="mp-refresh" id="mp-refresh" title="Refresh">&#8635;</button>
+    </div>
+    <div class="mp-list" id="mp-list"><div class="mp-empty">Loading open games&hellip;</div></div>
+    <div class="mp-host-row" id="mp-host-row"></div>
+  </div>
+  <p class="srv-note">Games are relayed through a server, so players never connect
+    directly and never see each other&rsquo;s IP addresses. Listings disappear on
+    their own a couple of minutes after a host leaves.</p>
+</div>
+
+<script type="module">
+import { CARDS } from '../data/games.js';
+// ── Game server: one live directory of every open game, rather than a tile
+// per game. Rooms publish themselves from the relay's Durable Object (see
+// games/net/README.md), so this list is authoritative — a room cannot appear
+// here unless it actually exists, and it disappears on its own within ~2min of
+// the host going away.
+const mpGames = CARDS.filter(g => g.mp);
+const byId = Object.fromEntries(mpGames.map(g => [g.id, g]));
+const listEl = document.getElementById('mp-list');
+const searchEl = document.getElementById('mp-search');
+const filtersEl = document.getElementById('mp-filters');
+const refreshEl = document.getElementById('mp-refresh');
+const hostRow = document.getElementById('mp-host-row');
+
+let activeGame = 'all';
+let rows = [];
+
+hostRow.innerHTML = '<span style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;'
+  + 'text-transform:uppercase;color:var(--dim);align-self:center;margin-right:2px">Host a game</span>'
+  + mpGames.map(g => `<a href="${g.href}?mp=host">${g.title}</a>`).join('');
+
+filtersEl.innerHTML = [{ id: 'all', title: 'All' }].concat(mpGames)
+  .map(g => `<button class="mp-chip${g.id === 'all' ? ' on' : ''}" data-game="${g.id}">${g.title}</button>`).join('');
+filtersEl.querySelectorAll('.mp-chip').forEach(b => {
+  b.onclick = () => {
+    activeGame = b.dataset.game;
+    filtersEl.querySelectorAll('.mp-chip').forEach(x => x.classList.toggle('on', x === b));
+    draw();
+  };
+});
+
+function draw() {
+  const q = searchEl.value.trim().toLowerCase();
+  const shown = rows.filter(r => {
+    if (activeGame !== 'all' && r.game !== activeGame) return false;
+    if (!q) return true;
+    const title = (byId[r.game] && byId[r.game].title) || r.game;
+    return r.host_name.toLowerCase().includes(q) || title.toLowerCase().includes(q);
+  });
+  if (!shown.length) {
+    listEl.innerHTML = `<div class="mp-empty">${rows.length
+      ? 'No games match that filter'
+      : 'No open games right now — host one below'}</div>`;
+    return;
+  }
+  listEl.innerHTML = shown.map(r => {
+    const g = byId[r.game];
+    const title = g ? g.title : r.game;
+    const href = g ? `${g.href}?mp=join&room=${encodeURIComponent(r.code)}` : '#';
+    const full = r.players >= r.max_players;
+    return `<a class="mp-row${full ? ' full' : ''}" href="${href}">
+        <div class="mp-who">
+          <b>${esc(r.host_name)}${r.has_password ? ' &#128274;' : ''}</b>
+          <span>${esc(title)}</span>
+        </div>
+        <div class="mp-count">${r.players}/${r.max_players}</div>
+        <div class="mp-go">${full ? 'Full' : 'Join &#8594;'}</div>
+      </a>`;
+  }).join('');
+}
+
+function esc(x) {
+  return String(x).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+async function load() {
+  refreshEl.classList.add('spin');
+  setTimeout(() => refreshEl.classList.remove('spin'), 650);
+  try {
+    const { listLobbies } = await import('./net/p2p.js');
+    rows = await listLobbies();          // every game; filtered client-side
+  } catch { rows = []; }
+  draw();
+}
+
+searchEl.addEventListener('input', draw);
+refreshEl.addEventListener('click', load);
+load();
+// Listings expire on their own, so poll slowly to keep the view honest without
+// hammering the directory.
+setInterval(load, 20000);
+</script>
+<script>
+  try {
+    var clk = document.getElementById('clock');
+    var tick = function(){
+      clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST';
+    };
+    tick(); setInterval(tick, 30000);
+  } catch(e){}
+</script>
+</body>
+</html>

@@ -782,14 +782,12 @@ if (gamesList) {
         </div>
       </a>`);
   });
-  // Host-a-game card — lists every multiplayer-capable game; each opens its
-  // peer-to-peer lobby to host (invite a friend by code).
+  // Game-server card — replaces the old per-game "host" list. Browsing what is
+  // actually running is the useful thing; hosting lives on that page too.
   const hostable = CARDS.filter(g => g.type === 'game' && g.mp);
   if (hostable.length) {
-    const links = hostable.map(g =>
-      `<a href="games/${g.href}?mp=host">${g.title} <span class="arr">&#x2192;</span></a>`).join('');
     gamesList.insertAdjacentHTML('beforeend', `
-      <div class="game host-card">
+      <a class="game host-card" href="games/server.html">
         <div class="game-thumb" style="background:linear-gradient(135deg,#eef7d8,#dfeeb0);padding:22px">
           <svg width="88" height="52" viewBox="0 0 88 52" fill="none" stroke="#3a4a12" stroke-width="2.4" stroke-linecap="round">
             <circle cx="44" cy="12" r="8" fill="#ccf73f"/>
@@ -800,11 +798,21 @@ if (gamesList) {
           </svg>
         </div>
         <div class="game-body">
-          <h3>Host a game</h3>
-          <p>Start a peer-to-peer match on your machine and invite a friend with a join code.</p>
-          <div class="host-list">${links}</div>
+          <h3>Game server</h3>
+          <p>See every open game and jump in — or host your own for friends.</p>
+          <span class="play" id="fp-srv">Open games <span class="arr">&#x2192;</span></span>
         </div>
-      </div>`);
+      </a>`);
+    // Live count, so the card says something true rather than just inviting.
+    (async () => {
+      const badge = document.getElementById('fp-srv');
+      if (!badge) return;
+      try {
+        const { listLobbies } = await import('./games/net/p2p.js');
+        const n = (await listLobbies()).length;
+        badge.innerHTML = `${n ? `${n} open game${n === 1 ? '' : 's'}` : 'No open games'} <span class="arr">&#x2192;</span>`;
+      } catch { /* keep the default label */ }
+    })();
   }
   const hidden = CARDS.filter(g => g.type === 'game' && !SHOW_IDS.includes(g.id));
   const peeks = hidden.map(g => `

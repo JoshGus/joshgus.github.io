@@ -132,6 +132,7 @@ canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshai
   background:rgba(16,32,20,.7);cursor:pointer;transition:background .18s,border-color .18s,transform .18s}
 .mode-btn:hover{background:rgba(60,110,30,.35);border-color:rgba(160,220,60,.6);transform:translateY(-2px)}
 .mode-btn .mt{font-family:var(--disp);font-weight:600;font-size:1.4rem;color:#ccf73f;letter-spacing:-.01em}
+.ms-browse{text-decoration:underline;cursor:pointer}
 .mode-btn .md{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;color:rgba(160,200,110,.7);
   margin-top:5px;text-transform:uppercase;line-height:1.5}
 
@@ -403,8 +404,12 @@ a.mini:hover{color:#ccf73f}
         <div class="mt">Classic 8-Ball</div>
         <div class="md">2-player or vs AI · presets &amp; modifiers</div>
       </div>
+      <a class="mode-btn" id="ms-online" href="?mp=host">
+        <div class="mt">Play online</div>
+        <div class="md">Host a table for a friend &middot; or <span class="ms-browse">browse open games</span></div>
+      </a>
     </div>
-    <p style="margin-top:20px"><a class="mini" href="index.html">← All games</a></p>
+    <p style="margin-top:20px"><a class="mini" href="server.html">Game server</a> &nbsp;·&nbsp; <a class="mini" href="index.html">← All games</a></p>
   </div>
 </div>
 
@@ -1457,6 +1462,12 @@ function openMenu(){
   el('modeselect').classList.remove('hidden');
 }
 el('ms-daily').addEventListener('click',function(){startDaily();});
+// The card links to ?mp=host; the inner "browse open games" text should reach
+// the server page instead of hosting.
+(function(){
+  var br=document.querySelector('#ms-online .ms-browse');
+  if(br) br.addEventListener('click',function(e){ e.preventDefault(); e.stopPropagation(); location.href='server.html'; });
+})();
 el('ms-classic').addEventListener('click',function(){openSetup();});
 el('menu-btn2').addEventListener('click',openMenu);
 el('restart-btn').addEventListener('click',function(){
