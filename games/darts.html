@@ -1207,6 +1207,44 @@ function resizeCanvas() {
 resizeCanvas();
 new ResizeObserver(resizeCanvas).observe(document.getElementById('game-wrap'));
 
+// The score ledger is right-aligned and vertically centred, and P2's score
+// panel is right-aligned at the top — with a score up to 8rem tall they
+// overlapped by as much as 173x149px in a two-player game. Drop the ledger
+// below the panel whenever that panel is showing, and give it whatever height
+// is left; in practice mode it keeps its original centred position.
+function layoutLedger() {
+  const led = document.getElementById('score-ledger');
+  const sr  = document.getElementById('sp-right');
+  const wrap = document.getElementById('game-wrap');
+  if (!led || !wrap) return;
+  const twoPlayer = sr && getComputedStyle(sr).display !== 'none';
+  if (!twoPlayer) { led.style.top = ''; led.style.transform = ''; led.style.height = ''; return; }
+  const wr = wrap.getBoundingClientRect();
+  const top = Math.round(sr.getBoundingClientRect().bottom - wr.top + 12);
+  // Leave room for whatever sits in the bottom-right corner (the notes toggle),
+  // otherwise reclaiming the full height just trades one overlap for another.
+  let bottomGap = 16;
+  const nt = document.getElementById('notes-toggle');
+  if (nt && getComputedStyle(nt).display !== 'none') {
+    const nb = nt.getBoundingClientRect();
+    if (nb.right > wr.right - led.offsetWidth - 8) {   // only if it is under the ledger
+      bottomGap = Math.max(bottomGap, Math.round(wr.bottom - nb.top + 10));
+    }
+  }
+  const avail = Math.round(wr.height - top - bottomGap);
+  led.style.top = top + 'px';
+  led.style.transform = 'none';
+  // On a landscape phone there may be almost nothing left between the score
+  // panel and the notes button. Shrink rather than force a minimum height that
+  // would just overlap the button instead; below ~72px it is not worth showing.
+  led.style.display = avail < 72 ? 'none' : '';
+  led.style.height = Math.max(72, avail) + 'px';
+}
+new ResizeObserver(layoutLedger).observe(document.getElementById('game-wrap'));
+// The panel's height changes with the score text, so follow it too.
+(function(){ const sr = document.getElementById('sp-right');
+  if (sr && window.ResizeObserver) new ResizeObserver(layoutLedger).observe(sr); })();
+
 // ── Constants ────────────────────────────────────────────────────────────────
 const SEGS = [20,1,18,4,13,6,10,15,2,17,3,19,7,16,8,11,14,9,12,5];
 const BR = { BULL:.037, OUTERB:.093, TRI_IN:.582, TRI_OUT:.629, DBL_IN:.953 };
@@ -2056,6 +2094,7 @@ function setPractice() {
   document.getElementById('sp-left-darts').textContent='';
   document.getElementById('sp-left-turn').classList.remove('show');
   document.getElementById('sp-right').style.display='none';
+  layoutLedger();
   document.getElementById('btn-mode').textContent='2-Player Game';
   document.getElementById('btn-reset').style.display='';
 }
@@ -2077,6 +2116,7 @@ function startGame() {
   P[1].score=301; P[1].roundStart=301; P[1].roundPts=0;
   document.getElementById('sp-left-name').textContent='P1';
   document.getElementById('sp-right').style.display='';
+  layoutLedger();
   document.getElementById('btn-reset').style.display='none';
   document.getElementById('btn-mode').textContent='Practice Mode';
   updateGameHUD();
@@ -2512,6 +2552,7 @@ function startOnlineGame(role, netCtrl, roster) {
   setTextSafe('sp-left-name', hostName);
   setTextSafe('sp-right-name', guestName);
   const spRight = document.getElementById('sp-right'); if (spRight) spRight.style.display = '';
+  layoutLedger();
   const btnReset = document.getElementById('btn-reset'); if (btnReset) btnReset.style.display = 'none';
   setTextSafe('btn-mode', 'Playing online');
   document.getElementById('ready-screen').style.display = 'none';
