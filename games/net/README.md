@@ -1,9 +1,16 @@
 # Multiplayer netcode (`games/net/`)
 
-Peer-to-peer multiplayer for the games, running on a **static site** (no backend of
-our own). WebRTC data channels carry the traffic; the free public **PeerJS** broker
-does only the initial signaling handshake. Discovery is **join-by-code / share-link**
-— there is no public lobby list and no server that holds game state.
+Host-authoritative multiplayer for the games. The site itself stays static; the
+only backend is a **relay Worker** (`workers/relay/`) that forwards messages
+between players. Discovery is **join-by-code / share-link** — there is no public
+lobby list, and the relay holds no game state.
+
+The transport used to be WebRTC data channels over the public PeerJS broker.
+That was replaced because WebRTC necessarily reveals players' IP addresses to
+each other (see "Privacy" below). Everyone now holds one WebSocket to the relay
+instead, so no peer-to-peer connection exists to leak an address. The topology,
+the trust model and the whole `p2p.js` API are otherwise unchanged — only the
+pipe underneath is different.
 
 - `p2p.js` — the netcode core. Host-authoritative star topology, join-by-code,
   password gate, per-command validation, rate limiting, message size caps, roster
@@ -30,10 +37,10 @@ anyone can read and modify. What this code *does* buy you:
 | Malicious **client** sends illegal commands (free units, wrong turn, teleport) | **Yes** | Host is authoritative. Every command runs through `hooks.validate` before it can touch state. Reject-don't-apply. |
 | Client floods the host tab (DoS) | **Yes** | Per-client token-bucket rate limit + `MAX_MSG_BYTES` size cap + strike/kick. |
 | Malformed / garbage messages | **Yes** | Shape-checked and size-capped; parse failures are ignored, never crash the sim. |
-| Wrong password / room full | **Yes** | Enforced host-side over the DTLS-encrypted data channel (the broker never sees the password). |
+| Wrong password / room full | **Yes** | Enforced host-side. The relay forwards bytes it does not interpret, so it never sees the password and a client cannot bypass the check. |
 | Malicious **host** (sees hidden info, edits state) | **No — impossible in P2P** | The host *is* the server. Mitigation is social: host = whoever players trust. |
 | Fully modified client that still sends only *legal* commands | **No** | Indistinguishable from honest play. Out of scope for P2P. |
-| **IP-address leakage** to other peers (WebRTC ICE) | **Yes, by default** | The lobby's **"Hide my IP"** toggle is **on by default** and forces a TURN relay, so no direct connection (and no IP exchange) happens. Both peers must have it on. See "Privacy" below. |
+| **IP-address leakage** to other peers | **Yes, structurally** | There is no peer-to-peer connection at all. Everyone holds a WebSocket to the relay Worker, so peers have no way to learn each other's addresses and there is no setting to get wrong. See "Privacy" below. |
 
 The realistic goal is: block casual cheating and griefing, keep the host tab alive,
 and don't pretend the password is real security — it's an "unlisted / friends-only"
@@ -63,32 +70,28 @@ check (`typeof data.type === 'string'`) and coerce fields, but a malicious host 
 out of scope for P2P (see the table above). Host→client messages are **not**
 size-capped, which is why the host can send the large one-time Frontline init.
 
-### Privacy (IP leakage) mitigation
-WebRTC exposes peers' IPs to each other by default. The lobby has a **"Hide my
-IP"** checkbox (both Host and Join) which is now **checked by default**. It sets
-`relayOnly`, which forces `iceTransportPolicy: 'relay'` in `p2p.js` — all traffic
-goes through a **TURN relay** so no direct peer connection (and no IP exchange)
-ever happens.
+### Privacy (IP leakage)
+**Peers never connect to each other, so they never learn each other's IPs.**
 
-Two things to know:
-- **Both players must have it on.** If only one side is relay-only, the *other*
-  side still offers its direct (host) candidate and reveals its IP. Defaulting
-  the box to on is what makes this hold in practice.
-- **Where the TURN server comes from.** `TURN_ENDPOINT` in `p2p.js` points at a
-  small Cloudflare Worker (`workers/turn/`) that mints short-lived
-  [Cloudflare Realtime TURN](https://developers.cloudflare.com/realtime/turn/)
-  credentials. Credentials are minted with an API token that must never ship in
-  client JS, which is the whole reason the Worker exists. See
-  `workers/turn/README.md` to deploy it.
+This used to be a WebRTC concern: ICE negotiation hands peers your address in
+order to find a direct route, and the only mitigation was to force a TURN relay
+via a "Hide my IP" toggle. That had two problems — it was opt-in, and it only
+worked if *both* sides enabled it, since one direct candidate is enough to leak.
 
-  Until `TURN_ENDPOINT` is set (it ships as `null`), and any time that fetch
-  fails, `p2p.js` falls back to `DEFAULT_ICE` — the free, no-signup Open Relay
-  (Metered) project. That fallback is rate-limited and can be flaky, so relay
-  mode may be slow or fail to connect until the Worker is deployed. The game
-  degrades rather than refusing to start.
+The transport is now a **WebSocket relay** (`workers/relay/`): everyone holds one
+socket to a Cloudflare Worker which forwards messages between them. There is no
+peer connection to leak an address, and no setting to get wrong. The toggle is
+gone because it no longer describes anything optional.
 
-Unchecking the box connects peers directly: fastest, but you and everyone in the
-room exchange IP addresses. Fine for friends, not for strangers.
+What this trades away:
+- **The relay operator can see traffic.** It is transport-encrypted (`wss`) but
+  not end-to-end encrypted, so Cloudflare — and whoever deploys the Worker — is
+  in the path. A malicious *host* was already able to see everything, so this
+  does not change the game-integrity model, but it is worth stating.
+- **A little latency**, since every message takes two hops instead of one.
+- **A dependency.** If the relay is down or over its daily free-tier cap,
+  multiplayer stops. There is no direct-connection fallback by design: falling
+  back would silently reintroduce the exact leak this removes.
 
 ---
 
@@ -191,7 +194,22 @@ a single human-only global to `mineZonesByOwner[pid]`, read via `zonesFor(p)` in
 ---
 
 ## Testing
-Real verification needs **two browsers** (or two tabs / a phone + laptop): open
-`games/index.html`, Host from one, copy the code/link, Join from the other. There is
-no way to exercise a live WebRTC connection headlessly, so automated checks here are
-syntax + logic only.
+Manual: open `games/index.html` in **two browsers** (or two tabs / a phone +
+laptop), Host from one, copy the code or link, Join from the other.
+
+Unlike the old WebRTC transport, this one **can** be exercised headlessly, which
+is how the rewrite was verified end to end:
+
+```sh
+cd workers/relay && npx wrangler dev --local --port 8787   # real Durable Object
+```
+
+Then drive two browser pages against it with
+`?relay=ws://127.0.0.1:8787`, calling `hostRoom` in one and `joinRoom` in the
+other. Worth covering: wrong password, roster and initial snapshot, a legal
+command, a sanitized command, a rejected command, a burst that trips the rate
+limiter, broadcast vs targeted send, kick, and host-disconnect.
+
+The relay itself is testable directly over plain WebSockets — duplicate host
+rejection, joining a dead code, id assignment, and that a client cannot address
+another client.

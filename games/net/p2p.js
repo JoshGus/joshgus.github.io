@@ -1,5 +1,5 @@
 // ─────────────────────────────────────────────────────────────────────────────
-// p2p.js — host-authoritative P2P netcode core (WebRTC via PeerJS)
+// p2p.js — host-authoritative netcode core (WebSocket relay)
 //
 // Topology: star. One peer is the HOST and holds the single authoritative game
 // simulation. Every other peer is a CLIENT that sends *intents* (commands). The
@@ -7,117 +7,107 @@
 // own sim, and broadcasts the resulting state. Clients render what the host
 // sends; they never trust each other.
 //
+// TRANSPORT: every participant holds one WebSocket to a Cloudflare Worker
+// (workers/relay/), which forwards messages between them. Peers never connect
+// to each other, so they never exchange IP addresses — that is the whole point
+// of relaying rather than using WebRTC, which hands peers your address during
+// ICE negotiation in order to find a direct route.
+//
+// The relay is a dumb pipe: rooms and routing only. It never sees the password
+// and holds no game state, so the trust model below is unchanged from the
+// WebRTC version — the HOST is still the only authority.
+//
 // SECURITY MODEL — read games/net/README.md for the full threat model. In short:
 //   • The host is the authority. A CLIENT cannot cheat past host validation,
 //     rate limits, or size caps because the host re-checks everything.
 //   • This does NOT stop a malicious HOST (the host *is* the server) or a fully
 //     modified client that still sends only *legal* commands — that's impossible
-//     in pure P2P. The goal is to block casual cheating, griefing, and tab-DoS.
-//   • Passwords are enforced host-side over the DTLS-encrypted data channel, so
-//     the PeerJS broker never sees them and a client can't bypass the check. They
+//     in this topology. The goal is to block casual cheating, griefing, tab-DoS.
+//   • Passwords are enforced host-side. The relay forwards bytes it does not
+//     interpret, so it never sees them and a client can't bypass the check. They
 //     are an "unlisted / friends-only" gate, not real security.
-//   • WebRTC leaks peers' IP addresses to each other (ICE). The lobby's "Hide my
-//     IP" toggle (on by default) forces a TURN relay so no direct connection is
-//     made. Both peers need it on. See README + workers/turn/ for the relay.
+//   • The relay operator (Cloudflare, and whoever deploys the Worker) can see
+//     traffic. It is transport-encrypted (wss) but not end-to-end encrypted.
 // ─────────────────────────────────────────────────────────────────────────────
 
-const PEERJS_URL = 'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js';
-const ID_PREFIX  = 'jgus';          // namespace on the shared public PeerJS broker
+// Deployed relay Worker. Set this to your workers.dev URL or custom route; see
+// workers/relay/README.md. `?relay=ws://127.0.0.1:8787` overrides it for local
+// testing against `wrangler dev`.
+const RELAY_URL = null;   // e.g. 'wss://joshgus-relay.<subdomain>.workers.dev'
+
 const MAX_MSG_BYTES = 24 * 1024;    // reject any single message larger than this
 const HELLO_TIMEOUT_MS = 12000;     // client: give up if no welcome/reject in time
-const CONNECT_TIMEOUT_MS = 15000;   // host: give up if the broker never opens
-const HEARTBEAT_MS = 2500;          // how often each side pings the other
-const DROP_MS = 9000;               // no traffic for this long ⇒ treat peer as gone
-                                    // (catches silent drops the 'close' event misses)
+const CONNECT_TIMEOUT_MS = 15000;   // give up if the relay never opens the socket
+
+// Heartbeats are deliberately slow. Every ping wakes the room's Durable Object,
+// and an idle lobby that never sleeps burns the free plan's daily duration
+// budget. The relay reports socket open/close reliably (far better than WebRTC
+// did), so these only exist to catch zombies — a peer whose socket stayed up
+// while the tab froze.
+const HEARTBEAT_MS = 20000;
+const DROP_MS = 50000;              // no traffic for this long ⇒ treat peer as gone
 
 // Room codes: 4 unambiguous chars (no 0/O/1/I/etc). ~800k combinations — enough
 // that random collisions are rare; we retry on the off chance one happens.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-// ICE servers. STUN is only for NAT discovery (still leaks your IP to peers). TURN
-// relays the media — needed for (a) symmetric-NAT connectivity and (b) HIDING your
-// IP: with `relayOnly` we force `iceTransportPolicy:'relay'` so no direct peer
-// connection (and no IP exchange) ever happens. The list below is only the
-// FALLBACK — the free, no-signup Open Relay (Metered) project, which is
-// rate-limited and often flaky. The real relay comes from TURN_ENDPOINT below.
-const DEFAULT_ICE = [
-  { urls: 'stun:stun.l.google.com:19302' },
-  { urls: 'turn:openrelay.metered.ca:80',                 username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443',                username: 'openrelayproject', credential: 'openrelayproject' },
-  { urls: 'turn:openrelay.metered.ca:443?transport=tcp',  username: 'openrelayproject', credential: 'openrelayproject' },
-];
+// Relay close codes (mirrors workers/relay/src/index.js)
+const CLOSE_ROOM_TAKEN = 4001;
+const CLOSE_NO_HOST    = 4002;
+const CLOSE_ROOM_FULL  = 4003;
 
-// Cloudflare Realtime TURN. Its credentials are short-lived and have to be
-// minted with an API token, which cannot live in client JS — anyone could spend
-// the quota — so a tiny Worker mints them and we fetch from there. See
-// workers/turn/ for the Worker and its deploy steps.
-//
-// If TURN_ENDPOINT is null, or the fetch fails for any reason, we fall back to
-// DEFAULT_ICE above: relaying gets flaky rather than the game failing to start.
-const TURN_ENDPOINT = null;      // e.g. 'https://turn.joshg.us/'
-const TURN_EARLY_REFRESH_MS = 60 * 1000;   // renew a minute before expiry
-
-let _icePromise = null;          // in-flight fetch, so host+join share one call
-let _iceCache = null;            // { servers, expiresAt }
-
-async function fetchTurnServers() {
-  if (!TURN_ENDPOINT) return null;
-  if (_iceCache && Date.now() < _iceCache.expiresAt - TURN_EARLY_REFRESH_MS) return _iceCache.servers;
-  if (_icePromise) return _icePromise;
-
-  _icePromise = (async () => {
-    try {
-      const res = await fetch(TURN_ENDPOINT, { cache: 'no-store' });
-      if (!res.ok) throw new Error('HTTP ' + res.status);
-      const data = await res.json();
-      const servers = Array.isArray(data.iceServers) ? data.iceServers : null;
-      if (!servers || !servers.length) throw new Error('no iceServers in response');
-      const ttl = Number(data.ttl) > 0 ? Number(data.ttl) : 600;
-      _iceCache = { servers, expiresAt: Date.now() + ttl * 1000 };
-      return servers;
-    } catch (e) {
-      console.warn('[net] TURN credentials unavailable, using fallback relay:', e.message);
-      return null;
-    } finally {
-      _icePromise = null;
-    }
-  })();
-  return _icePromise;
+function relayBase() {
+  const override = new URLSearchParams(location.search).get('relay');
+  const base = override || RELAY_URL;
+  if (!base) throw new Error('Multiplayer is not configured yet (RELAY_URL unset in games/net/p2p.js)');
+  return String(base).replace(/\/+$/, '');
 }
 
-// Async because credentials may need fetching. Callers are already async.
-async function iceConfig(opts) {
-  const servers = opts.iceServers || (await fetchTurnServers()) || DEFAULT_ICE;
-  const cfg = { iceServers: servers };
-  if (opts.relayOnly) cfg.iceTransportPolicy = 'relay';   // never connect directly → no IP leak
-  return cfg;
+function roomUrl(gameId, code, role) {
+  return `${relayBase()}/room/${encodeURIComponent(gameId)}/${encodeURIComponent(code)}?role=${role}`;
+}
+
+// Opens a socket, or rejects with an Error carrying the relay's close code so
+// callers can tell "code already hosted" from "no such room".
+function openSocket(url) {
+  return new Promise((resolve, reject) => {
+    let ws;
+    try { ws = new WebSocket(url); } catch (e) { return reject(e); }
+    const timer = setTimeout(() => { try { ws.close(); } catch {} reject(new Error('Relay timed out')); }, CONNECT_TIMEOUT_MS);
+    let opened = false;
+    ws.addEventListener('open', () => { opened = true; clearTimeout(timer); resolve(ws); });
+    ws.addEventListener('close', (e) => {
+      clearTimeout(timer);
+      if (opened) return;                       // post-open closes are handled by callers
+      const err = new Error(closeMessage(e.code));
+      err.code = e.code;
+      reject(err);
+    });
+    // 'error' is always followed by 'close'; let close carry the reason.
+    ws.addEventListener('error', () => {});
+  });
+}
+
+function closeMessage(code) {
+  switch (code) {
+    case CLOSE_ROOM_TAKEN: return 'That room code is already in use';
+    case CLOSE_NO_HOST:    return 'No game found for that code';
+    case CLOSE_ROOM_FULL:  return 'That game is full';
+    default:               return 'Could not reach the relay';
+  }
+}
+
+function sendFrame(ws, frame) {
+  try { if (ws && ws.readyState === 1) ws.send(JSON.stringify(frame)); } catch {}
 }
 
 // ── small utilities ──────────────────────────────────────────────────────────
-
-let _peerLibPromise = null;
-function loadPeerJS() {
-  if (window.Peer) return Promise.resolve(window.Peer);
-  if (_peerLibPromise) return _peerLibPromise;
-  _peerLibPromise = new Promise((resolve, reject) => {
-    const s = document.createElement('script');
-    s.src = PEERJS_URL;
-    s.onload  = () => window.Peer ? resolve(window.Peer) : reject(new Error('PeerJS loaded but Peer missing'));
-    s.onerror = () => reject(new Error('Failed to load PeerJS from CDN'));
-    document.head.appendChild(s);
-  });
-  return _peerLibPromise;
-}
 
 export function makeCode(n = 4) {
   const bytes = crypto.getRandomValues(new Uint8Array(n));
   let c = '';
   for (let i = 0; i < n; i++) c += CODE_ALPHABET[bytes[i] % CODE_ALPHABET.length];
   return c;
-}
-
-function roomPeerId(gameId, code) {
-  return `${ID_PREFIX}-${gameId}-${String(code).toUpperCase()}`.toLowerCase();
 }
 
 function byteLen(obj) {
@@ -178,7 +168,6 @@ class TokenBucket {
 //   isHost = true
 
 export async function hostRoom(opts) {
-  const Peer = await loadPeerJS();
   const gameId     = opts.gameId;
   const maxPlayers = opts.maxPlayers ?? 8;
   const password   = opts.password ? String(opts.password) : null;
@@ -188,21 +177,32 @@ export async function hostRoom(opts) {
     throw new Error('hostRoom: hooks.validate is required (host-authoritative validation)');
   }
 
-  const clients = new Map();   // peerConnId → clientRec
+  const clients = new Map();   // relay connection id → clientRec
   let nextSlot = 1;            // slot 0 is the host
   let errCb = () => {};
 
-  // Try codes until the broker accepts our id (collision = someone already hosts it).
-  let code, peer;
+  // Try codes until the relay accepts one (collision = someone already hosts it).
+  let code, ws;
   for (let attempt = 0; attempt < 6; attempt++) {
     code = makeCode();
     try {
-      peer = await openPeer(Peer, roomPeerId(gameId, code), await iceConfig(opts));
+      ws = await openSocket(roomUrl(gameId, code, 'host'));
       break;
     } catch (e) {
-      if (e && e.type === 'unavailable-id' && attempt < 5) continue;
+      if (e && e.code === CLOSE_ROOM_TAKEN && attempt < 5) continue;
       throw e;
     }
+  }
+
+  // Each client gets a shim standing in for the old WebRTC DataConnection, so
+  // the handshake/validation code below is unchanged.
+  function makeConn(id) {
+    return {
+      peer: id,
+      open: true,
+      send(obj) { if (this.open) sendFrame(ws, { to: id, d: obj }); },
+      close() { if (!this.open) return; this.open = false; sendFrame(ws, { t: 'kick', id }); },
+    };
   }
 
   const hostPlayer = { id: 0, name: (opts.hostName || 'Host').slice(0, 24), isHost: true };
@@ -221,23 +221,41 @@ export async function hostRoom(opts) {
   function removeClient(c, reason) {
     if (!clients.has(c.conn.peer)) return;
     clients.delete(c.conn.peer);
+    // conn.close() asks the relay to drop that client's socket.
     try { c.conn.close(); } catch {}
     if (c.ready && typeof hooks.onLeave === 'function') hooks.onLeave({ id: c.id, name: c.name, isHost: false });
     sendRosterToAll();
   }
 
-  peer.on('connection', (conn) => {
-    const c = {
-      conn, id: null, name: 'Player', ready: false,
-      bucket: new TokenBucket(rate.cmdsPerSec, rate.burst), strikes: 0,
-      lastSeen: performance.now(),
-    };
-    clients.set(conn.peer, c);
+  ws.addEventListener('message', (ev) => {
+    let msg;
+    try { msg = JSON.parse(ev.data); } catch { return; }
+    if (!msg || typeof msg !== 'object') return;
 
-    conn.on('data', (data) => { c.lastSeen = performance.now(); handleClientData(c, data); });
-    conn.on('close', () => removeClient(c, 'closed'));
-    conn.on('error', () => removeClient(c, 'error'));
+    if (msg.t === 'open') {
+      const conn = makeConn(msg.id);
+      const c = {
+        conn, id: null, name: 'Player', ready: false,
+        bucket: new TokenBucket(rate.cmdsPerSec, rate.burst), strikes: 0,
+        lastSeen: performance.now(),
+      };
+      clients.set(msg.id, c);
+      return;
+    }
+    if (msg.t === 'close') {
+      const c = clients.get(msg.id);
+      if (c) { c.conn.open = false; removeClient(c, 'closed'); }
+      return;
+    }
+    if (msg.from != null) {
+      const c = clients.get(msg.from);
+      if (!c) return;
+      c.lastSeen = performance.now();
+      handleClientData(c, msg.d);
+    }
   });
+
+  ws.addEventListener('close', () => { clearInterval(heartbeat); errCb(new Error('Relay connection lost')); });
 
   // Heartbeat: ping every client and evict any that has gone silent past DROP_MS.
   // Receiving *any* data (including a client's own ping) refreshes lastSeen above.
@@ -250,11 +268,7 @@ export async function hostRoom(opts) {
     }
   }, HEARTBEAT_MS);
 
-  peer.on('error', (e) => {
-    // Per-connection transport errors shouldn't tear the room down; surface them.
-    errCb(e);
-  });
-  peer.on('disconnected', () => { try { peer.reconnect(); } catch {} });
+  ws.addEventListener('error', () => errCb(new Error('Relay connection error')));
 
   function handleClientData(c, data) {
     // 1) Anti-flood: size cap + basic shape check. Reject-don't-crash.
@@ -346,7 +360,7 @@ export async function hostRoom(opts) {
       clearInterval(heartbeat);
       for (const c of clients.values()) { try { c.conn.close(); } catch {} }
       clients.clear();
-      try { peer.destroy(); } catch {}
+      try { ws.close(1000, 'host closed'); } catch {}
     },
     onError(cb) { errCb = typeof cb === 'function' ? cb : () => {}; },
   };
@@ -374,21 +388,27 @@ export async function hostRoom(opts) {
 //   close()
 
 export async function joinRoom(opts) {
-  const Peer  = await loadPeerJS();
   const gameId = opts.gameId;
   const code   = String(opts.code || '').toUpperCase().trim();
   const hooks  = opts.hooks || {};
   if (!code) throw new Error('joinRoom: code required');
 
-  const peer = await openPeer(Peer, null, await iceConfig(opts));  // random client id
-  const conn = peer.connect(roomPeerId(gameId, code), { reliable: true });
+  // Rejects here with the relay's reason: no such room, room full, etc.
+  const ws = await openSocket(roomUrl(gameId, code, 'client'));
+
+  // Stands in for the old DataConnection so the handshake below is unchanged.
+  const conn = {
+    open: true,
+    send(obj) { if (this.open) sendFrame(ws, { d: obj }); },
+    close() { this.open = false; try { ws.close(1000, 'client closed'); } catch {} },
+  };
 
   return await new Promise((resolve, reject) => {
     let settled = false;
     const timer = setTimeout(() => {
       if (settled) return;
       settled = true;
-      try { peer.destroy(); } catch {}
+      try { ws.close(); } catch {}
       reject(new Error('Timed out — is the code right and the host online?'));
     }, HELLO_TIMEOUT_MS);
 
@@ -406,15 +426,22 @@ export async function joinRoom(opts) {
       closedFired = true;
       if (heartbeat) clearInterval(heartbeat);
       try { conn.close(); } catch {}
-      try { peer.destroy(); } catch {}
       if (typeof hooks.onClose === 'function') hooks.onClose();
     };
 
-    conn.on('open', () => {
-      safeSend(conn, { type: 'hello', name: (opts.name || 'Player').slice(0, 24), password: opts.password ? String(opts.password) : '' });
-    });
+    // The socket is already open by the time we get here.
+    safeSend(conn, { type: 'hello', name: (opts.name || 'Player').slice(0, 24), password: opts.password ? String(opts.password) : '' });
 
-    conn.on('data', (data) => {
+    ws.addEventListener('message', (ev) => {
+      let frame;
+      try { frame = JSON.parse(ev.data); } catch { return; }
+      if (!frame || typeof frame !== 'object') return;
+      if (frame.t === 'hostgone') {
+        if (!settled) finish(() => reject(new Error('Host closed the connection')));
+        else fireClose();
+        return;
+      }
+      const data = frame.d;
       lastSeen = performance.now();
       if (!data || typeof data.type !== 'string') return;
       switch (data.type) {
@@ -425,7 +452,7 @@ export async function joinRoom(opts) {
             me: data.you,
             roster: data.roster || [],
             sendCmd(cmd) { safeSend(conn, { type: 'cmd', cmd }); },
-            close() { closedFired = true; if (heartbeat) clearInterval(heartbeat); try { conn.close(); } catch {} try { peer.destroy(); } catch {} },
+            close() { closedFired = true; if (heartbeat) clearInterval(heartbeat); try { conn.close(); } catch {} },
           };
           // Start pinging the host and watch for it going silent (silent drops
           // that never fire a 'close' event — network loss, tab killed, etc.).
@@ -455,32 +482,18 @@ export async function joinRoom(opts) {
       }
     });
 
-    conn.on('close', () => {
+    ws.addEventListener('close', () => {
+      conn.open = false;
       if (!settled) finish(() => reject(new Error('Host closed the connection')));
       else fireClose();
     });
-    conn.on('error', () => {
+    ws.addEventListener('error', () => {
       finish(() => reject(new Error('Could not reach the host — check the code')));
-    });
-    peer.on('error', (e) => {
-      // 'peer-unavailable' = no host with that code.
-      const msg = e && e.type === 'peer-unavailable' ? 'No game found for that code' : (e.message || 'Connection error');
-      finish(() => reject(new Error(msg)));
     });
   });
 }
 
 // ── shared internals ───────────────────────────────────────────────────────
-
-function openPeer(Peer, id, config) {
-  return new Promise((resolve, reject) => {
-    const opts = config ? { config } : undefined;
-    const peer = id ? new Peer(id, opts) : new Peer(opts);
-    const timer = setTimeout(() => { try { peer.destroy(); } catch {} reject(new Error('Signaling server timeout')); }, CONNECT_TIMEOUT_MS);
-    peer.on('open', () => { clearTimeout(timer); resolve(peer); });
-    peer.on('error', (e) => { clearTimeout(timer); reject(e); });
-  });
-}
 
 function safeSend(conn, obj) {
   try { if (conn && conn.open) conn.send(obj); } catch {}
