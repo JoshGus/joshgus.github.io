@@ -869,8 +869,8 @@ let players=[],HUMAN=0;      // HUMAN=-1 → spectator
 // Host runs the whole sim authoritatively; a guest takes a commander slot, renders
 // from host snapshots, and sends move/attack/spawn intents. All online code is
 // gated behind rtsOnline so single-player is completely untouched.
-let rtsOnline=null,rtsNet=null,rtsSnapTimer=null;
-let rtsGuestSlots=new Set(),rtsGuestNames={};   // host: commander slots driven by remote humans
+let rtsOnline=null,rtsNet=null,rtsSnapTimer=null,rtsSidePanelTimer=null;
+let rtsGuestSlots=new Set(),rtsGuestNames={},rtsHostName='';   // host: commander slots driven by remote humans
 let teamCalls={};            // team → {x,y,t,by} coordinated attack blackboard
 let depositSpawnTimer=40,DEPOSIT_TARGET=16;
 let AILOG=[],aiLogSeq=0,aiLogOpen=false;
@@ -3649,7 +3649,11 @@ function drawUnit(u){
   }
   if(u.type!=='jet'){
     ctx.fillStyle='rgba(255,255,255,.7)';ctx.font=`bold ${Math.max(7,r-1)}px "IBM Plex Mono",monospace`;
-    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(u.name[0],x,y+.5);ctx.textBaseline='alphabetic';
+    // Guests get units from snapshots, and serUnit does not send `name` — this
+    // was `u.name[0]` on undefined, throwing out of render() on every frame and
+    // taking the whole scene with it. The type is always present, so derive it.
+    const lbl=(u.name||(TDEFS[u.type]&&TDEFS[u.type].name)||u.type||'?')[0];
+    ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(lbl,x,y+.5);ctx.textBaseline='alphabetic';
   }
   if(u.type==='engineer'){
     if(u.carryGold>0){ctx.fillStyle='rgba(220,190,30,.8)';ctx.font='5px "IBM Plex Mono",monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(Math.floor(u.carryGold)+'g',x,y-r-6);ctx.textBaseline='alphabetic';}
@@ -4034,11 +4038,14 @@ function tickSelPanel(){
     if(title)title.textContent=`${sel.length} units selected`;
   }
 }
+// A player is a bot unless it is this client's own slot, a remote human, or the
+// host told us so. Guests only have the transmitted flag to go on.
+function isBot(p){ return p.bot!==undefined ? p.bot : !(p.human||p.remote); }
 function buildPchips(){
   const el=document.getElementById('pchips');if(!el)return;
   el.innerHTML=players.map(p=>
     `<div class="pchip" id="pchip-${p.id}">
-      <div class="pchip-name"><span class="pchip-dot" style="background:${p.color}"></span>${p.name}<span class="pchip-team">T${p.team}${p.human?'':' · '+p.diff[0].toUpperCase()}</span></div>
+      <div class="pchip-name"><span class="pchip-dot" style="background:${p.color}"></span>${p.id===HUMAN?'You':p.name}<span class="pchip-team">T${p.team}${isBot(p)?' · '+p.diff[0].toUpperCase():''}</span></div>
       <div class="pchip-bar"><div class="pchip-fill" id="pchip-fill-${p.id}" style="width:100%;background:${p.color}"></div></div>
     </div>`).join('');
   for(const chip of el.querySelectorAll('.pchip'))chip.addEventListener('click',()=>{
@@ -5319,8 +5326,11 @@ function serUnit(u){
     speed:u.speed,dmg:u.dmg,range:u.range,canFly:!!u.canFly,rally:u.rally};
 }
 function serPlayer(p){
+  // Send `bot` rather than `human`: the receiver recomputes `human` for itself
+  // (human = this client's own slot), which would overwrite anything we sent —
+  // so a human opponent came out looking like a bot, difficulty letter and all.
   return {id:p.id,team:p.team,color:p.color,dark:p.dark,name:p.name,diff:p.diff||'medium',
-    gold:Math.floor(p.gold),alive:p.alive,kills:p.kills,bupg:p.bupg,upg:p.upg};
+    bot:!(p.human||p.remote),gold:Math.floor(p.gold),alive:p.alive,kills:p.kills,bupg:p.bupg,upg:p.upg};
 }
 function rtsSnapshot(){
   if(!gameStarted)return null;
@@ -5383,7 +5393,12 @@ function rtsApplyInit(m){
   // host sent us.
   mapBaked=true;
   try{mctx.fillStyle='#0e1a0a';mctx.fillRect(0,0,W,H);}catch(e){}  // placeholder until terrain arrives
-  try{resizeCanvas();initCamera();syncZoomSlider();buildPchips();updateHud();updateSelPanel();
+  // Each of these is attempted separately: sharing one try meant a single
+  // failure silently skipped the rest, which is how guests ended up with no
+  // commander chips.
+  [resizeCanvas,initCamera,syncZoomSlider,buildPchips,updateHud,updateSelPanel,updateSidePanel]
+    .forEach(fn=>{try{fn();}catch(e){console.error('rtsApplyInit:',fn.name,e);}});
+  try{
     // Comms panel is available when this commander has teammates (host routes
     // pings to AI allies only). Base button lets the guest queue base units.
     const me=players[HUMAN],ally=me&&players.some(p=>p.id!==HUMAN&&p.alive&&p.team===me.team);
@@ -5412,6 +5427,12 @@ function rtsApplySnap(m){
   for(const id of[...selected])if(!units.find(u=>u.id===id))selected.delete(id);
   if(m.gameOver){gameOver=true;gameWin=m.gameWin;gameMsg=m.gameMsg;}
   try{updateHud();}catch(e){}
+  // The chips themselves are built once in rtsApplyInit; updateHud() above
+  // already refreshes their health fills, so rebuilding here would thrash the
+  // DOM at 11fps and drop the inspect click handlers. The field-stats panel is
+  // host-side UI that guests never refreshed, so it sat empty all match —
+  // poll it slowly instead of on every snapshot.
+  if(!rtsSidePanelTimer)rtsSidePanelTimer=setInterval(()=>{try{updateSidePanel();}catch(e){}},1000);
 }
 function buyBaseUpgradeForPlayer(p,key){
   const up=BUPGD[key];
@@ -5607,6 +5628,7 @@ function rtsBeginHostSetup(roster){
   const guests=roster.filter(p=>!p.isHost);
   rtsGuestSlots=new Set(guests.map(g=>g.id));
   rtsGuestNames={};for(const g of guests)rtsGuestNames[g.id]=g.name||('Cmdr '+g.id);
+  const me=roster.find(p=>p.isHost); rtsHostName=(me&&me.name)||'';
   SETTINGS.spectate=false;
   const req=guests.length?Math.max(...guests.map(g=>g.id))+1:2;
   SETTINGS.count=Math.min(6,Math.max(SETTINGS.count,req,2));
@@ -5617,6 +5639,10 @@ function rtsBeginHostSetup(roster){
 function rtsAfterStart(){
   for(const gid of rtsGuestSlots){const p=players[gid];
     if(p){p.ai=null;p.human=false;p.remote=true;p.name=rtsGuestNames[gid]||p.name;}}
+  // The host's own commander is named "You" locally, and that name goes out in
+  // every snapshot — so guests saw the host labelled "You" too. Use the lobby
+  // name for the shared state; the host's HUD relabels its own chip below.
+  if(rtsHostName&&players[HUMAN])players[HUMAN].name=rtsHostName;
   try{buildPchips();updateHud();}catch(e){}
   if(rtsNet){
     rtsNet.broadcast(rtsInitPayload());        // small, arrives first
