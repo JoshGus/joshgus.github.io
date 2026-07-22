@@ -37,8 +37,25 @@
     const clock = status.querySelector('#clock');
     clock ? status.insertBefore(btn, clock) : status.appendChild(btn);
 
-    buildMobileNav(status);
+    addPrivacyLink(status);
+    buildMobileNav(status);   // clones nav links, so it must run after
   });
+
+  // Every page loads this file, so injecting the privacy link here is the only
+  // way to guarantee it is reachable site-wide without editing each page — and
+  // it keeps working for any page added later. Depth is derived from the URL so
+  // the link resolves from /games/ as well as the root.
+  function addPrivacyLink(status) {
+    const nav = status.querySelector('nav');
+    if (!nav || nav.querySelector('[data-privacy]')) return;
+    const depth = location.pathname.replace(/\/[^/]*$/, '/').split('/').length - 2;
+    const a = document.createElement('a');
+    a.href = '../'.repeat(Math.max(0, depth)) + 'privacy.html';
+    a.textContent = 'Privacy';
+    a.setAttribute('data-privacy', '');
+    a.style.opacity = '.75';
+    nav.appendChild(a);
+  }
 
   // The desktop nav is hidden under 640px, which left phones with no way to
   // navigate at all. Clone its links into a slide-down panel behind a burger.

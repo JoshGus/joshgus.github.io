@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="description" content="Computer science student at the University of Michigan. I build across systems, ML, and the web. Games and bird photography fill the rest.">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Joshua Gustaveson">
+<meta property="og:title" content="Privacy — Field Notes">
+<meta property="og:description" content="Computer science student at the University of Michigan. I build across systems, ML, and the web. Games and bird photography fill the rest.">
+<meta property="og:url" content="https://joshg.us/privacy.html">
+<meta property="og:image" content="https://joshg.us/og-image.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://joshg.us/og-image.png">
+<title>Privacy &mdash; Field Notes</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="shared.css">
+<script src="dark-mode.js"></script>
+<style>
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px;
+  line-height:1.7;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+.page-header{padding:clamp(48px,8vh,90px) clamp(20px,5vw,72px) clamp(28px,4vh,48px);border-bottom:1px solid var(--line)}
+.ph-idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;color:var(--accent-ink);display:block;margin-bottom:14px}
+.page-header h1{font-family:var(--disp);font-weight:440;font-size:clamp(2.6rem,7vw,5.2rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
+.page-header h1 em{font-style:italic;color:var(--accent-ink)}
+.page-header p{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:var(--dim);margin-top:18px;max-width:60ch}
+
+.doc{padding:clamp(32px,5vw,60px) clamp(20px,5vw,72px) 100px;max-width:74ch;margin:0 auto}
+.doc h2{font-family:var(--disp);font-weight:520;font-size:clamp(1.3rem,2.4vw,1.7rem);
+  letter-spacing:-.01em;margin:clamp(34px,5vw,50px) 0 12px}
+.doc h2:first-child{margin-top:0}
+.doc h3{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);margin:26px 0 8px}
+.doc p{margin-bottom:14px}
+.doc ul{margin:0 0 16px 0;padding-left:20px}
+.doc li{margin-bottom:8px}
+.doc a{color:var(--accent-ink);text-decoration:underline;text-underline-offset:2px}
+.doc code{font-family:var(--mono);font-size:.86em;background:var(--surface);
+  border:1px solid var(--line);border-radius:4px;padding:1px 5px}
+.doc table{width:100%;border-collapse:collapse;margin:6px 0 18px;font-size:.92rem}
+.doc th,.doc td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+.doc th{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim)}
+.doc .tw{overflow-x:auto}
+.lede{font-size:1.06rem;border-left:2px solid var(--accent);padding-left:16px;color:var(--fg)}
+.updated{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
+  color:var(--dimmer);margin-top:44px;padding-top:18px;border-top:1px solid var(--line)}
+</style>
+</head>
+<body class="noise">
+
+<div class="status">
+  <a href="index.html" class="sig">Joshua Gustaveson</a>
+  <nav>
+    <a href="code.html">Code</a>
+    <a href="games/index.html">Games</a>
+    <a href="gallery.html">Photography</a>
+    <a href="colormap.html">Color Space</a>
+  </nav>
+  <span id="clock">--:-- EST</span>
+</div>
+
+<div class="page-header">
+  <span class="ph-idx">Privacy</span>
+  <h1>What this site <em>knows</em></h1>
+  <p>A personal site. No accounts, no analytics, no advertising, no cookies.</p>
+</div>
+
+<div class="doc">
+
+<p class="lede">Short version: I don't track you. There is no analytics script, no
+advertising and no third-party tracker anywhere on this site, and nothing sets a
+cookie. The only personal thing you can hand over is a username you choose for
+the multiplayer games &mdash; and you only need one to list a game publicly.</p>
+
+<h2>What is stored in your browser</h2>
+<p>These live in <code>localStorage</code> on your own device. They are never sent
+anywhere except where noted, and clearing your browser data removes them.</p>
+<div class="tw">
+<table>
+  <tr><th>Key</th><th>What it is</th></tr>
+  <tr><td><code>dark</code></td><td>Whether you chose dark mode.</td></tr>
+  <tr><td><code>joshg-username</code></td><td>The username you picked for multiplayer. Sent to the game server when you claim it, list a game, or post a score.</td></tr>
+  <tr><td><code>joshg-user-token</code></td><td>A random value generated on your device that proves the username is yours. Only a one-way hash of it is ever stored on the server &mdash; the value itself is never stored there and never shown.</td></tr>
+  <tr><td><code>mpl-name</code></td><td>The display name you last typed into a game lobby.</td></tr>
+  <tr><td><code>db_&hellip;</code>, <code>mg_&hellip;</code></td><td>Your best scores for the daily pool and minigolf rounds.</td></tr>
+  <tr><td><code>pool_seen</code>, <code>mg_tutorial_seen</code>, <code>rts-seen-help</code></td><td>Whether you have already been shown a game's tutorial.</td></tr>
+</table>
+</div>
+
+<h2>What the game server stores</h2>
+<p>Multiplayer and the daily leaderboards run through a small server I operate on
+Cloudflare. It holds only this:</p>
+<ul>
+  <li><b>Usernames</b> &mdash; the name you chose, plus a one-way hash of your device token so nobody else can claim it.</li>
+  <li><b>Open game listings</b> &mdash; game, join code, host username and player count, while a game is open. These delete themselves within a couple of minutes of the host leaving.</li>
+  <li><b>Daily scores</b> &mdash; game, date, username and score.</li>
+</ul>
+<p><b>No IP addresses are recorded in any of it.</b> That is deliberate and it is
+the reason multiplayer works the way it does: games are relayed through the
+server rather than connected player-to-player, so other players never learn your
+address. The server code reads no address either &mdash; the only request header it
+looks at is the WebSocket upgrade.</p>
+<p>What the server does necessarily handle is the <b>content of game messages</b>,
+since it forwards them between players. Those are relayed, not stored. The
+connection is encrypted in transit (<code>wss</code>) but not end-to-end, so treat
+in-game messages as visible to me and to Cloudflare, and don't put anything
+sensitive in them.</p>
+
+<h2>Camera</h2>
+<p>Two games &mdash; <a href="games/darts.html">Darts</a> and the
+<a href="games/hand-tracker.html">hand tracker</a> &mdash; can use your webcam, and
+only after your browser asks and you agree. <b>The video never leaves your
+device.</b> Hand tracking runs entirely in your browser; no frames are uploaded,
+recorded or sent to me or anyone else.</p>
+
+<h2>Third parties</h2>
+<p>The site loads a few things from other providers. They can see your IP address
+and which page requested the file, because that is how the web works &mdash; not
+because I send them anything about you.</p>
+<div class="tw">
+<table>
+  <tr><th>Who</th><th>Why</th></tr>
+  <tr><td>GitHub Pages</td><td>Hosts the site's files.</td></tr>
+  <tr><td>Cloudflare</td><td>Serves the domain, and runs the multiplayer relay, database and leaderboards.</td></tr>
+  <tr><td>Google Fonts</td><td>The typefaces.</td></tr>
+  <tr><td>jsDelivr</td><td>Libraries used by some games (hand tracking, 3D, text recognition).</td></tr>
+  <tr><td>Google Storage</td><td>The hand-tracking model file.</td></tr>
+  <tr><td>Cloudinary</td><td>Hosts the photographs in the gallery.</td></tr>
+  <tr><td>Wikimedia Commons</td><td>Public-domain paintings used by the art-matching game.</td></tr>
+</table>
+</div>
+<p>I have no control over and no access to whatever logs those providers keep.</p>
+
+<h2>Choices you have</h2>
+<ul>
+  <li><b>Don't pick a username.</b> Everything except listing a game publicly and posting a score works without one.</li>
+  <li><b>Play privately.</b> Games are unlisted by default; a private game shares nothing with the directory.</li>
+  <li><b>Clear your data.</b> Clearing site data in your browser removes everything in the table above.</li>
+  <li><b>Have a username or score removed.</b> Email me and I will delete it.</li>
+</ul>
+
+<h2>Children</h2>
+<p>This is a personal portfolio and hobby site, not directed at children, and it
+collects nothing beyond what is described above.</p>
+
+<h2>Changes</h2>
+<p>If what the site does changes, this page changes with it. It is versioned in
+<a href="https://github.com/JoshGus/joshgus.github.io">the site's public repository</a>,
+so the history is visible.</p>
+
+<h2>Contact</h2>
+<p>Questions, or want something deleted &mdash;
+<a href="mailto:joshgustaveson@gmail.com">joshgustaveson@gmail.com</a>.</p>
+
+<p class="updated">Last updated 22 July 2026</p>
+</div>
+
+<script>
+  try {
+    var clk = document.getElementById('clock');
+    var tick = function(){
+      clk.textContent = new Date().toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'}) + ' EST';
+    };
+    tick(); setInterval(tick, 30000);
+  } catch(e){}
+</script>
+</body>
+</html>
