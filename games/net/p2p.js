@@ -73,6 +73,11 @@ function roomUrl(gameId, code, role, listing) {
        + `&name=${encodeURIComponent(listing.hostName || 'Host')}`
        + `&max=${encodeURIComponent(listing.maxPlayers || 8)}`
        + (listing.hasPassword ? '&pw=1' : '');
+    // Publishing requires a claimed site username; the relay verifies these and
+    // silently keeps the room unlisted (sending {t:'unlisted'}) if they fail.
+    if (listing.username && listing.token) {
+      u += `&u=${encodeURIComponent(listing.username)}&t=${encodeURIComponent(listing.token)}`;
+    }
   }
   return u;
 }
@@ -217,6 +222,7 @@ export async function hostRoom(opts) {
     try {
       ws = await openSocket(roomUrl(gameId, code, 'host', opts.open ? {
         hostName: hostPlayer0Name, maxPlayers, hasPassword: !!password,
+        username: opts.username, token: opts.token,
       } : null));
       break;
     } catch (e) {
@@ -237,6 +243,7 @@ export async function hostRoom(opts) {
   }
 
   const hostPlayer = { id: 0, name: (opts.hostName || 'Host').slice(0, 24), isHost: true };
+  let listedPublicly = !!opts.open;
 
   function snapshotFor(player) {
     return typeof hooks.snapshot === 'function' ? hooks.snapshot(player) : null;
@@ -263,6 +270,13 @@ export async function hostRoom(opts) {
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (!msg || typeof msg !== 'object') return;
 
+    if (msg.t === 'unlisted') {
+      // Asked to be public but the username didn't verify. The room still works
+      // by code, so this is a notice rather than a failure.
+      listedPublicly = false;
+      if (typeof hooks.onUnlisted === 'function') hooks.onUnlisted();
+      return;
+    }
     if (msg.t === 'open') {
       const conn = makeConn(msg.id);
       const c = {
@@ -363,6 +377,7 @@ export async function hostRoom(opts) {
   const api = {
     isHost: true,
     code,
+    get listed() { return listedPublicly; },
     get link() {
       const u = new URL(location.href);
       u.searchParams.set('room', code);

@@ -21,6 +21,7 @@
 // ─────────────────────────────────────────────────────────────────────────────
 
 import { hostRoom, joinRoom, listLobbies } from './p2p.js';
+import { getUsername, claimUsername, clearUsername, listingCredentials } from './identity.js';
 
 const CSS = `
 .mpl-backdrop{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;
@@ -64,6 +65,27 @@ const CSS = `
 .mpl-open-name{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .mpl-open-meta{font-family:var(--mono,monospace);font-size:.68rem;color:var(--dim,#8a7a66);flex-shrink:0}
 .mpl-lock{font-size:.8em}
+/* site username */
+.mpl-ident{margin:-4px 0 14px}
+.mpl-ident-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  font-size:.86rem;color:var(--dim,#8a7a66)}
+.mpl-ident-label{font-family:var(--mono,monospace);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase}
+.mpl-ident-name{font-weight:700;color:var(--fg,#1d1712)}
+.mpl-ident-btn{background:none;border:0;padding:6px 4px;font:inherit;font-size:.8rem;
+  color:var(--accent-ink,#5e7d0f);cursor:pointer;text-decoration:underline;min-height:32px}
+.mpl-ident-edit label{display:block;font-family:var(--mono,monospace);font-size:.6rem;
+  letter-spacing:.14em;text-transform:uppercase;color:var(--dim,#8a7a66);margin-bottom:7px}
+.mpl-ident-hint{text-transform:none;letter-spacing:0;font-size:.92em;opacity:.85}
+.mpl-ident-inputs{display:flex;gap:8px;align-items:center}
+.mpl-ident-inputs input{flex:1;min-width:0;padding:11px 12px;border-radius:9px;
+  border:1px solid var(--line,rgba(29,23,18,.14));background:var(--surface,#fdf5ea);
+  color:var(--fg,#1d1712);font:inherit;font-size:.95rem}
+.mpl-ident-inputs input:focus{outline:none;border-color:var(--accent-ink,#5e7d0f)}
+.mpl-ident-save{padding:11px 15px;border-radius:9px;border:0;font:inherit;font-weight:700;
+  background:var(--accent-ink,#5e7d0f);color:#fff;cursor:pointer;min-height:40px;flex-shrink:0}
+.mpl-ident-save:disabled{opacity:.5;cursor:default}
+.mpl-ident-msg{font-size:.8rem;color:var(--dim,#8a7a66);margin-top:7px;min-height:1em}
+.mpl-ident-msg.bad{color:#b4351f}
 .mpl-toggle input{width:17px;height:17px;accent-color:var(--accent-ink,#7a8c1f)}
 .mpl-btn{width:100%;padding:13px;border:0;border-radius:9px;font:inherit;font-weight:700;font-size:1rem;
   cursor:pointer;background:var(--accent-ink,#3a4a12);color:#fff;transition:.2s;margin-top:6px}
@@ -187,9 +209,71 @@ export function openLobby(opts) {
       <label class="mpl-toggle" style="margin-bottom:12px"><input type="checkbox" id="mpl-usepw"> Require a password</label>
       <div class="mpl-field" id="mpl-pw-wrap" style="display:none"><label>Password</label><input type="password" id="mpl-pw" maxlength="40"></div>
       <label class="mpl-toggle" style="margin-bottom:12px"><input type="checkbox" id="mpl-open"> List publicly <span style="color:var(--dim,#8a7a66);font-size:.8em">(anyone can find and join)</span></label>
+      <div class="mpl-ident" id="mpl-ident"></div>
       <div class="mpl-status"></div>
       <button class="mpl-btn" id="mpl-host-btn">Create game</button>`;
     statusEl = body.querySelector('.mpl-status');
+
+    // ── site username ──────────────────────────────────────────────────────
+    // Only needed to list a game publicly. Hosting privately never asks.
+    const identEl = body.querySelector('#mpl-ident');
+    const openBox = body.querySelector('#mpl-open');
+
+    function renderIdent(editing) {
+      const u = getUsername();
+      if (!editing && u) {
+        identEl.innerHTML = `<div class="mpl-ident-row">
+            <span class="mpl-ident-label">Listing as</span>
+            <span class="mpl-ident-name">${esc(u)}</span>
+            <button type="button" class="mpl-ident-btn" id="mpl-ident-change">Change</button>
+          </div>`;
+        identEl.querySelector('#mpl-ident-change').onclick = () => renderIdent(true);
+        return;
+      }
+      identEl.innerHTML = `<div class="mpl-ident-edit">
+          <label>Site username <span class="mpl-ident-hint">— needed to list publicly, reserved to you</span></label>
+          <div class="mpl-ident-inputs">
+            <input type="text" id="mpl-ident-in" maxlength="24" placeholder="e.g. josh" value="${esc(u)}">
+            <button type="button" class="mpl-ident-save" id="mpl-ident-save">Save</button>
+          </div>
+          <div class="mpl-ident-msg" id="mpl-ident-msg"></div>
+        </div>`;
+      const input = identEl.querySelector('#mpl-ident-in');
+      const msg = identEl.querySelector('#mpl-ident-msg');
+      const save = identEl.querySelector('#mpl-ident-save');
+      const doSave = async () => {
+        const want = input.value.trim();
+        if (!want) { msg.textContent = 'Enter a username'; msg.className = 'mpl-ident-msg bad'; return; }
+        save.disabled = true; msg.textContent = 'Checking…'; msg.className = 'mpl-ident-msg';
+        const r = await claimUsername(want);
+        save.disabled = false;
+        if (!r.ok) { msg.textContent = r.error; msg.className = 'mpl-ident-msg bad'; return; }
+        renderIdent(false);
+        syncOpen();
+      };
+      save.onclick = doSave;
+      input.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); doSave(); } };
+      if (u) {
+        const clear = document.createElement('button');
+        clear.type = 'button'; clear.className = 'mpl-ident-btn'; clear.textContent = 'Cancel';
+        clear.onclick = () => renderIdent(false);
+        identEl.querySelector('.mpl-ident-inputs').appendChild(clear);
+      }
+    }
+
+    // Public listing is only offered once a username exists. The identity row
+    // stays visible either way — the lobby is where you set and change it, so
+    // hiding it behind the checkbox would strand anyone wanting to rename.
+    function syncOpen() {
+      const has = !!getUsername();
+      openBox.disabled = !has;
+      if (!has) openBox.checked = false;
+      openBox.closest('.mpl-toggle').style.opacity = has ? '' : '.55';
+    }
+    openBox.onchange = syncOpen;
+    renderIdent(!getUsername());
+    syncOpen();
+
     const usepw = body.querySelector('#mpl-usepw');
     const pwWrap = body.querySelector('#mpl-pw-wrap');
     usepw.onchange = () => pwWrap.style.display = usepw.checked ? '' : 'none';
@@ -200,10 +284,15 @@ export function openLobby(opts) {
       status('Creating game…');
       body.querySelector('#mpl-host-btn').disabled = true;
       try {
+        const creds = listingCredentials();
         net = await hostRoom({
           gameId, hostName: name, password, maxPlayers,
-          open: body.querySelector('#mpl-open').checked,
-          hooks: opts.hostHooks || {},
+          open: body.querySelector('#mpl-open').checked && !!creds,
+          username: creds && creds.username,
+          token: creds && creds.token,
+          hooks: Object.assign({
+            onUnlisted: () => status('Couldn\u2019t list publicly \u2014 game is private, code still works', true),
+          }, opts.hostHooks || {}),
         });
         role = 'host';
         net.onError(() => status('Network hiccup — players may need to rejoin', true));

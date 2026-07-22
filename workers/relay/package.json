@@ -1,0 +1,8 @@
+{
+  "name": "joshgus-relay",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "obscenity": "^0.4.6"
+  }
+}

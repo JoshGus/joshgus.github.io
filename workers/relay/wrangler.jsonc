@@ -18,6 +18,9 @@
     }
   ],
 
+  // Sweeps listings whose room died without cleaning up after itself.
+  "triggers": { "crons": ["*/10 * * * *"] },
+
   "durable_objects": {
     "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
   },

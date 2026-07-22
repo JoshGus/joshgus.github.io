@@ -115,14 +115,35 @@ would hand straight back what that bought. The Worker does not read
 WebSocket `Upgrade` check — there is a comment saying so at the top of
 `workers/relay/src/index.js`.
 
-Host display names are treated as hostile input: control characters,
-zero-width and bidi-override characters are stripped, whitespace collapsed, and
-the result capped at 24 characters (`cleanName` in the Worker). Sanitizing
-happens **server-side**, so it applies no matter what the client sends. There is
-no profanity filtering yet — worth adding before this is promoted anywhere busy.
+### Site usernames
+Listing publicly requires a claimed username; hosting privately and joining by
+code never ask for one. A name is claimed first-come and bound to a random token
+the browser generates — the server stores only the token's **hash**, never the
+token. Re-using the name from another browser returns 409.
 
-Stale rows are filtered on read (`updated_at` within 3 minutes) as a backstop
-for a DO that dies without getting to clean up.
+This is friction, not authentication: anyone can abandon a username and claim
+another. The point is to give abuse controls something durable to attach to that
+**is not an IP address**, since hiding addresses is why the transport relays at
+all. One live listing per username, so the directory can't be flooded from a
+single account. The listed name is the *verified* username, so a host cannot
+advertise itself as someone else.
+
+Names are screened server-side with [obscenity](https://github.com/jo3-l/obscenity)
+(MIT), which catches obfuscation a plain wordlist misses — `fuuuuck`, `sh1t`,
+`ʃṳ𝒸𝗄` — while its whitelist clears `Scunthorpe`, `assassin` and `classic`. It
+does flag genuine names like **Penistone**, so `names.js` keeps a small
+allowlist of real places and surnames, compared against the whole name only.
+Control, zero-width and bidi-override characters are stripped and the result
+capped at 24. Uniqueness folds confusable digits, so `J0sh` can't be claimed
+next to `Josh`.
+
+### Listing lifetime
+Listings **expire rather than persist**. A live room rewrites its row every
+~45s and listings are hidden after `LOBBY_TTL_MS` (2 min), so anything that
+stops checking in — closed tab, frozen phone, a DO evicted mid-crash — drops out
+on its own. A clean host disconnect retracts immediately; a cron job sweeps rows
+older than 10 minutes so the table doesn't grow. Refreshing on a timer rather
+than per message keeps this inside D1's daily write budget.
 
 The directory is best-effort: if D1 is unavailable the endpoint returns an empty
 list rather than an error, and join-by-code is unaffected.

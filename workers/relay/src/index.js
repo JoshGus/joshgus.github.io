@@ -28,6 +28,8 @@
 // request header read is the WebSocket Upgrade check.
 // ─────────────────────────────────────────────────────────────────────────────
 
+import { cleanName, nameKey, validateUsername, hashToken } from './names.js';
+
 const MAX_FRAME_BYTES = 96 * 1024;   // generous vs the host's own 24KB cmd cap,
                                      // because host→client state can be large
 const MAX_CLIENTS = 16;              // hard ceiling; the host enforces its own
@@ -38,36 +40,88 @@ const MAX_CLIENTS = 16;              // hard ceiling; the host enforces its own
 // open for days, whose heartbeats keep waking the object forever.
 const IDLE_MS = 30 * 60 * 1000;
 
-// A listed lobby whose room hasn't checked in for this long is treated as gone.
-// Rooms delete their own row on shutdown; this covers the case where a DO dies
-// without getting the chance (eviction mid-crash, a deploy, etc.).
-const LOBBY_STALE_MS = 3 * 60 * 1000;
+// Listings expire rather than persist. A room refreshes its row while it is
+// alive, so anything that stops checking in — closed tab, frozen phone, a DO
+// evicted mid-crash — drops out of the directory within LOBBY_TTL_MS on its
+// own. That is cheaper and more reliable than trying to detect every way a
+// host can vanish.
+const LOBBY_TTL_MS = 2 * 60 * 1000;        // hidden from listings after this
+const LOBBY_REFRESH_MS = 45 * 1000;        // how often a live room rewrites its row
+const LOBBY_SWEEP_MS = 10 * 60 * 1000;     // cron deletes rows older than this
 
-// Display names come from a browser, so they are treated as hostile: strip
-// anything non-printable, collapse whitespace, and cap the length. This is
-// deliberately conservative — it is a name in a public list, not rich text.
-function cleanName(raw, fallback = 'Player') {
-  const s = String(raw == null ? '' : raw)
-    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')  // control chars
-    .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '') // zero-width / bidi overrides
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 24);
-  return s || fallback;
-}
-
-// Close codes (4000+ is the application-defined range)
+// Close codes (4000+ is the application-defined range). The client library
+// mirrors these in games/net/p2p.js — a host retries with a fresh code on
+// ROOM_TAKEN, so losing these to a bad refactor silently breaks hosting.
 const CLOSE_ROOM_TAKEN = 4001;
 const CLOSE_NO_HOST    = 4002;
 const CLOSE_ROOM_FULL  = 4003;
 const CLOSE_BAD_FRAME  = 4004;
 
 export default {
+  // Expired listings are hidden on read; this stops the table growing forever
+  // with rows whose Durable Object died before it could delete them.
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(
+      env.DB.prepare('DELETE FROM lobbies WHERE updated_at < ?')
+        .bind(Date.now() - LOBBY_SWEEP_MS).run().catch(() => {})
+    );
+  },
+
   async fetch(request, env) {
     const url = new URL(request.url);
 
     if (url.pathname === '/health') {
       return new Response('ok', { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    // Claim or re-verify a site username. First come, bound to a token the
+    // browser generates and keeps; the token itself is never stored, only its
+    // hash. This is not authentication — it exists so abuse controls have
+    // something durable to attach to that is not an IP address.
+    if (url.pathname === '/username') {
+      const cors = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      };
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+      if (request.method !== 'POST') return new Response('{"error":"method"}', { status: 405, headers: cors });
+
+      let body;
+      try { body = await request.json(); } catch { body = null; }
+      const token = body && typeof body.token === 'string' ? body.token : '';
+      if (!body || token.length < 16) {
+        return new Response(JSON.stringify({ ok: false, error: 'Missing token' }), { status: 400, headers: cors });
+      }
+      const v = validateUsername(body.name);
+      if (!v.ok) return new Response(JSON.stringify({ ok: false, error: v.error }), { status: 400, headers: cors });
+
+      try {
+        const hash = await hashToken(token);
+        const now = Date.now();
+        const row = await env.DB.prepare('SELECT name, token_hash FROM usernames WHERE name_key = ?')
+          .bind(v.key).first();
+
+        if (row) {
+          // Taken. Only the holder of the original token may keep using it.
+          if (row.token_hash !== hash) {
+            return new Response(JSON.stringify({ ok: false, error: 'That username is taken' }), { status: 409, headers: cors });
+          }
+          await env.DB.prepare('UPDATE usernames SET name = ?, last_seen = ? WHERE name_key = ?')
+            .bind(v.name, now, v.key).run();
+          return new Response(JSON.stringify({ ok: true, name: v.name, key: v.key }), { headers: cors });
+        }
+
+        await env.DB.prepare(
+          'INSERT INTO usernames (name_key, name, token_hash, created_at, last_seen) VALUES (?, ?, ?, ?, ?)'
+        ).bind(v.key, v.name, hash, now, now).run();
+        return new Response(JSON.stringify({ ok: true, name: v.name, key: v.key }), { headers: cors });
+      } catch (e) {
+        // Losing a race to the same name lands here via the PK constraint.
+        return new Response(JSON.stringify({ ok: false, error: 'That username is taken' }), { status: 409, headers: cors });
+      }
     }
 
     // Public directory of open lobbies. Read-only: rooms publish themselves
@@ -82,7 +136,7 @@ export default {
       if (request.method !== 'GET') return new Response('{"error":"method"}', { status: 405, headers: cors });
       try {
         const game = url.searchParams.get('game');
-        const fresh = Date.now() - LOBBY_STALE_MS;
+        const fresh = Date.now() - LOBBY_TTL_MS;
         const sql = game
           ? 'SELECT game, code, host_name, players, max_players, has_password, created_at FROM lobbies WHERE game = ? AND updated_at > ? ORDER BY updated_at DESC LIMIT 100'
           : 'SELECT game, code, host_name, players, max_players, has_password, created_at FROM lobbies WHERE updated_at > ? ORDER BY updated_at DESC LIMIT 100';
@@ -142,6 +196,11 @@ export class Room {
       this.alarmArmed = true;
       await this.state.storage.setAlarm(Date.now() + IDLE_MS);
     }
+    // Refresh the listing so it outlives its TTL, but far less often than
+    // messages arrive — D1's free tier budgets writes per day, not per second.
+    if (!this.lastPublish || this.last - this.lastPublish > LOBBY_REFRESH_MS) {
+      await this.publish();
+    }
   }
 
   async alarm() {
@@ -172,42 +231,58 @@ export class Room {
     const pair = new WebSocketPair();
     const [clientEnd, serverEnd] = Object.values(pair);
 
-    await this.touch();
+    // Reject synchronously. A deferred close does not survive here: with no
+    // hibernatable socket registered the object finalizes as soon as fetch
+    // returns, the timer never fires, and the client sees a bare 1006 instead
+    // of the reason. Crucially there must be no awaited work before this — the
+    // close code is lost if the handshake is still settling.
+    const reject = (code, reason) => {
+      serverEnd.accept();
+      serverEnd.close(code, reason);
+      return new Response(null, { status: 101, webSocket: clientEnd });
+    };
 
     if (role === 'host') {
       // One host per code. The client library retries with a fresh code, which
       // is how a code collision resolves.
       if (host) {
-        serverEnd.accept();
-        serverEnd.close(CLOSE_ROOM_TAKEN, 'room code in use');
-        return new Response(null, { status: 101, webSocket: clientEnd });
+        return reject(CLOSE_ROOM_TAKEN, 'room code in use');
       }
       this.state.acceptWebSocket(serverEnd);
-      const open = url.searchParams.get('open') === '1';
+      // Listing publicly requires a claimed username. Verified here rather than
+      // trusted from the client, and a failure only costs the listing — the
+      // room itself still works as an unlisted join-by-code game.
+      let open = url.searchParams.get('open') === '1';
+      let hostKey = null;
+      let hostName = cleanName(url.searchParams.get('name'), 'Host');
+      if (open) {
+        const verified = await this.verifyUser(url.searchParams.get('u'), url.searchParams.get('t'));
+        if (verified) { hostKey = verified.key; hostName = verified.name; }
+        else open = false;
+      }
       serverEnd.serializeAttachment({
         role: 'host', id: 0,
-        open,
+        open, hostKey,
         game: this.gameOf(url),
         code: this.codeOf(url),
-        hostName: cleanName(url.searchParams.get('name'), 'Host'),
+        hostName,
         maxPlayers: Math.max(2, Math.min(16, Number(url.searchParams.get('max')) || 8)),
         hasPassword: url.searchParams.get('pw') === '1',
       });
       if (open) await this.publish();
+      else if (url.searchParams.get('open') === '1') this.send(serverEnd, { t: 'unlisted' });
       return new Response(null, { status: 101, webSocket: clientEnd });
     }
 
     // Joining as a client requires a live host, otherwise the code is dead.
     if (!host) {
-      serverEnd.accept();
-      serverEnd.close(CLOSE_NO_HOST, 'no host for that code');
-      return new Response(null, { status: 101, webSocket: clientEnd });
+      return reject(CLOSE_NO_HOST, 'no host for that code');
     }
     if (existing.filter(s => s.role === 'client').length >= MAX_CLIENTS) {
-      serverEnd.accept();
-      serverEnd.close(CLOSE_ROOM_FULL, 'room full');
-      return new Response(null, { status: 101, webSocket: clientEnd });
+      return reject(CLOSE_ROOM_FULL, 'room full');
     }
+
+    await this.touch();
 
     // Monotonic per-room connection id. Derived from the high-water mark stored
     // on the host socket so it survives hibernation and never reuses an id.
@@ -231,6 +306,21 @@ export class Room {
   // tier budgets writes per day.
   // `leaving` is the socket currently closing: webSocketClose fires while it is
   // still in getWebSockets(), so counting it would report a player who has gone.
+  // Confirms the name is claimed by the holder of this token.
+  async verifyUser(name, token) {
+    if (!name || !token || String(token).length < 16) return null;
+    try {
+      const key = nameKey(name);
+      if (key.length < 3) return null;
+      const row = await this.env.DB.prepare('SELECT name, token_hash FROM usernames WHERE name_key = ?')
+        .bind(key).first();
+      if (!row) return null;
+      const hash = await hashToken(String(token));
+      if (row.token_hash !== hash) return null;
+      return { key, name: row.name };
+    } catch { return null; }
+  }
+
   async publish(leaving = null) {
     const host = this.hostSocket();
     if (!host) return;
@@ -238,18 +328,26 @@ export class Room {
     if (!m.open || !m.game || !m.code) return;
     const players = 1 + this.sockets().filter(s => s.role === 'client' && s.ws !== leaving).length;
     const now = Date.now();
+    this.lastPublish = now;
     try {
+      // One live listing per username — claiming a second room retires the
+      // first, so the directory cannot be flooded from one account.
+      if (m.hostKey) {
+        await this.env.DB.prepare('DELETE FROM lobbies WHERE host_key = ? AND id != ?')
+          .bind(m.hostKey, `${m.game}:${m.code}`).run();
+      }
       await this.env.DB.prepare(
-        `INSERT INTO lobbies (id, game, code, host_name, players, max_players, has_password, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `INSERT INTO lobbies (id, game, code, host_name, players, max_players, has_password, created_at, updated_at, host_key)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(id) DO UPDATE SET
            host_name = excluded.host_name,
            players = excluded.players,
            max_players = excluded.max_players,
            has_password = excluded.has_password,
-           updated_at = excluded.updated_at`
+           updated_at = excluded.updated_at,
+           host_key = excluded.host_key`
       ).bind(`${m.game}:${m.code}`, m.game, m.code, m.hostName || 'Host',
-             players, m.maxPlayers || 8, m.hasPassword ? 1 : 0, now, now).run();
+             players, m.maxPlayers || 8, m.hasPassword ? 1 : 0, now, now, m.hostKey || null).run();
     } catch {}   // the directory is best-effort; the room plays on without it
   }
 
