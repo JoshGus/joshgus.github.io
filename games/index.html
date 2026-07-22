@@ -101,98 +101,6 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
 .srv-card p{color:var(--dim);font-size:.9rem;font-weight:300;margin:0}
 .srv-card .srv-live{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
   color:var(--accent-ink);border:1px solid var(--accent-ink);border-radius:30px;padding:7px 13px;flex-shrink:0}
-.section-label{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:clamp(16px,2.5vw,26px);display:flex;align-items:center;gap:14px}
-.section-label::after{content:'';flex:1;height:1px;background:var(--line)}
-.games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:clamp(14px,2vw,22px)}
-@media(max-width:580px){.games-grid{grid-template-columns:1fr}}
-
-/* game card */
-a.game-card{display:flex;flex-direction:column;text-decoration:none;
-  background:var(--surface);border:1px solid var(--line);
-  transition:transform .4s cubic-bezier(.2,.7,.3,1),border-color .4s,box-shadow .4s}
-a.game-card:hover{transform:translateY(-8px);border-color:var(--line-strong);
-  box-shadow:0 20px 40px -24px rgba(29,23,18,.35)}
-a.game-card.coming-soon{opacity:.55;pointer-events:none}
-
-/* card thumb */
-.card-thumb{padding:clamp(20px,3vw,32px) clamp(16px,2.5vw,26px);
-  display:grid;place-items:center;overflow:hidden;
-  background:linear-gradient(135deg,#fbf3ea,#f0e1d0);
-  border-bottom:1px solid var(--line)}
-.card-thumb.has-img{padding:0;height:132px;display:block}
-.thumb-img{width:100%;height:100%;object-fit:cover;display:block;
-  transform:scale(1.08);transition:transform .55s cubic-bezier(.2,.7,.3,1)}
-a.game-card:hover .thumb-img{transform:scale(1)}
-.tiles{display:flex;gap:8px}
-.t{width:clamp(36px,7vw,50px);aspect-ratio:1;display:grid;place-items:center;
-  font-family:var(--disp);font-weight:700;font-size:clamp(1rem,2vw,1.2rem);
-  color:var(--fg);border:1px solid var(--line-strong);border-radius:5px;
-  background:#f3e8da;transition:transform .35s cubic-bezier(.2,.7,.3,1)}
-.t.correct{background:var(--accent);color:var(--fg);border-color:var(--accent)}
-.t.present{background:#dba93a;color:var(--fg);border-color:#dba93a}
-.t.absent{background:#e6d8c8;color:var(--dim);border-color:transparent}
-a.game-card:hover .tiles .t{transform:translateY(-6px)}
-a.game-card:hover .tiles .t:nth-child(2){transition-delay:.05s}
-a.game-card:hover .tiles .t:nth-child(3){transition-delay:.1s}
-a.game-card:hover .tiles .t:nth-child(4){transition-delay:.15s}
-a.game-card:hover .tiles .t:nth-child(5){transition-delay:.2s}
-
-/* card body */
-.card-body{padding:clamp(15px,2vw,20px);display:flex;flex-direction:column;gap:9px;flex:1}
-.card-body h2{font-family:var(--disp);font-weight:520;font-size:clamp(1.15rem,1.8vw,1.4rem);
-  letter-spacing:-.02em;line-height:1;font-variation-settings:"opsz" 40;transition:color .3s}
-a.game-card:hover .card-body h2{color:var(--accent-ink)}
-.card-body p{color:var(--dim);font-size:.84rem;font-weight:300;line-height:1.55;flex:1}
-.card-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:4px}
-.stack{display:flex;gap:7px;flex-wrap:wrap}
-.stack b{font-family:var(--mono);font-weight:500;font-size:.58rem;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--dim);border:1px solid var(--line-strong);
-  padding:4px 9px;border-radius:30px}
-.play-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
-  color:var(--accent-ink);display:inline-flex;gap:8px;align-items:center;white-space:nowrap}
-.play-label .arr{transition:transform .3s}
-a.game-card:hover .play-label .arr{transform:translateX(5px)}
-.soon-label{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
-  color:var(--dimmer)}
-
-/* multiplayer hub */
-/* ── game server: live directory of open games ───────────────────────── */
-.mp-server{background:var(--surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-.mp-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;
-  padding:14px 16px;border-bottom:1px solid var(--line)}
-.mp-search{flex:1;min-width:180px;padding:10px 12px;border-radius:9px;
-  border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:.9rem}
-.mp-search:focus{outline:none;border-color:var(--accent-ink)}
-.mp-filters{display:flex;gap:6px;flex-wrap:wrap}
-.mp-chip{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
-  padding:7px 12px;border:1px solid var(--line-strong);border-radius:30px;background:transparent;
-  color:var(--dim);cursor:pointer;transition:all .2s;min-height:32px}
-.mp-chip:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
-.mp-chip.on{background:var(--accent-ink);border-color:var(--accent-ink);color:var(--bg)}
-.mp-refresh{background:none;border:0;color:var(--dim);font-size:1.1rem;cursor:pointer;
-  padding:6px;border-radius:7px;min-width:36px;min-height:36px}
-.mp-refresh:hover{color:var(--fg)}
-.mp-refresh.spin{animation:mpspin .6s linear}
-@keyframes mpspin{to{transform:rotate(360deg)}}
-.mp-list{display:flex;flex-direction:column;max-height:420px;overflow-y:auto}
-.mp-empty{padding:26px 18px;text-align:center;color:var(--dim);font-size:.9rem}
-.mp-row{display:flex;align-items:center;gap:14px;padding:13px 16px;
-  border-bottom:1px solid var(--line);text-decoration:none;color:inherit;transition:background .15s}
-.mp-row:last-child{border-bottom:0}
-.mp-row:hover{background:rgba(204,247,63,.1)}
-.mp-row.full{opacity:.5;pointer-events:none}
-.mp-who{flex:1;min-width:0}
-.mp-who b{display:block;font-size:.98rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mp-who span{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
-.mp-count{font-family:var(--mono);font-size:.72rem;color:var(--dim);flex-shrink:0}
-.mp-go{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
-  color:var(--accent-ink);flex-shrink:0}
-.mp-host-row{display:flex;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--line);
-  background:var(--bg)}
-.mp-host-row a{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
-  padding:9px 14px;border:1px solid var(--line-strong);border-radius:30px;color:var(--fg);
-  text-decoration:none;transition:all .2s}
-.mp-host-row a:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
 .mp-actions{display:flex;gap:10px;margin-top:2px}
 .mp-actions a{flex:1;text-align:center;text-decoration:none;font-family:var(--mono);font-size:.66rem;
   letter-spacing:.1em;text-transform:uppercase;padding:10px;border-radius:8px;border:1px solid var(--line-strong);
@@ -228,7 +136,6 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
     </div>
     <span class="srv-live" id="srv-live">Open games &rarr;</span>
   </a>
-  </div>
   <div>
     <div class="section-label">Games</div>
     <div class="games-grid" id="games-grid"></div>

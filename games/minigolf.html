@@ -1407,6 +1407,18 @@ document.getElementById('clubs').addEventListener('click',function(e){ e.stopPro
 
 // Daily leaderboard. Imported lazily so a network problem here can never stop
 // the win card from appearing — the board is an extra, not the result.
+// Viewable any time, not only after holing out. Exposed on window because the
+// button is wired from the small script after this IIFE closes.
+window.golfOpenLeaderboard=golfOpenLeaderboard;
+function golfOpenLeaderboard(){
+  import('./net/leaderboard.js').then(function(LB){
+    var day=/^\d{8}$/.test(String(SEED))
+      ? String(SEED).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3')
+      : LB.today();
+    LB.openLeaderboard('minigolf',{title:'Daily Links — leaderboard',day:day});
+  }).catch(function(){});
+}
+
 function golfShowLeaderboard(shotCount){
   var box=document.getElementById('win-lb'); if(!box) return;
   box.innerHTML='';
@@ -1502,6 +1514,7 @@ requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
 
 })();
 </script>
+<button class="notes-toggle" id="lb-toggle" style="right:auto;left:6px">&#127942; Board</button>
 <button class="notes-toggle" id="notes-toggle">How it works</button>
 <div class="notes-section" id="notes-section">
   <div class="notes-inner">
@@ -1537,6 +1550,8 @@ requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
 <script>
 var nt=document.getElementById('notes-toggle'),ns=document.getElementById('notes-section');
 if(nt&&ns){nt.addEventListener('click',function(){ns.classList.toggle('open');nt.textContent=ns.classList.contains('open')?'Hide notes':'How it works';});}
+var lbt=document.getElementById('lb-toggle');
+if(lbt)lbt.addEventListener('click',golfOpenLeaderboard);
 </script>
 </body>
 </html>

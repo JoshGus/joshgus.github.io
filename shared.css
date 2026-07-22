@@ -113,7 +113,10 @@ body.noise::after {
 /* ── dark mode ──────────────────────────────────────────────────────── */
 html.dark {
   --bg:#141210; --surface:#1c1916; --fg:#ede3d8;
-  --dim:#8c7f70; --dimmer:#4a4540;
+  /* --dimmer was #4a4540, which is only 1.97:1 on the dark background — small
+     de-emphasised text (dates, labels, captions) was effectively unreadable.
+     #7a736a is ~4:1 while still sitting clearly below --dim's 4.8:1. */
+  --dim:#8c7f70; --dimmer:#7a736a;
   --accent:#ccf73f; --accent-ink:#b0d428;
   --line:rgba(237,227,216,.1); --line-strong:rgba(237,227,216,.22);
 }

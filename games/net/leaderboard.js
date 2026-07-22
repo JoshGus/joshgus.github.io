@@ -116,6 +116,67 @@ export async function promptForName(container, onDone) {
   input.focus();
 }
 
+/**
+ * Opens the board as an overlay, any time — you do not have to finish a round
+ * to look. Arrows step back through previous days; today is the right-hand
+ * limit since a future board cannot exist.
+ */
+export function openLeaderboard(game, opts = {}) {
+  injectStyles();
+  const title = opts.title || 'Daily leaderboard';
+  let day = opts.day || today();
+
+  const wrap = document.createElement('div');
+  wrap.className = 'lb-overlay';
+  wrap.innerHTML = `
+    <div class="lb-modal" role="dialog" aria-modal="true" aria-label="${esc(title)}">
+      <button class="lb-x" aria-label="Close">&times;</button>
+      <div class="lb-head">${esc(title)}</div>
+      <div class="lb-daybar">
+        <button class="lb-day-btn" data-step="-1" aria-label="Previous day">&#8249;</button>
+        <span class="lb-day"></span>
+        <button class="lb-day-btn" data-step="1" aria-label="Next day">&#8250;</button>
+      </div>
+      <div class="lb-body"></div>
+    </div>`;
+  document.body.appendChild(wrap);
+
+  const body = wrap.querySelector('.lb-body');
+  const label = wrap.querySelector('.lb-day');
+  const next = wrap.querySelector('[data-step="1"]');
+
+  const shift = (iso, days) => {
+    const [y, m, d] = iso.split('-').map(Number);
+    const dt = new Date(y, m - 1, d + days);
+    return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+  };
+  const pretty = (iso) => {
+    if (iso === today()) return 'Today';
+    if (iso === shift(today(), -1)) return 'Yesterday';
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  async function draw() {
+    label.textContent = pretty(day);
+    next.disabled = day === today();     // no future boards
+    await renderBoard(body, game, { day, limit: opts.limit || 20,
+      emptyText: day === today() ? 'No scores yet today — be first.' : 'Nobody posted a score that day.' });
+  }
+  wrap.querySelectorAll('.lb-day-btn').forEach(b => {
+    b.onclick = () => { day = shift(day, Number(b.dataset.step)); draw(); };
+  });
+
+  const close = () => { wrap.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  wrap.querySelector('.lb-x').onclick = close;
+  wrap.onclick = (e) => { if (e.target === wrap) close(); };
+  document.addEventListener('keydown', onKey);
+
+  draw();
+  return { close };
+}
+
 /** Shared styles, injected once per page. */
 export function injectStyles() {
   if (document.getElementById('lb-styles')) return;
@@ -127,18 +188,43 @@ export function injectStyles() {
       font-family:var(--mono,monospace);font-size:.72rem}
     .lb-row.me{background:rgba(204,247,63,.16);font-weight:700}
     .lb-rank{width:1.4em;text-align:right;opacity:.6;flex-shrink:0}
-    .lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:inherit}
+    .lb-name{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+      font-family:var(--body,system-ui,sans-serif);font-size:.9rem;letter-spacing:0;text-transform:none}
     .lb-score{flex-shrink:0;opacity:.85}
     .lb-note{font-family:var(--mono,monospace);font-size:.58rem;letter-spacing:.06em;
       opacity:.55;margin-top:9px;text-align:center}
     .lb-claim label{display:block;font-family:var(--mono,monospace);font-size:.6rem;
-      letter-spacing:.1em;text-transform:uppercase;opacity:.7;margin-bottom:7px}
+      letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-bottom:8px;line-height:1.4}
     .lb-claim-row{display:flex;gap:7px}
-    .lb-claim-in{flex:1;min-width:0;padding:9px 10px;border-radius:8px;font:inherit;font-size:.9rem;
-      border:1px solid rgba(128,128,128,.4);background:rgba(255,255,255,.06);color:inherit}
-    .lb-claim-go{padding:9px 14px;border-radius:8px;border:0;font:inherit;font-weight:700;
-      cursor:pointer;background:#5e7d0f;color:#fff;min-height:38px}
+    .lb-claim-in{flex:1;min-width:0;padding:10px 11px;border-radius:8px;
+      font-family:var(--body,system-ui,sans-serif);font-size:.95rem;font-weight:400;letter-spacing:0;
+      text-transform:none;line-height:1.3;
+      border:1px solid rgba(128,128,128,.45);background:rgba(255,255,255,.07);color:inherit}
+    .lb-claim-go{padding:10px 16px;border-radius:8px;border:0;
+      font-family:var(--body,system-ui,sans-serif);font-size:.9rem;font-weight:600;letter-spacing:0;
+      text-transform:none;cursor:pointer;background:#5e7d0f;color:#fff;min-height:40px;white-space:nowrap}
     .lb-claim-go:disabled{opacity:.5;cursor:default}
-    .lb-claim-msg{font-family:var(--mono,monospace);font-size:.62rem;opacity:.75;margin-top:6px;min-height:1em}`;
+    .lb-claim-msg{font-family:var(--mono,monospace);font-size:.62rem;opacity:.75;margin-top:6px;min-height:1em}
+    /* overlay — the games it sits over are dark, so it brings its own surface
+       rather than inheriting whatever the page happens to use */
+    .lb-overlay{position:fixed;inset:0;z-index:400;display:grid;place-items:center;
+      background:rgba(6,10,6,.72);backdrop-filter:blur(4px);padding:18px}
+    .lb-modal{width:min(420px,100%);max-height:82vh;overflow-y:auto;position:relative;
+      background:var(--surface,#fdf5ea);color:var(--fg,#1d1712);
+      border:1px solid var(--line,rgba(0,0,0,.14));border-radius:14px;
+      padding:22px 20px 18px;box-shadow:0 30px 70px -30px rgba(0,0,0,.7)}
+    .lb-x{position:absolute;top:9px;right:11px;background:none;border:0;cursor:pointer;
+      font-size:1.5rem;line-height:1;color:var(--dim,#8a7a66);padding:6px;min-width:38px;min-height:38px}
+    .lb-x:hover{color:var(--fg,#1d1712)}
+    .lb-head{font-family:var(--disp,sans-serif);font-weight:560;font-size:1.25rem;
+      letter-spacing:-.01em;margin-bottom:12px;padding-right:30px}
+    .lb-daybar{display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:14px}
+    .lb-day{font-family:var(--mono,monospace);font-size:.68rem;letter-spacing:.12em;
+      text-transform:uppercase;color:var(--dim,#8a7a66);min-width:11ch;text-align:center}
+    .lb-day-btn{background:none;border:1px solid var(--line-strong,rgba(0,0,0,.3));border-radius:8px;
+      color:var(--fg,#1d1712);cursor:pointer;font-size:1rem;line-height:1;
+      min-width:38px;min-height:38px;transition:border-color .15s,opacity .15s}
+    .lb-day-btn:hover:not(:disabled){border-color:var(--accent-ink,#5e7d0f);color:var(--accent-ink,#5e7d0f)}
+    .lb-day-btn:disabled{opacity:.3;cursor:default}`;
   document.head.appendChild(s);
 }
