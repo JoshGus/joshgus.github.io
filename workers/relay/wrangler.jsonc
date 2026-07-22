@@ -10,6 +10,14 @@
   // Uncomment, deploy, and Cloudflare creates the DNS record for you.
   "routes": [{ "pattern": "relay.joshg.us", "custom_domain": true }],
 
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "joshgus-games",
+      "database_id": "18236300-b5d1-45b9-a4ee-490de7f15f7c"
+    }
+  ],
+
   "durable_objects": {
     "bindings": [{ "name": "ROOMS", "class_name": "Room" }]
   },

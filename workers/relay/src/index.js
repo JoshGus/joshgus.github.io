@@ -19,6 +19,13 @@
 // A client cannot address another client: the relay ignores `to` from clients
 // and always forwards to the host. That keeps the star topology enforceable at
 // the edge rather than by convention.
+//
+// INVARIANT — this Worker must never read, log or store a player's IP address.
+// Hiding addresses from other players is the entire reason the transport is a
+// relay instead of WebRTC. Cloudflare necessarily sees the connection, but
+// nothing here should put an address anywhere we control: no CF-Connecting-IP,
+// no IP column in the lobby table, no console.log of request metadata. The only
+// request header read is the WebSocket Upgrade check.
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MAX_FRAME_BYTES = 96 * 1024;   // generous vs the host's own 24KB cmd cap,
@@ -30,6 +37,24 @@ const MAX_CLIENTS = 16;              // hard ceiling; the host enforces its own
 // and cost nothing. This exists for the case that *does* cost: a host tab left
 // open for days, whose heartbeats keep waking the object forever.
 const IDLE_MS = 30 * 60 * 1000;
+
+// A listed lobby whose room hasn't checked in for this long is treated as gone.
+// Rooms delete their own row on shutdown; this covers the case where a DO dies
+// without getting the chance (eviction mid-crash, a deploy, etc.).
+const LOBBY_STALE_MS = 3 * 60 * 1000;
+
+// Display names come from a browser, so they are treated as hostile: strip
+// anything non-printable, collapse whitespace, and cap the length. This is
+// deliberately conservative — it is a name in a public list, not rich text.
+function cleanName(raw, fallback = 'Player') {
+  const s = String(raw == null ? '' : raw)
+    .replace(/[\u0000-\u001F\u007F-\u009F]/g, '')  // control chars
+    .replace(/[\u200B-\u200F\u202A-\u202E\uFEFF]/g, '') // zero-width / bidi overrides
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 24);
+  return s || fallback;
+}
 
 // Close codes (4000+ is the application-defined range)
 const CLOSE_ROOM_TAKEN = 4001;
@@ -43,6 +68,32 @@ export default {
 
     if (url.pathname === '/health') {
       return new Response('ok', { headers: { 'Cache-Control': 'no-store' } });
+    }
+
+    // Public directory of open lobbies. Read-only: rooms publish themselves
+    // from the Durable Object, so there is no client-writable path here.
+    if (url.pathname === '/lobbies') {
+      const cors = {
+        'Access-Control-Allow-Origin': '*',
+        'Content-Type': 'application/json',
+        'Cache-Control': 'no-store',
+      };
+      if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
+      if (request.method !== 'GET') return new Response('{"error":"method"}', { status: 405, headers: cors });
+      try {
+        const game = url.searchParams.get('game');
+        const fresh = Date.now() - LOBBY_STALE_MS;
+        const sql = game
+          ? 'SELECT game, code, host_name, players, max_players, has_password, created_at FROM lobbies WHERE game = ? AND updated_at > ? ORDER BY updated_at DESC LIMIT 100'
+          : 'SELECT game, code, host_name, players, max_players, has_password, created_at FROM lobbies WHERE updated_at > ? ORDER BY updated_at DESC LIMIT 100';
+        const stmt = game ? env.DB.prepare(sql).bind(game, fresh) : env.DB.prepare(sql).bind(fresh);
+        const { results } = await stmt.all();
+        return new Response(JSON.stringify({ lobbies: results || [] }), { headers: cors });
+      } catch (e) {
+        // A directory outage must not take multiplayer with it — join-by-code
+        // keeps working regardless.
+        return new Response(JSON.stringify({ lobbies: [], error: 'unavailable' }), { status: 200, headers: cors });
+      }
     }
 
     // /room/<gameId>/<CODE>
@@ -101,6 +152,7 @@ export class Room {
     const last = (await this.state.storage.get('last')) || 0;
     const idle = Date.now() - last;
     if (idle >= IDLE_MS) {
+      await this.retract();
       for (const ws of sockets) { try { ws.close(1000, 'room idle'); } catch {} }
       await this.state.storage.deleteAll();
       return;
@@ -131,7 +183,17 @@ export class Room {
         return new Response(null, { status: 101, webSocket: clientEnd });
       }
       this.state.acceptWebSocket(serverEnd);
-      serverEnd.serializeAttachment({ role: 'host', id: 0 });
+      const open = url.searchParams.get('open') === '1';
+      serverEnd.serializeAttachment({
+        role: 'host', id: 0,
+        open,
+        game: this.gameOf(url),
+        code: this.codeOf(url),
+        hostName: cleanName(url.searchParams.get('name'), 'Host'),
+        maxPlayers: Math.max(2, Math.min(16, Number(url.searchParams.get('max')) || 8)),
+        hasPassword: url.searchParams.get('pw') === '1',
+      });
+      if (open) await this.publish();
       return new Response(null, { status: 101, webSocket: clientEnd });
     }
 
@@ -156,8 +218,48 @@ export class Room {
     this.state.acceptWebSocket(serverEnd);
     serverEnd.serializeAttachment({ role: 'client', id: nextId });
     this.send(host.ws, { t: 'open', id: nextId });
+    await this.publish();   // player count changed
 
     return new Response(null, { status: 101, webSocket: clientEnd });
+  }
+
+  gameOf(url) { const m = url.pathname.match(/^\/room\/([^/]+)\//); return m ? m[1].toLowerCase() : ''; }
+  codeOf(url) { const m = url.pathname.match(/\/([^/]+)$/);            return m ? m[1].toUpperCase() : ''; }
+
+  // Writes this room into the public directory. Called on host connect and
+  // whenever the player count changes — never on every message, since D1's free
+  // tier budgets writes per day.
+  // `leaving` is the socket currently closing: webSocketClose fires while it is
+  // still in getWebSockets(), so counting it would report a player who has gone.
+  async publish(leaving = null) {
+    const host = this.hostSocket();
+    if (!host) return;
+    const m = this.meta(host.ws);
+    if (!m.open || !m.game || !m.code) return;
+    const players = 1 + this.sockets().filter(s => s.role === 'client' && s.ws !== leaving).length;
+    const now = Date.now();
+    try {
+      await this.env.DB.prepare(
+        `INSERT INTO lobbies (id, game, code, host_name, players, max_players, has_password, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(id) DO UPDATE SET
+           host_name = excluded.host_name,
+           players = excluded.players,
+           max_players = excluded.max_players,
+           has_password = excluded.has_password,
+           updated_at = excluded.updated_at`
+      ).bind(`${m.game}:${m.code}`, m.game, m.code, m.hostName || 'Host',
+             players, m.maxPlayers || 8, m.hasPassword ? 1 : 0, now, now).run();
+    } catch {}   // the directory is best-effort; the room plays on without it
+  }
+
+  async retract() {
+    const host = this.hostSocket();
+    const m = host ? this.meta(host.ws) : (this.lastListing || {});
+    if (!m.game || !m.code) return;
+    try {
+      await this.env.DB.prepare('DELETE FROM lobbies WHERE id = ?').bind(`${m.game}:${m.code}`).run();
+    } catch {}
   }
 
   send(ws, obj) {
@@ -214,6 +316,10 @@ export class Room {
       this.alarmArmed = false;
     }
     if (me.role === 'host') {
+      // Remember the listing key: once the socket is gone we can no longer read
+      // it back off the host to delete the row.
+      this.lastListing = { game: me.game, code: me.code };
+      await this.retract();
       // The room dies with its host — tell everyone so they can surface it
       // rather than sitting in a silent lobby.
       for (const s of this.sockets()) {
@@ -225,5 +331,6 @@ export class Room {
     }
     const host = this.hostSocket();
     if (host) this.send(host.ws, { t: 'close', id: me.id });
+    await this.publish(ws);   // player count changed
   }
 }

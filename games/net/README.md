@@ -95,6 +95,40 @@ What this trades away:
 
 ---
 
+## Open lobbies
+
+Rooms are unlisted by default. `hostRoom({ open: true })` publishes one to a
+public directory that `listLobbies(gameId)` reads back, and the lobby UI shows
+under "Open games" on the Join tab.
+
+**The Durable Object writes the directory, not the browser.** The DO is the only
+party that actually knows a room exists and how many players are in it, so a
+client cannot advertise a room that isn't there, inflate a player count, or keep
+a dead room listed. Rows are written on host connect and on every membership
+change — never per message, since D1's free tier budgets writes per day — and
+deleted when the host leaves or the room is reaped.
+
+The table carries **no IP column and never should**. Hiding addresses is the
+reason the transport is a relay at all; a public directory keyed by address
+would hand straight back what that bought. The Worker does not read
+`CF-Connecting-IP` anywhere, and the only request header it touches is the
+WebSocket `Upgrade` check — there is a comment saying so at the top of
+`workers/relay/src/index.js`.
+
+Host display names are treated as hostile input: control characters,
+zero-width and bidi-override characters are stripped, whitespace collapsed, and
+the result capped at 24 characters (`cleanName` in the Worker). Sanitizing
+happens **server-side**, so it applies no matter what the client sends. There is
+no profanity filtering yet — worth adding before this is promoted anywhere busy.
+
+Stale rows are filtered on read (`updated_at` within 3 minutes) as a backstop
+for a DO that dies without getting to clean up.
+
+The directory is best-effort: if D1 is unavailable the endpoint returns an empty
+list rather than an error, and join-by-code is unaffected.
+
+---
+
 ## Integration guide
 
 ```js

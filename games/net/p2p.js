@@ -63,8 +63,32 @@ function relayBase() {
   return String(base).replace(/\/+$/, '');
 }
 
-function roomUrl(gameId, code, role) {
-  return `${relayBase()}/room/${encodeURIComponent(gameId)}/${encodeURIComponent(code)}?role=${role}`;
+function roomUrl(gameId, code, role, listing) {
+  let u = `${relayBase()}/room/${encodeURIComponent(gameId)}/${encodeURIComponent(code)}?role=${role}`;
+  // Listing details ride on the handshake so the Durable Object publishes the
+  // directory row itself. A browser never writes to the directory — it cannot
+  // advertise a room that doesn't exist or lie about how full one is.
+  if (listing) {
+    u += '&open=1'
+       + `&name=${encodeURIComponent(listing.hostName || 'Host')}`
+       + `&max=${encodeURIComponent(listing.maxPlayers || 8)}`
+       + (listing.hasPassword ? '&pw=1' : '');
+  }
+  return u;
+}
+
+// Open lobbies for a game (or all games when omitted). Never throws: the
+// directory is a convenience, and join-by-code works without it.
+export async function listLobbies(gameId) {
+  try {
+    const url = `${relayBase().replace(/^ws/, 'http')}/lobbies` + (gameId ? `?game=${encodeURIComponent(gameId)}` : '');
+    const res = await fetch(url, { cache: 'no-store' });
+    if (!res.ok) return [];
+    const data = await res.json();
+    return Array.isArray(data.lobbies) ? data.lobbies : [];
+  } catch {
+    return [];
+  }
 }
 
 // Opens a socket, or rejects with an Error carrying the relay's close code so
@@ -141,6 +165,9 @@ class TokenBucket {
 //   hostName    string   — display name for the host player
 //   password    string?  — optional; clients must supply the same string
 //   maxPlayers  number   — including the host (default 8)
+//   open        boolean? — list this room in the public directory (see
+//                          listLobbies). Off by default: rooms are unlisted
+//                          unless the host opts in.
 //   rate        {cmdsPerSec, burst, strikeLimit}  — per-client command limits
 //   hooks:
 //     validate(player, cmd) → boolean | cmd'   REQUIRED. Return false to reject a
@@ -176,6 +203,8 @@ export async function hostRoom(opts) {
   if (typeof hooks.validate !== 'function') {
     throw new Error('hostRoom: hooks.validate is required (host-authoritative validation)');
   }
+  // Needed before the socket opens, since the listing rides on the handshake.
+  const hostPlayer0Name = (opts.hostName || 'Host').slice(0, 24);
 
   const clients = new Map();   // relay connection id → clientRec
   let nextSlot = 1;            // slot 0 is the host
@@ -186,7 +215,9 @@ export async function hostRoom(opts) {
   for (let attempt = 0; attempt < 6; attempt++) {
     code = makeCode();
     try {
-      ws = await openSocket(roomUrl(gameId, code, 'host'));
+      ws = await openSocket(roomUrl(gameId, code, 'host', opts.open ? {
+        hostName: hostPlayer0Name, maxPlayers, hasPassword: !!password,
+      } : null));
       break;
     } catch (e) {
       if (e && e.code === CLOSE_ROOM_TAKEN && attempt < 5) continue;

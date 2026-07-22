@@ -20,7 +20,7 @@
 // use onEvent freely.
 // ─────────────────────────────────────────────────────────────────────────────
 
-import { hostRoom, joinRoom } from './p2p.js';
+import { hostRoom, joinRoom, listLobbies } from './p2p.js';
 
 const CSS = `
 .mpl-backdrop{position:fixed;inset:0;z-index:9999;display:grid;place-items:center;
@@ -45,6 +45,25 @@ const CSS = `
 .mpl-code-in{text-transform:uppercase;letter-spacing:.28em;font-family:var(--mono,monospace)!important;
   font-size:1.3rem!important;text-align:center}
 .mpl-toggle{display:flex;align-items:center;gap:9px;cursor:pointer;font-size:.9rem;color:var(--fg,#1d1712);user-select:none}
+/* open-game directory */
+.mpl-open-wrap{margin-top:18px;border-top:1px solid var(--line,rgba(29,23,18,.14));padding-top:14px}
+.mpl-open-head{display:flex;align-items:center;justify-content:space-between;
+  font-family:var(--mono,monospace);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim,#8a7a66);margin-bottom:9px}
+.mpl-refresh{background:none;border:0;cursor:pointer;color:var(--dim,#8a7a66);font-size:1rem;
+  line-height:1;padding:6px;border-radius:6px;min-width:32px;min-height:32px}
+.mpl-refresh:hover{color:var(--fg,#1d1712)}
+.mpl-open-list{display:flex;flex-direction:column;gap:6px;max-height:34vh;overflow-y:auto}
+.mpl-open-empty{font-size:.85rem;color:var(--dim,#8a7a66);padding:6px 2px}
+.mpl-open-row{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;
+  padding:11px 12px;border:1px solid var(--line,rgba(29,23,18,.14));border-radius:9px;
+  background:transparent;font:inherit;color:inherit;cursor:pointer;text-align:left;
+  transition:border-color .15s,background .15s}
+.mpl-open-row:hover:not(:disabled){border-color:var(--accent-ink,#5e7d0f);background:rgba(204,247,63,.08)}
+.mpl-open-row:disabled{opacity:.45;cursor:default}
+.mpl-open-name{font-weight:600;font-size:.92rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mpl-open-meta{font-family:var(--mono,monospace);font-size:.68rem;color:var(--dim,#8a7a66);flex-shrink:0}
+.mpl-lock{font-size:.8em}
 .mpl-toggle input{width:17px;height:17px;accent-color:var(--accent-ink,#7a8c1f)}
 .mpl-btn{width:100%;padding:13px;border:0;border-radius:9px;font:inherit;font-weight:700;font-size:1rem;
   cursor:pointer;background:var(--accent-ink,#3a4a12);color:#fff;transition:.2s;margin-top:6px}
@@ -146,7 +165,7 @@ export function openLobby(opts) {
     card.innerHTML = `
       <button class="mpl-x" title="Close">&times;</button>
       <h2>${esc(gameName)}</h2>
-      <p class="mpl-sub">Play together · peer-to-peer</p>
+      <p class="mpl-sub">Play together · your IP stays private</p>
       <div class="mpl-tabs">
         <button class="mpl-tab ${urlCode ? '' : 'active'}" data-tab="host">Host</button>
         <button class="mpl-tab ${urlCode ? 'active' : ''}" data-tab="join">Join</button>
@@ -167,6 +186,7 @@ export function openLobby(opts) {
       <div class="mpl-field"><label>Your name</label><input type="text" id="mpl-name" maxlength="24" placeholder="Host" value="${esc(localStorage.getItem('mpl-name') || '')}"></div>
       <label class="mpl-toggle" style="margin-bottom:12px"><input type="checkbox" id="mpl-usepw"> Require a password</label>
       <div class="mpl-field" id="mpl-pw-wrap" style="display:none"><label>Password</label><input type="password" id="mpl-pw" maxlength="40"></div>
+      <label class="mpl-toggle" style="margin-bottom:12px"><input type="checkbox" id="mpl-open"> List publicly <span style="color:var(--dim,#8a7a66);font-size:.8em">(anyone can find and join)</span></label>
       <div class="mpl-status"></div>
       <button class="mpl-btn" id="mpl-host-btn">Create game</button>`;
     statusEl = body.querySelector('.mpl-status');
@@ -182,6 +202,7 @@ export function openLobby(opts) {
       try {
         net = await hostRoom({
           gameId, hostName: name, password, maxPlayers,
+          open: body.querySelector('#mpl-open').checked,
           hooks: opts.hostHooks || {},
         });
         role = 'host';
@@ -244,8 +265,36 @@ export function openLobby(opts) {
       <div class="mpl-field"><label>Your name</label><input type="text" id="mpl-jname" maxlength="24" placeholder="Player" value="${esc(localStorage.getItem('mpl-name') || '')}"></div>
       <div class="mpl-field"><label>Password (if any)</label><input type="password" id="mpl-jpw" maxlength="40"></div>
       <div class="mpl-status"></div>
-      <button class="mpl-btn" id="mpl-join-btn">Join game</button>`;
+      <button class="mpl-btn" id="mpl-join-btn">Join game</button>
+      <div class="mpl-open-wrap">
+        <div class="mpl-open-head">Open games <button class="mpl-refresh" id="mpl-refresh" title="Refresh">&#8635;</button></div>
+        <div id="mpl-open-list" class="mpl-open-list">Loading&hellip;</div>
+      </div>`;
     statusEl = body.querySelector('.mpl-status');
+
+    // Public directory. Purely a convenience — if it fails, join-by-code is
+    // unaffected, so failures are shown inline rather than as an error state.
+    const listEl = body.querySelector('#mpl-open-list');
+    async function refreshOpen() {
+      listEl.textContent = 'Loading…';
+      const rows = await listLobbies(gameId);
+      if (!rows.length) { listEl.innerHTML = '<div class="mpl-open-empty">No open games right now</div>'; return; }
+      listEl.innerHTML = rows.map(r => {
+        const full = r.players >= r.max_players;
+        return `<button class="mpl-open-row" data-code="${esc(r.code)}"${full ? ' disabled' : ''}>
+            <span class="mpl-open-name">${esc(r.host_name)}${r.has_password ? ' <span class="mpl-lock" title="Password required">&#128274;</span>' : ''}</span>
+            <span class="mpl-open-meta">${r.players}/${r.max_players}${full ? ' &middot; full' : ''}</span>
+          </button>`;
+      }).join('');
+      listEl.querySelectorAll('.mpl-open-row').forEach(btn => {
+        btn.onclick = () => {
+          body.querySelector('#mpl-code').value = btn.dataset.code;
+          body.querySelector('#mpl-jpw').focus();
+        };
+      });
+    }
+    body.querySelector('#mpl-refresh').onclick = refreshOpen;
+    refreshOpen();
     body.querySelector('#mpl-join-btn').onclick = async () => {
       const code = body.querySelector('#mpl-code').value.trim().toUpperCase();
       const name = body.querySelector('#mpl-jname').value.trim() || 'Player';
