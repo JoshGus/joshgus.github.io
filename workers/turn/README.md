@@ -77,5 +77,12 @@ the browser asks it for credentials, and only it holds the token.
 - **Both peers must relay** for both IPs to be hidden. If only one side is
   relay-only, the other still offers its direct candidate and reveals its
   address. This is why the lobby now defaults "Hide my IP" to **on**.
-- **Relaying is not free.** Cloudflare bills TURN egress beyond the free
-  allowance; these games send tiny messages, but watch it if usage grows.
+- **Cost: effectively free here.** Cloudflare Realtime TURN includes
+  [1,000 GB/month free](https://developers.cloudflare.com/realtime/turn/faq/),
+  then $0.05/GB, billed on egress only (edge → client; inbound is free). These
+  games relay small command/state messages rather than audio or video — even at
+  a generous 50 KB/s per player that is ~180 MB/hour, so the allowance covers
+  thousands of player-hours a month. Note the free allowance is shared with
+  Realtime SFU if you ever use that too.
+- **A self-serve account needs a card on file** even though the usage itself
+  falls inside the free allowance.
