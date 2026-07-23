@@ -2300,8 +2300,16 @@ function applyPoolState(s){
   if(onlineReplaying||replaying){ pendingOnlineState=s; return; }   // defer until any replay ends
   mode='classic';
   var keepHist=(game&&game.history)?game.history:[];   // host strips history; keep ours
+  // While the guest holds ball-in-hand for its own turn (granted, not yet shot),
+  // it owns the cue position. A snapshot — in particular one deferred past the
+  // cosmetic replay that hands over the turn — must sync the object balls without
+  // yanking the cue back to where the host last had it (which snapped placement
+  // to the default). The placed position rides to the host in intent.cue anyway.
+  var holdCue=(onlineHadBIH && poolRole!=='host') ? cueBall() : null;
+  var keep=holdCue?{x:holdCue.x,y:holdCue.y}:null;
   game=s.game; game.history=keepHist;
   if(s.balls) restoreBalls(s.balls);
+  if(keep){ var c=cueBall(); if(c){ c.x=keep.x; c.y=keep.y; c.vx=c.vy=0; c.potted=false; } }
   updateClassicHUD(); render();
 }
 
