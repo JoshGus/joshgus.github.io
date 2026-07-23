@@ -47,6 +47,74 @@ const CONNECT_TIMEOUT_MS = 15000;   // give up if the relay never opens the sock
 const HEARTBEAT_MS = 20000;
 const DROP_MS = 50000;              // no traffic for this long ⇒ treat peer as gone
 
+// ── reconnection ─────────────────────────────────────────────────────────────
+// A WebSocket to the edge drops for all the usual reasons — a phone changing
+// networks, a laptop sleeping, a flaky café AP. Rather than end the game, both
+// roles transparently re-open the socket and resume:
+//
+//   • A CLIENT reopens, re-sends hello with the resume token the host gave it,
+//     and the host maps it back to the SAME player slot. The relay assigns a new
+//     connection id on reconnect, so seat identity is the token, not the id.
+//   • A HOST reopens the same room code, proving itself with a host token it
+//     minted (see the relay's HOST_GRACE_MS). The relay keeps the room and its
+//     clients alive during the gap instead of tearing everything down.
+//
+// The host holds a dropped client's seat for CLIENT_GRACE_MS before giving up on
+// it (onLeave). These windows are sized so a peer's own reconnect deadline is
+// comfortably inside the window the other side is willing to wait.
+const CLIENT_GRACE_MS = 60000;         // host holds a dropped client's seat this long
+const CLIENT_RECONNECT_MS = 50000;     // a client keeps trying to get back for this long
+const HOST_RECONNECT_MS = 40000;       // a host keeps trying to retake its room for this long
+const RECONNECT_BASE_MS = 500;         // first retry delay; doubles each attempt…
+const RECONNECT_CAP_MS = 5000;         // …up to this ceiling, plus jitter
+
+function makeToken() {
+  const b = crypto.getRandomValues(new Uint8Array(16));
+  return [...b].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+function backoff(attempt) {
+  return Math.min(RECONNECT_CAP_MS, RECONNECT_BASE_MS * 2 ** attempt) + Math.random() * 300;
+}
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+
+// ── shared "reconnecting…" banner ────────────────────────────────────────────
+// A single lightweight toast, driven by whichever controller is on the page, so
+// every game shows the same indicator without any per-game code. Games that want
+// custom UI can also read hooks.onNetStatus(state) — 'reconnecting' | 'online'.
+let _banner = null;
+function ensureBanner() {
+  if (_banner || typeof document === 'undefined' || !document.body) return _banner;
+  const st = document.createElement('style');
+  st.textContent = '@keyframes mplPulse{0%,100%{opacity:1}50%{opacity:.25}}';
+  document.head.appendChild(st);
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;left:50%;top:14px;transform:translateX(-50%);z-index:2147483647;'
+    + 'display:none;gap:9px;align-items:center;pointer-events:none;'
+    + 'background:rgba(20,16,12,.92);color:#fff;border-radius:999px;padding:9px 16px;'
+    + 'font:600 13px/1.3 var(--body,system-ui,sans-serif);box-shadow:0 8px 24px rgba(0,0,0,.35);'
+    + 'opacity:0;transition:opacity .2s';
+  const dot = document.createElement('span');
+  dot.style.cssText = 'width:8px;height:8px;border-radius:50%;background:#f0b429;animation:mplPulse 1s infinite';
+  const txt = document.createElement('span');
+  el.append(dot, txt);
+  document.body.appendChild(el);
+  el._txt = txt;
+  _banner = el;
+  return el;
+}
+function showBanner(text) {
+  const el = ensureBanner();
+  if (!el) return;
+  el._txt.textContent = text;
+  el.style.display = 'flex';
+  requestAnimationFrame(() => { el.style.opacity = '1'; });
+}
+function hideBanner() {
+  if (!_banner) return;
+  _banner.style.opacity = '0';
+  setTimeout(() => { if (_banner) _banner.style.display = 'none'; }, 250);
+}
+
 // Room codes: 4 unambiguous chars (no 0/O/1/I/etc). ~800k combinations — enough
 // that random collisions are rare; we retry on the off chance one happens.
 const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -63,8 +131,11 @@ function relayBase() {
   return String(base).replace(/\/+$/, '');
 }
 
-function roomUrl(gameId, code, role, listing) {
+function roomUrl(gameId, code, role, listing, hostToken) {
   let u = `${relayBase()}/room/${encodeURIComponent(gameId)}/${encodeURIComponent(code)}?role=${role}`;
+  // The host presents its token on every connect so a reconnect can prove it is
+  // the same host and retake the room during its grace window.
+  if (role === 'host' && hostToken) u += `&ht=${encodeURIComponent(hostToken)}`;
   // Listing details ride on the handshake so the Durable Object publishes the
   // directory row itself. A browser never writes to the directory — it cannot
   // advertise a room that doesn't exist or lie about how full one is.
@@ -215,24 +286,42 @@ export async function hostRoom(opts) {
   let nextSlot = 1;            // slot 0 is the host
   let errCb = () => {};
 
+  // Minted once. The host re-presents it on every (re)connect so the relay can
+  // recognise a reconnecting host and hand the room back rather than treating it
+  // as a stranger grabbing an idle code. See roomUrl / the relay's HOST_GRACE_MS.
+  const hostToken = makeToken();
+  const listing = opts.open ? {
+    hostName: hostPlayer0Name, maxPlayers, hasPassword: !!password,
+    username: opts.username, token: opts.token,
+  } : null;
+
+  let ws;
+  let hostConnected = false;   // is our own socket to the relay currently up?
+  let intentionalClose = false;
+  let reconnecting = false;
+
+  function setStatus(state) {
+    if (state === 'reconnecting') showBanner('Reconnecting…'); else hideBanner();
+    if (typeof hooks.onNetStatus === 'function') { try { hooks.onNetStatus(state); } catch {} }
+  }
+
   // Try codes until the relay accepts one (collision = someone already hosts it).
-  let code, ws;
+  let code;
   for (let attempt = 0; attempt < 6; attempt++) {
     code = makeCode();
     try {
-      ws = await openSocket(roomUrl(gameId, code, 'host', opts.open ? {
-        hostName: hostPlayer0Name, maxPlayers, hasPassword: !!password,
-        username: opts.username, token: opts.token,
-      } : null));
+      ws = await openSocket(roomUrl(gameId, code, 'host', listing, hostToken));
       break;
     } catch (e) {
       if (e && e.code === CLOSE_ROOM_TAKEN && attempt < 5) continue;
       throw e;
     }
   }
+  hostConnected = true;
 
   // Each client gets a shim standing in for the old WebRTC DataConnection, so
-  // the handshake/validation code below is unchanged.
+  // the handshake/validation code below is unchanged. It sends through whatever
+  // `ws` currently is, so it keeps working after the host socket reconnects.
   function makeConn(id) {
     return {
       peer: id,
@@ -249,14 +338,30 @@ export async function hostRoom(opts) {
     return typeof hooks.snapshot === 'function' ? hooks.snapshot(player) : null;
   }
   function roster() {
-    return [hostPlayer, ...[...clients.values()].filter(c => c.ready).map(c => ({ id: c.id, name: c.name, isHost: false }))];
+    return [hostPlayer, ...[...clients.values()].filter(c => c.ready).map(
+      c => ({ id: c.id, name: c.name, isHost: false, disconnected: !!c.disconnected }))];
   }
   function sendRosterToAll() {
     const r = roster();
-    for (const c of clients.values()) if (c.ready) safeSend(c.conn, { type: 'roster', roster: r });
+    for (const c of clients.values()) if (c.ready && !c.disconnected) safeSend(c.conn, { type: 'roster', roster: r });
+  }
+
+  function clearGrace(c) { if (c.graceTimer) { clearTimeout(c.graceTimer); c.graceTimer = null; } }
+
+  // A client's socket dropped. Don't end its game yet — hold the seat for
+  // CLIENT_GRACE_MS so it can reconnect (matching its resume token) and pick up
+  // exactly where it left off. Only if it never returns do we call onLeave.
+  function markDisconnected(c) {
+    if (!clients.has(c.conn.peer) || c.disconnected) return;
+    c.disconnected = true;
+    c.conn.open = false;
+    sendRosterToAll();
+    clearGrace(c);
+    c.graceTimer = setTimeout(() => { c.graceTimer = null; removeClient(c, 'timeout'); }, CLIENT_GRACE_MS);
   }
 
   function removeClient(c, reason) {
+    clearGrace(c);
     if (!clients.has(c.conn.peer)) return;
     clients.delete(c.conn.peer);
     // conn.close() asks the relay to drop that client's socket.
@@ -265,7 +370,15 @@ export async function hostRoom(opts) {
     sendRosterToAll();
   }
 
-  ws.addEventListener('message', (ev) => {
+  // A reconnecting client re-hellos with the resume token from its welcome; find
+  // the seat it belongs to so we can rebind rather than seat it as someone new.
+  function findResume(token, exclude) {
+    if (!token) return null;
+    for (const c of clients.values()) if (c !== exclude && c.ready && c.resume === token) return c;
+    return null;
+  }
+
+  function onHostMessage(ev) {
     let msg;
     try { msg = JSON.parse(ev.data); } catch { return; }
     if (!msg || typeof msg !== 'object') return;
@@ -277,19 +390,29 @@ export async function hostRoom(opts) {
       if (typeof hooks.onUnlisted === 'function') hooks.onUnlisted();
       return;
     }
+    if (msg.t === 'resume') {
+      // We just reconnected. The relay lists the clients still present; anything
+      // we think is connected but isn't there vanished while we were away — start
+      // its grace timer so it too gets a chance to come back.
+      const present = new Set(Array.isArray(msg.clients) ? msg.clients : []);
+      for (const c of [...clients.values()]) {
+        if (!c.disconnected && !present.has(c.conn.peer)) markDisconnected(c);
+      }
+      return;
+    }
     if (msg.t === 'open') {
       const conn = makeConn(msg.id);
       const c = {
         conn, id: null, name: 'Player', ready: false,
         bucket: new TokenBucket(rate.cmdsPerSec, rate.burst), strikes: 0,
-        lastSeen: performance.now(),
+        lastSeen: performance.now(), disconnected: false, graceTimer: null, resume: null,
       };
       clients.set(msg.id, c);
       return;
     }
     if (msg.t === 'close') {
       const c = clients.get(msg.id);
-      if (c) { c.conn.open = false; removeClient(c, 'closed'); }
+      if (c) markDisconnected(c);
       return;
     }
     if (msg.from != null) {
@@ -298,22 +421,65 @@ export async function hostRoom(opts) {
       c.lastSeen = performance.now();
       handleClientData(c, msg.d);
     }
-  });
+  }
 
-  ws.addEventListener('close', () => { clearInterval(heartbeat); errCb(new Error('Relay connection lost')); });
+  function onHostClose() {
+    hostConnected = false;
+    if (intentionalClose) { clearInterval(heartbeat); return; }
+    beginHostReconnect();
+  }
 
-  // Heartbeat: ping every client and evict any that has gone silent past DROP_MS.
-  // Receiving *any* data (including a client's own ping) refreshes lastSeen above.
+  // Our socket to the relay dropped. The game state lives here in the tab, so we
+  // just need the pipe back: reopen the same code with our host token, and the
+  // relay hands the room (and its still-connected clients) back to us.
+  async function beginHostReconnect() {
+    if (reconnecting || intentionalClose) return;
+    reconnecting = true;
+    setStatus('reconnecting');
+    const deadline = performance.now() + HOST_RECONNECT_MS;
+    let attempt = 0;
+    while (!intentionalClose && performance.now() < deadline) {
+      await sleep(backoff(attempt++));
+      if (intentionalClose) break;
+      try {
+        const sock = await openSocket(roomUrl(gameId, code, 'host', listing, hostToken));
+        ws = sock;
+        hostConnected = true;
+        reconnecting = false;
+        wireHost(sock);
+        setStatus('online');
+        api.pushState();          // resync everyone still here
+        return;
+      } catch (e) {
+        // ROOM_TAKEN can mean the old socket isn't reaped yet — keep trying.
+        if (intentionalClose) break;
+      }
+    }
+    reconnecting = false;
+    clearInterval(heartbeat);
+    setStatus('online');          // clear the banner; the game is ending
+    errCb(new Error('Lost connection to the relay'));
+  }
+
+  function wireHost(sock) {
+    sock.addEventListener('message', onHostMessage);
+    sock.addEventListener('close', onHostClose);
+    sock.addEventListener('error', () => {});   // 'close' carries the outcome
+  }
+  wireHost(ws);
+
+  // Heartbeat: ping every live client and, if one goes silent past DROP_MS, start
+  // its grace timer (not an instant kick — it may just be reconnecting). Paused
+  // while our own socket is down, since we can't reach anyone then anyway.
   const heartbeat = setInterval(() => {
+    if (!hostConnected) return;
     const now = performance.now();
     for (const c of clients.values()) {
-      if (!c.ready) continue;
+      if (!c.ready || c.disconnected) continue;
       safeSend(c.conn, { type: 'ping' });
-      if (now - c.lastSeen > DROP_MS) removeClient(c, 'timeout');
+      if (now - c.lastSeen > DROP_MS) markDisconnected(c);
     }
   }, HEARTBEAT_MS);
-
-  ws.addEventListener('error', () => errCb(new Error('Relay connection error')));
 
   function handleClientData(c, data) {
     // 1) Anti-flood: size cap + basic shape check. Reject-don't-crash.
@@ -322,6 +488,7 @@ export async function hostRoom(opts) {
 
     if (data.type === 'ping') return;              // keepalive — lastSeen already bumped
     if (data.type === 'hello') return handleHello(c, data);
+    if (data.type === 'bye') { removeClient(c, 'left'); return; }   // intentional leave — free the seat now
     if (!c.ready) { strike(c, 1); return; }        // no commands before handshake
 
     if (data.type === 'cmd') {
@@ -347,6 +514,30 @@ export async function hostRoom(opts) {
 
   function handleHello(c, data) {
     if (c.ready) return;                                       // already joined
+
+    // Reconnect: a client re-hellos with the resume token from its welcome. Map
+    // the fresh socket onto the existing seat and pick the game up unchanged —
+    // no new slot, no onJoin, no password re-check (the token is the proof).
+    if (data.resume) {
+      const prev = findResume(data.resume, c);
+      if (prev) {
+        clearGrace(prev);
+        clients.delete(c.conn.peer);        // discard the temporary rec
+        clients.delete(prev.conn.peer);      // the seat's relay id has changed
+        prev.conn = c.conn;
+        prev.conn.open = true;
+        prev.disconnected = false;
+        prev.lastSeen = performance.now();
+        clients.set(prev.conn.peer, prev);
+        const player = { id: prev.id, name: prev.name, isHost: false };
+        safeSend(prev.conn, { type: 'welcome', you: player, roster: roster(), state: snapshotFor(player), resume: prev.resume });
+        sendRosterToAll();
+        if (typeof hooks.onRejoin === 'function') hooks.onRejoin(player);
+        return;
+      }
+      // No matching seat (grace already expired) — fall through and seat afresh.
+    }
+
     if (password && String(data.password || '') !== password) {
       safeSend(c.conn, { type: 'reject', reason: 'bad-password' });
       setTimeout(() => removeClient(c, 'bad-password'), 250);
@@ -360,8 +551,9 @@ export async function hostRoom(opts) {
     c.id = nextSlot++;
     c.name = typeof data.name === 'string' ? data.name.slice(0, 24) : `Player ${c.id}`;
     c.ready = true;
+    c.resume = makeToken();
     const player = { id: c.id, name: c.name, isHost: false };
-    safeSend(c.conn, { type: 'welcome', you: player, roster: roster(), state: snapshotFor(player) });
+    safeSend(c.conn, { type: 'welcome', you: player, roster: roster(), state: snapshotFor(player), resume: c.resume });
     if (typeof hooks.onJoin === 'function') hooks.onJoin(player);
     sendRosterToAll();
   }
@@ -403,10 +595,17 @@ export async function hostRoom(opts) {
       }
     },
     close() {
+      intentionalClose = true;
       clearInterval(heartbeat);
-      for (const c of clients.values()) { try { c.conn.close(); } catch {} }
+      hideBanner();
+      for (const c of clients.values()) clearGrace(c);
       clients.clear();
-      try { ws.close(1000, 'host closed'); } catch {}
+      // Tell the relay this is a real shutdown so it ends the room immediately
+      // instead of holding it open for a reconnect that isn't coming. Give the
+      // frame a beat to flush and let the relay close us; drop the socket
+      // ourselves only as a fallback if it doesn't.
+      sendFrame(ws, { t: 'bye' });
+      setTimeout(() => { try { ws.close(1000, 'host closed'); } catch {} }, 300);
     },
     onError(cb) { errCb = typeof cb === 'function' ? cb : () => {}; },
   };
@@ -434,109 +633,173 @@ export async function hostRoom(opts) {
 //   close()
 
 export async function joinRoom(opts) {
-  const gameId = opts.gameId;
-  const code   = String(opts.code || '').toUpperCase().trim();
-  const hooks  = opts.hooks || {};
+  const gameId   = opts.gameId;
+  const code     = String(opts.code || '').toUpperCase().trim();
+  const hooks    = opts.hooks || {};
+  const name     = (opts.name || 'Player').slice(0, 24);
+  const password = opts.password ? String(opts.password) : '';
   if (!code) throw new Error('joinRoom: code required');
 
-  // Rejects here with the relay's reason: no such room, room full, etc.
-  const ws = await openSocket(roomUrl(gameId, code, 'client'));
+  let ws = null;
+  let conn = null;
+  let controller = null;
+  let resumeToken = null;               // handed to us at welcome; proves our seat on reconnect
+  let lastSeen = performance.now();
+  let heartbeat = null;
+  let intentionalClose = false;
+  let reconnecting = false;
+  let closedFired = false;
 
-  // Stands in for the old DataConnection so the handshake below is unchanged.
-  const conn = {
-    open: true,
-    send(obj) { if (this.open) sendFrame(ws, { d: obj }); },
-    close() { this.open = false; try { ws.close(1000, 'client closed'); } catch {} },
-  };
+  function setStatus(state) {
+    if (state === 'reconnecting') showBanner('Reconnecting…'); else hideBanner();
+    if (typeof hooks.onNetStatus === 'function') { try { hooks.onNetStatus(state); } catch {} }
+  }
 
-  return await new Promise((resolve, reject) => {
-    let settled = false;
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      try { ws.close(); } catch {}
-      reject(new Error('Timed out — is the code right and the host online?'));
-    }, HELLO_TIMEOUT_MS);
+  // Terminal end of the session — host truly gone, we were kicked, or we ran out
+  // of reconnect attempts. Fires onClose exactly once.
+  function fireClose() {
+    if (closedFired) return;
+    closedFired = true;
+    if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+    try { if (conn) conn.close(); } catch {}
+    hideBanner();
+    if (typeof hooks.onClose === 'function') hooks.onClose();
+  }
 
-    const finish = (fn) => { if (!settled) { settled = true; clearTimeout(timer); fn(); } };
+  function startHeartbeat() {
+    if (heartbeat) clearInterval(heartbeat);
+    heartbeat = setInterval(() => {
+      safeSend(conn, { type: 'ping' });
+      if (performance.now() - lastSeen > DROP_MS) onSocketLost();
+    }, HEARTBEAT_MS);
+  }
 
-    let controller = null;
-    let lastSeen = performance.now();
-    let heartbeat = null;
-    let closedFired = false;
+  // Our socket looks dead (a close/error event, or silent past DROP_MS). If we
+  // ever fully joined, try to get back rather than ending the game.
+  function onSocketLost() {
+    if (intentionalClose || closedFired || !controller) return;
+    beginReconnect();
+  }
 
-    // Fire onClose exactly once, whether the drop was detected by the WebRTC
-    // 'close' event or by the heartbeat going silent past DROP_MS.
-    const fireClose = () => {
-      if (closedFired) return;
-      closedFired = true;
-      if (heartbeat) clearInterval(heartbeat);
-      try { conn.close(); } catch {}
-      if (typeof hooks.onClose === 'function') hooks.onClose();
-    };
-
-    // The socket is already open by the time we get here.
-    safeSend(conn, { type: 'hello', name: (opts.name || 'Player').slice(0, 24), password: opts.password ? String(opts.password) : '' });
-
-    ws.addEventListener('message', (ev) => {
-      let frame;
-      try { frame = JSON.parse(ev.data); } catch { return; }
-      if (!frame || typeof frame !== 'object') return;
-      if (frame.t === 'hostgone') {
-        if (!settled) finish(() => reject(new Error('Host closed the connection')));
-        else fireClose();
+  async function beginReconnect() {
+    if (reconnecting || intentionalClose || closedFired) return;
+    reconnecting = true;
+    if (heartbeat) { clearInterval(heartbeat); heartbeat = null; }
+    setStatus('reconnecting');
+    const deadline = performance.now() + CLIENT_RECONNECT_MS;
+    let attempt = 0;
+    while (!intentionalClose && !closedFired && performance.now() < deadline) {
+      await sleep(backoff(attempt++));
+      if (intentionalClose || closedFired) break;
+      try {
+        await connect(true);          // re-hello with our resume token
+        reconnecting = false;
+        setStatus('online');
         return;
-      }
-      const data = frame.d;
-      lastSeen = performance.now();
-      if (!data || typeof data.type !== 'string') return;
-      switch (data.type) {
-        case 'ping': return;                       // keepalive — lastSeen already bumped
-        case 'welcome': {
-          controller = {
-            isHost: false,
-            me: data.you,
-            roster: data.roster || [],
-            sendCmd(cmd) { safeSend(conn, { type: 'cmd', cmd }); },
-            close() { closedFired = true; if (heartbeat) clearInterval(heartbeat); try { conn.close(); } catch {} },
-          };
-          // Start pinging the host and watch for it going silent (silent drops
-          // that never fire a 'close' event — network loss, tab killed, etc.).
-          heartbeat = setInterval(() => {
-            safeSend(conn, { type: 'ping' });
-            if (performance.now() - lastSeen > DROP_MS) fireClose();
-          }, HEARTBEAT_MS);
-          if (data.state != null && typeof hooks.onState === 'function') hooks.onState(data.state);
-          if (typeof hooks.onRoster === 'function') hooks.onRoster(controller.roster);
-          finish(() => resolve(controller));
-          break;
-        }
-        case 'reject':
-          if (typeof hooks.onKicked === 'function') hooks.onKicked(data.reason || 'rejected');
-          finish(() => reject(new Error(rejectMessage(data.reason))));
-          break;
-        case 'state':
-          if (typeof hooks.onState === 'function') hooks.onState(data.state);
-          break;
-        case 'roster':
-          if (controller) controller.roster = data.roster || [];
-          if (typeof hooks.onRoster === 'function') hooks.onRoster(data.roster || []);
-          break;
-        case 'event':
-          if (typeof hooks.onEvent === 'function') hooks.onEvent(data.event);
-          break;
-      }
-    });
+      } catch { /* NO_HOST (host also reconnecting) or transient — keep trying */ }
+    }
+    reconnecting = false;
+    fireClose();
+  }
 
-    ws.addEventListener('close', () => {
-      conn.open = false;
-      if (!settled) finish(() => reject(new Error('Host closed the connection')));
-      else fireClose();
+  // Opens a socket, performs the hello handshake, and wires the live message
+  // pump. Resolves once the host welcomes us; rejects on a hard reject or
+  // timeout. `isReconnect` re-presents the resume token and keeps the existing
+  // controller instead of minting a new one.
+  function connect(isReconnect) {
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const settle = (fn, arg) => { if (!settled) { settled = true; fn(arg); } };
+
+      openSocket(roomUrl(gameId, code, 'client')).then((sock) => {
+        if (intentionalClose) { try { sock.close(); } catch {} return settle(reject, new Error('closed')); }
+        ws = sock;
+        conn = {
+          open: true,
+          send(obj) { if (this.open) sendFrame(sock, { d: obj }); },
+          close() { this.open = false; try { sock.close(1000, 'client closed'); } catch {} },
+        };
+
+        const helloTimer = setTimeout(() => {
+          try { sock.close(); } catch {}
+          settle(reject, new Error('Timed out — is the code right and the host online?'));
+        }, HELLO_TIMEOUT_MS);
+
+        safeSend(conn, { type: 'hello', name, password, resume: isReconnect ? resumeToken : undefined });
+
+        sock.addEventListener('message', (ev) => {
+          let frame;
+          try { frame = JSON.parse(ev.data); } catch { return; }
+          if (!frame || typeof frame !== 'object') return;
+
+          // Room-level notices (not host→client game data).
+          if (frame.t === 'hostgone') { clearTimeout(helloTimer); settle(reject, new Error('Host closed the connection')); fireClose(); return; }
+          if (frame.t === 'hostwait') { showBanner('Host reconnecting…'); if (typeof hooks.onNetStatus === 'function') { try { hooks.onNetStatus('reconnecting'); } catch {} } return; }
+          if (frame.t === 'hostback') { setStatus('online'); return; }
+
+          const data = frame.d;
+          lastSeen = performance.now();
+          if (!data || typeof data.type !== 'string') return;
+          switch (data.type) {
+            case 'ping': return;
+            case 'welcome': {
+              clearTimeout(helloTimer);
+              if (data.resume) resumeToken = data.resume;
+              if (!controller) {
+                controller = {
+                  isHost: false,
+                  me: data.you,
+                  roster: data.roster || [],
+                  sendCmd(cmd) { safeSend(conn, { type: 'cmd', cmd }); },
+                  close() { intentionalClose = true; closedFired = true; if (heartbeat) clearInterval(heartbeat); hideBanner(); safeSend(conn, { type: 'bye' }); setTimeout(() => { try { conn.close(); } catch {} }, 300); },
+                };
+              } else {
+                controller.me = data.you || controller.me;   // same seat, fresh socket
+                controller.roster = data.roster || controller.roster;
+              }
+              startHeartbeat();
+              setStatus('online');
+              if (data.state != null && typeof hooks.onState === 'function') hooks.onState(data.state);
+              if (typeof hooks.onRoster === 'function') hooks.onRoster(controller.roster);
+              settle(resolve, controller);
+              break;
+            }
+            case 'reject':
+              clearTimeout(helloTimer);
+              if (typeof hooks.onKicked === 'function') hooks.onKicked(data.reason || 'rejected');
+              settle(reject, new Error(rejectMessage(data.reason)));
+              if (controller) fireClose();          // a kick mid-game is terminal
+              break;
+            case 'state':
+              if (typeof hooks.onState === 'function') hooks.onState(data.state);
+              break;
+            case 'roster':
+              if (controller) controller.roster = data.roster || [];
+              if (typeof hooks.onRoster === 'function') hooks.onRoster(data.roster || []);
+              break;
+            case 'event':
+              if (typeof hooks.onEvent === 'function') hooks.onEvent(data.event);
+              break;
+          }
+        });
+
+        sock.addEventListener('close', () => {
+          if (conn) conn.open = false;
+          clearTimeout(helloTimer);
+          if (!settled) { settle(reject, new Error('Host closed the connection')); return; }
+          onSocketLost();
+        });
+        sock.addEventListener('error', () => {
+          if (!settled) { clearTimeout(helloTimer); settle(reject, new Error('Could not reach the host — check the code')); }
+        });
+      }).catch((err) => settle(reject, err));
     });
-    ws.addEventListener('error', () => {
-      finish(() => reject(new Error('Could not reach the host — check the code')));
-    });
-  });
+  }
+
+  // Initial join: rejects here with the relay's reason (bad code, room full, no
+  // host). Auto-reconnect only kicks in after this first join has succeeded.
+  await connect(false);
+  return controller;
 }
 
 // ── shared internals ───────────────────────────────────────────────────────

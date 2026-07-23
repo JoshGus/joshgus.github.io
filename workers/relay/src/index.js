@@ -49,6 +49,14 @@ const LOBBY_TTL_MS = 2 * 60 * 1000;        // hidden from listings after this
 const LOBBY_REFRESH_MS = 45 * 1000;        // how often a live room rewrites its row
 const LOBBY_SWEEP_MS = 10 * 60 * 1000;     // cron deletes rows older than this
 
+// When the HOST socket drops, the room is not torn down immediately: the host
+// tab still holds the authoritative game, and a dropped socket is usually a
+// transient network blip. The room is held for this long so the same host can
+// reconnect (proving itself with the host token it minted) and resume the game
+// without everyone being kicked. If no host returns in the window, the room is
+// ended for real. Clients are told to wait meanwhile rather than being closed.
+const HOST_GRACE_MS = 45 * 1000;
+
 // Close codes (4000+ is the application-defined range). The client library
 // mirrors these in games/net/p2p.js — a host retries with a fresh code on
 // ROOM_TAKEN, so losing these to a bad refactor silently breaks hosting.
@@ -277,6 +285,12 @@ export class Room {
       this.lastPersist = this.last;
       await this.state.storage.put('last', this.last);
     }
+    // With no host socket the room is either forming or in its host-grace
+    // window, and that window owns the alarm. Re-arming the idle alarm here
+    // (e.g. from a waiting client's ping) would push the grace deadline out to
+    // IDLE_MS and strand the clients. Leave the alarm alone until a host exists.
+    const hasHost = this.state.getWebSockets().some(ws => this.meta(ws).role === 'host');
+    if (!hasHost) return;
     if (!this.alarmArmed) {
       this.alarmArmed = true;
       await this.state.storage.setAlarm(Date.now() + IDLE_MS);
@@ -292,6 +306,26 @@ export class Room {
     this.alarmArmed = false;
     const sockets = this.state.getWebSockets();
     if (!sockets.length) { await this.state.storage.deleteAll(); return; }
+
+    // No host socket ⇒ this alarm is the host-grace countdown. If the window has
+    // elapsed the host is not coming back: end the room for good and release the
+    // waiting clients. Otherwise check again when the window actually closes.
+    const host = sockets.find(ws => this.meta(ws).role === 'host');
+    if (!host) {
+      const goneAt = (await this.state.storage.get('hostGoneAt')) || 0;
+      if (!goneAt || Date.now() - goneAt >= HOST_GRACE_MS) {
+        await this.retract();
+        for (const ws of sockets) {
+          this.send(ws, { t: 'hostgone' });
+          try { ws.close(1000, 'host gone'); } catch {}
+        }
+        await this.state.storage.deleteAll();
+        return;
+      }
+      this.alarmArmed = true;
+      await this.state.storage.setAlarm(goneAt + HOST_GRACE_MS);
+      return;
+    }
 
     const last = (await this.state.storage.get('last')) || 0;
     const idle = Date.now() - last;
@@ -328,12 +362,27 @@ export class Room {
     };
 
     if (role === 'host') {
-      // One host per code. The client library retries with a fresh code, which
-      // is how a code collision resolves.
+      // One host per code. If a host socket is already live, this is either a
+      // code collision (client library retries with a fresh code) or a second
+      // tab — reject either way.
       if (host) {
         return reject(CLOSE_ROOM_TAKEN, 'room code in use');
       }
+
+      // A host mints a random token on first connect and re-presents it to
+      // reconnect. The presence of a stored token means the room has had a host
+      // before, so this is a reconnect: only the token holder may retake it,
+      // otherwise a hostless room in its grace window could be hijacked by
+      // anyone who guessed the code.
+      const ht = url.searchParams.get('ht') || '';
+      const storedToken = await this.state.storage.get('hostToken');
+      const isReconnect = !!storedToken;
+      if (isReconnect && (!ht || ht !== storedToken)) {
+        return reject(CLOSE_ROOM_TAKEN, 'room held by another host');
+      }
+
       this.state.acceptWebSocket(serverEnd);
+      if (!storedToken && ht) await this.state.storage.put('hostToken', ht);
       // Listing publicly requires a claimed username. Verified here rather than
       // trusted from the client, and a failure only costs the listing — the
       // room itself still works as an unlisted join-by-code game.
@@ -354,8 +403,22 @@ export class Room {
         maxPlayers: Math.max(2, Math.min(16, Number(url.searchParams.get('max')) || 8)),
         hasPassword: url.searchParams.get('pw') === '1',
       });
+
+      if (isReconnect) {
+        // Host is back inside the grace window. Clear the countdown, tell the
+        // waiting clients, and hand the host the ids of everyone still here so
+        // it can reconcile its own roster (a client may have left meanwhile).
+        await this.state.storage.delete('hostGoneAt');
+        const clientIds = this.sockets().filter(s => s.role === 'client').map(s => s.id);
+        this.send(serverEnd, { t: 'resume', clients: clientIds });
+        for (const s of this.sockets()) if (s.role === 'client') this.send(s.ws, { t: 'hostback' });
+      }
+
       if (open) await this.publish();
       else if (url.searchParams.get('open') === '1') this.send(serverEnd, { t: 'unlisted' });
+      // Arm the idle reaper (also re-arms it after a reconnect).
+      this.alarmArmed = false;
+      await this.touch();
       return new Response(null, { status: 101, webSocket: clientEnd });
     }
 
@@ -464,6 +527,21 @@ export class Room {
     const me = this.meta(ws);
 
     if (me.role === 'host') {
+      // An explicit host "bye" (game over / host quit) ends the room now, rather
+      // than dropping into the reconnect grace window that a silent socket loss
+      // would trigger. Without this a deliberate leave would leave the clients
+      // waiting on a host that is never coming back.
+      if (msg.t === 'bye') {
+        await this.retract();
+        for (const s of this.sockets()) {
+          if (s.role !== 'client') continue;
+          this.send(s.ws, { t: 'hostgone' });
+          try { s.ws.close(1000, 'host left'); } catch {}
+        }
+        try { ws.close(1000, 'host left'); } catch {}
+        await this.state.storage.deleteAll();
+        return;
+      }
       // The host has no socket of its own to a client, so evicting one has to
       // come through here.
       if (msg.t === 'kick') {
@@ -502,14 +580,22 @@ export class Room {
       // Remember the listing key: once the socket is gone we can no longer read
       // it back off the host to delete the row.
       this.lastListing = { game: me.game, code: me.code };
-      await this.retract();
-      // The room dies with its host — tell everyone so they can surface it
-      // rather than sitting in a silent lobby.
-      for (const s of this.sockets()) {
-        if (s.role !== 'client') continue;
-        this.send(s.ws, { t: 'hostgone' });
-        try { s.ws.close(1000, 'host left'); } catch {}
+      await this.retract();   // pull it from the directory until the host is back
+
+      const waiting = this.sockets().filter(s => s.role === 'client');
+      if (!waiting.length) {
+        // Nobody to hold the room for. Let it go so it can be re-created clean.
+        try { await this.state.storage.deleteAll(); } catch {}
+        this.alarmArmed = false;
+        return;
       }
+      // Hold the room open for a grace window so the host can reconnect and
+      // resume the game. Clients are told to wait, not closed. If no host
+      // returns, alarm() ends the room and releases them.
+      await this.state.storage.put('hostGoneAt', Date.now());
+      for (const s of waiting) this.send(s.ws, { t: 'hostwait' });
+      this.alarmArmed = true;
+      await this.state.storage.setAlarm(Date.now() + HOST_GRACE_MS);
       return;
     }
     const host = this.hostSocket();

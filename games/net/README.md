@@ -150,6 +150,38 @@ list rather than an error, and join-by-code is unaffected.
 
 ---
 
+## Reconnection
+
+A WebSocket to the edge drops for all the usual reasons (a phone changing
+networks, a laptop sleeping, a flaky AP). Rather than end the game, **both roles
+transparently reconnect** — no game code changes; the same controller stays valid
+and state keeps flowing. A shared "Reconnecting…" banner shows automatically, and
+`hooks.onNetStatus('reconnecting' | 'online')` is available for custom UI.
+
+- **A client** that drops reopens the socket and re-`hello`s with the **resume
+  token** the host handed it at welcome. The host maps it back to the *same*
+  player slot (the relay assigns a fresh connection id on reconnect, so seat
+  identity is the token, not the id). Its game just receives a fresh snapshot.
+  The host holds a dropped seat for `CLIENT_GRACE_MS` (60s) before it gives up
+  and fires `onLeave`; the client keeps trying for `CLIENT_RECONNECT_MS` (50s).
+- **A host** that drops reopens the *same room code*, proving itself with a
+  **host token** it minted (`ht=` on the handshake). The relay keeps the room —
+  and its still-connected clients — alive for `HOST_GRACE_MS` (45s) instead of
+  tearing everything down, telling clients to wait (`hostwait` → banner) and
+  handing the room back (`hostback`) when the host returns. Only the original
+  token holder can retake a room in its grace window, so a hostless code can't be
+  hijacked. The host re-pushes state to resync everyone.
+- **Intentional leaves are not drops.** `net.close()` sends an explicit `bye`
+  so the relay ends the room (host) or frees the seat (client) *immediately*,
+  instead of parking the other side in the reconnect grace window. Backgrounding
+  a tab or refreshing is treated as a drop, so a quick return resumes the game.
+
+None of this changes the trust model: the host is still the sole authority, and
+the resume/host tokens are client-held secrets the relay only matches, never
+stores in a way that identifies a player.
+
+---
+
 ## Integration guide
 
 ```js
