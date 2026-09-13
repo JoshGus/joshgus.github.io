@@ -1,75 +1,94 @@
 # joshgus.github.io
 
-The source for my personal site, **[joshg.us](https://joshg.us)** — a portfolio,
-a photo gallery, and a set of things I built for fun that happen to run in the
-browser. Static site on GitHub Pages; the only backend is one Cloudflare Worker
-that relays multiplayer traffic (details below).
+Source for my personal site, [joshg.us](https://joshg.us). It's a portfolio, a
+photo gallery, and a pile of things I built for fun that happen to run in a
+browser. Static files on GitHub Pages. The only backend is a single Cloudflare
+Worker that relays multiplayer traffic.
 
-- **[index.html](index.html)** — home / about.
-- **[code.html](code.html)** — coding projects.
-- **[gallery.html](gallery.html)** + **[colormap.html](colormap.html)** — photography,
-  including a map where each dot is one photo positioned by the average RGB of its
-  dominant colors.
-- **[games/](games/)** — the interactive work. Some are toys, some are real
-  computer-vision and physics builds.
+## Pages
 
-## Games & tools (`games/`)
+- **[index.html](index.html)** is the home and about page.
+- **[code.html](code.html)** lists the coding projects.
+- **[gallery.html](gallery.html)** and **[colormap.html](colormap.html)** hold the
+  photography, including a map where every dot is one photo placed by the average
+  RGB of its dominant colours.
+- **[games/](games/)** is the interactive work. Some of it is toys, some of it is
+  real computer vision and physics.
 
-Hand-written, dependency-light, and mostly an excuse to implement something from
-scratch:
+## Games and tools
 
-- **[cv-lab.html](games/cv-lab.html)** — EECS 442 computer-vision algorithms
-  written by hand (convolution, FFT, image pyramids, DCT, Harris corners, HOG,
-  homography, backprop) run live on your own image.
-- **[image-breakdown.html](games/image-breakdown.html)** — repaints a photo via
-  Sobel edges → colour blocks → subject saliency, then a particle painter. The
-  homepage hero shares its engine.
-- **[art-match.html](games/art-match.html)** — a painting-matcher over a crawled
+Mostly an excuse to implement something from scratch, so they lean on as few
+dependencies as possible.
+
+- **[cv-lab.html](games/cv-lab.html)** runs hand written computer vision
+  algorithms on your own image: convolution, FFT, image pyramids, DCT, Harris
+  corners, HOG, homography, backprop.
+- **[image-breakdown.html](games/image-breakdown.html)** repaints a photo through
+  Sobel edges, colour blocks and subject saliency, then hands it to a particle
+  painter. The homepage hero shares the same engine.
+- **[art-match.html](games/art-match.html)** is a painting matcher over a crawled
   corpus of artworks.
-- **[pool.html](games/pool.html)** (Daily Break), **[minigolf.html](games/minigolf.html)**,
-  **[darts.html](games/darts.html)**, **[rts.html](games/rts.html)** (Frontline) —
-  physics/strategy games, several playable **online with a friend** (see below).
+- **[pool.html](games/pool.html)** (Daily Break),
+  **[minigolf.html](games/minigolf.html)** (Daily Links),
+  **[darts.html](games/darts.html)** and **[rts.html](games/rts.html)**
+  (Frontline) are the physics and strategy games. Several are playable online
+  against a friend.
 - **[boids.html](games/boids.html)**, **[pixel-sim.html](games/pixel-sim.html)**,
-  **[hand-tracker.html](games/hand-tracker.html)**, and word/game solvers.
+  **[hand-tracker.html](games/hand-tracker.html)** and the word game solvers round
+  it out.
 
-Every online-capable game shows up in the **[server browser](games/server.html)** —
-see any open game and jump in, or host your own.
+Anything playable online shows up in the [server browser](games/server.html),
+where you can join an open game or host your own.
 
 ## Multiplayer
 
-The site stays static; multiplayer is host-authoritative and runs over a **relay
-Worker**, with discovery by join-code, share-link, or a public lobby list. Two
-docs cover it in full:
+The site itself stays static. Multiplayer is host authoritative and runs over a
+relay Worker, with discovery by join code, share link, or a public lobby list.
+Two documents cover it properly:
 
-- **[games/net/README.md](games/net/README.md)** — the netcode. Host-authoritative
-  star topology, per-command validation, rate limiting, open lobbies, transparent
-  reconnection, and the **threat model** (what a P2P browser game can and cannot
-  defend against). Read this before trusting it.
-- **[workers/relay/README.md](workers/relay/README.md)** — the Cloudflare Worker +
-  Durable Object that forwards messages. Why it exists (WebRTC leaks every peer's
-  IP; relaying doesn't), the wire protocol, object lifecycle, and how it stays
-  inside the Workers Free plan's *hard cap* — exceed it and requests fail, you are
-  never billed.
+- **[games/net/README.md](games/net/README.md)** covers the netcode: host
+  authoritative star topology, per command validation, rate limiting, open
+  lobbies, transparent reconnection, and the threat model. Read that one before
+  trusting any of it.
+- **[workers/relay/README.md](workers/relay/README.md)** covers the Worker and
+  Durable Object that forward the messages: why it exists, the wire protocol,
+  object lifecycle, and how it stays inside the Workers free plan, which is a
+  hard cap rather than a bill.
 
-The short version: the transport is a **WebSocket relay** so peers never connect
-directly and never learn each other's IP addresses; the host browser is the sole
-authority and re-validates every command; and there is no direct-connection
-fallback by design, because falling back would silently reintroduce the leak the
-relay removes.
+The short version: the transport is a WebSocket relay, so peers never connect to
+each other and never learn each other's IP addresses. The host browser is the
+only authority and revalidates every command it receives. There is no direct
+connection fallback, on purpose, because falling back would quietly reintroduce
+the leak the relay exists to close.
+
+## Link previews
+
+Every page has its own Open Graph card in [og/](og/), generated by
+[tools/make-og.mjs](tools/make-og.mjs). Each one is just the page name in a word
+or two, set in the site's display face on the site's paper colour, so a shared
+link looks like it belongs to the rest.
+
+```sh
+npm install playwright-core   # once
+node tools/make-og.mjs
+```
+
+Adding a page means adding a line to the `CARDS` list in that script, then
+pointing the page's `og:image` and `twitter:image` at the result.
 
 ## Local development
 
-The site is plain static files — serve the repo root with anything:
+Plain static files, so anything will serve them:
 
 ```sh
-python3 -m http.server 8000        # then open http://localhost:8000
+python3 -m http.server 8000
 ```
 
-For multiplayer against a local relay:
+To run multiplayer against a local relay instead of the deployed one:
 
 ```sh
 cd workers/relay && npx wrangler dev --local --port 8787
 ```
 
-then load any game with `?relay=ws://127.0.0.1:8787` to point the client at it
-without editing the source.
+Then load any game with `?relay=ws://127.0.0.1:8787`, which points the client at
+it without touching the source.
