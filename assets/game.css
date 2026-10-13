@@ -1,0 +1,145 @@
+/* ── game chrome ──────────────────────────────────────────────────────
+   What every game shares around its playfield. Loaded after shared.css on
+   the game pages. A game keeps its own canvas, colours and layout; anything
+   a player would expect to look and behave the same from one game to the
+   next lives here.
+
+     cards     menus, setup, help and results: the site's cream card over a
+               dimmed playfield
+     panels    readouts and controls that sit on the playfield while you play:
+               dark glass, so they read on felt, grass, a map or a dartboard
+     buttons   one style for card actions, one for on-field chips
+
+   State classes are the same everywhere: .hidden hides, .on marks a selected
+   option, .show reveals a toast. */
+
+:root {
+  --g-panel: rgba(20, 20, 17, .82);
+  --g-panel-line: rgba(255, 255, 255, .14);
+  --g-panel-line-hi: rgba(255, 255, 255, .42);
+  --g-panel-fg: rgba(255, 255, 255, .86);
+  --g-panel-dim: rgba(255, 255, 255, .55);
+  --g-hi: #ccf73f;
+  --g-radius: 8px;
+}
+
+.hidden { display: none !important; }
+
+/* ── cards ────────────────────────────────────────────────────────────── */
+.g-overlay {
+  position: fixed; inset: 0; z-index: 200;
+  display: grid; place-items: center; padding: 20px; overflow: auto;
+  background: rgba(20, 16, 12, .55); backdrop-filter: blur(6px);
+}
+.g-card {
+  position: relative; width: min(440px, 100%);
+  padding: clamp(22px, 4vw, 34px);
+  background: var(--surface); color: var(--fg);
+  border: 1px solid var(--line-strong); border-radius: 14px;
+  box-shadow: 0 30px 80px -30px rgba(0, 0, 0, .5);
+  font-family: var(--body); font-size: 1rem; line-height: 1.5; text-align: left;
+}
+.g-card.wide { width: min(560px, 100%); }
+.g-card.center { text-align: center; }
+.g-card h1 { font-family: var(--disp); font-weight: 520; font-size: clamp(1.9rem, 5vw, 2.6rem); letter-spacing: -.02em; line-height: 1; }
+.g-card h2 { font-family: var(--disp); font-weight: 520; font-size: 1.5rem; letter-spacing: -.02em; line-height: 1.1; }
+.g-sub { color: var(--dim); font-size: .9rem; margin-top: 6px; }
+.g-close {
+  position: absolute; top: 8px; right: 8px; width: 40px; height: 40px;
+  display: grid; place-items: center;
+  border: 0; border-radius: 8px; background: none; color: var(--dim);
+  font: inherit; font-size: 1.1rem; line-height: 1; cursor: pointer;
+}
+.g-close:hover { color: var(--fg); background: var(--line); }
+
+/* a short list of big choices, e.g. picking a mode */
+.g-choices { display: flex; flex-direction: column; gap: 10px; margin-top: 20px; }
+.g-choice {
+  display: block; width: 100%; padding: 14px 16px; text-align: left;
+  border: 1px solid var(--line-strong); border-radius: 10px;
+  background: transparent; color: inherit; font: inherit; text-decoration: none; cursor: pointer;
+  transition: border-color .15s, background .15s, transform .15s;
+}
+.g-choice:hover { border-color: var(--accent-ink); background: rgba(204, 247, 63, .1); transform: translateY(-1px); }
+.g-choice-title { display: block; font-family: var(--disp); font-weight: 600; font-size: 1.2rem; letter-spacing: -.01em; }
+.g-choice-desc { display: block; color: var(--dim); font-size: .86rem; margin-top: 3px; }
+.g-choice-desc u { cursor: pointer; }
+
+/* setup fields */
+.g-field { margin-top: 16px; }
+.g-label { display: block; color: var(--dim); font-size: .8rem; margin-bottom: 6px; }
+.g-seg { display: flex; flex-wrap: wrap; gap: 6px; }
+.g-seg button, .g-toggle {
+  flex: 1; min-width: 64px; padding: 9px 10px;
+  border: 1px solid var(--line-strong); border-radius: 8px;
+  background: transparent; color: var(--fg);
+  font: inherit; font-size: .86rem; cursor: pointer; user-select: none;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.g-seg button:hover, .g-toggle:hover { border-color: var(--accent-ink); }
+.g-seg button.on { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+.g-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.g-toggle { display: flex; align-items: center; gap: 8px; text-align: left; }
+.g-toggle .box { width: 14px; height: 14px; flex: 0 0 auto; position: relative; border: 1px solid var(--line-strong); border-radius: 3px; }
+.g-toggle.on { border-color: var(--accent-ink); background: rgba(204, 247, 63, .12); }
+.g-toggle.on .box { border-color: var(--accent-ink); }
+.g-toggle.on .box::after { content: ''; position: absolute; inset: 2px; border-radius: 1px; background: var(--accent-ink); }
+.g-toggle small { color: var(--dim); font-size: .9em; }
+
+/* card actions */
+.g-btn {
+  padding: 11px 16px; min-height: 42px;
+  border: 1px solid var(--line-strong); border-radius: 9px;
+  background: transparent; color: var(--fg);
+  font-family: var(--body); font-size: .92rem; font-weight: 600; cursor: pointer;
+  transition: border-color .15s, background .15s, filter .15s;
+}
+.g-btn:hover:not(:disabled) { border-color: var(--accent-ink); }
+.g-btn.primary { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+.g-btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.g-btn.block { width: 100%; }
+.g-btn:disabled { opacity: .4; cursor: default; }
+.g-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+.g-card.center .g-actions { justify-content: center; }
+.g-links { display: flex; flex-wrap: wrap; gap: 6px 18px; margin-top: 18px; font-size: .86rem; }
+.g-links a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+
+/* help and results */
+.g-help { margin-top: 14px; color: var(--dim); font-size: .92rem; line-height: 1.6; }
+.g-help b, .g-help strong { color: var(--fg); font-weight: 600; }
+.g-help p + p { margin-top: 8px; }
+.g-score { font-family: var(--disp); font-weight: 700; font-size: 3.2rem; line-height: 1; color: var(--accent-ink); margin: 10px 0; }
+.g-note { color: var(--dim); font-size: .86rem; min-height: 1.3em; }
+.g-note.good { color: var(--accent-ink); font-weight: 600; }
+
+/* ── panels on the playfield ──────────────────────────────────────────── */
+.g-panel, .g-chip {
+  background: var(--g-panel); color: var(--g-panel-fg);
+  border: 1px solid var(--g-panel-line); border-radius: var(--g-radius);
+  backdrop-filter: blur(6px);
+  font-family: var(--body);
+}
+.g-chip {
+  padding: 8px 12px; min-height: 36px;
+  font-size: .82rem; font-weight: 500; line-height: 1; white-space: nowrap;
+  text-decoration: none; cursor: pointer;
+  transition: border-color .15s, color .15s, background .15s;
+}
+.g-chip:hover, .g-chip.open { border-color: var(--g-panel-line-hi); color: #fff; }
+.g-chip.on { background: var(--g-hi); border-color: var(--g-hi); color: #1d1712; }
+.g-panel-label { color: var(--g-panel-dim); font-size: .72rem; }
+.g-num { font-family: var(--disp); font-weight: 700; color: var(--g-hi); letter-spacing: -.02em; line-height: 1; }
+
+.g-toast {
+  position: fixed; left: 50%; transform: translateX(-50%); z-index: 60;
+  max-width: 92vw; padding: 9px 16px; text-align: center;
+  background: var(--g-panel); color: #fff;
+  border: 1px solid var(--g-panel-line); border-radius: var(--g-radius);
+  font-family: var(--body); font-size: .88rem; font-weight: 500;
+  opacity: 0; transition: opacity .3s; pointer-events: none;
+}
+.g-toast.show { opacity: 1; }
+
+@media (max-width: 480px) {
+  .g-toggles { grid-template-columns: 1fr; }
+}

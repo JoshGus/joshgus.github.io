@@ -22,6 +22,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/shared.css">
+<link rel="stylesheet" href="../assets/game.css">
 <script src="../assets/dark-mode.js"></script>
 <style>
 html,body{height:100%;overflow:hidden;background:#0c1512;-webkit-font-smoothing:antialiased}
@@ -45,225 +46,146 @@ canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshai
 /* ── HUD ── */
 .hud{position:fixed;top:56px;left:50%;transform:translateX(-50%);
   display:flex;gap:20px;align-items:center;
-  background:rgba(14,26,18,.9);backdrop-filter:blur(6px);
-  border:1px solid rgba(120,180,80,.25);padding:9px 22px;
-  font-family:var(--mono);font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;
-  color:rgba(160,210,100,.7);z-index:50;white-space:nowrap;max-width:94vw}
+  background:var(--g-panel);backdrop-filter:blur(6px);
+  border:1px solid var(--g-panel-line);padding:9px 22px;
+  font-family:var(--body);font-size:0.9rem;
+  color:var(--g-panel-fg);z-index:50;white-space:nowrap;max-width:94vw}
 #hud-main{display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:center}
 .hud .sv{font-size:1.7rem;font-weight:700;color:#ccf73f;font-family:var(--disp);line-height:1;letter-spacing:-.02em}
-.hud .sl{font-size:.54rem;color:rgba(160,210,100,.5)}
-.hud .sep{width:1px;height:28px;background:rgba(120,180,80,.2)}
-.hud .dv{font-size:.64rem;color:rgba(140,180,90,.6)}
-.day-btn{background:none;border:none;cursor:pointer;font-family:var(--mono);font-size:1rem;
-  color:rgba(160,210,100,.55);padding:0 6px;line-height:1;transition:color .15s}
+.hud .sl{font-size:0.73rem;color:var(--g-panel-dim)}
+.hud .sep{width:1px;height:28px;background:var(--g-panel-line)}
+.hud .dv{font-size:0.87rem;color:var(--g-panel-dim)}
+.day-btn{background:none;border:none;cursor:pointer;font-family:var(--body);font-size:1rem;
+  color:var(--g-panel-dim);padding:0 6px;line-height:1;transition:color .15s}
 .day-btn:hover:not(:disabled){color:#ccf73f}
 .day-btn:disabled{opacity:.2;cursor:default}
 #hud-date{cursor:pointer;transition:color .15s}
-#hud-date:hover{color:rgba(200,240,120,.9)}
-.hud .grouptag{font-size:.62rem;color:#ccf73f;font-weight:600}
-#version-badge{font-family:var(--mono);font-size:.5rem;letter-spacing:.08em;
-  color:rgba(120,170,60,.5);padding:2px 6px;border:1px solid rgba(60,100,25,.28);border-radius:3px}
+#hud-date:hover{color:var(--g-panel-fg)}
+.hud .grouptag{font-size:0.84rem;color:#ccf73f;font-weight:600}
+#version-badge{font-family:var(--body);font-size:0.68rem;
+  color:var(--g-panel-dim);padding:2px 6px;border:1px solid var(--g-panel-line);border-radius:3px}
 
 /* ── left/right floating chips ── */
-.chip{position:fixed;top:56px;z-index:50;background:rgba(14,26,18,.9);backdrop-filter:blur(6px);
-  border:1px solid rgba(120,180,60,.3);padding:8px 14px;font-family:var(--mono);
-  font-size:.58rem;letter-spacing:.08em;text-transform:uppercase;color:rgba(150,200,90,.75);
+.chip{position:fixed;top:56px;z-index:50;background:var(--g-panel);backdrop-filter:blur(6px);
+  border:1px solid var(--g-panel-line);padding:8px 14px;font-family:var(--body);
+  font-size:0.79rem;color:var(--g-panel-fg);
   text-align:center;min-width:60px}
 #chip-left{left:16px}
 #chip-right{right:16px;cursor:pointer;transition:color .15s,border-color .15s}
-#chip-right:hover{color:#ccf73f;border-color:rgba(160,220,60,.6)}
+#chip-right:hover{color:#ccf73f;border-color:var(--g-panel-line-hi)}
 .chip .big{font-size:.92rem;color:#ccf73f;font-weight:600;display:block;margin-top:2px;letter-spacing:.04em}
 .chip.hidden,.hud.hidden,.controls.hidden{display:none}
 
 /* ── bottom control dock ── */
 .controls{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:50;
   display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;justify-content:center;max-width:96vw}
-.ctl-box{background:rgba(14,26,18,.92);backdrop-filter:blur(6px);
-  border:1px solid rgba(120,180,60,.3);padding:9px 13px;display:flex;flex-direction:column;
+.ctl-box{background:var(--g-panel);backdrop-filter:blur(6px);
+  border:1px solid var(--g-panel-line);padding:9px 13px;display:flex;flex-direction:column;
   align-items:center;gap:5px}
-.ctl-lbl{font-family:var(--mono);font-size:.46rem;letter-spacing:.14em;text-transform:uppercase;
-  color:rgba(150,200,90,.6)}
+.ctl-lbl{font-family:var(--body);font-size:0.68rem;
+  color:var(--g-panel-dim)}
 /* power meter */
-#power-wrap{width:150px;height:22px;background:rgba(8,16,10,.85);border:1px solid rgba(120,180,60,.35);
+#power-wrap{width:150px;height:22px;background:var(--g-panel);border:1px solid var(--g-panel-line);
   position:relative;cursor:pointer;overflow:hidden}
 #power-fill{position:absolute;left:0;top:0;bottom:0;width:0%;
   background:linear-gradient(90deg,#3f7d1a,#8bc34a 55%,#ccf73f 80%,#f2e14a);transition:width .04s linear}
-#power-num{position:absolute;right:5px;top:50%;transform:translateY(-50%);font-family:var(--mono);
-  font-size:.6rem;color:#0a120e;font-weight:600;mix-blend-mode:difference;filter:invert(1)}
+#power-num{position:absolute;right:5px;top:50%;transform:translateY(-50%);font-family:var(--body);
+  font-size:0.82rem;color:#0a120e;font-weight:600;mix-blend-mode:difference;filter:invert(1)}
 /* spin widget */
 #spin-wrap{width:52px;height:52px;border-radius:50%;position:relative;cursor:pointer;
   background:radial-gradient(circle at 38% 34%,#fff,#e6e6e6 55%,#b9b9b9);
-  border:1px solid rgba(120,180,60,.4);box-shadow:inset 0 0 6px rgba(0,0,0,.25)}
+  border:1px solid var(--g-panel-line);box-shadow:inset 0 0 6px rgba(0,0,0,.25)}
 #spin-dot{position:absolute;width:11px;height:11px;border-radius:50%;background:#c81e1e;
   border:1px solid rgba(0,0,0,.4);left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none}
 #spin-cross{position:absolute;inset:0;pointer-events:none}
 /* buttons */
-.pbtn{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
-  cursor:pointer;border:1px solid rgba(120,180,60,.4);color:rgba(180,230,100,.85);
-  padding:12px 18px;background:rgba(20,38,20,.85);transition:background .15s,color .15s,border-color .15s}
-.pbtn:hover{background:rgba(90,150,35,.35);color:#ccf73f;border-color:rgba(160,220,60,.6)}
-.pbtn.primary{background:rgba(120,180,50,.28);color:#ccf73f;border-color:rgba(160,220,60,.55)}
-.pbtn.primary:hover{background:rgba(150,210,60,.4)}
-.pbtn.ghost{background:none}
-.pbtn:disabled{opacity:.3;cursor:default}
 
-
-#lb-btn{position:fixed;top:98px;left:96px;z-index:50;font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:1px solid rgba(120,180,60,.3);color:rgba(160,220,90,.7);padding:8px 12px;background:rgba(14,26,18,.85);backdrop-filter:blur(4px)}
-#lb-btn:hover{color:#ccf73f;border-color:rgba(160,220,60,.6)}
-#restart-btn,#menu-btn2{position:fixed;top:98px;z-index:50;font-family:var(--mono);font-size:.58rem;
-  letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:1px solid rgba(120,180,60,.3);
-  color:rgba(160,220,90,.7);padding:8px 13px;background:rgba(14,26,18,.85);backdrop-filter:blur(4px);
-  transition:background .15s,color .15s,border-color .15s}
-#restart-btn{right:16px}#menu-btn2{left:16px}
-#restart-btn:hover,#menu-btn2:hover{background:rgba(80,140,30,.35);color:#ccf73f;border-color:rgba(160,220,60,.6)}
-.hidden{display:none!important}
 
 /* ── overlays (mode select, setup, win, help) ── */
-.overlay{position:fixed;inset:0;z-index:200;background:rgba(8,16,10,.82);backdrop-filter:blur(7px);
-  display:grid;place-items:center;padding:20px;overflow:auto}
-.overlay.hidden{display:none}
-.card{background:#0e1f14;border:1px solid rgba(120,180,60,.32);padding:clamp(26px,4vw,44px);
-  width:100%;max-width:460px;text-align:center;position:relative}
-.card h1{font-family:var(--disp);font-weight:520;font-size:clamp(2rem,6vw,3rem);letter-spacing:-.02em;
-  line-height:.95;color:#d8f0a0;margin-bottom:6px}
-.card .sub{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
-  color:rgba(150,200,90,.6);margin-bottom:24px}
-.card h2{font-family:var(--disp);font-weight:520;font-size:1.5rem;color:#d8f0a0;margin-bottom:4px}
-.mode-row{display:flex;flex-direction:column;gap:12px;margin-top:8px}
-.mode-btn{display:block;text-align:left;padding:16px 18px;border:1px solid rgba(120,180,60,.35);
-  background:rgba(16,32,20,.7);cursor:pointer;transition:background .18s,border-color .18s,transform .18s}
-.mode-btn:hover{background:rgba(60,110,30,.35);border-color:rgba(160,220,60,.6);transform:translateY(-2px)}
-.mode-btn .mt{font-family:var(--disp);font-weight:600;font-size:1.4rem;color:#ccf73f;letter-spacing:-.01em}
-.ms-browse{text-decoration:underline;cursor:pointer}
-.mode-btn .md{font-family:var(--mono);font-size:.6rem;letter-spacing:.06em;color:rgba(160,200,110,.7);
-  margin-top:5px;text-transform:uppercase;line-height:1.5}
 
 /* setup controls */
-.field{margin:16px 0;text-align:left}
-.field>.fl{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
-  color:rgba(150,200,90,.7);margin-bottom:8px;display:block}
-.seg{display:flex;flex-wrap:wrap;gap:6px}
-.seg button{flex:1;min-width:64px;font-family:var(--mono);font-size:.58rem;letter-spacing:.06em;
-  text-transform:uppercase;cursor:pointer;border:1px solid rgba(120,180,60,.3);
-  color:rgba(170,215,110,.7);padding:9px 8px;background:rgba(16,32,20,.6);
-  transition:background .15s,color .15s,border-color .15s}
-.seg button:hover{background:rgba(70,120,35,.3);color:#ccf73f}
-.seg button.on{background:rgba(130,190,55,.32);color:#ccf73f;border-color:rgba(160,220,60,.6)}
-.mods{display:grid;grid-template-columns:1fr 1fr;gap:6px}
-.mod{display:flex;align-items:center;gap:8px;font-family:var(--mono);font-size:.56rem;
-  letter-spacing:.04em;text-transform:uppercase;color:rgba(160,200,110,.75);cursor:pointer;
-  border:1px solid rgba(120,180,60,.22);padding:8px 9px;background:rgba(16,32,20,.5);
-  transition:background .15s,border-color .15s;user-select:none}
-.mod:hover{border-color:rgba(160,220,60,.45)}
-.mod.on{background:rgba(110,170,45,.28);border-color:rgba(160,220,60,.55);color:#ccf73f}
-.mod .box{width:13px;height:13px;border:1px solid rgba(160,220,60,.55);flex:0 0 auto;position:relative}
-.mod.on .box::after{content:'';position:absolute;inset:2px;background:#ccf73f}
-.mod small{opacity:.6;font-size:.9em;letter-spacing:0}
 
 /* calendar */
 #cal-panel{display:none;position:fixed;top:100px;left:50%;transform:translateX(-50%);
-  z-index:210;background:rgba(10,22,14,.98);border:1px solid rgba(120,180,60,.35);
+  z-index:210;background:var(--g-panel);border:1px solid var(--g-panel-line);
   backdrop-filter:blur(10px);padding:16px 14px;width:250px}
 #cal-panel.open{display:block}
 #cal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;
-  font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(180,230,100,.85)}
+  font-family:var(--body);font-size:0.84rem;color:var(--g-panel-fg)}
 .cal-nav{background:none;border:none;cursor:pointer;font-size:1.1rem;line-height:1;
-  color:rgba(160,210,100,.7);padding:2px 6px;transition:color .15s}
+  color:var(--g-panel-fg);padding:2px 6px;transition:color .15s}
 .cal-nav:hover:not(:disabled){color:#ccf73f}
 .cal-nav:disabled{opacity:.2;cursor:default}
 #cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
-.cal-dow{font-family:var(--mono);font-size:.44rem;letter-spacing:.06em;text-transform:uppercase;
-  color:rgba(120,170,70,.5);text-align:center;padding:3px 0 5px}
-.cal-day{font-family:var(--mono);font-size:.58rem;text-align:center;padding:4px 1px 3px;border-radius:3px;
+.cal-dow{font-family:var(--body);font-size:0.68rem;
+  color:var(--g-panel-dim);text-align:center;padding:3px 0 5px}
+.cal-day{font-family:var(--body);font-size:0.79rem;text-align:center;padding:4px 1px 3px;border-radius:3px;
   position:relative;line-height:1.1;transition:background .12s,color .12s}
-.cal-day:not(.future):not(.empty){cursor:pointer;color:rgba(160,210,100,.8)}
-.cal-day:not(.future):not(.empty):hover{background:rgba(100,160,40,.3);color:#ccf73f}
-.cal-day.today{background:rgba(80,130,30,.4);color:#ccf73f}
-.cal-day.selected{outline:1px solid rgba(160,220,60,.6)}
-.cal-day.future{color:rgba(120,160,80,.22)}
+.cal-day:not(.future):not(.empty){cursor:pointer;color:var(--g-panel-fg)}
+.cal-day:not(.future):not(.empty):hover{background:rgba(255,255,255,.14);color:#ccf73f}
+.cal-day.today{background:rgba(255,255,255,.14);color:#ccf73f}
+.cal-day.selected{outline:1px solid var(--g-panel-line-hi)}
+.cal-day.future{color:rgba(255,255,255,.25)}
 .cal-day.empty{color:transparent}
-.cal-score{display:block;font-size:.4rem;color:rgba(160,220,80,.55);line-height:1;margin-top:1px}
+.cal-score{display:block;font-size:0.68rem;color:var(--g-panel-dim);line-height:1;margin-top:1px}
 .cal-score.win{color:#ccf73f}
-#cal-today-btn{display:block;width:100%;margin-top:10px;font-family:var(--mono);font-size:.52rem;
-  letter-spacing:.12em;text-transform:uppercase;background:none;border:1px solid rgba(120,180,60,.3);
-  color:rgba(160,220,90,.6);padding:6px;cursor:pointer;transition:background .15s,color .15s}
-#cal-today-btn:hover{background:rgba(80,140,30,.3);color:#ccf73f}
+#cal-today-btn{display:block;width:100%;margin-top:10px;font-family:var(--body);font-size:0.71rem;
+  background:none;border:1px solid var(--g-panel-line);
+  color:var(--g-panel-dim);padding:6px;cursor:pointer;transition:background .15s,color .15s}
+#cal-today-btn:hover{background:rgba(255,255,255,.14);color:#ccf73f}
 
 /* win card extras */
-.wscore{font-family:var(--disp);font-weight:700;font-size:3.4rem;color:#ccf73f;line-height:1;margin:8px 0}
 .win-lb{margin:14px 0 4px;text-align:left;max-height:34vh;overflow-y:auto}
-.wb{font-family:var(--mono);font-size:.6rem;letter-spacing:.08em;color:rgba(150,200,80,.6);
-  margin:10px 0 20px;min-height:1.3em}
-.wb.newpb{color:#ccf73f}
 
 /* AI review panel */
 #ai-review{position:fixed;left:16px;bottom:16px;z-index:55;width:210px;
-  background:rgba(12,24,16,.94);border:1px solid rgba(120,180,60,.4);backdrop-filter:blur(6px);
-  padding:12px 14px;font-family:var(--mono);color:rgba(170,215,110,.85)}
+  background:var(--g-panel);border:1px solid var(--g-panel-line);backdrop-filter:blur(6px);
+  padding:12px 14px;font-family:var(--body);color:var(--g-panel-fg)}
 #ai-review.hidden{display:none}
-#ai-review .art{font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:#ccf73f;margin-bottom:8px}
-#ai-review .arrow-row{font-size:.58rem;letter-spacing:.03em;display:flex;justify-content:space-between;
-  padding:2px 0;color:rgba(180,220,120,.8)}
+#ai-review .art{font-size:0.76rem;color:#ccf73f;margin-bottom:8px}
+#ai-review .arrow-row{font-size:0.79rem;letter-spacing:.03em;display:flex;justify-content:space-between;
+  padding:2px 0;color:var(--g-panel-fg)}
 #ai-review .arrow-row span:last-child{color:#ccf73f;font-weight:600}
-#ai-review .rewatch{margin-top:9px;width:100%;font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;
-  text-transform:uppercase;cursor:pointer;border:1px solid rgba(120,180,60,.4);color:rgba(180,230,100,.85);
-  padding:7px;background:rgba(20,38,20,.7);transition:background .15s,color .15s}
-#ai-review .rewatch:hover{background:rgba(90,150,35,.35);color:#ccf73f}
+#ai-review .rewatch{margin-top:9px;width:100%;font-family:var(--body);font-size:0.76rem;
+  cursor:pointer;border:1px solid var(--g-panel-line);color:var(--g-panel-fg);
+  padding:7px;background:var(--g-panel);transition:background .15s,color .15s}
+#ai-review .rewatch:hover{background:rgba(255,255,255,.14);color:#ccf73f}
 
 /* shot timeline */
-#tl-btn{position:fixed;top:142px;left:16px;z-index:50;font-family:var(--mono);font-size:.58rem;
-  letter-spacing:.1em;text-transform:uppercase;cursor:pointer;border:1px solid rgba(120,180,60,.3);
-  color:rgba(160,220,90,.7);padding:8px 13px;background:rgba(14,26,18,.85);backdrop-filter:blur(4px);
-  transition:background .15s,color .15s,border-color .15s}
-#tl-btn:hover,#tl-btn.open{background:rgba(80,140,30,.35);color:#ccf73f;border-color:rgba(160,220,60,.6)}
-#timeline{position:fixed;left:16px;top:186px;bottom:200px;width:232px;z-index:55;
-  background:rgba(12,24,16,.94);border:1px solid rgba(120,180,60,.4);backdrop-filter:blur(6px);
-  display:flex;flex-direction:column;font-family:var(--mono)}
+#timeline{position:fixed;left:16px;top:142px;bottom:200px;width:232px;z-index:55;
+  background:var(--g-panel);border:1px solid var(--g-panel-line);backdrop-filter:blur(6px);
+  display:flex;flex-direction:column;font-family:var(--body)}
 #timeline .tl-head{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;
-  font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:#ccf73f;
-  border-bottom:1px solid rgba(120,180,60,.25)}
-#tl-close{cursor:pointer;color:rgba(160,210,100,.6)}#tl-close:hover{color:#ccf73f}
+  font-size:0.76rem;color:#ccf73f;
+  border-bottom:1px solid var(--g-panel-line)}
+#tl-close{cursor:pointer;color:var(--g-panel-dim)}#tl-close:hover{color:#ccf73f}
 #tl-list{flex:1;overflow-y:auto;padding:4px 0}
 .tl-row{display:flex;align-items:center;gap:7px;padding:6px 10px;cursor:pointer;
-  border-bottom:1px solid rgba(120,180,60,.1);font-size:.56rem;color:rgba(170,215,110,.85);
+  border-bottom:1px solid var(--g-panel-line);font-size:0.76rem;color:var(--g-panel-fg);
   transition:background .12s}
-.tl-row:hover{background:rgba(80,140,30,.25)}
-.tl-row .tno{color:rgba(150,200,90,.5);min-width:22px}
+.tl-row:hover{background:rgba(255,255,255,.14)}
+.tl-row .tno{color:var(--g-panel-dim);min-width:22px}
 .tl-row .ttag{color:#ccf73f;font-weight:600;min-width:26px}
 .tl-row .ticons{display:flex;gap:3px;flex-wrap:wrap;flex:1}
-.tl-row .tmiss{color:rgba(150,200,90,.4);flex:1}
+.tl-row .tmiss{color:var(--g-panel-dim);flex:1}
 .tl-row .tfoul{color:#e08a4a;font-weight:600}
-.tl-row .tplay{color:rgba(160,220,90,.6)}
+.tl-row .tplay{color:var(--g-panel-dim)}
 .tl-row:hover .tplay{color:#ccf73f}
-.tl-empty{padding:14px 12px;font-size:.54rem;color:rgba(150,200,90,.45);letter-spacing:.06em}
+.tl-empty{padding:14px 12px;font-size:0.73rem;color:var(--g-panel-dim);letter-spacing:.06em}
 
 /* toast / message */
-#toast{position:fixed;top:132px;left:50%;transform:translateX(-50%);z-index:60;
-  font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;text-transform:uppercase;
-  color:#ccf73f;background:rgba(12,24,16,.9);border:1px solid rgba(120,180,60,.35);
-  padding:8px 18px;opacity:0;transition:opacity .3s;pointer-events:none;text-align:center}
-#toast.show{opacity:1}
 
-.help-list{text-align:left;font-family:var(--mono);font-size:.62rem;line-height:1.9;
-  color:rgba(170,210,120,.8);letter-spacing:.02em}
-.help-list b{color:#ccf73f}
-a.mini{font-family:var(--mono);font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;
-  color:rgba(150,200,90,.6);border-bottom:1px solid rgba(150,200,90,.3);padding-bottom:1px}
-a.mini:hover{color:#ccf73f}
-.close-x{position:absolute;top:12px;right:14px;font-family:var(--mono);font-size:1rem;cursor:pointer;
-  color:rgba(160,210,100,.6);line-height:1}
-.close-x:hover{color:#ccf73f}
 /* ── phone chrome ── the dock wraps to ~230px tall at this size and buries the
    table, so tighten everything down. Applies in BOTH orientations: a landscape
    phone is 844px wide, so a width-only query misses it entirely. fitCanvas()
    then fits the table into whatever space this chrome leaves. ── */
 @media(max-width:680px), (max-height:560px) and (max-width:1100px){
-  .hud{gap:10px;padding:6px 12px;font-size:.58rem}
+  .hud{gap:10px;padding:6px 12px;font-size:0.79rem}
   .hud .sv{font-size:1.15rem}
   .hud .sep{height:20px}
   #hud-main{gap:8px}
   .ctl-box{padding:6px 9px;gap:3px}
-  .ctl-lbl{font-size:.42rem}
+  .ctl-lbl{font-size:0.68rem}
   /* Sized so power + spin + buttons total under 378px and stay on one row;
      a second row costs ~110px of table height. */
   #power-wrap{width:94px;height:24px}
@@ -272,11 +194,9 @@ a.mini:hover{color:#ccf73f}
      no room in the row. */
   #spin-wrap{width:48px;height:48px}
   #spin-dot{width:10px;height:10px}
-  .pbtn{padding:9px 10px;font-size:.55rem}
-  .chip{padding:6px 9px;font-size:.5rem;min-width:0}
+  .chip{padding:6px 9px;font-size:0.68rem;min-width:0}
   #chip-left{left:6px} #chip-right{right:6px}
   #timeline{left:6px;width:min(232px,72vw)}
-  #tl-btn{padding:8px 10px;font-size:.54rem}
 }
 
 /* ── portrait phone ── stack: HUD, button row, table, dock along the bottom ── */
@@ -291,15 +211,11 @@ a.mini:hover{color:#ccf73f}
      and the button row. It now docks above the control dock (fitCanvas sets
      the exact offset) and the table is fitted above it. */
   #ai-review{left:6px;right:6px;width:auto;top:auto;max-height:26vh;overflow-y:auto;
-    padding:8px 10px;font-size:.54rem}
+    padding:8px 10px;font-size:0.73rem}
   /* The HUD is full-width here, so the desktop positions (top:98px / top:142px)
      land on top of it. Put all three on one row directly beneath it. */
-  #menu-btn2{top:119px;left:6px;right:auto}
-  #tl-btn{top:119px;left:88px}
   /* Was left at the desktop top:98px, which sits under the full-width mobile
      HUD (z-index 50) — the HUD swallowed every click on it. */
-  #lb-btn{top:119px;left:170px}
-  #restart-btn{top:119px;right:6px;left:auto}
 }
 
 /* ── landscape phone ── only ~390px of height, so a bottom dock would leave the
@@ -307,21 +223,40 @@ a.mini:hover{color:#ccf73f}
    column down the right edge and the HUD a thin strip along the top. ── */
 @media(max-height:560px) and (max-width:1100px) and (orientation:landscape){
   .hud{left:6px;right:auto;top:52px;transform:none;max-width:60vw;
-    padding:4px 10px;font-size:.5rem;gap:8px}
+    padding:4px 10px;font-size:0.68rem;gap:8px}
   .hud .sv{font-size:.95rem}
   .hud .sep{height:16px}
   #hud-main{gap:6px}
-  #restart-btn{top:52px;right:6px;left:auto}
-  #menu-btn2{top:52px;right:88px;left:auto}
-  #tl-btn{top:52px;right:172px;left:auto}
-  #lb-btn{top:52px;right:256px;left:auto}
   .controls{left:auto;right:6px;bottom:auto;top:50%;transform:translateY(-50%);
     flex-direction:column;align-items:center;max-width:none;width:auto;gap:6px}
   #chip-left{top:52px} #chip-right{top:52px;right:6px}
   #ai-review{left:6px;right:auto;top:auto;bottom:6px;width:min(210px,30vw);
-    max-height:34vh;overflow-y:auto;padding:8px 10px;font-size:.54rem}
+    max-height:34vh;overflow-y:auto;padding:8px 10px;font-size:0.73rem}
 }
 
+/* corner buttons: menu side on the left, help and restart on the right */
+.corner{position:fixed;top:98px;z-index:50;display:flex;gap:8px}
+.corner.tl{left:16px}
+.corner.tr{right:16px}
+#toast{top:142px}
+.controls .g-chip{padding:12px 18px;font-size:.9rem;font-weight:600}
+@media(max-width:680px), (max-height:560px) and (max-width:1100px){
+  .corner{gap:6px}
+  .corner .g-chip{padding:8px 9px;font-size:.78rem}
+  .controls .g-chip{padding:10px 12px;font-size:.84rem}
+}
+@media(max-width:680px) and (orientation:portrait){
+  .corner{top:119px}
+  .corner.tl{left:6px}
+  .corner.tr{right:6px}
+  #toast{top:164px}
+}
+@media(max-height:560px) and (max-width:1100px) and (orientation:landscape){
+  .corner{top:52px}
+  .corner.tr{right:6px}
+  .corner.tl{left:auto;right:132px}
+  #toast{top:96px}
+}
 </style>
 </head>
 <body>
@@ -342,52 +277,57 @@ a.mini:hover{color:#ccf73f}
 </div>
 
 <!-- HUD -->
-<div class="hud hidden" id="hud">
+<div class="hud g-panel hidden" id="hud">
   <div id="hud-main"></div>
 </div>
-<div class="chip hidden" id="chip-left"></div>
-<div class="chip hidden" id="chip-right"></div>
-<button id="menu-btn2" class="hidden">☰ Menu</button>
-<button id="lb-btn" class="hidden">&#127942; Board</button>
-<button id="restart-btn" class="hidden">↺ Reset</button>
+<div class="chip g-panel hidden" id="chip-left"></div>
+<div class="chip g-panel hidden" id="chip-right"></div>
+<div class="corner tl">
+  <button id="menu-btn2" class="g-chip hidden">Menu</button>
+  <button id="lb-btn" class="g-chip hidden">Leaderboard</button>
+  <button id="tl-btn" class="g-chip hidden">Shots</button>
+</div>
+<div class="corner tr">
+  <button id="help-btn" class="g-chip hidden">Help</button>
+  <button id="restart-btn" class="g-chip hidden">Restart</button>
+</div>
 
 <!-- bottom controls -->
 <div class="controls hidden" id="controls">
-  <div class="ctl-box">
+  <div class="ctl-box g-panel">
     <span class="ctl-lbl">Power</span>
     <div id="power-wrap"><div id="power-fill"></div><span id="power-num">0</span></div>
   </div>
-  <div class="ctl-box">
+  <div class="ctl-box g-panel">
     <span class="ctl-lbl">Spin / English</span>
     <div id="spin-wrap">
       <svg id="spin-cross" viewBox="0 0 52 52"><line x1="26" y1="6" x2="26" y2="46" stroke="rgba(0,0,0,.15)"/><line x1="6" y1="26" x2="46" y2="26" stroke="rgba(0,0,0,.15)"/></svg>
       <div id="spin-dot"></div>
     </div>
   </div>
-  <div class="ctl-box" style="flex-direction:row;gap:8px;padding-bottom:9px">
-    <button class="pbtn primary" id="shoot-btn">Shoot</button>
-    <button class="pbtn ghost" id="cancel-btn">Cancel</button>
+  <div class="ctl-box g-panel" style="flex-direction:row;gap:8px;padding-bottom:9px">
+    <button class="g-chip on" id="shoot-btn">Shoot</button>
+    <button class="g-chip" id="cancel-btn">Cancel</button>
   </div>
 </div>
 
 <!-- shot timeline -->
-<button id="tl-btn" class="hidden">🕒 Shots</button>
-<div id="timeline" class="hidden">
+<div id="timeline" class="g-panel hidden">
   <div class="tl-head"><span>Shot timeline</span><span id="tl-close">✕</span></div>
   <div id="tl-list"></div>
 </div>
 
 <!-- AI review -->
-<div id="ai-review" class="hidden">
+<div id="ai-review" class="g-panel hidden">
   <div class="art">Opponent shot</div>
   <div id="ai-rev-body"></div>
   <button class="rewatch" id="rewatch-btn">▸ Rewatch shot</button>
 </div>
 
-<div id="toast"></div>
+<div id="toast" class="g-toast"></div>
 
 <!-- calendar -->
-<div id="cal-panel">
+<div id="cal-panel" class="g-panel">
   <div id="cal-header">
     <button class="cal-nav" id="cal-prev-mo">‹</button>
     <span id="cal-month-label"></span>
@@ -398,87 +338,87 @@ a.mini:hover{color:#ccf73f}
 </div>
 
 <!-- ── Mode select ── -->
-<div class="overlay" id="modeselect">
-  <div class="card">
+<div class="g-overlay" id="modeselect">
+  <div class="g-card">
     <h1>Daily Break</h1>
-    <div class="sub">Top-down pool · <span id="ms-version"></span></div>
-    <div class="mode-row">
-      <div class="mode-btn" id="ms-daily">
-        <div class="mt">Daily Challenge</div>
-        <div class="md">One seeded rack · run your group · same for everyone</div>
-      </div>
-      <div class="mode-btn" id="ms-classic">
-        <div class="mt">Classic 8-Ball</div>
-        <div class="md">2-player or vs AI · presets &amp; modifiers</div>
-      </div>
-      <a class="mode-btn" id="ms-online" href="?mp=host">
-        <div class="mt">Play online</div>
-        <div class="md">Host a table for a friend &middot; or <span class="ms-browse">browse open games</span></div>
+    <div class="g-sub">Top-down pool · <span id="ms-version"></span></div>
+    <div class="g-choices">
+      <button class="g-choice" id="ms-daily">
+        <span class="g-choice-title">Daily Challenge</span>
+        <span class="g-choice-desc">One seeded rack · run your group · same for everyone</span>
+      </button>
+      <button class="g-choice" id="ms-classic">
+        <span class="g-choice-title">Classic 8-Ball</span>
+        <span class="g-choice-desc">2-player or vs AI · presets &amp; modifiers</span>
+      </button>
+      <a class="g-choice" id="ms-online" href="?mp=host">
+        <span class="g-choice-title">Play online</span>
+        <span class="g-choice-desc">Host a table for a friend &middot; or <u class="ms-browse">browse open games</u></span>
       </a>
     </div>
-    <p style="margin-top:20px"><a class="mini" id="ms-lb" href="#">Leaderboard</a> &nbsp;·&nbsp; <a class="mini" href="server.html">Game server</a> &nbsp;·&nbsp; <a class="mini" href="index.html">← All games</a></p>
+    <div class="g-links"><a id="ms-lb" href="#">Leaderboard</a><a href="server.html">Game server</a><a href="index.html">All games</a></div>
   </div>
 </div>
 
 <!-- ── Classic setup ── -->
-<div class="overlay hidden" id="setup">
-  <div class="card" style="max-width:500px">
-    <span class="close-x" id="setup-close">✕</span>
+<div class="g-overlay hidden" id="setup">
+  <div class="g-card wide">
+    <button class="g-close" id="setup-close" aria-label="Close">✕</button>
     <h2>Classic 8-Ball</h2>
-    <div class="sub" style="margin-bottom:14px">Set up your match</div>
+    <div class="g-sub">Set up your match</div>
 
-    <div class="field">
-      <span class="fl">Opponent</span>
-      <div class="seg" id="opp-seg">
+    <div class="g-field">
+      <span class="g-label">Opponent</span>
+      <div class="g-seg" id="opp-seg">
         <button data-opp="human" class="on">2 Players</button>
         <button data-opp="ai">Vs Computer</button>
         <button data-opp="spectate">Watch AI vs AI</button>
       </div>
     </div>
-    <div class="field" id="diff-field">
-      <span class="fl">Computer skill</span>
-      <div class="seg" id="diff-seg">
+    <div class="g-field" id="diff-field">
+      <span class="g-label">Computer skill</span>
+      <div class="g-seg" id="diff-seg">
         <button data-diff="0">Rookie</button>
         <button data-diff="1" class="on">Amateur</button>
         <button data-diff="2">Pro</button>
         <button data-diff="3">Insane</button>
       </div>
     </div>
-    <div class="field">
-      <span class="fl">Rules preset</span>
-      <div class="seg" id="preset-seg">
+    <div class="g-field">
+      <span class="g-label">Rules preset</span>
+      <div class="g-seg" id="preset-seg">
         <button data-preset="bar" class="on">Bar Rules</button>
         <button data-preset="standard">Standard</button>
         <button data-preset="casual">Casual</button>
       </div>
     </div>
-    <div class="field">
-      <span class="fl">Fun modifiers</span>
-      <div class="mods" id="mods"></div>
+    <div class="g-field">
+      <span class="g-label">Fun modifiers</span>
+      <div class="g-toggles" id="mods"></div>
     </div>
-    <button class="pbtn primary" id="setup-start" style="width:100%;margin-top:8px">Break!</button>
+    <button class="g-btn primary block" id="setup-start" style="margin-top:20px">Break!</button>
   </div>
 </div>
 
 <!-- ── Win / end card ── -->
-<div class="overlay hidden" id="win">
-  <div class="card">
-    <div class="sub" id="win-sub"></div>
+<div class="g-overlay hidden" id="win">
+  <div class="g-card center">
+    <div class="g-sub" id="win-sub"></div>
     <h1 id="win-title"></h1>
-    <div class="wscore" id="win-score"></div>
-    <div class="wb" id="win-best"></div>
+    <div class="g-score" id="win-score"></div>
+    <div class="g-note" id="win-best"></div>
     <div id="win-lb" class="win-lb"></div>
-    <div id="win-btns"></div>
+    <div id="win-btns" class="g-actions"></div>
   </div>
 </div>
 
 <!-- ── Help ── -->
-<div class="overlay hidden" id="help">
-  <div class="card">
-    <span class="close-x" id="help-close">✕</span>
+<div class="g-overlay hidden" id="help">
+  <div class="g-card">
+    <button class="g-close" id="help-close" aria-label="Close">✕</button>
     <h2>How to play</h2>
-    <div class="sub" style="margin-bottom:16px">Aim · Power · Spin · Shoot</div>
-    <div class="help-list">
+    <div class="g-sub">Aim · Power · Spin · Shoot</div>
+    <div class="g-help">
       <b>Aim</b>: drag anywhere on the table to rotate your aim (no snap). Hold <b>Shift</b> for fine aim.<br>
       <b>Power</b>: drag the power bar.<br>
       <b>Spin</b>: drag the dot on the white ball for follow / draw / english.<br>
@@ -1159,7 +1099,7 @@ var tableRotated=false, tableScale=1;
 // Canvas viewport (CSS px) and where the table's centre sits inside it.
 var viewW=0, viewH=0, viewDpr=1, tableCX=0, tableCY=0;
 // Fixed HUD layers that must never sit on top of the table in portrait.
-var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','#restart-btn','#menu-btn2','#tl-btn','#lb-btn'];
+var POOL_TOP_CHROME=['.hud','#chip-left','#chip-right','.corner.tl','.corner.tr'];
 var POOL_BOT_CHROME=['.controls','#ai-review'];
 function fitCanvas(){
   var wrap=document.querySelector('.game-wrap');
@@ -1451,7 +1391,16 @@ window.addEventListener('keydown',function(e){
   else if(e.key===' '){attemptShoot();e.preventDefault();}
   else if(e.key==='r'||e.key==='R'){rewatchLast();}
 });
-window.addEventListener('keydown',function(e){ if(e.key==='?'){el('help').classList.remove('hidden');} });
+window.addEventListener('keydown',function(e){
+  if(e.key==='?'){el('help').classList.remove('hidden');}
+  // Esc backs out one layer: help, then setup, then the calendar and shot list.
+  else if(e.key==='Escape'){
+    if(!el('help').classList.contains('hidden')) el('help').classList.add('hidden');
+    else if(!el('setup').classList.contains('hidden')) openMenu();
+    else { el('cal-panel').classList.remove('open'); el('timeline').classList.add('hidden'); el('tl-btn').classList.remove('open'); }
+  }
+});
+el('help-btn').addEventListener('click',function(){el('help').classList.remove('hidden');});
 
 /* ═══════════════════════ SCREENS / MODE PLUMBING ═══════════════════════ */
 let mode='menu';
@@ -1459,9 +1408,9 @@ function ballByN(n){for(var i=0;i<balls.length;i++)if(balls[i].n===n)return ball
 function groupRemaining(grp){var c=0;for(var i=0;i<balls.length;i++){var b=balls[i];
   if(b.n!==0&&b.n!==8&&b.grp===grp&&!b.potted)c++;}return c;}
 
-const CHROME=['hud','chip-left','chip-right','menu-btn2','restart-btn','controls','ai-review','tl-btn','timeline'];
+const CHROME=['hud','chip-left','chip-right','menu-btn2','restart-btn','help-btn','lb-btn','controls','ai-review','tl-btn','timeline'];
 function hideChrome(){CHROME.forEach(function(id){el(id).classList.add('hidden');});}
-function showChrome(list){hideChrome();list.forEach(function(id){el(id).classList.remove('hidden');});}
+function showChrome(list){hideChrome();list.concat(['help-btn']).forEach(function(id){el(id).classList.remove('hidden');});}
 function openMenu(){
   mode='menu'; interaction=false; animating=false; hideChrome();
   el('cal-panel').classList.remove('open');
@@ -1555,10 +1504,10 @@ function updateDailyHUD(){
       '<button class="day-btn" id="btn-next">›</button>'+
     '</span>'+
     '<span class="sep"></span>'+
-    '<span class="sl">POT THE</span> '+ballIcon(daily.group,16)+' <span class="grouptag" style="font-size:.8rem">'+gName.toUpperCase()+'</span>'+
+    '<span class="sl">Pot the</span> '+ballIcon(daily.group,16)+' <span class="grouptag" style="font-size:.8rem">'+gName+'</span>'+
     '<span class="sep"></span>'+
-    '<span><span class="sv">'+daily.score+'</span> <span class="sl">/7 POTTED</span></span>'+
-    (best?'<span class="sep"></span><span class="dv">BEST '+best.s+'/7'+(best.w?' ✓':'')+'</span>':'');
+    '<span><span class="sv">'+daily.score+'</span> <span class="sl">/7 potted</span></span>'+
+    (best?'<span class="sep"></span><span class="dv">Best '+best.s+'/7'+(best.w?' ✓':'')+'</span>':'');
   el('chip-left').classList.add('hidden');
   el('btn-next').disabled=(dayOffset>=0);
   el('btn-prev').onclick=function(){dayOffset--;startDaily();};
@@ -1637,17 +1586,17 @@ function showDailyEnd(win,bust,reason){
   el('win-title').textContent=win?'Cleared the rack!':bust?'8-ball too early':'Run over';
   el('win-score').textContent=daily.score+'/7';
   var best=getDailyBest(SEED);
-  var wb=el('win-best'); wb.className='wb';
+  var wb=el('win-best'); wb.className='g-note';
   var msg=win?'You ran your group and sank the 8. Perfect.':(reason||'Nice run.');
   if(best && (best.s>daily.score || (best.s===daily.score&&best.w&&!win))){
     msg+=' · Best '+best.s+'/7'+(best.w?' ✓':'');
-  } else { wb.className='wb newpb'; msg='New personal best! · '+ (reason||''); }
+  } else { wb.className='g-note good'; msg='New personal best! · '+ (reason||''); }
   wb.textContent=msg;
   var g=daily.group==='solid'?'Solids':'Stripes';
   el('win-btns').innerHTML=
-    '<button class="pbtn primary" id="w-share">Share</button>'+
-    '<button class="pbtn" id="w-again">Retry</button>'+
-    '<button class="pbtn ghost" id="w-menu">Menu</button>';
+    '<button class="g-btn primary" id="w-share">Share</button>'+
+    '<button class="g-btn" id="w-again">Retry</button>'+
+    '<button class="g-btn" id="w-menu">Menu</button>';
   el('win').classList.remove('hidden');
   poolShowLeaderboard(daily.score);
   el('w-share').onclick=function(){shareDaily(win,g);};
@@ -1720,7 +1669,7 @@ function openSetup(){
   el('modeselect').classList.add('hidden');
   // render mods
   var mh='';
-  MODS.forEach(function(m){mh+='<div class="mod'+(cfg.mods[m.id]?' on':'')+'" data-mod="'+m.id+'"><span class="box"></span>'+m.label+' <small>'+m.d+'</small></div>';});
+  MODS.forEach(function(m){mh+='<div class="g-toggle'+(cfg.mods[m.id]?' on':'')+'" data-mod="'+m.id+'"><span class="box"></span>'+m.label+' <small>'+m.d+'</small></div>';});
   el('mods').innerHTML=mh;
   el('diff-field').style.display=cfg.opp==='human'?'none':'';
   el('setup').classList.remove('hidden');
@@ -1737,7 +1686,7 @@ wireSeg('opp-seg','opp',function(v){cfg.opp=v; el('diff-field').style.display=v=
 wireSeg('diff-seg','diff',function(v){cfg.diff=parseInt(v,10);});
 wireSeg('preset-seg','preset',function(v){cfg.preset=v;});
 el('mods').addEventListener('click',function(e){
-  var m=e.target.closest('.mod'); if(!m)return;
+  var m=e.target.closest('.g-toggle'); if(!m)return;
   var id=m.dataset.mod; cfg.mods[id]=!cfg.mods[id]; m.classList.toggle('on',!!cfg.mods[id]);
   if(cfg.mods.fastfelt&&cfg.mods.slowfelt){ // mutually exclusive
     var other=id==='fastfelt'?'slowfelt':'fastfelt'; cfg.mods[other]=false;
@@ -1953,12 +1902,12 @@ function endClassic(winnerIdx,msg){
   el('win-title').textContent=game.players[winnerIdx].name+' wins';
   el('win-score').textContent='🎱';
   el('win-best').textContent=msg||'';
-  el('win-best').className='wb';
+  el('win-best').className='g-note';
   el('win-btns').innerHTML=
-    '<button class="pbtn primary" id="w-again">Rematch</button>'+
-    '<button class="pbtn" id="w-review">Review shots</button>'+
-    '<button class="pbtn" id="w-setup">Setup</button>'+
-    '<button class="pbtn ghost" id="w-menu">Menu</button>';
+    '<button class="g-btn primary" id="w-again">Rematch</button>'+
+    '<button class="g-btn" id="w-review">Review shots</button>'+
+    '<button class="g-btn" id="w-setup">Setup</button>'+
+    '<button class="g-btn" id="w-menu">Menu</button>';
   el('win').classList.remove('hidden');
   el('w-again').onclick=function(){el('win').classList.add('hidden');startClassic();};
   el('w-review').onclick=function(){
@@ -2029,11 +1978,11 @@ function updateClassicHUD(){
     var icon=onEight?ballIcon('eight',14):(g?ballIcon(g,14):'');
     var active=i===t;
     var style=active?'color:#ccf73f;font-weight:600':'opacity:.5';
-    var label=onEight?'8-BALL':(g?grpLabel(g).toUpperCase()+' '+rem:'OPEN');
+    var label=onEight?'8-ball':(g?grpLabel(g)+' '+rem:'open');
     return '<span style="display:inline-flex;align-items:center;gap:6px;'+style+'">'+
       (active?'▸ ':'')+p[i].name+(icon?' '+icon:'')+' '+label+'</span>';
   }
-  var note = game.openTable?'OPEN TABLE: pot anything':(p[t].group&&groupRemaining(p[t].group)===0?'POT THE 8 TO WIN':'');
+  var note = game.openTable?'Open table: pot anything':(p[t].group&&groupRemaining(p[t].group)===0?'Pot the 8 to win':'');
   el('hud-main').innerHTML=seg(0)+'<span class="sep"></span>'+seg(1)+(note?'<span class="sep"></span><span class="dv">'+note+'</span>':'');
   el('chip-left').classList.add('hidden');
 }
@@ -2377,9 +2326,9 @@ function guestPlayShot(m){
 function guestShowOver(m){
   el('win-title').textContent=m.title||'Game over';
   el('win-sub').textContent=m.sub||'';
-  el('win-best').textContent=m.best||''; el('win-best').className='wb';
+  el('win-best').textContent=m.best||''; el('win-best').className='g-note';
   el('win-score').textContent='🎱';
-  el('win-btns').innerHTML='<button class="pbtn ghost" id="w-menu">Menu</button>';
+  el('win-btns').innerHTML='<button class="g-btn" id="w-menu">Menu</button>';
   el('win').classList.remove('hidden');
   el('w-menu').onclick=function(){ location.href='index.html'; };
 }
@@ -2409,9 +2358,9 @@ function poolOpponentGone(){
   interaction=false; aim.canShoot=false; aim.ballInHand=false; enableControls(false);
   el('win-title').textContent='Opponent disconnected';
   el('win-sub').textContent='The other player left or lost connection';
-  el('win-best').textContent=''; el('win-best').className='wb';
+  el('win-best').textContent=''; el('win-best').className='g-note';
   el('win-score').textContent='🔌';
-  el('win-btns').innerHTML='<button class="pbtn ghost" id="w-menu">Back to games</button>';
+  el('win-btns').innerHTML='<button class="g-btn" id="w-menu">Back to games</button>';
   el('win').classList.remove('hidden');
   el('w-menu').onclick=function(){ location.href='index.html'; };
   toast('');
