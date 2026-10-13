@@ -77,7 +77,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 <p class="lede">Short version: I don't track you. There is no analytics script, no
 advertising and no third-party tracker anywhere on this site, and nothing sets a
 cookie. The only personal thing you can hand over is a username you choose for
-the multiplayer games &mdash; and you only need one to list a game publicly.</p>
+the multiplayer games, and you only need one to list a game publicly.</p>
 
 <h2>What is stored in your browser</h2>
 <p>These live in <code>localStorage</code> on your own device. They are never sent
@@ -87,7 +87,7 @@ anywhere except where noted, and clearing your browser data removes them.</p>
   <tr><th>Key</th><th>What it is</th></tr>
   <tr><td><code>dark</code></td><td>Whether you chose dark mode.</td></tr>
   <tr><td><code>joshg-username</code></td><td>The username you picked for multiplayer. Sent to the game server when you claim it, list a game, or post a score.</td></tr>
-  <tr><td><code>joshg-user-token</code></td><td>A random value generated on your device that proves the username is yours. Only a one-way hash of it is ever stored on the server &mdash; the value itself is never stored there and never shown.</td></tr>
+  <tr><td><code>joshg-user-token</code></td><td>A random value generated on your device that proves the username is yours. Only a one-way hash of it is ever stored on the server. The value itself is never stored there and never shown.</td></tr>
   <tr><td><code>mpl-name</code></td><td>The display name you last typed into a game lobby.</td></tr>
   <tr><td><code>db_&hellip;</code>, <code>mg_&hellip;</code></td><td>Your best scores for the daily pool and minigolf rounds.</td></tr>
   <tr><td><code>pool_seen</code>, <code>mg_tutorial_seen</code>, <code>rts-seen-help</code></td><td>Whether you have already been shown a game's tutorial.</td></tr>
@@ -98,14 +98,14 @@ anywhere except where noted, and clearing your browser data removes them.</p>
 <p>Multiplayer and the daily leaderboards run through a small server I operate on
 Cloudflare. It holds only this:</p>
 <ul>
-  <li><b>Usernames</b> &mdash; the name you chose, plus a one-way hash of your device token so nobody else can claim it.</li>
-  <li><b>Open game listings</b> &mdash; game, join code, host username and player count, while a game is open. These delete themselves within a couple of minutes of the host leaving.</li>
-  <li><b>Daily scores</b> &mdash; game, date, username and score.</li>
+  <li><b>Usernames</b>: the name you chose, plus a one-way hash of your device token so nobody else can claim it.</li>
+  <li><b>Open game listings</b>: game, join code, host username and player count, while a game is open. These delete themselves within a couple of minutes of the host leaving.</li>
+  <li><b>Daily scores</b>: game, date, username and score.</li>
 </ul>
 <p><b>No IP addresses are recorded in any of it.</b> That is deliberate and it is
 the reason multiplayer works the way it does: games are relayed through the
 server rather than connected player-to-player, so other players never learn your
-address. The server code reads no address either &mdash; the only request header it
+address. The server code reads no address either. The only request header it
 looks at is the WebSocket upgrade.</p>
 <p>What the server does necessarily handle is the <b>content of game messages</b>,
 since it forwards them between players. Those are relayed, not stored. The
@@ -114,15 +114,15 @@ in-game messages as visible to me and to Cloudflare, and don't put anything
 sensitive in them.</p>
 
 <h2>Camera</h2>
-<p>Two games &mdash; <a href="games/darts.html">Darts</a> and the
-<a href="games/hand-tracker.html">hand tracker</a> &mdash; can use your webcam, and
+<p>Two games, <a href="games/darts.html">Darts</a> and the
+<a href="games/hand-tracker.html">hand tracker</a>, can use your webcam, and
 only after your browser asks and you agree. <b>The video never leaves your
 device.</b> Hand tracking runs entirely in your browser; no frames are uploaded,
 recorded or sent to me or anyone else.</p>
 
 <h2>Third parties</h2>
 <p>The site loads a few things from other providers. They can see your IP address
-and which page requested the file, because that is how the web works &mdash; not
+and which page requested the file, because that is how the web works, not
 because I send them anything about you.</p>
 <div class="tw">
 <table>
@@ -156,7 +156,7 @@ collects nothing beyond what is described above.</p>
 so the history is visible.</p>
 
 <h2>Contact</h2>
-<p>Questions, or want something deleted &mdash;
+<p>Questions, or want something deleted? Email
 <a href="mailto:joshgustaveson@gmail.com">joshgustaveson@gmail.com</a>.</p>
 
 <p class="updated">Last updated 22 July 2026</p>

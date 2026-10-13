@@ -508,16 +508,16 @@ html:not(.dark) #comms-status{color:#5a7a90}
     <button class="diff-btn" id="heat-btn" title="Toggle enemy density heat map">Heat</button>
     <button class="diff-btn" id="ally-btn" title="Toggle friendly (ally) density heat map">Ally</button>
     <button class="diff-btn" id="threat-btn" title="Toggle enemy threat/targetable ranges">Threat</button>
-    <button class="diff-btn" id="aiov-btn" title="AI debug overlay — attack weights, soft spots, team comms">🧠 Overlay</button>
+    <button class="diff-btn" id="aiov-btn" title="AI debug overlay: attack weights, soft spots, team comms">🧠 Overlay</button>
     <button class="diff-btn" id="rank-btn" title="Standings graph over time">📈 Graph</button>
     <button class="diff-btn" id="pause-btn" title="Pause / resume (Space)">⏸ Pause</button>
     <button class="diff-btn" id="speed-btn" title="Game speed (cycle)">1×</button>
     <button class="diff-btn" id="ailog-btn" title="Show AI decision log">AI Log</button>
     <button class="diff-btn" id="console-btn" title="Dev console (`)">&gt;_</button>
-    <button class="diff-btn active" id="fx-btn" title="Toggle decorative extras (wildlife &amp; desire paths) — turn off to save CPU">✨ FX</button>
+    <button class="diff-btn active" id="fx-btn" title="Toggle decorative extras (wildlife &amp; desire paths). Turn off to save CPU">✨ FX</button>
     <button class="diff-btn active" id="sound-btn" title="Toggle sound effects">🔊</button>
     <button class="diff-btn" id="menu-btn" title="Back to operation setup">☰ Menu</button>
-    <a class="diff-btn" href="server.html" title="Open games — host or join">&#127760; Online</a>
+    <a class="diff-btn" href="server.html" title="Open games: host or join">&#127760; Online</a>
     <button id="help-btn" title="How to play">?</button>
     <span id="version-badge">v0.22.1</span>
   </div>
@@ -579,7 +579,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
 <div id="setup">
   <div class="setup-box">
     <h2>Frontline</h2>
-    <div class="setup-sub">Operation setup — <span id="setup-ver"></span></div>
+    <div class="setup-sub">Operation setup <span id="setup-ver"></span></div>
     <div class="setup-grid">
       <div class="setup-sec">
         <div class="setup-lbl">Biome</div>
@@ -592,7 +592,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
       <div class="setup-sec">
         <div class="setup-lbl">Players (you + bots)</div>
         <div class="opt-row" id="opt-count"></div>
-        <label class="chk"><input type="checkbox" id="opt-spectate"> Bots only — spectate</label>
+        <label class="chk"><input type="checkbox" id="opt-spectate"> Bots only, spectate</label>
       </div>
       <div class="setup-sec">
         <div class="setup-lbl">Wildlife</div>
@@ -615,7 +615,7 @@ html:not(.dark) #comms-status{color:#5a7a90}
         <div class="opt-row" id="opt-spread"></div>
       </div>
     </div>
-    <div class="setup-lbl" style="margin-top:6px">Commanders — pick teams (same team = allies)</div>
+    <div class="setup-lbl" style="margin-top:6px">Commanders: pick teams (same team = allies)</div>
     <div id="slot-list"></div>
     <div class="setup-note" id="setup-note"></div>
     <button id="btn-start">▶ Start Operation</button>
@@ -631,20 +631,20 @@ html:not(.dark) #comms-status{color:#5a7a90}
 <div id="help-modal">
   <div class="help-box">
     <button class="help-close" id="help-close">✕ Close</button>
-    <h2>Frontline — How to play</h2>
+    <h2>Frontline: How to play</h2>
     <div class="help-ver" id="help-ver">v0.22.1</div>
     <div class="help-grid">
-      <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty — or watch an all-bot match as a spectator.</dd></dl>
-      <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies — no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> (or its row in the left panel) to inspect anyone's gold, research, queues, army and live brain state.</dd></dl>
-      <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> (base or Engineer Hall) — they auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to dedicate a miner, or a Mine to set a drop-off. Mines take per-mine profit upgrades.</dd></dl>
+      <dl class="help-item"><dt>Objective</dt><dd>Destroy every rival team's <b>base</b>. Set up the match in the start menu: 2–6 commanders, teams, terrain, map size, and per-bot difficulty, or watch an all-bot match as a spectator.</dd></dl>
+      <dl class="help-item"><dt>Teams &amp; allies</dt><dd>Commanders on the <b>same team</b> are allies: no friendly fire, and you can't command their troops. Open <b>📡 Comms</b> to suggest <b>attack / defend / gather / rally</b> spots to allied bots; they weigh your ping against their own read of the field and answer in the AI log. Click a <b>commander chip</b> (or its row in the left panel) to inspect anyone's gold, research, queues, army and live brain state.</dd></dl>
+      <dl class="help-item"><dt>Economy</dt><dd>Spawn <b>Engineers</b> (base or Engineer Hall). They auto-gather gold from deposits (⛏) and return it to your base or a Mine. Right-click a deposit to dedicate a miner, or a Mine to set a drop-off. Mines take per-mine profit upgrades.</dd></dl>
       <dl class="help-item"><dt>Production buildings</dt><dd><b>Barracks</b> trains infantry (Rifleman→Sniper/Rocketeer with Adv. Training). <b>Vehicle Depot</b> builds ATVs, APCs and Tanks (Heavy Division). <b>Airbase</b> fields Helicopters and Gunships (Flight Tech). <b>Engineer Hall</b> trains engineers and researches engineer upgrades.</dd></dl>
       <dl class="help-item"><dt>Towers</dt><dd>Five tower types, each built by engineers: <b>Guard</b> (balanced), <b>MG Nest</b> (fast, short), <b>Flak</b> (anti-air only), <b>Artillery</b> (long-range AoE, arcs over walls) and <b>Sniper Post</b> (extreme range, needs line of sight).</dd></dl>
       <dl class="help-item"><dt>Selecting &amp; moving</dt><dd><b>Left-click / drag</b> to select. <b>Right-click</b> ground to move, or <b>right-click an enemy</b> to lock on. <kbd>Ctrl</kbd>/<kbd>Shift</kbd>+click a portrait selects all of that type. Press <kbd>.</kbd> to grab idle engineers. <kbd>Space</kbd> pauses, <kbd>+</kbd>/<kbd>-</kbd> game speed.</dd></dl>
-      <dl class="help-item touch-only"><dt>Touch controls</dt><dd>On a phone or tablet: <b>tap</b> your unit or base to select, <b>tap ground or an enemy</b> while something is selected to give the order (the right-click), and <b>drag</b> across the map to box-select — a short drag over empty ground clears the selection. <b>Two fingers</b> drag to pan and pinch to zoom. The left panel tucks away behind the <b>▶</b> tab.</dd></dl>
-      <dl class="help-item"><dt>Camera &amp; overlays</dt><dd><b>Scroll</b> zooms to the cursor, <b>middle-drag</b> or <kbd>WASD</kbd> pans. Toggles: <b>Ally</b>/<b>Heat</b> density maps, <b>Threat</b> (enemy firing ranges), and <b>🧠 Overlay</b> — see each bot's stance, objective, approach weights and team chatter.</dd></dl>
-      <dl class="help-item"><dt>Dev console</dt><dd>Press <kbd>`</kbd> for the console. <b>help</b> lists commands — gold, spawn, speed, tech, reveal AI state, and more.</dd></dl>
-      <dl class="help-item"><dt>Engineers</dt><dd>Select engineers for <b>↩ Return Gold</b> (bank what they carry) and <b>⛏ Mine Zone</b> — click to mark areas they should mine (multiple; keeps them out of the firefight). Right-click any friendly building to <b>repair</b> it (cheaper with Salvage Kits). <b>Medics</b> take Seek / Hold / Heal-Zone orders.</dd></dl>
-      <dl class="help-item"><dt>Troop cap &amp; standings</dt><dd>A troop cap (set at boot, raised by <b>Field HQ</b> / <b>War Command</b>) keeps armies from ballooning. The <b>📈 Graph</b> tracks every commander over time — toggle <b>By Team</b> to sum allies. Use the right-side <b>zoom slider</b> for fine control.</dd></dl>
+      <dl class="help-item touch-only"><dt>Touch controls</dt><dd>On a phone or tablet: <b>tap</b> your unit or base to select, <b>tap ground or an enemy</b> while something is selected to give the order (the right-click), and <b>drag</b> across the map to box-select. A short drag over empty ground clears the selection. <b>Two fingers</b> drag to pan and pinch to zoom. The left panel tucks away behind the <b>▶</b> tab.</dd></dl>
+      <dl class="help-item"><dt>Camera &amp; overlays</dt><dd><b>Scroll</b> zooms to the cursor, <b>middle-drag</b> or <kbd>WASD</kbd> pans. Toggles: <b>Ally</b>/<b>Heat</b> density maps, <b>Threat</b> (enemy firing ranges), and <b>🧠 Overlay</b>: see each bot's stance, objective, approach weights and team chatter.</dd></dl>
+      <dl class="help-item"><dt>Dev console</dt><dd>Press <kbd>`</kbd> for the console. <b>help</b> lists commands: gold, spawn, speed, tech, reveal AI state, and more.</dd></dl>
+      <dl class="help-item"><dt>Engineers</dt><dd>Select engineers for <b>↩ Return Gold</b> (bank what they carry) and <b>⛏ Mine Zone</b>: click to mark areas they should mine (multiple; keeps them out of the firefight). Right-click any friendly building to <b>repair</b> it (cheaper with Salvage Kits). <b>Medics</b> take Seek / Hold / Heal-Zone orders.</dd></dl>
+      <dl class="help-item"><dt>Troop cap &amp; standings</dt><dd>A troop cap (set at boot, raised by <b>Field HQ</b> / <b>War Command</b>) keeps armies from ballooning. The <b>📈 Graph</b> tracks every commander over time. Toggle <b>By Team</b> to sum allies. Use the right-side <b>zoom slider</b> for fine control.</dd></dl>
       <dl class="help-item"><dt>Mortars &amp; cover</dt><dd>Entrench Mortars for +60% range/damage (immobile). Engineers build <b>Cover</b> that soaks 50% of crossing fire (air ignores it) and a <b>Hospital</b> that heals nearby troops. <b>Medics</b> heal on the move.</dd></dl>
       <dl class="help-item"><dt>Base defense</dt><dd>Your base auto-fires at nearby enemies. Buy base upgrades (range, cannons, reinforced walls), repair buildings, or call a one-shot <b>Airstrike</b>.</dd></dl>
     </div>
@@ -2229,26 +2229,26 @@ function evalSuggestions(p){
       if(myTroops>=3&&myArmy>=local*0.55+60){
         ai.stance='attack';ai.objective={x:s.x,y:s.y};ai.lockUntil=nowT+35;ai.raidId=null;
         postTeamCall(p,s.x,s.y);
-        commsMsg(p,`accepts ally ATTACK ping — army ${Math.round(myArmy)} vs local ${Math.round(local)}`);
+        commsMsg(p,`accepts ally ATTACK ping, army ${Math.round(myArmy)} vs local ${Math.round(local)}`);
       }else{
-        commsMsg(p,`declines ATTACK ping — too weak (${Math.round(myArmy)} vs ${Math.round(local)}, ${myTroops} troops)`);
+        commsMsg(p,`declines ATTACK ping, too weak (${Math.round(myArmy)} vs ${Math.round(local)}, ${myTroops} troops)`);
       }
     }else if(s.kind==='defend'){
       const distOwn=Math.hypot(s.x-p.base.cx,s.y-p.base.cy);
       if(distOwn<Math.min(W,H)*0.75){
         ai.stance='defend';ai.objective={x:s.x,y:s.y};ai.lockUntil=nowT+30;ai.raidId=null;
-        commsMsg(p,'accepts DEFEND ping — repositioning');
-      }else commsMsg(p,'declines DEFEND ping — too far from our lines');
+        commsMsg(p,'accepts DEFEND ping, repositioning');
+      }else commsMsg(p,'declines DEFEND ping, too far from our lines');
     }else if(s.kind==='gather'){
       const nearDep=deposits.some(d=>!d.depleted&&Math.hypot(d.x-s.x,d.y-s.y)<TS*14);
       if(nearDep){
         ai.gatherHint={x:s.x,y:s.y};ai.econBoostUntil=nowT+45;ai.econFocus=Math.min(0.85,ai.econFocus+0.25);
-        commsMsg(p,'accepts GATHER ping — shifting miners');
-      }else commsMsg(p,'declines GATHER ping — no gold there');
+        commsMsg(p,'accepts GATHER ping, shifting miners');
+      }else commsMsg(p,'declines GATHER ping, no gold there');
     }else if(s.kind==='rally'){
       const danger=foeThreatAt(p,s.x,s.y,TS*12);
-      if(danger<120){ai.rally={x:s.x,y:s.y};ai.lockUntil=nowT+20;commsMsg(p,'accepts RALLY ping — regrouping');}
-      else commsMsg(p,'declines RALLY ping — that ground is hot');
+      if(danger<120){ai.rally={x:s.x,y:s.y};ai.lockUntil=nowT+20;commsMsg(p,'accepts RALLY ping, regrouping');}
+      else commsMsg(p,'declines RALLY ping, that ground is hot');
     }
   }
 }
@@ -2419,13 +2419,13 @@ function assessAndPlan(p,cfg){
     ai.objective={x:p.base.gateX+p.base.fx*TS*6,y:p.base.gateY+p.base.fy*TS*6};ai.raidId=null;
   } else if(stance==='assist'&&ally){
     ai.objective={x:ally.base.gateX+ally.base.fx*TS*3,y:ally.base.gateY+ally.base.fy*TS*3};ai.raidId=null;
-    commsMsg(p,`defending ally ${ally.name} — inbound`);
+    commsMsg(p,`defending ally ${ally.name}, inbound`);
     for(const tm of players)if(tm.alive&&!tm.human&&tm.ai&&tm.team===p.team&&tm.id!==p.id)tm.ai.assessCd=Math.min(tm.ai.assessCd,DIFF[tm.diff].react); // rally the rest of the team fast
   } else if(stance==='siege'){
     softSpot(p,focus);
     ai.objective={x:focus.base.gateX,y:focus.base.gateY};ai.raidId=null;
     postTeamCall(p,ai.objective.x,ai.objective.y);
-    commsMsg(p,distracted?`third-partying ${focus.name} while they're distracted`:`sieging ${focus.name} — engulf and destroy`);
+    commsMsg(p,distracted?`third-partying ${focus.name} while they're distracted`:`sieging ${focus.name}, engulf and destroy`);
   } else if(stance==='attack'){
     ai.objective=softSpot(p,focus);ai.raidId=null;
     postTeamCall(p,ai.objective.x,ai.objective.y);
@@ -2437,7 +2437,7 @@ function assessAndPlan(p,cfg){
 
   progressorTick(p,cfg);
 
-  aiLog(p,'MIL',`stance → ${stance.toUpperCase()}${stance==='attack'?' vs '+focus.name+' via '+ai.approach:stance==='siege'?' — ENGULF '+focus.name:''} · army ${Math.round(myArmy)} vs ${focus.name} ${Math.round(focusArmy)}${atCap?' [CAP]':''}`);
+  aiLog(p,'MIL',`stance → ${stance.toUpperCase()}${stance==='attack'?' vs '+focus.name+' via '+ai.approach:stance==='siege'?', ENGULF '+focus.name:''} · army ${Math.round(myArmy)} vs ${focus.name} ${Math.round(focusArmy)}${atCap?' [CAP]':''}`);
   aiLog(p,'ASSESS',`econ ${Math.round(econFocus*100)}% · mines ${myMines} · troops ${myTroops.length}/${cap===Infinity?'∞':cap}`);
   const dom=dominantFoeUnit(p);
   if(dom&&dom.n>=2){
@@ -2446,7 +2446,7 @@ function assessAndPlan(p,cfg){
     if(best)aiLog(p,'WATCH',`foes lean ${TDEFS[dom.type].name}×${dom.n} → countering with ${TDEFS[best].name}`);
     else if((ai._threat.mortar||ai._threat.siege)&&!hasBldgP(p,'airbase'))aiLog(p,'WATCH',`enemy siege → teching toward air`);
   }
-  if(stance==='raid')aiLog(p,'WATCH',`${exposedEng.length} exposed hostile engineer(s) — strike force out`);
+  if(stance==='raid')aiLog(p,'WATCH',`${exposedEng.length} exposed hostile engineer(s), strike force out`);
 }
 
 // PROGRESSOR — tech + upgrades, gated by owned buildings, one research at a time
@@ -2510,10 +2510,10 @@ function assignRoles(p,focus){
       ai.flankObj={x:alt.x,y:alt.y};
       const wing=committed.slice(Math.round(committed.length*0.6));
       for(const u of wing)u._role='flank';
-      if(wing.length)commsMsg(p,`split push — ${wing.length} wing via ${alt.label}`);
+      if(wing.length)commsMsg(p,`split push: ${wing.length} wing via ${alt.label}`);
     }
   }
-  if(sorted.length>committed.length)aiLog(p,'MIL',`committing ${committed.length}/${sorted.length} — ${sorted.length-committed.length} in reserve`);
+  if(sorted.length>committed.length)aiLog(p,'MIL',`committing ${committed.length}/${sorted.length}, ${sorted.length-committed.length} in reserve`);
 }
 function troopMicro(p,cfg){
   const ai=p.ai;
@@ -2546,7 +2546,7 @@ function troopMicro(p,cfg){
       const guards=army.filter(u=>!u._retreating&&u.type!=='medic'&&u.type!=='mortar'&&u.attackTarget==null)
         .sort((a,b)=>((a._role==='reserve')?0:1)-((b._role==='reserve')?0:1)||dist(a,victim)-dist(b,victim)).slice(0,3);
       for(const u of guards){if(budget<=0)break;u.attackTarget=raider.id;budget--;}
-      if(guards.length&&ai.escortCd<=0){ai.escortCd=10;aiLog(p,'ENGI',`raiders near our miners — ${guards.length} escort(s) dispatched`);}
+      if(guards.length&&ai.escortCd<=0){ai.escortCd=10;aiLog(p,'ENGI',`raiders near our miners, ${guards.length} escort(s) dispatched`);}
     }
   }
   // mortar micro — dig in eagerly (entrenching is budget-free; only marching costs APM):
@@ -2744,12 +2744,12 @@ function botBuild(p){
   const fwdTowers=units.filter(u=>u.owner===p.id&&TOWER_TYPES.includes(u.type)&&u.hp>0&&Math.hypot(u.x-p.base.cx,u.y-p.base.cy)>TS*18).length;
   if(rich&&has('research')&&myTroopN>=4&&fwdTowers<3&&!pendType('arttower')&&p.gold>=BDEFS['artillery-tower'].cost*1.2){
     const spots=botForwardSpots(p).filter(sp=>grid[sp.r]&&grid[sp.r][sp.c]===0&&foeThreatAt(p,sp.x,sp.y,TS*11)<80);
-    if(spots.length&&doBotBuild(p,'artillery-tower',spots)){aiLog(p,'BUILD','forward Artillery — claiming ground');return;}
+    if(spots.length&&doBotBuild(p,'artillery-tower',spots)){aiLog(p,'BUILD','forward Artillery, claiming ground');return;}
   }
   if(rich&&myTroopN>=5&&fwdTowers<4&&!pendType('mgnest')&&!pendType('sniptower')&&p.gold>=BDEFS['sniper-tower'].cost*1.2){
     const wantSnipe=(th.longrange||0)<1;const bt=wantSnipe?'sniper-tower':'mg-nest';
     const spots=botForwardSpots(p).filter(sp=>grid[sp.r]&&grid[sp.r][sp.c]===0&&foeThreatAt(p,sp.x,sp.y,TS*10)<60);
-    if(spots.length&&doBotBuild(p,bt,spots)){aiLog(p,'BUILD',`forward ${BDEFS[bt].label} — holding the line`);return;}
+    if(spots.length&&doBotBuild(p,bt,spots)){aiLog(p,'BUILD',`forward ${BDEFS[bt].label}, holding the line`);return;}
   }
   // expansion mine at another ore concentration (cuts miner travel time)
   if(rich&&mineCount<3&&!pendType('mine')&&p.gold>=BDEFS['mine'].cost*1.4){
@@ -2787,7 +2787,7 @@ function sendSuggestion(kind,x,y){
     pings.push({x,y,kind,timer:3,maxTimer:3});
     sfx('ping');
     const cs=document.getElementById('comms-status');
-    if(cs)cs.textContent=`Sent ${kind.toUpperCase()} suggestion to ${sent} allied commander${sent>1?'s':''} — watch the AI log for their answer.`;
+    if(cs)cs.textContent=`Sent ${kind.toUpperCase()} suggestion to ${sent} allied commander${sent>1?'s':''}. Watch the AI log for their answer.`;
   }
 }
 
@@ -2818,7 +2818,7 @@ function eliminatePlayer(i,byOwner){
   sfx('explosion');
   if(byOwner!=null&&byOwner>=0&&players[byOwner])players[byOwner].kills+=5;
   banner(`☠ ${p.name} (${p.colName}) has been eliminated${byOwner!=null&&players[byOwner]?' by '+players[byOwner].name:''}!`);
-  if(i===HUMAN)setTimeout(()=>banner('Your base has fallen — spectating the rest of the battle…',6000),1200);
+  if(i===HUMAN)setTimeout(()=>banner('Your base has fallen, spectating the rest of the battle…',6000),1200);
   checkVictory();
 }
 function checkVictory(){
@@ -2828,9 +2828,9 @@ function checkVictory(){
   if(teams.length===0){endGame(false,'MUTUAL DESTRUCTION');return;}
   const t=teams[0];
   const names=players.filter(p=>p.alive).map(p=>p.name).join(' + ');
-  if(h&&h.alive&&h.team===t)endGame(true,`VICTORY — Team ${t} (${names}) wins!`);
-  else if(h)endGame(false,`DEFEAT — Team ${t} (${names}) wins`);
-  else endGame(true,`TEAM ${t} WINS — ${names}`);
+  if(h&&h.alive&&h.team===t)endGame(true,`VICTORY: Team ${t} (${names}) wins!`);
+  else if(h)endGame(false,`DEFEAT: Team ${t} (${names}) wins`);
+  else endGame(true,`TEAM ${t} WINS: ${names}`);
 }
 function endGame(win,msg){gameOver=true;gameWin=win;gameMsg=msg;sfx(win?'win':'lose');}
 
@@ -4002,7 +4002,7 @@ function render(){
   }
   if(HUMAN<0&&!gameOver){
     ctx.textAlign='center';ctx.fillStyle='rgba(255,255,255,.5)';
-    ctx.font='10px "IBM Plex Mono",monospace';ctx.fillText('SPECTATOR — bots only',viewW/2,16);
+    ctx.font='10px "IBM Plex Mono",monospace';ctx.fillText('SPECTATOR: bots only',viewW/2,16);
     ctx.textAlign='left';
   }
   drawGameOver();
@@ -4020,7 +4020,7 @@ function tickSelPanel(){
   const status=document.getElementById('sel-status');
   if(sel.length===1){
     const u=sel[0];
-    if(title)title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP`;
+    if(title)title.textContent=`${u.name.toUpperCase()}: ${Math.ceil(u.hp)}/${u.maxHp} HP`;
     if(u.type==='engineer'&&status){
       const stMap={idle:'Auto-gather',parked:'Idle (parked)',going:'→ deposit',mining:'Mining',returning:'← returning','going-build':'→ build site',building:'⚒ Building'};
       let stxt=stMap[u.gatherState]||'';
@@ -4028,10 +4028,10 @@ function tickSelPanel(){
       status.textContent=stxt;
     } else if(u.isBuilding&&status&&u.owner===HUMAN){
       const q=trainQueues.get(u.id)||[];
-      if(q.length){const cur=q[0];status.textContent=`Training ${TDEFS[cur.type].name} — ${cur.timeLeft.toFixed(1)}s`;}
+      if(q.length){const cur=q[0];status.textContent=`Training ${TDEFS[cur.type].name}: ${cur.timeLeft.toFixed(1)}s`;}
       else{
         const aq=upgradeQueue.find(e=>e.bldgType===u.type);
-        if(aq){const p=Math.round((1-aq.timeLeft/aq.maxTime)*100);status.textContent=`Researching ${UPGD[aq.key].label} — ${aq.timeLeft.toFixed(1)}s (${p}%)`;}
+        if(aq){const p=Math.round((1-aq.timeLeft/aq.maxTime)*100);status.textContent=`Researching ${UPGD[aq.key].label}: ${aq.timeLeft.toFixed(1)}s (${p}%)`;}
       }
     }
   } else {
@@ -4200,7 +4200,7 @@ function updateSidePanel(){
     if(myBldgs.length||pCons.length){
       html+=`<div class="sp-head">Buildings</div>`;
       for(const t of['mine','barracks','depot','airbase','enghall','research','hospital','tower','mgnest','flak','arttower','sniptower','outpost']){if(bCounts[t])html+=`<div class="sp-row"><span class="sp-label">${TDEFS[t]?.name||t}</span><span class="sp-val">${bCounts[t]}</span></div>`;}
-      for(const con of pCons)html+=`<div class="sp-con">⚒ ${BDEFS[con.type]?.label} — ${Math.floor(con.progress*100)}%</div>`;
+      for(const con of pCons)html+=`<div class="sp-con">⚒ ${BDEFS[con.type]?.label}: ${Math.floor(con.progress*100)}%</div>`;
     }
     if(doneUpgs.length||upgradeQueue.length){
       html+=`<div class="sp-head">Upgrades</div>`;
@@ -4291,10 +4291,10 @@ function renderBasePanel(){
   const portsEl=document.getElementById('sel-portraits');
   if(portsEl)portsEl.innerHTML='';
   portrait.innerHTML=`<div style="width:42px;height:42px;background:${h.dark};display:grid;place-items:center;font-size:1.2rem;font-weight:700;color:${h.color};border:2px solid ${h.color}55">▣</div>`;
-  title.textContent=`MAIN BASE — ${Math.ceil(h.base.hp)}/${h.base.maxHp} HP`;
+  title.textContent=`MAIN BASE: ${Math.ceil(h.base.hp)}/${h.base.maxHp} HP`;
   body.textContent=`Defense RNG ${Math.round(baseRangeOf(h))} · DMG ${Math.round(baseDmgOf(h))} · basic units · advanced units need their buildings`;
   const activeUpg=upgradeQueue.find(e=>e.table==='BUPG');
-  status.textContent=activeUpg?`Upgrading ${BUPGD[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s`:'';
+  status.textContent=activeUpg?`Upgrading ${BUPGD[activeUpg.key].label}: ${activeUpg.timeLeft.toFixed(1)}s`:'';
   const g=Math.floor(h.gold);
   let html='<div style="width:100%;font-size:.36rem;opacity:.6;letter-spacing:.1em;font-family:var(--mono);margin-bottom:1px">TRAIN (BASE)</div>';
   html+=trainBtnsHtml(h,ROSTERS.base,null);
@@ -4333,7 +4333,7 @@ function renderBasePanel(){
     h.gold-=AIRSTRIKE_COST;h.airstrikeStock=1;updateSelPanel();updateHud();
   });
   cmd.querySelector('#cmd-airstrike')?.addEventListener('click',()=>{
-    pendingAirstrike=true;document.getElementById('sel-status').textContent='Click anywhere on the map to strike — Esc to cancel';
+    pendingAirstrike=true;document.getElementById('sel-status').textContent='Click anywhere on the map to strike, Esc to cancel';
   });
 }
 const TRAINER_TYPES=['barracks','depot','airbase','enghall'];
@@ -4353,7 +4353,7 @@ function updateSelPanel(){
   if(!sel.length){
     portrait.innerHTML='<div style="font-size:1.6rem;opacity:.2">◻</div>';
     title.textContent='No selection';
-    body.textContent=h?'Click your ▣ Base to spawn/upgrade · Click/drag select · Right-click move/attack · Scroll zoom · WASD pan':'Spectating — click any unit for info · Scroll zoom · WASD pan';
+    body.textContent=h?'Click your ▣ Base to spawn/upgrade · Click/drag select · Right-click move/attack · Scroll zoom · WASD pan':'Spectating: click any unit for info · Scroll zoom · WASD pan';
     status.textContent='';cmd.innerHTML='';if(portsEl)portsEl.innerHTML='';return;
   }
   if(portsEl)portsEl.innerHTML='';
@@ -4364,7 +4364,7 @@ function updateSelPanel(){
     const u=sel[0];
     const op=players[u.owner];
     portrait.innerHTML=`<div style="width:42px;height:42px;background:${u.col};display:grid;place-items:center;font-size:1rem;font-weight:700;color:rgba(255,255,255,.85);border:2px solid rgba(255,255,255,.15)">${BLDG_LBL[u.type]||{hospital:'✚',cover:'▤',airbase:'✈'}[u.type]||'?'}</div>`;
-    title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP${u.owner!==HUMAN?' · '+op.name:''}`;
+    title.textContent=`${u.name.toUpperCase()}: ${Math.ceil(u.hp)}/${u.maxHp} HP${u.owner!==HUMAN?' · '+op.name:''}`;
     body.textContent=TOWER_TYPES.includes(u.type)?`RNG ${u.range}  DMG ${u.dmg}  RATE ${u.rate}/s${u.airOnly?' · ANTI-AIR ONLY':''}${TDEFS[u.type].arc?' · indirect fire':''}${TDEFS[u.type].los?' · needs LoS':''}`:'';
     status.textContent='';
     if(u.owner!==HUMAN){cmd.innerHTML='';return;}
@@ -4373,8 +4373,8 @@ function updateSelPanel(){
       const q=trainQueues.get(u.id)||[];
       const activeUpg=upgradeQueue.find(e=>e.bldgType===u.type);
       body.textContent='Train unit · spawns nearby'+(q.length?` [${q.length} queued]`:'');
-      if(q.length){const cur=q[0];status.textContent=`Training ${TDEFS[cur.type].name} — ${cur.timeLeft.toFixed(1)}s`;}
-      else if(activeUpg){const p2=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Researching ${UPGD[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s (${p2}%)`;}
+      if(q.length){const cur=q[0];status.textContent=`Training ${TDEFS[cur.type].name}: ${cur.timeLeft.toFixed(1)}s`;}
+      else if(activeUpg){const p2=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Researching ${UPGD[activeUpg.key].label}: ${activeUpg.timeLeft.toFixed(1)}s (${p2}%)`;}
       else{status.textContent='';}
       if(portsEl&&q.length){
         let pHtml='<div style="font-size:.33rem;opacity:.5;font-family:var(--mono);letter-spacing:.08em;width:100%;margin-bottom:1px">TRAINING QUEUE</div>';
@@ -4398,8 +4398,8 @@ function updateSelPanel(){
       bindUpgBtns(cmd);
     } else if(u.type==='research'){
       const activeUpg=upgradeQueue.find(e=>e.bldgType==='research');
-      body.textContent='Research upgrades — applied globally';
-      if(activeUpg){const p2=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Researching ${UPGD[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s (${p2}%)`;}
+      body.textContent='Research upgrades, applied globally';
+      if(activeUpg){const p2=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Researching ${UPGD[activeUpg.key].label}: ${activeUpg.timeLeft.toFixed(1)}s (${p2}%)`;}
       else{status.textContent='';}
       const rQueueItems=upgradeQueue.filter(e=>e.bldgType==='research');
       if(portsEl&&rQueueItems.length){
@@ -4418,7 +4418,7 @@ function updateSelPanel(){
       const lvl=u.profitLevel||0;
       body.textContent=`Profit boost +${lvl*25}% on returned gold · global upgrades below`;
       if(u.profitUpgrading){const p2=Math.round(u.profitUpgrading.elapsed/u.profitUpgrading.time*100);status.textContent=`Boosting profit → +${(lvl+1)*25}% (${p2}%)`;}
-      else if(activeUpg){const p2=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Upgrading ${UPGD[activeUpg.key].label} — ${activeUpg.timeLeft.toFixed(1)}s (${p2}%)`;}
+      else if(activeUpg){const p2=Math.round((1-activeUpg.timeLeft/activeUpg.maxTime)*100);status.textContent=`Upgrading ${UPGD[activeUpg.key].label}: ${activeUpg.timeLeft.toFixed(1)}s (${p2}%)`;}
       else{status.textContent='';}
       const pMax=lvl>=MINE_PROFIT_MAX,pCost=MINE_PROFIT_BASE*(lvl+1),pBusy=!!u.profitUpgrading;
       const pLocked=pMax||pBusy;
@@ -4478,7 +4478,7 @@ function updateSelPanel(){
     const u=sel[0];
     const op=players[u.owner];
     portrait.innerHTML=`<div style="width:42px;height:42px;border-radius:50%;background:${u.col};display:grid;place-items:center;font-size:1.1rem;font-weight:700;color:rgba(255,255,255,.85);border:2px solid rgba(255,255,255,.14)">${u.name[0]}</div>`;
-    title.textContent=`${u.name.toUpperCase()} — ${Math.ceil(u.hp)}/${u.maxHp} HP${u.owner!==HUMAN?' · '+op.name:''}`;
+    title.textContent=`${u.name.toUpperCase()}: ${Math.ceil(u.hp)}/${u.maxHp} HP${u.owner!==HUMAN?' · '+op.name:''}`;
     const stats=[];if(u.speed>0)stats.push('SPD '+u.speed);
     if(u.range>0){const er=Math.round(effRangeOf(u));stats.push('RNG '+er+(u.type==='mortar'&&!u.entrenched?' (⚓'+Math.round(u.range*1.6)+')':''));}
     if(u.dmg>0){const ed=u.type==='mortar'&&u.entrenched?Math.round(u.dmg*1.4):u.dmg;stats.push('DMG '+ed);}
@@ -5063,7 +5063,7 @@ function pickPlayer(arg,def){
 }
 const CONSOLE_CMDS={
   help(){cLog('commands:','c-dim');
-    for(const l of['gold <n> [player#]   — grant gold','spawn <type> [n] [player#] — spawn units at their base','speed <1|2|3>        — game speed','pause                — toggle pause','tech [player#]       — finish all research','ai                   — dump bot states','players              — list commanders','kill <player#>       — eliminate a commander','basehp <n> [player#] — set base HP','overlay              — toggle AI overlay','step <seconds>       — fast-forward the simulation','win / lose           — end the match','map                  — new map, same settings','clear                — clear console'])cLog('  '+l,'c-dim');},
+    for(const l of['gold <n> [player#]         - grant gold','spawn <type> [n] [player#] - spawn units at their base','speed <1|2|3>              - game speed','pause                      - toggle pause','tech [player#]             - finish all research','ai                         - dump bot states','players                    - list commanders','kill <player#>             - eliminate a commander','basehp <n> [player#]       - set base HP','overlay                    - toggle AI overlay','step <seconds>             - fast-forward the simulation','win / lose                 - end the match','map                        - new map, same settings','clear                      - clear console'])cLog('  '+l,'c-dim');},
   players(){players.forEach(p=>cLog(`#${p.id} ${p.name} (${p.colName}) T${p.team} ${p.human?'HUMAN':p.diff} ${p.alive?'alive':'dead'} gold:${Math.floor(p.gold)} kills:${p.kills}`));},
   gold(a,b){const p=pickPlayer(b,hum()||players[0]);if(!p)return cLog('bad player','c-err');const n=parseInt(a||'500',10);p.gold+=n;cLog(`+${n}g → ${p.name}`);updateHud();},
   speed(a){const n=clamp(parseInt(a||'1',10),1,3);gameSpeed=n;const btn=document.getElementById('speed-btn');if(btn){btn.textContent=n+'×';btn.classList.toggle('active',n>1);}cLog('speed '+n+'×');},
@@ -5081,8 +5081,8 @@ const CONSOLE_CMDS={
   kill(a){const p=pickPlayer(a,null);if(!p)return cLog('kill <player#>','c-err');eliminatePlayer(p.id,-1);cLog('eliminated '+p.name);},
   basehp(a,b){const p=pickPlayer(b,hum()||players[0]);if(!p)return cLog('bad player','c-err');p.base.hp=clamp(parseInt(a||'500',10),1,p.base.maxHp);cLog(`${p.name} base HP → ${p.base.hp}`);},
   overlay(){showAIOverlay=!showAIOverlay;document.getElementById('aiov-btn')?.classList.toggle('active',showAIOverlay);cLog('AI overlay '+(showAIOverlay?'on':'off'));},
-  win(){endGame(true,'VICTORY — dev console');},
-  lose(){endGame(false,'DEFEAT — dev console');},
+  win(){endGame(true,'VICTORY: dev console');},
+  lose(){endGame(false,'DEFEAT: dev console');},
   map(){startGame();cLog('new map generated');},
   step(a){const secs=clamp(parseFloat(a||'10'),0.1,600);const n=Math.round(secs/0.05);for(let i=0;i<n&&!gameOver;i++)update(0.05);cLog(`advanced ${secs}s → game time ${nowT.toFixed(1)}s`);},
   clear(){const log=document.getElementById('console-log');if(log)log.innerHTML='';},
@@ -5096,7 +5096,7 @@ document.getElementById('console-input')?.addEventListener('keydown',e=>{
   const[cmd,...args]=line.split(/\s+/);
   const fn=CONSOLE_CMDS[cmd.toLowerCase()];
   if(fn){try{fn(...args);}catch(err){cLog('error: '+err.message,'c-err');}}
-  else cLog('unknown command — try "help"','c-err');
+  else cLog('unknown command, try "help"','c-err');
 });
 
 // ── top-bar wiring ─────────────────────────────────────────────────────────────
@@ -5660,7 +5660,7 @@ function rtsHostLeave(player){
 }
 function rtsGuestGone(){
   if(rtsOnline!=='guest')return;
-  gameOver=true;gameWin=false;gameMsg='Host disconnected — game over';
+  gameOver=true;gameWin=false;gameMsg='Host disconnected, game over';
 }
 function rtsInitOnline(){
   const mp=new URLSearchParams(location.search).get('mp');

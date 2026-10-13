@@ -143,7 +143,7 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
     <h1>Art <em>Match</em></h1>
     <p>Drop, upload, or paste any image. It reads the palette and composition, then ranks it against
        a local library of public-domain paintings to find the closest matches. No AI captions,
-       just color and layout measured in the browser &mdash; slide between color and composition weighting.</p>
+       just color and layout measured in the browser. Slide between color and composition weighting.</p>
   </div>
 
   <div class="layout">
@@ -195,7 +195,7 @@ input[type=range]{width:100%;accent-color:var(--accent-ink);cursor:pointer}
         <div class="empty">Your matches will appear here.<br>Try a landscape photo, a screenshot, or a favorite painting.</div>
       </div>
       <div class="credit">
-        Paintings &amp; images &mdash; <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> (public domain,
+        Paintings &amp; images: <a href="https://commons.wikimedia.org/" target="_blank" rel="noopener">Wikimedia Commons</a> (public domain,
         drawn from the Google Art Project). All analysis runs locally in your browser; your image is never uploaded.
       </div>
     </div>
@@ -472,7 +472,7 @@ async function run(){
       await runLive();   // fallback: live random Wikimedia pool
     }
   }catch(e){
-    console.error(e);setStatus('Something went wrong — try again.');
+    console.error(e);setStatus('Something went wrong, try again.');
   }finally{
     progbar.classList.remove('show');goBtn.disabled=false;busy=false;
   }
@@ -483,7 +483,7 @@ async function runLive(){
   const items=await fetchCommons();
   if(!items.length){setStatus('');resultsEl.innerHTML='<div class="empty">Couldn&rsquo;t reach the collection. Try again in a moment.</div>';return;}
   let done=0;const tick=()=>{progInner.style.width=(++done/items.length*100).toFixed(0)+'%';};
-  setStatus(`Analyzing ${items.length} paintings &mdash; color &amp; composition&hellip;`);
+  setStatus(`Analyzing ${items.length} paintings, color &amp; composition&hellip;`);
   const analyzed=await analyzeBatch(items,analyzeCommons,tick);
   if(!analyzed.length){setStatus('');resultsEl.innerHTML='<div class="empty">Could not read any images. Try again.</div>';return;}
   analyzed.forEach(c=>{const s=score(c);c._colorSim=s.colorSim;c._compSim=s.compSim;});
@@ -547,7 +547,7 @@ function loadImage(src){
     inputFeatures=extractFeatures(ctx,SAMPLE,SAMPLE);
     showFingerprint();
     goBtn.disabled=false;
-    setStatus('Ready — hit <b>Find matches</b>.');
+    setStatus('Ready. Hit <b>Find matches</b>.');
     run();
   };
   img.onerror=()=>setStatus('Could not read that image.');

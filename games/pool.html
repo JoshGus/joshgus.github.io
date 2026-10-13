@@ -479,10 +479,10 @@ a.mini:hover{color:#ccf73f}
     <h2>How to play</h2>
     <div class="sub" style="margin-bottom:16px">Aim · Power · Spin · Shoot</div>
     <div class="help-list">
-      <b>Aim</b> — drag anywhere on the table to rotate your aim (no snap). Hold <b>Shift</b> for fine aim.<br>
-      <b>Power</b> — drag the power bar.<br>
-      <b>Spin</b> — drag the dot on the white ball for follow / draw / english.<br>
-      <b>Shoot</b> — fire the shot. <b>Cancel</b> resets power without shooting.<br>
+      <b>Aim</b>: drag anywhere on the table to rotate your aim (no snap). Hold <b>Shift</b> for fine aim.<br>
+      <b>Power</b>: drag the power bar.<br>
+      <b>Spin</b>: drag the dot on the white ball for follow / draw / english.<br>
+      <b>Shoot</b>: fire the shot. <b>Cancel</b> resets power without shooting.<br>
       Arrow keys nudge the aim; <b>Space</b> shoots; <b>R</b> rewatches.
     </div>
   </div>
@@ -1353,7 +1353,7 @@ function beginBallInHand(kitchenOnly){
   if(kitchenOnly){ c.x=HEAD_X-30; c.y=CYt; }
   aim.ballInHand=true; aim.bihKitchen=!!kitchenOnly; aim.canShoot=false;
   enableControls(false);
-  toast(kitchenOnly?'Place the cue behind the head line, then aim':'Ball in hand — place the cue ball');
+  toast(kitchenOnly?'Place the cue behind the head line, then aim':'Ball in hand: place the cue ball');
 }
 function legalCuePos(p){
   if(p.x<PL+R||p.x>PR-R||p.y<PT+R||p.y>PB-R)return false;
@@ -1477,7 +1477,7 @@ function poolOpenLeaderboard(){
     var day=/^\d{8}$/.test(String(SEED))
       ? String(SEED).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3')
       : LB.today();
-    LB.openLeaderboard('pool',{title:'Daily Break — leaderboard',day:day});
+    LB.openLeaderboard('pool',{title:'Daily Break leaderboard',day:day});
   }).catch(function(){});
 }
 el('ms-lb').addEventListener('click',function(e){ e.preventDefault(); poolOpenLeaderboard(); });
@@ -1581,15 +1581,15 @@ function resolveDaily(ev){
     if(clearedBefore && !ev.cueScratch && ev.firstHit===8){ return endDaily(true,false); }
     return endDaily(false,true);
   }
-  if(ev.cueScratch) return endDaily(false,false,'Scratch — cue ball potted');
+  if(ev.cueScratch) return endDaily(false,false,'Scratch: cue ball potted');
   if(ev.firstHit===null) return endDaily(false,false,'No ball hit');
   var fhOK = clearedBefore ? (ev.firstHit===8) : (mine(ev.firstHit));
-  if(!fhOK) return endDaily(false,false,'Foul — wrong ball hit first');
-  if(pottedOpp.length>0) return endDaily(false,false,'Foul — potted opponent ball');
-  if(pottedMine.length===0) return endDaily(false,false,'Dry — nothing of yours dropped');
+  if(!fhOK) return endDaily(false,false,'Foul: wrong ball hit first');
+  if(pottedOpp.length>0) return endDaily(false,false,'Foul: potted opponent ball');
+  if(pottedMine.length===0) return endDaily(false,false,'Dry: nothing of yours dropped');
   // legal continuation
   daily.cleared=clearedNow;
-  toast(pottedMine.length>1?('+'+pottedMine.length+' — keep going'):(clearedNow?'Group cleared! Now the 8':'Potted — keep going'));
+  toast(pottedMine.length>1?('+'+pottedMine.length+', keep going'):(clearedNow?'Group cleared! Now the 8':'Potted, keep going'));
   updateDailyHUD();
   beginTurnInput();
 }
@@ -1619,7 +1619,7 @@ function poolShowLeaderboard(score){
     // SEED is YYYYMMDD, so derive the exact day rather than assuming today —
     // the daily can be replayed for past dates via dayOffset.
     var day=String(SEED).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
-    function show(){ LB.renderBoard(box,'pool',{day:day,emptyText:'No scores yet today — be first.'}); }
+    function show(){ LB.renderBoard(box,'pool',{day:day,emptyText:'No scores yet today. Be first.'}); }
     LB.submitScore('pool',score,score+'/7',day).then(function(r){
       if(r.ok){ show(); return; }
       if(r.needsName){
@@ -1656,7 +1656,7 @@ function showDailyEnd(win,bust,reason){
 }
 function shareDaily(win,g){
   var line=win?('WIN · cleared '+g+' + 8-ball'):(daily.score+'/7 '+g);
-  var txt='Daily Break — '+dateStr+'\n🎱 '+line+'\njoshgus.github.io/games/pool.html';
+  var txt='Daily Break '+dateStr+'\n🎱 '+line+'\njoshgus.github.io/games/pool.html';
   if(navigator.share){ navigator.share({text:txt}).catch(function(){}); }
   else if(navigator.clipboard){ navigator.clipboard.writeText(txt).then(function(){toast('Result copied');}); }
   else toast('Sharing unavailable');
@@ -1816,7 +1816,7 @@ function startClassic(){
   showChrome(['hud','menu-btn2','restart-btn','tl-btn']);
   renderTimeline();
   fitCanvas();
-  toast(spect?'Spectating — '+game.players[0].name+' breaks':'Break! Place the cue behind the line',2600);
+  toast(spect?'Spectating: '+game.players[0].name+' breaks':'Break! Place the cue behind the line',2600);
   classicShotStart();
 }
 
@@ -1837,7 +1837,7 @@ function classicShotStart(){
     if(game.turn===poolSeat){
       if(game.ballInHand){ beginBallInHand(game.bihKitchen); game.ballInHand=false; game.bihKitchen=false; onlineHadBIH=true; }
       else { beginTurnInput(); onlineHadBIH=false; }
-      if(onEight && game.flags.callEight){ game.callPending=true; toast('On the 8 — tap the pocket you\'re calling'); }
+      if(onEight && game.flags.callEight){ game.callPending=true; toast('On the 8: tap the pocket you\'re calling'); }
     } else {
       interaction=false; aim.canShoot=false; enableControls(false);
       if(poolNet) poolNet.broadcast({k:'yourTurn', ballInHand:!!game.ballInHand, bihKitchen:!!game.bihKitchen,
@@ -1854,7 +1854,7 @@ function classicShotStart(){
   } else {
     if(game.ballInHand){ beginBallInHand(game.bihKitchen); game.ballInHand=false; game.bihKitchen=false; }
     else beginTurnInput();
-    if(onEight && game.flags.callEight){ game.callPending=true; toast('On the 8 — tap the pocket you\'re calling'); }
+    if(onEight && game.flags.callEight){ game.callPending=true; toast('On the 8: tap the pocket you\'re calling'); }
   }
 }
 function classicNextOrEnd(){ if(!game.over) classicShotStart(); }
@@ -1872,7 +1872,7 @@ function resolveClassic(ev){
   if(ev.potted.indexOf(8)>=0 && wasBreak){
     var e8=ballByN(8); e8.potted=false; spotBall(e8);
     ev.potted=ev.potted.filter(function(n){return n!==8;});
-    toast('8 on the break — spotted');
+    toast('8 on the break, spotted');
   }
   var pottedNon8=ev.potted.filter(function(n){return n!==8;});
   var potted8=ev.potted.indexOf(8)>=0;
@@ -1903,8 +1903,8 @@ function resolveClassic(ev){
     var preRemain = grp?remainingInSnap(lastShot.snap,grp):99;
     var pocketOK = !F.callEight || game.calledPocket===null || ev.lastPocket===game.calledPocket;
     var legal8 = grp && preRemain===0 && !foul && firstHit===8 && pocketOK;
-    if(legal8) return endClassic(shooterIdx, pl.name+' sinks the 8 — winner!');
-    return endClassic(other, pl.name+(scratch?' scratched on':(preRemain>0?' potted the 8 early —':' missed the called 8 —'))+' '+game.players[other].name+' wins');
+    if(legal8) return endClassic(shooterIdx, pl.name+' sinks the 8, winner!');
+    return endClassic(other, pl.name+(scratch?' scratched on':(preRemain>0?' potted the 8 early,':' missed the called 8,'))+' '+game.players[other].name+' wins');
   }
 
   // ── group assignment (open table, after break) ──
@@ -1920,7 +1920,7 @@ function resolveClassic(ev){
   // sudden-death modifier
   if(game.mods.suddendeath && !foul && pottedNon8.length>0 &&
      (game.openTable || pottedNon8.some(function(n){return groupOf(n)===grp;}))){
-    return endClassic(shooterIdx, 'Sudden death — '+pl.name+' wins!');
+    return endClassic(shooterIdx, 'Sudden death: '+pl.name+' wins!');
   }
 
   // ── continuation ──
@@ -1931,14 +1931,14 @@ function resolveClassic(ev){
   }
 
   if(foul){
-    toast('Foul — '+foulMsg);
+    toast('Foul: '+foulMsg);
     if(scratch) resetCueKitchen();
     game.turn=other;
     if(F.bihOnFoul || game.mods.bihalways){ game.ballInHand=true; game.bihKitchen=wasBreak; }
     classicNextOrEnd(); return;
   }
   if(continues){
-    if(assignMsg) toast(assignMsg+' — go again'); else toast('Potted — go again');
+    if(assignMsg) toast(assignMsg+', go again'); else toast('Potted, go again');
     classicNextOrEnd(); return;
   }
   // clean miss -> pass turn
@@ -1948,7 +1948,7 @@ function resolveClassic(ev){
 
 function endClassic(winnerIdx,msg){
   game.over=true; interaction=false; enableControls(false); aim.canShoot=false;
-  game.winMsg=game.players[winnerIdx].name+' wins'+(msg?' — '+msg:'');
+  game.winMsg=game.players[winnerIdx].name+' wins'+(msg?': '+msg:'');
   el('win-sub').textContent='Classic 8-Ball · '+game.history.length+' shots';
   el('win-title').textContent=game.players[winnerIdx].name+' wins';
   el('win-score').textContent='🎱';
@@ -1992,7 +1992,7 @@ function ballIconN(n){
 }
 function renderTimeline(){
   var list=el('tl-list'); if(!game){list.innerHTML='';return;}
-  if(!game.history.length){ list.innerHTML='<div class="tl-empty">No shots yet — every shot lands here. Click one to replay it.</div>'; return; }
+  if(!game.history.length){ list.innerHTML='<div class="tl-empty">No shots yet. Every shot lands here. Click one to replay it.</div>'; return; }
   var html='';
   for(var i=0;i<game.history.length;i++){
     var e=game.history[i];
@@ -2017,7 +2017,7 @@ el('tl-list').addEventListener('click',function(ev){
   var row=ev.target.closest('.tl-row'); if(!row||!game)return;
   if(animating||replaying)return;
   var e=game.history[parseInt(row.dataset.i,10)]; if(!e)return;
-  replayShot(e,'Replaying #'+(parseInt(row.dataset.i,10)+1)+' — '+e.player);
+  replayShot(e,'Replaying #'+(parseInt(row.dataset.i,10)+1)+', '+e.player);
 });
 
 function grpLabel(g){return g==='solid'?'Solids':g==='stripe'?'Stripes':'Open';}
@@ -2033,7 +2033,7 @@ function updateClassicHUD(){
     return '<span style="display:inline-flex;align-items:center;gap:6px;'+style+'">'+
       (active?'▸ ':'')+p[i].name+(icon?' '+icon:'')+' '+label+'</span>';
   }
-  var note = game.openTable?'OPEN TABLE — pot anything':(p[t].group&&groupRemaining(p[t].group)===0?'POT THE 8 TO WIN':'');
+  var note = game.openTable?'OPEN TABLE: pot anything':(p[t].group&&groupRemaining(p[t].group)===0?'POT THE 8 TO WIN':'');
   el('hud-main').innerHTML=seg(0)+'<span class="sep"></span>'+seg(1)+(note?'<span class="sep"></span><span class="dv">'+note+'</span>':'');
   el('chip-left').classList.add('hidden');
 }
@@ -2357,7 +2357,7 @@ function guestYourTurn(ctx){
   aim.spin={x:0,y:0}; updateSpinUI();
   if(ctx.ballInHand){ beginBallInHand(!!ctx.bihKitchen); }
   else beginTurnInput();
-  if(ctx.onEight && ctx.callEight){ game.callPending=true; toast('On the 8 — tap the pocket you\'re calling',2600); }
+  if(ctx.onEight && ctx.callEight){ game.callPending=true; toast('On the 8: tap the pocket you\'re calling',2600); }
   else toast('Your shot',1400);
 }
 function guestPlayShot(m){
@@ -2442,7 +2442,7 @@ function startOnlinePool(role,netCtrl,roster){
   ['modeselect','setup','win','help'].forEach(function(id){el(id).classList.add('hidden');});
   if(role==='host'){ poolHostStartMatch(poolNames); }
   else { mode='classic'; showChrome(['hud','menu-btn2','tl-btn']); fitCanvas();
-         toast('Connected — waiting for host to break…',3000); }
+         toast('Connected, waiting for host to break…',3000); }
 }
 function poolInitOnline(){
   var mp=new URLSearchParams(location.search).get('mp');

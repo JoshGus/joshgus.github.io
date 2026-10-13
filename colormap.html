@@ -194,7 +194,7 @@ canvas{display:block;width:100%;height:100%}
 <div class="page-header">
   <span class="ph-idx">04 / Color Map</span>
   <h1>Color <em>Space</em></h1>
-  <p>Each photo placed at its average palette's RGB coordinates — X&thinsp;=&thinsp;Red, Y&thinsp;=&thinsp;Green, Z&thinsp;=&thinsp;Blue. Dot color is its dominant hue. Hover for preview &middot; click to open.</p>
+  <p>Each photo placed at its average palette's RGB coordinates. X&thinsp;=&thinsp;Red, Y&thinsp;=&thinsp;Green, Z&thinsp;=&thinsp;Blue. Dot color is its dominant hue. Hover for preview &middot; click to open.</p>
 </div>
 
 <div class="scene-outer">
@@ -279,7 +279,7 @@ canvas{display:block;width:100%;height:100%}
 
 <div class="scene-footer">
   <span id="photo-count"></span>
-  <span class="hint">Drag — orbit &nbsp;·&nbsp; Right-drag — pan &nbsp;·&nbsp; Scroll — zoom</span>
+  <span class="hint">Drag to orbit &nbsp;·&nbsp; Right-drag to pan &nbsp;·&nbsp; Scroll to zoom</span>
   <a href="gallery.html" class="gallery-link">&larr; Back to gallery</a>
 </div>
 
@@ -475,9 +475,9 @@ let hoveredIdx = -1;
 // Swap controls hint for touch
 if (isTouch) {
   document.getElementById('ctrl-overlay').innerHTML =
-    '<span class="ctrl-pill">drag — orbit</span>' +
-    '<span class="ctrl-pill">pinch — zoom</span>' +
-    '<span class="ctrl-pill">tap — preview</span>';
+    '<span class="ctrl-pill">drag to orbit</span>' +
+    '<span class="ctrl-pill">pinch to zoom</span>' +
+    '<span class="ctrl-pill">tap to preview</span>';
 }
 
 // ---- hover (mouse only) ----

@@ -92,7 +92,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
     <h1>Image <em>Breakdown</em></h1>
     <p>The drawing engine from my homepage, opened up. Drop in a photo and watch it get taken apart:
        Sobel gradients find the contours, k-means + connected components carve it into colour blocks,
-       and a border-contrast saliency pass picks out the subject. Then pen particles redraw it &mdash;
+       and a border-contrast saliency pass picks out the subject. Then pen particles redraw it,
        laying a base, then going back over the subject in finer detail. All of it runs in your browser.</p>
   </div>
 
@@ -111,7 +111,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
     <div class="ctl"><label>Subject palette bias <b id="sbv">1.6</b></label><input type="range" id="sb" min="1" max="2.8" step="0.1" value="1.6"></div>
     <button id="clearSeed" hidden>&#10005; Clear subject selection</button>
   </div>
-  <p class="legend" style="margin-top:10px">Subject is found automatically &mdash; or on the Source thumbnail, <b>drag a box</b> around it to isolate what's inside, or <b>click</b> to flood-fill from a point.</p>
+  <p class="legend" style="margin-top:10px">Subject is found automatically, or on the Source thumbnail, <b>drag a box</b> around it to isolate what's inside, or <b>click</b> to flood-fill from a point.</p>
 
   <div class="pipe" id="pipe">
     <div class="stage"><canvas id="s-src" style="cursor:crosshair" title="Click to place a subject point"></canvas><span class="cap">1 &middot; Source</span><span class="sub" id="d-src">&mdash;</span></div>
@@ -130,11 +130,11 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
   <canvas id="sketch"></canvas>
   <div style="margin-top:12px"><button id="save" disabled>&#8595; Save image</button></div>
   <div class="legend">
-    <b>1 &middot; Colour blocking</b> &mdash; broad fills sweep each segmented region, painting it in that block's own colour until the frame is covered.<br>
-    <b>2 &middot; Linework</b> &mdash; ink tracers follow the edge tangents and hatch ticks shade by darkness, drawing over the blocks.<br>
-    <b>3 &middot; Re-blocking the subject</b> &mdash; coverage is re-armed over the detected subject only, and it is filled again with finer strokes.<br>
-    <b>4 &middot; Subject detail</b> &mdash; the fills retire for good and only fine marks run: thin ink on subject edges and tight hatching, so detail is never painted back over.<br>
-    <b>5 &middot; Settle</b> &mdash; particles are culled away and the loop stops, leaving the finished painting.
+    <b>1 &middot; Colour blocking</b>: broad fills sweep each segmented region, painting it in that block's own colour until the frame is covered.<br>
+    <b>2 &middot; Linework</b>: ink tracers follow the edge tangents and hatch ticks shade by darkness, drawing over the blocks.<br>
+    <b>3 &middot; Re-blocking the subject</b>: coverage is re-armed over the detected subject only, and it is filled again with finer strokes.<br>
+    <b>4 &middot; Subject detail</b>: the fills retire for good and only fine marks run: thin ink on subject edges and tight hatching, so detail is never painted back over.<br>
+    <b>5 &middot; Settle</b>: particles are culled away and the loop stops, leaving the finished painting.
   </div>
 </div>
 
@@ -708,7 +708,7 @@ $('save').addEventListener('click',()=>{
     a.download='image-breakdown-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.png';
     a.href=o.toDataURL('image/png');
     a.click();
-  }catch(err){ alert('Could not export this image — the source was loaded from a site that blocks canvas reads.'); }
+  }catch(err){ alert('Could not export this image. The source was loaded from a site that blocks canvas reads.'); }
 });
 
 // Drag a box on the source to isolate the subject inside it; a plain click drops a

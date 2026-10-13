@@ -174,7 +174,7 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
     </div>
   </div>
 
-  <div class="drag-hint" id="drag-hint">Drag — orbit &nbsp;·&nbsp; Scroll — zoom</div>
+  <div class="drag-hint" id="drag-hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom</div>
   <button class="notes-toggle" id="notes-toggle">How it works</button>
 
   <div class="notes-section" id="notes">
@@ -187,7 +187,7 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
       </dl>
       <dl class="note-item">
         <dt>Complexity</dt>
-        <dd>Neighbor search is O(n²) per frame — every boid checks every other. For n = 500 that's 250,000 distance comparisons per frame. Squared distances are computed first; <code>Math.sqrt</code> is only called when needed for the separation direction vector. A spatial hash grid would reduce this to O(n) but adds significant code for a problem that fits comfortably in O(n²) at this scale.</dd>
+        <dd>Neighbor search is O(n²) per frame: every boid checks every other. For n = 500 that's 250,000 distance comparisons per frame. Squared distances are computed first; <code>Math.sqrt</code> is only called when needed for the separation direction vector. A spatial hash grid would reduce this to O(n) but adds significant code for a problem that fits comfortably in O(n²) at this scale.</dd>
       </dl>
       <dl class="note-item">
         <dt>3D projection</dt>
@@ -199,19 +199,19 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
       </dl>
       <dl class="note-item">
         <dt>Clear strategy</dt>
-        <dd>The canvas is hard-cleared each frame with a solid background fill. A motion trail (semi-transparent fill) was tried but creates artifacts during camera orbit — the smear is in screen space, so rotating the view leaves ghost streaks that don't correspond to any spatial position. Clean clear + bounding box gives better spatial orientation instead.</dd>
+        <dd>The canvas is hard-cleared each frame with a solid background fill. A motion trail (semi-transparent fill) was tried but creates artifacts during camera orbit: the smear is in screen space, so rotating the view leaves ghost streaks that don't correspond to any spatial position. Clean clear + bounding box gives better spatial orientation instead.</dd>
       </dl>
       <dl class="note-item">
         <dt>Depth sort</dt>
-        <dd>Boids are sorted back-to-front by their rotated z coordinate before drawing, so closer boids correctly overlap farther ones. A new sorted array is created each frame via <code>[...boids].sort()</code> — O(n log n). The original array is left in insertion order for the O(n²) physics update, which doesn't require any particular ordering.</dd>
+        <dd>Boids are sorted back-to-front by their rotated z coordinate before drawing, so closer boids correctly overlap farther ones. A new sorted array is created each frame via <code>[...boids].sort()</code>, O(n log n). The original array is left in insertion order for the O(n²) physics update, which doesn't require any particular ordering.</dd>
       </dl>
       <dl class="note-item">
         <dt>Boundary condition</dt>
-        <dd>Soft wall avoidance: within a 90-unit margin of each face, a repulsive force proportional to penetration depth steers boids back toward the center. Force = <code>tf × (overlap / margin)</code>. A hard clamp zeroes the inward velocity component if a boid somehow reaches the wall face — this is the safety net, not the primary mechanism. Produces natural flocking near walls without the flicker of hard reflection.</dd>
+        <dd>Soft wall avoidance: within a 90-unit margin of each face, a repulsive force proportional to penetration depth steers boids back toward the center. Force = <code>tf × (overlap / margin)</code>. A hard clamp zeroes the inward velocity component if a boid somehow reaches the wall face. This is the safety net, not the primary mechanism. Produces natural flocking near walls without the flicker of hard reflection.</dd>
       </dl>
       <dl class="note-item">
         <dt>Dynamic count</dt>
-        <dd>The count slider adds or removes boids immediately. Adding creates a new <code>Boid</code> at a random position with a velocity in the current speed range. Removing truncates the array from the end — O(1). No object pooling needed at this scale; GC pressure from creating 300 new objects on a slider drag is negligible.</dd>
+        <dd>The count slider adds or removes boids immediately. Adding creates a new <code>Boid</code> at a random position with a velocity in the current speed range. Removing truncates the array from the end, O(1). No object pooling needed at this scale; GC pressure from creating 300 new objects on a slider drag is negligible.</dd>
       </dl>
     </div>
   </div>

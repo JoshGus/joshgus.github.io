@@ -121,7 +121,7 @@ body.embed .layout{margin-top:0}
 <div class="wrap">
   <div class="head">
     <h1>Word Hunt <em>Solver</em></h1>
-    <p>Give it the 4&times;4 board — type it, paste 16 letters, drop a <b>screenshot</b>, or paste a GamePigeon <b>link</b> — and get every word ranked by score, with each path drawn on the grid.</p>
+    <p>Give it the 4&times;4 board (type it, paste 16 letters, drop a <b>screenshot</b>, or paste a GamePigeon <b>link</b>) and get every word ranked by score, with each path drawn on the grid.</p>
     <div class="status-line">dictionary: <b id="dictStatus">loading&hellip;</b></div>
   </div>
 
@@ -130,8 +130,8 @@ body.embed .layout{margin-top:0}
       <div class="grid" id="grid">
         <svg class="paths" id="paths" viewBox="0 0 100 100" preserveAspectRatio="none"></svg>
       </div>
-      <input class="paste" id="paste" maxlength="40" placeholder="or paste 16 letters — e.g. LBSBSEWIRARKMAOF">
-      <textarea class="paste" id="link" rows="2" placeholder="or paste the GamePigeon link — data:?ver=52&data=…  (auto-decodes the board)"></textarea>
+      <input class="paste" id="paste" maxlength="40" placeholder="or paste 16 letters, e.g. LBSBSEWIRARKMAOF">
+      <textarea class="paste" id="link" rows="2" placeholder="or paste the GamePigeon link: data:?ver=52&data=…  (auto-decodes the board)"></textarea>
       <div class="controls">
         <button class="primary" id="solveBtn">Solve</button>
         <button id="shotBtn">Screenshot</button>
@@ -144,7 +144,7 @@ body.embed .layout{margin-top:0}
       <div class="hint">Scoring: 3&rarr;100 · 4&rarr;400 · 5&rarr;800 · 6&rarr;1400 · 7&rarr;1800 · 8+&rarr;2200. Hover or tap a word to trace it.</div>
       <details class="linkhelp">
         <summary>How do I get the link? (Mac)</summary>
-        <p>GamePigeon doesn't show the link in Messages, but it's stored in your Messages database. In Terminal (needs Full Disk Access), run this — the <b>top line</b> is your most recent game. Paste it in the box above.</p>
+        <p>GamePigeon doesn't show the link in Messages, but it's stored in your Messages database. In Terminal (needs Full Disk Access), run this. The <b>top line</b> is your most recent game. Paste it in the box above.</p>
         <div class="cmdwrap">
           <button id="copyCmd" type="button">Copy</button>
 <pre id="cmd">sqlite3 "$HOME/Library/Messages/chat.db" \
@@ -280,7 +280,7 @@ fetch('wordlist.txt').then(r=>{
   dictStatus.textContent=DICT.size.toLocaleString()+' words';
   if(window._pendingSolve) solve();
 }).catch(err=>{
-  dictStatus.textContent='failed to load wordlist.txt ('+err.message+') — serve over http';
+  dictStatus.textContent='failed to load wordlist.txt ('+err.message+'), serve over http';
 });
 
 // ── scoring ─────────────────────────────────────────────────────────
@@ -446,7 +446,7 @@ async function runOCR(imgEl){
     const cv=document.createElement('canvas'); cv.width=W; cv.height=H;
     const ctx=cv.getContext('2d',{willReadFrequently:true}); ctx.drawImage(imgEl,0,0,W,H);
     const b=detectBoard(ctx,W,H);
-    if(!(b.x1>b.x0+40 && b.y1>b.y0+40)){ setOcr("couldn't find a board in that image — try a tighter crop",true); return; }
+    if(!(b.x1>b.x0+40 && b.y1>b.y0+40)){ setOcr("couldn't find a board in that image, try a tighter crop",true); return; }
     const cw=(b.x1-b.x0)/4, ch=(b.y1-b.y0)/4;
     const w=await tesseract();
     const S=96, cell=document.createElement('canvas'); cell.width=S; cell.height=S;
@@ -463,8 +463,8 @@ async function runOCR(imgEl){
     }
     for(let i=0;i<16;i++) inputs[i].value=letters[i];
     const filled=letters.filter(Boolean).length;
-    if(filled===16){ setOcr('read board <b>'+letters.join('')+'</b> — verify, then it auto-solved'); solve(); }
-    else setOcr('read '+filled+'/16 tiles — fill the blanks and hit Solve',true);
+    if(filled===16){ setOcr('read board <b>'+letters.join('')+'</b>. Verify, then it auto-solved'); solve(); }
+    else setOcr('read '+filled+'/16 tiles, fill the blanks and hit Solve',true);
   }catch(e){ setOcr('OCR failed: '+e.message,true); }
 }
 function imageFromFile(file){

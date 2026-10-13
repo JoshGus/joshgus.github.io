@@ -287,19 +287,19 @@ canvas{position:absolute;inset:0;display:block;touch-action:none;cursor:crosshai
   <div class="tcard">
     <h2>Daily Links</h2>
     <div class="tsub">How to play</div>
-    <div class="trow">&#8592; Drag back from the ball to aim<br><span>release to shoot &mdash; drag from anywhere</span></div>
+    <div class="trow">&#8592; Drag back from the ball to aim<br><span>release to shoot, drag from anywhere</span></div>
     <div class="tdiv"></div>
-    <div class="trow">Flat &mdash; <span>long &amp; low, full power</span></div>
-    <div class="trow">Mid &mdash; <span>balanced, slight launch</span></div>
-    <div class="trow">Lob &mdash; <span>short, high arc into air</span></div>
-    <div class="trow">Putter &mdash; <span>very short, precise tap ins</span></div>
+    <div class="trow">Flat: <span>long &amp; low, full power</span></div>
+    <div class="trow">Mid: <span>balanced, slight launch</span></div>
+    <div class="trow">Lob: <span>short, high arc into air</span></div>
+    <div class="trow">Putter: <span>very short, precise tap ins</span></div>
     <div class="tdiv"></div>
     <div class="trow">&#128197; Tap the date to browse past courses</div>
     <div class="tdismiss">Tap anywhere to start</div>
   </div>
 </div>
 
-<div class="info" id="info">Drag back from the ball to aim &mdash; release to shoot</div>
+<div class="info" id="info">Drag back from the ball to aim, release to shoot</div>
 
 <script>
 (function(){
@@ -1415,7 +1415,7 @@ function golfOpenLeaderboard(){
     var day=/^\d{8}$/.test(String(SEED))
       ? String(SEED).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3')
       : LB.today();
-    LB.openLeaderboard('minigolf',{title:'Daily Links — leaderboard',day:day});
+    LB.openLeaderboard('minigolf',{title:'Daily Links leaderboard',day:day});
   }).catch(function(){});
 }
 
@@ -1427,7 +1427,7 @@ function golfShowLeaderboard(shotCount){
     // SEED is YYYYMMDD; derive the exact day the course was generated for.
     var day=String(SEED).replace(/^(\d{4})(\d{2})(\d{2})$/,'$1-$2-$3');
     var detail=shotCount+(shotCount===1?' shot':' shots');
-    function show(){ LB.renderBoard(box,'minigolf',{day:day,emptyText:'No rounds posted yet today — be first.'}); }
+    function show(){ LB.renderBoard(box,'minigolf',{day:day,emptyText:'No rounds posted yet today. Be first.'}); }
     LB.submitScore('minigolf',shotCount,detail,day).then(function(r){
       if(r.ok){ show(); return; }
       if(r.needsName){ LB.promptForName(box,function(){ LB.submitScore('minigolf',shotCount,detail,day).then(show); }); return; }
@@ -1462,7 +1462,7 @@ function onWin(){
   document.getElementById('win').classList.add('show');
   golfShowLeaderboard(s);
   document.getElementById('win-copy').onclick=function(){
-    var txt='Daily Links — '+dateStr+'\n⛳ '+s+(s===1?' shot':' shots');
+    var txt='Daily Links '+dateStr+'\n⛳ '+s+(s===1?' shot':' shots');
     navigator.clipboard&&navigator.clipboard.writeText(txt).then(function(){
       document.getElementById('win-copy').textContent='Copied!';
     });
@@ -1522,11 +1522,11 @@ requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
     <div class="note-grid">
       <dl class="note-item">
         <dt>Daily seeded generation</dt>
-        <dd>Each day's course is fully deterministic. A date string seeds a simple LCG (linear congruential generator) that drives all randomness — hole placement, terrain shape, water regions. The same seed always produces the same course, so every player gets the same layout.</dd>
+        <dd>Each day's course is fully deterministic. A date string seeds a simple LCG (linear congruential generator) that drives all randomness: hole placement, terrain shape, water regions. The same seed always produces the same course, so every player gets the same layout.</dd>
       </dl>
       <dl class="note-item">
         <dt>Terrain</dt>
-        <dd>The green is generated with layered Perlin-style noise (multiple octaves summed). Each pixel's height value determines slope and affects rolling. Water regions are carved below a threshold. Terrain is built once per day load and never rebuilt on resize — only the canvas scale changes.</dd>
+        <dd>The green is generated with layered Perlin-style noise (multiple octaves summed). Each pixel's height value determines slope and affects rolling. Water regions are carved below a threshold. Terrain is built once per day load and never rebuilt on resize, only the canvas scale changes.</dd>
       </dl>
       <dl class="note-item">
         <dt>Ball physics</dt>
@@ -1538,11 +1538,11 @@ requestAnimationFrame(function(ts){lastTs=ts; requestAnimationFrame(loop);});
       </dl>
       <dl class="note-item">
         <dt>Rendering</dt>
-        <dd>A fixed-resolution off-screen canvas holds the terrain pixels. Per-frame it draws the terrain image, water ripple overlay, slope shading, ball shadow, and the ball itself. The canvas is CSS-scaled to fill the viewport — resolution never changes mid-session so the terrain stays pixel-sharp.</dd>
+        <dd>A fixed-resolution off-screen canvas holds the terrain pixels. Per-frame it draws the terrain image, water ripple overlay, slope shading, ball shadow, and the ball itself. The canvas is CSS-scaled to fill the viewport. Resolution never changes mid-session so the terrain stays pixel-sharp.</dd>
       </dl>
       <dl class="note-item">
         <dt>Wind</dt>
-        <dd>Wind direction and strength are derived from the daily seed. While the ball is airborne (z > 0), a wind acceleration vector is added each frame. The wind HUD arrow rotates to show current direction. Wind only applies during flight — rolling on the green is unaffected.</dd>
+        <dd>Wind direction and strength are derived from the daily seed. While the ball is airborne (z > 0), a wind acceleration vector is added each frame. The wind HUD arrow rotates to show current direction. Wind only applies during flight. Rolling on the green is unaffected.</dd>
       </dl>
     </div>
   </div>

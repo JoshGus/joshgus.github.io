@@ -237,7 +237,7 @@ export function openLobby(opts) {
         return;
       }
       identEl.innerHTML = `<div class="mpl-ident-edit">
-          <label>Site username <span class="mpl-ident-hint">— needed to list publicly, reserved to you</span></label>
+          <label>Site username <span class="mpl-ident-hint">(needed to list publicly, reserved to you)</span></label>
           <div class="mpl-ident-inputs">
             <input type="text" id="mpl-ident-in" maxlength="24" placeholder="e.g. josh" value="${esc(u)}">
             <button type="button" class="mpl-ident-save" id="mpl-ident-save">Save</button>
@@ -311,7 +311,7 @@ export function openLobby(opts) {
           }),
         });
         role = 'host';
-        net.onError(() => status('Network hiccup — players may need to rejoin', true));
+        net.onError(() => status('Network hiccup, players may need to rejoin', true));
         hostWaitView();
       } catch (e) {
         status(friendly(e), true);
@@ -325,7 +325,7 @@ export function openLobby(opts) {
       <button class="mpl-x" title="Close">&times;</button>
       <h2>${esc(gameName)}</h2>
       <p class="mpl-sub">Waiting for players</p>
-      <div class="mpl-code-box"><div class="code">${esc(net.code)}</div><div class="hint">share this code — or the link below</div></div>
+      <div class="mpl-code-box"><div class="code">${esc(net.code)}</div><div class="hint">share this code, or the link below</div></div>
       <button class="mpl-btn ghost" id="mpl-copy">Copy invite link</button>
       <div style="height:16px"></div>
       <ul class="mpl-roster"></ul>
@@ -433,6 +433,6 @@ export function openLobby(opts) {
 
 function friendly(e) {
   const m = (e && e.message) || String(e);
-  if (/unavailable-id/.test(m)) return 'Try again — code collision';
+  if (/unavailable-id/.test(m)) return 'Try again, code collision';
   return m;
 }

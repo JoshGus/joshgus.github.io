@@ -126,10 +126,10 @@ html.dark .explain code,html.dark .formula{background:rgba(237,227,216,.08)}
 <div class="wrap">
   <div class="head">
     <h1>CV <em>Lab</em></h1>
-    <p>An interactive computer-vision bench &mdash; the classic operations, run by hand with the math on screen.
+    <p>An interactive computer-vision bench: the classic operations, run by hand with the math on screen.
        Drop an image, pick a technique, turn the knobs, and watch every intermediate step. Convolution, gradients &amp;
        edges, Gaussian/Laplacian pyramids, the 2D Fourier transform, JPEG-style DCT, HOG, Harris corners, homographies,
-       and a backprop computation graph. <b>Chain them like layers</b> &mdash; hit <em>Edit this &rarr;</em> on any result to make it
+       and a backprop computation graph. <b>Chain them like layers</b>: hit <em>Edit this &rarr;</em> on any result to make it
        the new working image and run the next operation on top. Everything runs locally in your browser.</p>
   </div>
 
@@ -529,7 +529,7 @@ tech({group:'PS1 · Filtering', id:'convolve', name:'Convolution (custom kernel)
   run(im,p){
     const K=p.kernel||KERNEL_PRESETS[p.preset]; const n=Math.sqrt(K.length)|0;
     const out=convolve(im.gray, K, n, n);
-    return {explain:'Flip the kernel, zero-pad the image, and slide the window computing a weighted sum at each pixel &mdash; your <code>convolve(im, filter)</code>. Edit the kernel cells to see the effect.',
+    return {explain:'Flip the kernel, zero-pad the image, and slide the window computing a weighted sum at each pixel, your <code>convolve(im, filter)</code>. Edit the kernel cells to see the effect.',
       formula:'out[i,j] = Σ region · flip(kernel)',
       outputs:[{cap:'grayscale', canvas:grayCanvas(im.gray,{})},{cap:'convolved', canvas:grayCanvas(out,{norm:'minmax'})}]};
   }});
@@ -603,7 +603,7 @@ tech({group:'PS2 · Frequency', id:'blend', name:'Pyramid blending (needs image 
     const out=reconstruct(blended);
     // naive (level 1) cut for comparison
     const naive={w,h,d:new Float32Array(w*h)}; for(let y=0;y<h;y++)for(let x=0;x<w;x++)naive.d[y*w+x]=mask.d[y*w+x]*A.d[y*w+x]+(1-mask.d[y*w+x])*B.d[y*w+x];
-    return {explain:'Blend by combining each pyramid <em>band</em> with a blurred mask, then reconstruct (PS2.1b). Low frequencies blend over a wide seam, high frequencies over a narrow one &mdash; so the join is invisible. Compare to the hard cut.',
+    return {explain:'Blend by combining each pyramid <em>band</em> with a blurred mask, then reconstruct (PS2.1b). Low frequencies blend over a wide seam, high frequencies over a narrow one, so the join is invisible. Compare to the hard cut.',
       outputs:[{cap:'A', canvas:grayCanvas(A,{})},{cap:'B', canvas:grayCanvas(B,{})},{cap:'hard cut', canvas:grayCanvas(naive,{})},{cap:'pyramid blend ('+lvl+' levels)', canvas:grayCanvas(out,{})}]};
   }});
 function resampleGray(g, tw, th){ const d=new Float32Array(tw*th); for(let y=0;y<th;y++)for(let x=0;x<tw;x++){ const sx=Math.min(g.w-1,Math.round(x*g.w/tw)), sy=Math.min(g.h-1,Math.round(y*g.h/th)); d[y*tw+x]=g.d[sy*g.w+sx]; } return {w:tw,h:th,d}; }
@@ -625,7 +625,7 @@ tech({group:'PS2 · Frequency', id:'dft', name:'2D Fourier transform + filtering
       outs.push({cap:'filtered spectrum', canvas:grayCanvas(spec2,{cmap:'viridis',norm:'minmax'})});
       outs.push({cap:p.mode+'-pass result', canvas:grayCanvas(filt,{norm:'minmax'})});
     }
-    return {explain:'The 2D DFT moves the image to the frequency domain. The center is low frequency (overall tone), edges are high frequency (fine detail). Zeroing frequencies outside/inside a radius gives a low-/high-pass filter &mdash; the convolution theorem in action (PS2.2).', outputs:outs};
+    return {explain:'The 2D DFT moves the image to the frequency domain. The center is low frequency (overall tone), edges are high frequency (fine detail). Zeroing frequencies outside/inside a radius gives a low-/high-pass filter: the convolution theorem in action (PS2.2).', outputs:outs};
   }});
 
 tech({group:'PS2 · Frequency', id:'dct', name:'DCT / JPEG block compression',

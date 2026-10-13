@@ -544,7 +544,7 @@ async function main() {
   } catch (err) {
     setStatus('error', 'Camera unavailable');
     errorCode.textContent  = 'Camera access denied';
-    errorDetail.textContent= `${err.message} — allow camera permission and reload.`;
+    errorDetail.textContent= `${err.message}. Allow camera permission and reload.`;
     errorOv.style.display  = 'flex';
     return;
   }
@@ -620,7 +620,7 @@ document.getElementById('notes-toggle').addEventListener('click', () => {
     <div class="note-grid">
       <dl class="note-item">
         <dt>MediaPipe Hands</dt>
-        <dd>Uses Google's <code>@mediapipe/hands</code> model — a TensorFlow Lite graph running entirely in-browser via WebAssembly. No server. The model returns 21 3D landmarks per hand (wrist + 4 joints per finger) at up to 30 fps on typical hardware.</dd>
+        <dd>Uses Google's <code>@mediapipe/hands</code> model, a TensorFlow Lite graph running entirely in-browser via WebAssembly. No server. The model returns 21 3D landmarks per hand (wrist + 4 joints per finger) at up to 30 fps on typical hardware.</dd>
       </dl>
       <dl class="note-item">
         <dt>Pipeline</dt>
@@ -632,7 +632,7 @@ document.getElementById('notes-toggle').addEventListener('click', () => {
       </dl>
       <dl class="note-item">
         <dt>Coordinate system</dt>
-        <dd>MediaPipe returns <code>x, y</code> normalised to [0, 1] of the video frame, plus a relative <code>z</code> depth (negative = closer). The panel displays x/y directly. Depth is not currently used — it's available as a foundation for gesture-controlled interactions.</dd>
+        <dd>MediaPipe returns <code>x, y</code> normalised to [0, 1] of the video frame, plus a relative <code>z</code> depth (negative = closer). The panel displays x/y directly. Depth is not currently used, but it's available as a foundation for gesture-controlled interactions.</dd>
       </dl>
       <dl class="note-item">
         <dt>Fingertip tracking</dt>
@@ -640,7 +640,7 @@ document.getElementById('notes-toggle').addEventListener('click', () => {
       </dl>
       <dl class="note-item">
         <dt>Design intent</dt>
-        <dd>This page is a foundation layer — a verified working pipeline from webcam → model → landmarks → display. The next step is attaching game input to landmark positions, replacing mouse/touch with hand gestures for the game pages on this site.</dd>
+        <dd>This page is a foundation layer: a verified working pipeline from webcam → model → landmarks → display. The next step is attaching game input to landmark positions, replacing mouse/touch with hand gestures for the game pages on this site.</dd>
       </dl>
     </div>
   </div>

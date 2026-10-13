@@ -137,7 +137,7 @@ textarea.links:focus{border-color:var(--accent-ink)}
 <div class="wrap">
   <div class="head">
     <h1>GamePigeon <em>Solver</em></h1>
-    <p>Drop your <b>gamepigeon_games.txt</b> (or paste links) to browse every game on the left. Pick one and it opens in the matching solver, filled in. Boards &amp; state are decoded from the message itself — reverse-engineered from the app.</p>
+    <p>Drop your <b>gamepigeon_games.txt</b> (or paste links) to browse every game on the left. Pick one and it opens in the matching solver, filled in. Boards &amp; state are decoded from the message itself, reverse-engineered from the app.</p>
   </div>
 
   <div class="layout">
@@ -152,7 +152,7 @@ textarea.links:focus{border-color:var(--accent-ink)}
       <div class="gamelist" id="gamelist"></div>
       <details class="linkhelp" open>
         <summary>Get your games file (Mac)</summary>
-        <p>GamePigeon doesn't expose links in Messages, but they're in your Messages database. In <b>Terminal</b> — which needs Full Disk Access (System Settings → Privacy &amp; Security → Full Disk Access → enable Terminal) — run this. It writes <b>~/gamepigeon_games.txt</b>; drop that file above.</p>
+        <p>GamePigeon doesn't expose links in Messages, but they're in your Messages database. In <b>Terminal</b>, which needs Full Disk Access (System Settings → Privacy &amp; Security → Full Disk Access → enable Terminal), run this. It writes <b>~/gamepigeon_games.txt</b>; drop that file above.</p>
         <div class="cmdwrap">
           <button id="copyCmd" type="button">Copy</button>
 <pre id="cmd">sqlite3 "$HOME/Library/Messages/chat.db" \
@@ -274,8 +274,8 @@ function select(i){
   main.innerHTML='<div class="fields"><h2>'+esc(gameLabel(g))+'</h2>'+
     '<div class="sub">'+(g.params.get('num')?'turn '+g.params.get('num')+' · ':'')+g.game+'</div>'+
     '<div class="kv">'+rows.join('')+'</div>'+
-    '<div class="note">Decoded from the message. A dedicated solver for this game isn\'t built yet — '+
-    (g.game==='pool'?'Pool needs a mid-game link (this may be the opening break, which only carries a seed) and geometric aim assist.':'tell me which game to add next.')+'</div></div>';
+    '<div class="note">Decoded from the message. A dedicated solver for this game isn\'t built yet. '+
+    (g.game==='pool'?'Pool needs a mid-game link (this may be the opening break, which only carries a seed) and geometric aim assist.':'Tell me which game to add next.')+'</div></div>';
 }
 function esc(s){return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
 
@@ -442,7 +442,7 @@ function renderPool(g,main){
         `<button id="replayBtn" class="ghostbtn" style="display:none">▶ Replay</button>`+
         `<span class="hint">or tap the table to aim the cue at full power</span></div>`;
   html+=`<div class="shotlist" id="shotlist"></div>`;
-  html+=`<div class="poolnote" id="poolnote">${cue?'Physics matched to the GamePigeon engine. Trajectories are a faithful <b>no-spin</b> prediction — accurate for direct pots &amp; simple caroms; dense clusters are chaotic. Full power = 2000.':'No cue ball on the table in this state.'}</div></div>`;
+  html+=`<div class="poolnote" id="poolnote">${cue?'Physics matched to the GamePigeon engine. Trajectories are a faithful <b>no-spin</b> prediction, accurate for direct pots &amp; simple caroms; dense clusters are chaotic. Full power = 2000.':'No cue ball on the table in this state.'}</div></div>`;
   main.innerHTML=html;
   if(!cue) return true;
   const svgEl=main.querySelector('svg'), traj=main.querySelector('#traj'), sl=main.querySelector('#shotlist'),

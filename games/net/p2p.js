@@ -722,7 +722,7 @@ export async function joinRoom(opts) {
 
         const helloTimer = setTimeout(() => {
           try { sock.close(); } catch {}
-          settle(reject, new Error('Timed out — is the code right and the host online?'));
+          settle(reject, new Error('Timed out. Is the code right and the host online?'));
         }, HELLO_TIMEOUT_MS);
 
         safeSend(conn, { type: 'hello', name, password, resume: isReconnect ? resumeToken : undefined });
@@ -790,7 +790,7 @@ export async function joinRoom(opts) {
           onSocketLost();
         });
         sock.addEventListener('error', () => {
-          if (!settled) { clearTimeout(helloTimer); settle(reject, new Error('Could not reach the host — check the code')); }
+          if (!settled) { clearTimeout(helloTimer); settle(reject, new Error('Could not reach the host, check the code')); }
         });
       }).catch((err) => settle(reject, err));
     });

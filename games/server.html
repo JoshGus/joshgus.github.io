@@ -159,7 +159,7 @@ function draw() {
   if (!shown.length) {
     listEl.innerHTML = `<div class="mp-empty">${rows.length
       ? 'No games match that filter'
-      : 'No open games right now — host one below'}</div>`;
+      : 'No open games right now. Host one below'}</div>`;
     return;
   }
   listEl.innerHTML = shown.map(r => {

@@ -73,7 +73,7 @@ export async function renderBoard(el, game, opts = {}) {
   const rows = await fetchBoard(game, day);
   const me = getUsername();
   if (!rows.length) {
-    el.innerHTML = `<div class="lb-note">${esc(opts.emptyText || 'No scores yet today — be first.')}</div>`;
+    el.innerHTML = `<div class="lb-note">${esc(opts.emptyText || 'No scores yet today. Be first.')}</div>`;
     return;
   }
   el.innerHTML = `
@@ -161,7 +161,7 @@ export function openLeaderboard(game, opts = {}) {
     label.textContent = pretty(day);
     next.disabled = day === today();     // no future boards
     await renderBoard(body, game, { day, limit: opts.limit || 20,
-      emptyText: day === today() ? 'No scores yet today — be first.' : 'Nobody posted a score that day.' });
+      emptyText: day === today() ? 'No scores yet today. Be first.' : 'Nobody posted a score that day.' });
   }
   wrap.querySelectorAll('.lb-day-btn').forEach(b => {
     b.onclick = () => { day = shift(day, Number(b.dataset.step)); draw(); };
