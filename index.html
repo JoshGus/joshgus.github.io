@@ -21,11 +21,11 @@
 <link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">
 <link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16.png">
 <link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
-<meta name="description" content="Computer science student at the University of Michigan. I build across systems, ML, and the web. Games and bird photography fill the rest.">
+<meta name="description" content="Computer science student at the University of Michigan, graduating April 2027. Software engineering intern at Rivian and Volkswagen Group Technologies, working on in-vehicle Wi-Fi. I build across systems, ML, and the web. Games and bird photography fill the rest.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Joshua Gustaveson">
 <meta property="og:title" content="Joshua Gustaveson">
-<meta property="og:description" content="Computer science student at the University of Michigan. I build across systems, ML, and the web. Games and bird photography fill the rest.">
+<meta property="og:description" content="Computer science student at the University of Michigan, graduating April 2027. Software engineering intern at Rivian and Volkswagen Group Technologies, working on in-vehicle Wi-Fi. I build across systems, ML, and the web. Games and bird photography fill the rest.">
 <meta property="og:url" content="https://joshg.us/">
 <meta property="og:image" content="https://joshg.us/assets/og/home.png">
 <meta property="og:image:width" content="1200">
@@ -53,8 +53,8 @@
   .layout{display:grid;grid-template-columns:1fr 1fr;max-width:1600px;margin:0 auto;align-items:start}
   .intro{
     position:sticky;top:0;height:100vh;min-width:0;
-    display:flex;flex-direction:column;justify-content:center;
-    padding:90px clamp(28px,4vw,64px) 64px;border-right:1px solid var(--line);
+    display:flex;flex-direction:column;justify-content:safe center;
+    padding:calc(var(--nav-h) + 16px) clamp(28px,4vw,64px) 64px;border-right:1px solid var(--line);
   }
   /* On screens wider than the 1600px capped layout, bleed the intro panel (and its art)
      to the left viewport edge instead of leaving a bare background strip. */
@@ -72,7 +72,7 @@
   @keyframes spin{to{transform:rotate(360deg)}}
   h1{
     font-family:var(--disp);font-weight:440;
-    font-size:clamp(2.4rem,5.2vw,4.5rem);line-height:.98;letter-spacing:-.03em;
+    font-size:clamp(2.2rem,4.3vw,3.7rem);line-height:.98;letter-spacing:-.03em;
     font-variation-settings:"opsz" 56;
   }
   h1 .b{display:block}
@@ -84,13 +84,13 @@
     border-bottom:2px solid var(--accent);
     box-shadow:6px 12px 36px -10px rgba(29,23,18,.28);
     background:var(--surface);display:block;margin-top:2px}
-  .lede{max-width:42ch;margin-top:28px;color:var(--dim);font-size:clamp(1rem,1.7vw,1.18rem);font-weight:300;line-height:1.55}
+  .lede{max-width:50ch;margin-top:18px;color:var(--dim);font-size:clamp(.98rem,1.4vw,1.06rem);font-weight:300;line-height:1.5}
   .lede b{color:var(--fg);font-weight:500}
 
   /* ---------- experience block (left panel) ---------- */
-  .exp-block{margin-top:36px;width:100%}
-  .exp-label{font-family:var(--body);font-size:0.78rem;color:var(--dimmer);margin-bottom:14px}
-  .exp-entry{padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
+  .exp-block{margin-top:20px;width:100%}
+  .exp-label{font-family:var(--body);font-size:0.78rem;color:var(--dimmer);margin-bottom:8px}
+  .exp-entry{padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer;user-select:none}
   .exp-entry:first-of-type{border-top:1px solid var(--line)}
   .exp-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
   .exp-role{font-size:.92rem;font-weight:500;color:var(--fg);display:flex;align-items:center;gap:7px}
@@ -103,6 +103,15 @@
   .exp-bullets ul{margin:9px 0 4px;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px}
   .exp-bullets li{font-size:.78rem;color:var(--dim);font-weight:300;line-height:1.5;padding-left:13px;position:relative}
   .exp-bullets li::before{content:"·";position:absolute;left:0;color:var(--dimmer)}
+
+  /* The panel is pinned to one screen, so on a short one it gives up the
+     employer lines and some type size before it lets anything clip. */
+  @media(min-width:921px) and (max-height:740px){
+    h1{font-size:clamp(2rem,3.6vw,3rem)}
+    .headshot{width:104px;height:134px}
+    .exp-org{display:none}
+    .exp-entry.open .exp-org{display:block}
+  }
 
   /* ---------- section scaffolding ---------- */
   section{padding:clamp(60px,10vh,110px) 0;border-bottom:1px solid var(--line)}
@@ -319,7 +328,7 @@
       <!-- replace src with your headshot path, e.g. src="img/headshot.jpg" -->
       <img class="headshot" src="assets/headshot.jpg" alt="Joshua Gustaveson">
     </div>
-    <p class="lede">Computer science student at the University of Michigan. <b>I build across systems, ML, and the web.</b> Games and bird photography fill the rest.</p>
+    <p class="lede">Computer science student at the University of Michigan, graduating April 2027. Currently a software engineering intern at Rivian and Volkswagen Group Technologies. <b>I build across systems, ML, and the web.</b> Games and bird photography fill the rest.</p>
 
     <div class="exp-block">
       <div class="exp-label" style="display:flex;justify-content:space-between">
@@ -328,15 +337,41 @@
       </div>
       <div class="exp-entry">
         <div class="exp-top">
+          <span class="exp-role">Software Engineering Intern, Wireless <span class="exp-chev">&#9656;</span></span>
+          <span class="exp-yr">Sep 2026 – Current</span>
+        </div>
+        <span class="exp-org">Rivian and Volkswagen Group Technologies</span>
+        <div class="exp-bullets">
+          <ul>
+            <li>Developed Wi-Fi connectivity software for in-vehicle infotainment and wireless projection using Android Wi-Fi APIs</li>
+            <li>Reproduced and debugged wireless connectivity issues on Linux-based embedded test benches over SSH, tracked in Jira</li>
+            <li>Wrote HIL/SIL tests and telemetry instrumentation, integrated into Bazel-based multi-repo GitLab CI/CD pipelines</li>
+          </ul>
+        </div>
+      </div>
+      <div class="exp-entry">
+        <div class="exp-top">
+          <span class="exp-role">Software Engineering Co-op, Humanoid Robotics <span class="exp-chev">&#9656;</span></span>
+          <span class="exp-yr">Aug 2026</span>
+        </div>
+        <span class="exp-org">Schaeffler Group USA</span>
+        <div class="exp-bullets">
+          <ul>
+            <li>Implemented inverse kinematics checks to validate retargeted motion-capture data for humanoid robot training</li>
+            <li>Evaluated mocap capture setups to improve training-data quality for RL policies in NVIDIA Isaac Lab</li>
+          </ul>
+        </div>
+      </div>
+      <div class="exp-entry">
+        <div class="exp-top">
           <span class="exp-role">IT Technician <span class="exp-chev">&#9656;</span></span>
-          <span class="exp-yr">May 2025 – Current</span>
+          <span class="exp-yr">May 2025 – Aug 2026</span>
         </div>
         <span class="exp-org">CAEN · University of Michigan</span>
         <div class="exp-bullets">
           <ul>
-            <li>Maintained instructional tech across 70+ classrooms including AV systems, control panels, and desktop stations</li>
-            <li>Managed TeamDynamix tickets and scheduled tasks to minimize downtime for instructional spaces</li>
-            <li>Collaborated with CAEN engineers to deploy equipment and troubleshoot hardware/software failures</li>
+            <li>Diagnosed hardware and network faults across classroom AV systems, including wiring, IP misconfigurations, and firmware</li>
+            <li>Assembled and deployed AV equipment racks and full classroom builds across 70+ instructional spaces</li>
           </ul>
         </div>
       </div>
@@ -348,9 +383,8 @@
         <span class="exp-org">Leinweber Institute for Theoretical Physics</span>
         <div class="exp-bullets">
           <ul>
-            <li>Maintained institute websites, keeping event listings, research pages, and faculty profiles current</li>
-            <li>Organized communications and logistics for lectures, conferences, and workshops</li>
-            <li>Performed administrative operations including calendar management, procurement, and documentation</li>
+            <li>Improved site accessibility from 80% to 94% on Siteimprove, fixing WCAG issues across faculty and event pages</li>
+            <li>Configured event registration infrastructure on Indico for faculty-led research symposiums and workshops</li>
           </ul>
         </div>
       </div>
@@ -395,26 +429,26 @@
         <a class="row" href="code.html">
           <span class="n">001</span>
           <div class="main">
-            <h3>Operating Systems Projects</h3>
-            <p>User-level thread library with cooperative scheduling, mutexes, and condition variables for multi-processor synchronization. Multi-threaded network file server using hand-over-hand locking to enforce disk consistency under concurrent client requests.</p>
-            <div class="stack"><b>C++</b><b>Concurrency</b><b>OS</b></div>
+            <h3>Network File Server</h3>
+            <p>Multi-threaded C++ file server handling concurrent create, read, write and delete requests over TCP. Hand-over-hand locking with Boost reader/writer locks allows parallel access to the file tree, and ordered writes keep the disk crash-consistent.</p>
+            <div class="stack"><b>C++</b><b>Boost</b><b>TCP</b></div>
           </div>
           <span class="arr">→</span>
         </a>
         <a class="row" href="code.html">
           <span class="n">002</span>
           <div class="main">
-            <h3>Client-Side Web Application</h3>
-            <p>React frontend backed by a Flask REST API, with async fetch for interactive features without page reloads. Client-side state managed with hooks; end-to-end tested with Cypress.</p>
-            <div class="stack"><b>React</b><b>Flask</b><b>Python</b><b>JS</b></div>
+            <h3>Distributed Search Engine</h3>
+            <p>A Hadoop Streaming MapReduce pipeline builds a tf-idf inverted index in three shards. Each shard has its own Flask index server ranking by tf-idf and PageRank, and a search server queries all three in parallel and heap-merges the results.</p>
+            <div class="stack"><b>Python</b><b>Flask</b><b>MapReduce</b><b>SQLite</b></div>
           </div>
           <span class="arr">→</span>
         </a>
         <a class="row" href="code.html">
           <span class="n">003</span>
           <div class="main">
-            <h3>Multi-Object Tracker</h3>
-            <p>Benchmarked DeepSORT, ByteTrack, MeMOT, OC-SORT, and StrongSORT against a shared custom-trained YOLO model on real-case robotics data.</p>
+            <h3>Multi-Object Tracking</h3>
+            <p>Benchmarked DeepSORT, ByteTrack, OC-SORT, StrongSORT and MeMOT on 4,766 frames of FRC robotics footage with a shared detector, and built a YOLO and IoU/appearance tracker that held the longest track of the group at 2,041 frames.</p>
             <div class="stack"><b>Python</b><b>PyTorch</b><b>Vision</b></div>
           </div>
           <span class="arr">→</span>
