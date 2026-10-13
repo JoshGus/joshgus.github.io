@@ -213,8 +213,8 @@ html.dark #dark-toggle:hover,
 
 /* ── tool header ────────────────────────────────────────────────────────
    The smaller title block on the tool pages (art match, CV lab, solvers,
-   image breakdown). Title size is set per page. */
-.head h1{ font-family:var(--disp); font-weight:460; line-height:.92; letter-spacing:-.03em }
+   image breakdown). */
+.head h1{ font-family:var(--disp); font-weight:460; font-size:clamp(2.2rem,6vw,3.6rem); line-height:.92; letter-spacing:-.03em }
 .head h1 em{ font-style:italic; color:var(--accent-ink) }
 .head p{ font-family:var(--mono); font-size:.72rem; letter-spacing:.06em; color:var(--dim); margin-top:12px }
 
