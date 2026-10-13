@@ -22,6 +22,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/shared.css">
+<link rel="stylesheet" href="../assets/game.css">
 <script src="../assets/dark-mode.js"></script>
 <style>
 html,body{height:100%}
@@ -68,15 +69,8 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
 }
 
 /* notes */
-.notes-section{background:rgba(4,6,14,.97);z-index:20}
-.notes-section.open{max-height:440px;border-top:1px solid rgba(255,255,255,.06)}
-.notes-inner h2{color:rgba(255,255,255,.65)}
-.note-grid{gap:24px 40px}
-.note-item dd{font-size:.88rem;color:rgba(255,255,255,.42)}
-.note-item code{font-size:.75rem;color:rgba(255,255,255,.58);background:rgba(255,255,255,.06)}
+.notes-section{z-index:20}
 
-.notes-toggle{border:1px solid rgba(255,255,255,.1);background:rgba(6,9,18,.88);color:rgba(255,255,255,.28)}
-.notes-toggle:hover{color:rgba(255,255,255,.7);border-color:rgba(255,255,255,.28)}
 
 /* ── mobile: the 220px floating panel covers most of a phone screen, so dock
    it to the bottom as a scrollable sheet and lay the sliders out two-up ── */
@@ -93,7 +87,6 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
   .slider-row{margin-bottom:8px}
   .drag-hint{bottom:auto;top:12px;left:12px}
   .notes-toggle{bottom:auto;top:8px;right:12px}
-  .notes-section.open{max-height:60vh}
 }
 </style>
 </head>
@@ -160,7 +153,7 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
   </div>
 
   <div class="drag-hint" id="drag-hint">Drag to orbit &nbsp;·&nbsp; Scroll to zoom</div>
-  <button class="notes-toggle" id="notes-toggle">How it works</button>
+  <button class="notes-toggle g-chip" id="notes-toggle">How it works</button>
 
   <div class="notes-section" id="notes">
   <div class="notes-inner">

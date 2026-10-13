@@ -219,18 +219,22 @@ html.dark #dark-toggle:hover,
 .head p{ font-family:var(--mono); font-size:.72rem; letter-spacing:.06em; color:var(--dim); margin-top:12px }
 
 /* ── "how it works" panel ───────────────────────────────────────────────
-   The slide-up notes drawer on the game pages. Structure and type live here;
-   each game sets its own colours (and position, where its layout needs it)
-   on the same selectors. */
-.notes-section{ position:absolute; bottom:0; left:0; right:0; max-height:0; overflow:hidden; transition:max-height .5s cubic-bezier(.2,.7,.3,1) }
-.notes-section.open{ overflow-y:auto }
-.notes-inner{ padding:28px clamp(20px,4vw,72px) 32px; max-width:900px }
-.notes-inner h2{ font-family:var(--disp); font-weight:440; font-size:1.4rem; letter-spacing:-.02em; margin-bottom:20px; font-variation-settings:"opsz" 36 }
-.note-grid{ display:grid; grid-template-columns:1fr 1fr }
-.note-item dt{ font-family:var(--mono); font-size:.58rem; letter-spacing:.14em; text-transform:uppercase; color:#ccf73f; margin-bottom:6px }
-.note-item dd{ font-family:var(--body); line-height:1.65 }
-.note-item code{ font-family:var(--mono); padding:1px 5px }
-.notes-toggle{ position:absolute; bottom:18px; right:18px; font-family:var(--mono); font-size:.5rem; letter-spacing:.1em; text-transform:uppercase; padding:5px 10px; cursor:pointer; transition:all .15s; backdrop-filter:blur(8px); z-index:25 }
+   The slide-up notes drawer on the game pages, with the button that opens it.
+   The button takes its look from .g-chip in game.css. A game only sets where
+   the two sit when its layout needs something other than the bottom right. */
+.notes-toggle { position:absolute; bottom:18px; right:18px; z-index:25; }
+.notes-section { position:absolute; bottom:0; left:0; right:0; z-index:20;
+  max-height:0; overflow:hidden; transition:max-height .5s cubic-bezier(.2,.7,.3,1);
+  background:var(--surface); color:var(--fg); }
+.notes-section.open { max-height:min(440px,60vh); overflow-y:auto; border-top:1px solid var(--line-strong); }
+.notes-inner { padding:28px clamp(20px,4vw,72px) 32px; max-width:900px; }
+.notes-inner h2 { font-family:var(--disp); font-weight:440; font-size:1.4rem; letter-spacing:-.02em;
+  margin-bottom:20px; font-variation-settings:"opsz" 36; }
+.note-grid { display:grid; grid-template-columns:1fr 1fr; gap:22px 36px; }
+.note-item dt { font-family:var(--body); font-weight:600; font-size:.88rem; color:var(--accent-ink); margin-bottom:4px; }
+.note-item dd { font-family:var(--body); font-size:.88rem; line-height:1.65; color:var(--dim); }
+.note-item code { font-family:var(--mono); font-size:.75rem; color:var(--fg); background:rgba(29,23,18,.07); padding:1px 5px; }
+html.dark .note-item code { background:rgba(255,255,255,.08); }
 @media (max-width:600px) { .note-grid { grid-template-columns:1fr; } }
 
 /* ── game card ──────────────────────────────────────────────────────────

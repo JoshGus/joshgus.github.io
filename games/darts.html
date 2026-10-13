@@ -20,6 +20,7 @@
 <title>Darts</title>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="../assets/shared.css">
+<link rel="stylesheet" href="../assets/game.css">
 <script src="../assets/dark-mode.js"></script>
 <style>
 /* Darts is a fixed light-panel UI (hard-coded tan panels) over a dark game
@@ -551,9 +552,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 .cp-reset:hover { color: var(--fg); border-color: var(--fg); }
 
 /* ── notes ── */
-.notes-section{background:rgba(247,236,225,.98);z-index:22}
-.notes-section.open{max-height:440px;border-top:1px solid var(--line)}
-.notes-inner h2{color:var(--fg)}
+.notes-section{z-index:22}
 .devlog { display: flex; flex-direction: column; gap: 0; }
 .devlog-entry {
   display: grid;
@@ -603,8 +602,6 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   padding: 1px 5px;
   border-radius: 2px;
 }
-.notes-toggle{border:1px solid var(--line-strong);background:rgba(247,236,225,.88);color:var(--dim)}
-.notes-toggle:hover { color: var(--fg); border-color: var(--fg); }
 
 /* ── tutorial overlay ── */
 #tutorial-screen {
@@ -972,7 +969,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   <button id="btn-tutorial">Tutorial</button>
 
   <!-- Notes -->
-  <button class="notes-toggle" id="notes-toggle">How it works</button>
+  <button class="notes-toggle g-chip" id="notes-toggle">How it works</button>
   <div class="notes-section" id="notes-section">
     <div class="notes-inner">
       <h2>Dev notes</h2>
