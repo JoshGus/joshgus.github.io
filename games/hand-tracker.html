@@ -28,7 +28,7 @@
     --red:        #b84040;
   }
 
-  body{font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+  body{font-family:var(--body);font-size:13px;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 
   /* ── status indicator (in sidebar) ─────────────────────────── */
   #status-dot {
@@ -44,8 +44,8 @@
   #status-dot.error   { background: var(--red); }
   #status-dot.loading { background: #4a8fbf; animation: pulse 1s infinite; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.25} }
-  #status-msg { font-size: .62rem; color: var(--dim); vertical-align: middle; }
-  #fps { font-size: .58rem; color: var(--dimmer); display: block; margin-top: 4px; }
+  #status-msg { font-size:0.84rem; color: var(--dim); vertical-align: middle; }
+  #fps { font-size:0.79rem; color: var(--dimmer); display: block; margin-top: 4px; }
 
   /* ── main split ─────────────────────────────────────────────── */
   #main {
@@ -110,16 +110,16 @@
     border-bottom: 1px solid var(--line);
   }
   .p-label {
-    font-size: .58rem;
-    letter-spacing: .22em;
-    text-transform: uppercase;
+    font-size:0.79rem;
+    
+    
     color: var(--dimmer);
     margin-bottom: 12px;
   }
 
   /* hand count */
   #hand-count { font-size: 2.8rem; font-weight: 600; color: var(--accent-ink); font-family: var(--disp); line-height: 1; }
-  #hand-sub   { font-size: .58rem; letter-spacing: .14em; text-transform: uppercase; color: var(--dim); margin-top: 2px; }
+  #hand-sub   { font-size:0.79rem;   color: var(--dim); margin-top: 2px; }
 
   /* fingertip rows */
   #fingertip-list { flex: 1; overflow-y: auto; padding: 0 16px; }
@@ -132,24 +132,24 @@
     border-bottom: 1px solid var(--line);
   }
   .tip-row:last-child { border-bottom: none; }
-  .tip-name { font-size: .65rem; color: var(--dim); }
-  .tip-xy   { font-size: .64rem; color: var(--accent-ink); font-feature-settings: "tnum"; font-weight: 500; }
+  .tip-name { font-size:0.88rem; color: var(--dim); }
+  .tip-xy   { font-size:0.87rem; color: var(--accent-ink); font-feature-settings: "tnum"; font-weight: 500; }
   .tip-row.inactive .tip-name,
   .tip-row.inactive .tip-xy { color: var(--dimmer); }
 
   /* model tag */
   #model-tag {
     display: inline-block;
-    font-size: .6rem;
-    letter-spacing: .1em;
-    text-transform: uppercase;
+    font-size:0.82rem;
+    
+    
     color: var(--accent-ink);
     border: 1px solid var(--accent-ink);
     padding: 4px 9px;
     margin-bottom: 10px;
   }
   .model-note {
-    font-size: .58rem;
+    font-size:0.79rem;
     color: var(--dimmer);
     line-height: 1.7;
   }
@@ -166,7 +166,7 @@
 </head>
 <body>
 
-<div class="status">
+<div class="status dark">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
   <nav>
     <a href="../code.html">Code</a>

@@ -26,7 +26,7 @@
 <script src="../assets/dark-mode.js"></script>
 <style>
 html,body{height:100%}
-body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;display:flex;flex-direction:column}
+body{background:#080c16;color:#fff;font-family:var(--body);overflow:hidden;display:flex;flex-direction:column}
 
 .game-wrap{flex:1;position:relative;overflow:hidden}
 #canvas{display:block;width:100%;height:100%}
@@ -38,23 +38,23 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
   background:rgba(6,9,18,.88);border:1px solid rgba(255,255,255,.08);
   padding:16px;backdrop-filter:blur(8px);z-index:10
 }
-.panel-title{font-size:.58rem;letter-spacing:.18em;text-transform:uppercase;
+.panel-title{font-size:0.79rem;
   color:rgba(255,255,255,.35);margin-bottom:14px;padding-bottom:10px;
   border-bottom:1px solid rgba(255,255,255,.07)}
 
 .slider-row{margin-bottom:11px}
 .slider-row label{display:flex;justify-content:space-between;align-items:center;
-  font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.3);margin-bottom:4px}
+  font-size:0.68rem;color:rgba(255,255,255,.3);margin-bottom:4px}
 .slider-row label span{color:rgba(255,255,255,.55);min-width:28px;text-align:right}
 .slider-row input[type=range]{width:100%;accent-color:#ccf73f;cursor:pointer;display:block}
 
 .panel-sep{height:1px;background:rgba(255,255,255,.07);margin:14px 0}
-.panel-label{font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
+.panel-label{font-size:0.68rem;
   color:rgba(255,255,255,.3);margin-bottom:8px}
 
 .mode-btns{display:flex;gap:6px}
 .mode-btn{
-  flex:1;font-family:var(--mono);font-size:.46rem;letter-spacing:.1em;text-transform:uppercase;
+  flex:1;font-family:var(--body);font-size:0.68rem;
   padding:5px 4px;border:1px solid rgba(255,255,255,.1);background:transparent;
   color:rgba(255,255,255,.3);cursor:pointer;transition:all .15s
 }
@@ -64,7 +64,7 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
 /* info overlay: drag hint */
 .drag-hint{
   position:absolute;bottom:18px;left:18px;
-  font-size:.48rem;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,255,255,.2);
+  font-size:0.68rem;color:rgba(255,255,255,.2);
   pointer-events:none
 }
 
@@ -92,7 +92,7 @@ body{background:#080c16;color:#fff;font-family:var(--mono);overflow:hidden;displ
 </head>
 <body>
 
-<div class="status">
+<div class="status dark">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
   <nav>
     <a href="../code.html">Code</a>

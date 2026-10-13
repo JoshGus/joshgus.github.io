@@ -87,6 +87,8 @@ Pages stay at the paths people have already linked to, so the top level and
   `shared.css` has everything more than one page uses (colours, fonts, the
   header, page titles, game cards); a page's own `<style>` only holds what is
   specific to it. `cards.js` builds the game cards for both pages that show them.
+  `game.css` is the chrome every game shares around its playfield: menu, setup,
+  help and results cards, on-field panels and buttons.
 - `data/` holds what the pages read: the game catalogue, photo metadata, the
   painting index and the Word Hunt dictionary.
 - `games/net/` is the multiplayer client code.

@@ -78,7 +78,7 @@
   transition: border-color .15s, background .15s, color .15s;
 }
 .g-seg button:hover, .g-toggle:hover { border-color: var(--accent-ink); }
-.g-seg button.on { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+.g-seg button.on { background: var(--accent-ink); border-color: var(--accent-ink); color: var(--surface); }
 .g-toggles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
 .g-toggle { display: flex; align-items: center; gap: 8px; text-align: left; }
 .g-toggle .box { width: 14px; height: 14px; flex: 0 0 auto; position: relative; border: 1px solid var(--line-strong); border-radius: 3px; }
@@ -89,14 +89,14 @@
 
 /* card actions */
 .g-btn {
-  padding: 11px 16px; min-height: 42px;
+  display: inline-block; padding: 11px 16px; min-height: 42px; text-align: center; text-decoration: none;
   border: 1px solid var(--line-strong); border-radius: 9px;
   background: transparent; color: var(--fg);
   font-family: var(--body); font-size: .92rem; font-weight: 600; cursor: pointer;
   transition: border-color .15s, background .15s, filter .15s;
 }
 .g-btn:hover:not(:disabled) { border-color: var(--accent-ink); }
-.g-btn.primary { background: var(--accent-ink); border-color: var(--accent-ink); color: #fff; }
+.g-btn.primary { background: var(--accent-ink); border-color: var(--accent-ink); color: var(--surface); }
 .g-btn.primary:hover:not(:disabled) { filter: brightness(1.08); }
 .g-btn.block { width: 100%; }
 .g-btn:disabled { opacity: .4; cursor: default; }
