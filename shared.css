@@ -25,7 +25,7 @@ body.noise::after {
 .status {
   display:flex; justify-content:space-between; align-items:center; gap:14px;
   padding:12px clamp(18px,3.5vw,56px);
-  font-family:var(--mono); font-size:.65rem; letter-spacing:.16em; text-transform:uppercase;
+  font-family:var(--body); font-size:0.87rem;  
   color:var(--dim); border-bottom:1px solid var(--line);
   background:rgba(247,236,225,.88); backdrop-filter:blur(8px);
   position:sticky; top:0; z-index:40;
@@ -67,7 +67,7 @@ body.noise::after {
 #nav-panel.open { opacity:1; transform:none; pointer-events:auto; }
 #nav-panel a {
   padding:15px clamp(18px,3.5vw,56px);
-  font-family:var(--mono); font-size:.72rem; letter-spacing:.16em; text-transform:uppercase;
+  font-family:var(--body); font-size:0.92rem;  
   color:var(--dim); border-top:1px solid var(--line);
 }
 #nav-panel a:first-child { border-top:0; }
@@ -186,3 +186,7 @@ html.dark #dark-toggle:hover,
      disclosure, so give them a finger-sized row. */
   summary { padding-top:9px; padding-bottom:9px; }
 }
+
+/* The status bar used to carry a live clock. It's gone; the pages that still
+   have the element just don't show it. */
+#clock { display:none; }

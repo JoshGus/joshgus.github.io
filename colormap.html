@@ -46,7 +46,7 @@ canvas{display:block;width:100%;height:100%}
 /* hover thumbnail */
 #hover-thumb{position:absolute;z-index:6;pointer-events:none;display:none}
 #hover-thumb img{display:block;width:180px;height:130px;object-fit:cover;border:1.5px solid var(--accent)}
-#hover-thumb .ht-label{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+#hover-thumb .ht-label{font-family:var(--body);font-size:0.78rem;
   background:rgba(14,13,11,.88);color:var(--accent);padding:5px 8px;white-space:nowrap;overflow:hidden;
   text-overflow:ellipsis;max-width:180px}
 
@@ -73,7 +73,7 @@ canvas{display:block;width:100%;height:100%}
 .bs-body{padding:14px 16px 32px}
 .bs-title{font-family:var(--disp);font-weight:500;font-size:1.1rem;letter-spacing:-.01em;
   color:rgba(244,237,227,.92);line-height:1.2;font-variation-settings:"opsz" 24}
-.bs-meta{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+.bs-meta{font-family:var(--body);font-size:0.8rem;
   color:rgba(244,237,227,.45);margin-top:8px;line-height:1.9}
 .bs-conf{font-family:var(--mono);font-size:.62rem;letter-spacing:.1em;
   color:var(--accent);margin-top:7px}
@@ -95,14 +95,14 @@ canvas{display:block;width:100%;height:100%}
 .sb-body{padding:14px 16px 24px;flex:1}
 .sb-title{font-family:var(--disp);font-weight:500;font-size:1.05rem;letter-spacing:-.01em;
   color:rgba(244,237,227,.9);line-height:1.2;font-variation-settings:"opsz" 24;margin-bottom:8px}
-.sb-species{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+.sb-species{font-family:var(--body);font-size:0.8rem;
   color:var(--accent)}
 .sb-conf-row{display:flex;align-items:center;gap:8px;margin-top:6px}
 .sb-conf-label{font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;
   color:rgba(244,237,227,.45);white-space:nowrap}
 .sb-conf-bar{flex:1;height:2px;background:rgba(244,237,227,.12);border-radius:1px;overflow:hidden}
 #sb-conf-fill{height:100%;background:var(--accent);border-radius:1px;transition:width .4s}
-.sb-meta{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+.sb-meta{font-family:var(--body);font-size:0.78rem;
   color:rgba(244,237,227,.38);margin-top:12px;line-height:2}
 .sb-colors{display:flex;gap:5px;margin-top:12px;flex-wrap:wrap}
 
@@ -115,7 +115,7 @@ canvas{display:block;width:100%;height:100%}
   #axis-legend{min-width:0;max-width:calc(100% - 100px)}
 }
 .ax-title{display:flex;justify-content:space-between;align-items:center;
-  font-family:var(--mono);font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;
+  font-family:var(--body);font-size:0.72rem;
   color:rgba(244,237,227,.45);margin-bottom:0}
 .ax-toggle{background:none;border:none;cursor:pointer;position:relative;
   color:rgba(244,237,227,.45);font-size:.8rem;line-height:1;padding:0 0 0 10px;
@@ -140,7 +140,7 @@ canvas{display:block;width:100%;height:100%}
 
 /* controls overlay inside canvas */
 #ctrl-overlay{position:absolute;bottom:14px;left:14px;z-index:7;display:flex;gap:7px;flex-wrap:wrap;pointer-events:none}
-.ctrl-pill{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+.ctrl-pill{font-family:var(--body);font-size:0.78rem;
   color:rgba(244,237,227,.8);background:rgba(14,13,11,.55);border:1px solid rgba(244,237,227,.18);
   padding:5px 11px;border-radius:20px;backdrop-filter:blur(6px);display:flex;align-items:center;gap:6px}
 .ctrl-pill kbd{background:rgba(244,237,227,.18);border:1px solid rgba(244,237,227,.25);
@@ -171,14 +171,14 @@ canvas{display:block;width:100%;height:100%}
 /* footer bar */
 .scene-footer{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;
   padding:14px clamp(20px,5vw,72px);border-top:1px solid var(--line)}
-.scene-footer .hint{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dimmer)}
-#photo-count{font-family:var(--mono);font-size:.66rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-ink)}
-.gallery-link{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+.scene-footer .hint{font-family:var(--body);font-size:0.8rem;color:var(--dimmer)}
+#photo-count{font-family:var(--body);font-size:0.88rem;color:var(--accent-ink)}
+.gallery-link{font-family:var(--body);font-size:0.83rem;
   color:var(--accent-ink);border:1px solid var(--accent-ink);padding:8px 14px;transition:background .2s,color .2s}
 .gallery-link:hover{background:var(--accent-ink);color:var(--bg)}
 </style>
 </head>
-<body class="noise">
+<body>
 
 <div class="status">
   <a href="index.html" class="sig">Joshua Gustaveson</a>
@@ -192,8 +192,7 @@ canvas{display:block;width:100%;height:100%}
 </div>
 
 <div class="page-header">
-  <span class="ph-idx">04 / Color Map</span>
-  <h1>Color <em>Space</em></h1>
+  <h1>Color Space</h1>
   <p>Each photo placed at its average palette's RGB coordinates. X&thinsp;=&thinsp;Red, Y&thinsp;=&thinsp;Green, Z&thinsp;=&thinsp;Blue. Dot color is its dominant hue. Hover for preview &middot; click to open.</p>
 </div>
 

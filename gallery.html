@@ -32,7 +32,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 .ph-idx{font-family:var(--mono);font-size:.78rem;letter-spacing:.12em;color:var(--accent-ink);display:block;margin-bottom:14px}
 .page-header h1{font-family:var(--disp);font-weight:440;font-size:clamp(2.6rem,7vw,5.2rem);line-height:.9;letter-spacing:-.03em;font-variation-settings:"opsz" 64}
 .page-header h1 em{font-style:italic;color:var(--accent-ink)}
-.colormap-btn{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;
+.colormap-btn{font-family:var(--body);font-size:0.91rem;
   color:var(--accent-ink);border:1px solid var(--accent-ink);padding:10px 18px;
   transition:background .25s,color .25s;white-space:nowrap;align-self:flex-end}
 .colormap-btn:hover{background:var(--accent-ink);color:var(--bg)}
@@ -50,7 +50,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 #search:focus{border-color:var(--accent-ink)}
 #search::placeholder{color:var(--dimmer)}
 .view-toggle{display:flex;gap:1px}
-.view-toggle button{font-family:var(--mono);font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;
+.view-toggle button{font-family:var(--body);font-size:0.83rem;
   padding:9px 16px;border:1px solid var(--line-strong);color:var(--dim);background:var(--surface);
   cursor:pointer;transition:all .2s}
 .view-toggle button:first-child{border-radius:3px 0 0 3px}
@@ -64,14 +64,14 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
   .filters::-webkit-scrollbar{display:none}
   .chip{flex-shrink:0}
 }
-.chip{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+.chip{font-family:var(--body);font-size:0.8rem;
   padding:6px 12px;border:1px solid var(--line-strong);background:transparent;
   color:var(--dim);cursor:pointer;border-radius:30px;transition:all .2s}
 .chip:hover,.chip.active{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
 .count-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;color:var(--dimmer);margin-left:auto}
 /* sort controls */
 .sort-wrap{display:flex;align-items:center;gap:4px;flex-shrink:0}
-.sort-select{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+.sort-select{font-family:var(--body);font-size:0.8rem;
   padding:6px 10px;border:1px solid var(--line-strong);background:var(--surface);
   color:var(--dim);cursor:pointer;border-radius:30px;outline:none;
   appearance:none;-webkit-appearance:none;transition:all .2s}
@@ -97,7 +97,7 @@ figure.m-item{position:absolute;cursor:pointer;overflow:hidden}
   transform:translateY(101%);transition:transform .35s cubic-bezier(.2,.7,.3,1)}
 .m-item:hover figcaption{transform:none}
 .cap-t{font-family:var(--disp);font-weight:500;font-size:1rem;color:#fbf2e8;letter-spacing:-.01em}
-.cap-m{font-family:var(--mono);font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--accent);margin-top:4px}
+.cap-m{font-family:var(--body);font-size:0.75rem;color:var(--accent);margin-top:4px}
 
 /* ---- PLATES VIEW ---- */
 
@@ -119,8 +119,8 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
   background:linear-gradient(transparent,rgba(20,16,12,.85));
   transform:translateY(101%);transition:transform .35s}
 .g-item:hover figcaption{transform:none}
-.empty-state{text-align:center;padding:80px 20px;color:var(--dimmer);font-family:var(--mono);
-  font-size:.8rem;letter-spacing:.1em;text-transform:uppercase}
+.empty-state{text-align:center;padding:80px 20px;color:var(--dimmer);font-family:var(--body);
+  font-size:.8rem;}
 
 /* ---- LIGHTBOX ---- */
 .lightbox{position:fixed;inset:0;z-index:100;background:rgba(20,16,12,.96);display:none;
@@ -134,15 +134,15 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
 .lb-info{padding:clamp(20px,3vw,36px);overflow-y:auto;border-left:1px solid var(--line);
   display:flex;flex-direction:column;gap:18px}
 .lb-title{font-family:var(--disp);font-weight:520;font-size:clamp(1.3rem,2vw,1.8rem);letter-spacing:-.02em;line-height:1.1}
-.lb-meta{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;color:var(--dim);line-height:2}
+.lb-meta{font-family:var(--body);font-size:0.86rem;color:var(--dim);line-height:2}
 .lb-colors{display:flex;gap:6px}
 .swatch{width:28px;height:28px;border-radius:3px;border:1px solid var(--line)}
 .lb-tags{display:flex;flex-wrap:wrap;gap:6px}
-.lb-tags span{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+.lb-tags span{font-family:var(--body);font-size:0.78rem;
   border:1px solid var(--line-strong);padding:4px 10px;border-radius:30px;color:var(--dim)}
 .lb-tags span em{font-style:normal;color:var(--accent-ink);margin-left:5px}
 .tags-label-row{display:flex;align-items:center;justify-content:space-between}
-.tags-toggle{font-family:var(--mono);font-size:.54rem;letter-spacing:.12em;text-transform:uppercase;
+.tags-toggle{font-family:var(--body);font-size:0.72rem;
   color:var(--accent-ink);background:none;border:none;cursor:pointer;padding:0;display:none}
 .tags-toggle:hover{text-decoration:underline}
 @media(max-width:720px){
@@ -151,11 +151,11 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
 }
 /* Metadata sidebar sections */
 .lb-section{border-top:1px solid var(--line);padding-top:16px}
-.lb-section-label{font-family:var(--mono);font-size:.54rem;letter-spacing:.18em;text-transform:uppercase;
+.lb-section-label{font-family:var(--body);font-size:0.72rem;
   color:var(--dimmer);margin-bottom:10px}
 /* Animal / subject */
-.lb-animal-type{display:inline-block;font-family:var(--mono);font-size:.56rem;letter-spacing:.14em;
-  text-transform:uppercase;padding:3px 10px;border:1px solid var(--line-strong);color:var(--dim);
+.lb-animal-type{display:inline-block;font-family:var(--body);font-size:0.75rem;
+  padding:3px 10px;border:1px solid var(--line-strong);color:var(--dim);
   border-radius:30px;margin-bottom:10px}
 .lb-animal-type.is-bird{color:var(--accent-ink);border-color:var(--accent-ink);background:rgba(204,247,63,.08)}
 /* Bird ID */
@@ -171,12 +171,12 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
 .lb-field-marks{display:flex;flex-wrap:wrap;gap:5px;margin-top:10px}
 .lb-field-mark{font-family:var(--mono);font-size:.56rem;letter-spacing:.08em;padding:3px 9px;
   background:rgba(204,247,63,.08);border:1px solid rgba(204,247,63,.3);color:var(--accent-ink);border-radius:2px}
-.lb-bird-sub{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+.lb-bird-sub{font-family:var(--body);font-size:0.8rem;
   color:var(--dim);margin-top:8px}
 /* Details grid */
 .lb-details{display:grid;grid-template-columns:auto 1fr;gap:5px 12px;font-family:var(--mono);
   font-size:.62rem;letter-spacing:.06em}
-.lb-detail-key{color:var(--dimmer);text-transform:uppercase;letter-spacing:.12em;white-space:nowrap}
+.lb-detail-key{color:var(--dimmer);white-space:nowrap}
 .lb-detail-val{color:var(--fg)}
 .lb-close{position:absolute;top:16px;right:16px;z-index:10;width:36px;height:36px;
   border:none;background:var(--surface);border:1px solid var(--line-strong);
@@ -196,7 +196,7 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
 }
 </style>
 </head>
-<body class="noise">
+<body>
 
 <div class="status">
   <a href="index.html" class="sig">Joshua Gustaveson</a>
@@ -212,8 +212,7 @@ figure.g-item{cursor:pointer;position:relative;overflow:hidden}
 <div class="page-header">
   <div class="ph-top">
     <div>
-      <span class="ph-idx">03 / Photography</span>
-      <h1>From the <em>field</em></h1>
+      <h1>From the field</h1>
     </div>
     <a href="colormap.html" class="colormap-btn">Explore color space &rarr;</a>
   </div>

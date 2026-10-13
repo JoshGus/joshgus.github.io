@@ -34,8 +34,8 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 .page-header p{font-family:var(--mono);font-size:.72rem;letter-spacing:.08em;color:var(--dim);margin-top:18px;max-width:56ch}
 
 .wrap{padding:clamp(32px,5vw,60px) clamp(20px,5vw,72px) 90px;max-width:1100px;margin:0 auto}
-.back{display:inline-block;font-family:var(--mono);font-size:.62rem;letter-spacing:.12em;
-  text-transform:uppercase;color:var(--dim);margin-bottom:22px;text-decoration:none}
+.back{display:inline-block;font-family:var(--body);font-size:0.83rem;
+  color:var(--dim);margin-bottom:22px;text-decoration:none}
 .back:hover{color:var(--accent-ink)}
 
 /* ── game server: live directory of open games ───────────────────────── */
@@ -46,7 +46,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
   border:1px solid var(--line);background:var(--bg);color:var(--fg);font:inherit;font-size:.9rem}
 .mp-search:focus{outline:none;border-color:var(--accent-ink)}
 .mp-filters{display:flex;gap:6px;flex-wrap:wrap}
-.mp-chip{font-family:var(--mono);font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;
+.mp-chip{font-family:var(--body);font-size:0.78rem;
   padding:7px 12px;border:1px solid var(--line-strong);border-radius:30px;background:transparent;
   color:var(--dim);cursor:pointer;transition:all .2s;min-height:32px}
 .mp-chip:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
@@ -65,13 +65,13 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 .mp-row.full{opacity:.5;pointer-events:none}
 .mp-who{flex:1;min-width:0}
 .mp-who b{display:block;font-size:.98rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.mp-who span{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;color:var(--dim)}
+.mp-who span{font-family:var(--body);font-size:0.8rem;color:var(--dim)}
 .mp-count{font-family:var(--mono);font-size:.72rem;color:var(--dim);flex-shrink:0}
-.mp-go{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+.mp-go{font-family:var(--body);font-size:0.8rem;
   color:var(--accent-ink);flex-shrink:0}
 .mp-host-row{display:flex;gap:10px;flex-wrap:wrap;padding:14px 16px;border-top:1px solid var(--line);
   background:var(--bg)}
-.mp-host-row a{font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;
+.mp-host-row a{font-family:var(--body);font-size:0.8rem;
   padding:9px 14px;border:1px solid var(--line-strong);border-radius:30px;color:var(--fg);
   text-decoration:none;transition:all .2s}
 .mp-host-row a:hover{border-color:var(--accent-ink);color:var(--accent-ink)}
@@ -81,7 +81,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
   margin-top:18px;line-height:1.8;max-width:70ch}
 </style>
 </head>
-<body class="noise">
+<body>
 
 <div class="status">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
@@ -95,8 +95,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 </div>
 
 <div class="page-header">
-  <span class="ph-idx">02 / Games &middot; Server</span>
-  <h1>Game <em>server</em></h1>
+  <h1>Game server</h1>
   <p>Every open game, live. Join one or start your own.</p>
 </div>
 
@@ -134,8 +133,8 @@ const hostRow = document.getElementById('mp-host-row');
 let activeGame = 'all';
 let rows = [];
 
-hostRow.innerHTML = '<span style="font-family:var(--mono);font-size:.6rem;letter-spacing:.1em;'
-  + 'text-transform:uppercase;color:var(--dim);align-self:center;margin-right:2px">Host a game</span>'
+hostRow.innerHTML = '<span style="font-family:var(--body);font-size:0.8rem;'
+  + 'color:var(--dim);align-self:center;margin-right:2px">Host a game</span>'
   + mpGames.map(g => `<a href="${g.href}?mp=host">${g.title}</a>`).join('');
 
 filtersEl.innerHTML = [{ id: 'all', title: 'All' }].concat(mpGames)

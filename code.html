@@ -42,10 +42,10 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 .proj-num{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;color:var(--dimmer);padding-top:4px}
 .proj-title{font-family:var(--disp);font-weight:500;font-size:clamp(1.15rem,2.4vw,1.6rem);letter-spacing:-.02em;
   font-variation-settings:"opsz" 36;transition:color .2s}
-.proj-subtitle{font-family:var(--mono);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+.proj-subtitle{font-family:var(--body);font-size:0.91rem;
   color:var(--dimmer);margin-top:6px}
 .proj-tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
-.tag{font-family:var(--mono);font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;
+.tag{font-family:var(--body);font-size:0.75rem;
   border:1px solid var(--line-strong);padding:4px 9px;color:var(--dim)}
 .proj-arrow{font-family:var(--mono);font-size:.8rem;color:var(--dimmer);padding-top:4px;
   transition:transform .3s,color .2s}
@@ -58,11 +58,11 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 .detail-desc{font-size:1rem;line-height:1.75;color:var(--dim)}
 .detail-desc strong{color:var(--fg)}
 .detail-meta{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--dim)}
-.detail-meta dt{color:var(--dimmer);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;margin-top:14px;margin-bottom:3px}
+.detail-meta dt{color:var(--dimmer);font-size:0.8rem;margin-top:14px;margin-bottom:3px}
 .detail-meta dt:first-child{margin-top:0}
 .detail-meta dd{color:var(--fg)}
 .detail-links{margin-top:20px;display:flex;gap:10px;flex-wrap:wrap}
-.dlink{font-family:var(--mono);font-size:.64rem;letter-spacing:.12em;text-transform:uppercase;
+.dlink{font-family:var(--body);font-size:0.86rem;
   border:1px solid var(--line-strong);padding:8px 14px;color:var(--accent-ink);transition:all .2s}
 .dlink:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
 @media(max-width:640px){
@@ -71,7 +71,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 }
 </style>
 </head>
-<body class="noise">
+<body>
 
 <div class="status">
   <a href="index.html" class="sig">Joshua Gustaveson</a>
@@ -85,8 +85,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 </div>
 
 <div class="page-header">
-  <span class="ph-idx">01 / Code</span>
-  <h1>Coding <em>projects</em></h1>
+  <h1>Coding projects</h1>
   <p>Systems, ML, full-stack, and mobile. Most started as coursework or side projects and grew from there. Click any row to expand.</p>
 </div>
 

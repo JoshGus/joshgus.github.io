@@ -36,7 +36,7 @@ body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:17px
 
 /* games grid */
 .games-wrap{padding:clamp(36px,6vw,72px) clamp(20px,5vw,72px) 80px;display:flex;flex-direction:column;gap:clamp(48px,8vw,80px)}
-.section-label{font-family:var(--mono);font-size:.68rem;letter-spacing:.18em;text-transform:uppercase;color:var(--dim);margin-bottom:clamp(16px,2.5vw,26px);display:flex;align-items:center;gap:14px}
+.section-label{font-family:var(--body);font-size:0.91rem;color:var(--dim);margin-bottom:clamp(16px,2.5vw,26px);display:flex;align-items:center;gap:14px}
 .section-label::after{content:'';flex:1;height:1px;background:var(--line)}
 .games-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:clamp(14px,2vw,22px)}
 @media(max-width:580px){.games-grid{grid-template-columns:1fr}}
@@ -80,14 +80,14 @@ a.game-card:hover .card-body h2{color:var(--accent-ink)}
 .card-body p{color:var(--dim);font-size:.84rem;font-weight:300;line-height:1.55;flex:1}
 .card-foot{display:flex;justify-content:space-between;align-items:center;gap:16px;margin-top:4px}
 .stack{display:flex;gap:7px;flex-wrap:wrap}
-.stack b{font-family:var(--mono);font-weight:500;font-size:.58rem;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--dim);border:1px solid var(--line-strong);
-  padding:4px 9px;border-radius:30px}
-.play-label{font-family:var(--mono);font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;
+.stack b{font-family:var(--body);font-weight:500;font-size:0.78rem;
+  color:var(--dim);
+  }
+.play-label{font-family:var(--body);font-size:0.83rem;
   color:var(--accent-ink);display:inline-flex;gap:8px;align-items:center;white-space:nowrap}
 .play-label .arr{transition:transform .3s}
 a.game-card:hover .play-label .arr{transform:translateX(5px)}
-.soon-label{font-family:var(--mono);font-size:.6rem;letter-spacing:.14em;text-transform:uppercase;
+.soon-label{font-family:var(--body);font-size:0.8rem;
   color:var(--dimmer)}
 
 /* multiplayer hub */
@@ -99,17 +99,17 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
 .srv-card .srv-txt{flex:1;min-width:200px}
 .srv-card h3{font-family:var(--disp);font-weight:560;font-size:1.35rem;margin:0 0 4px}
 .srv-card p{color:var(--dim);font-size:.9rem;font-weight:300;margin:0}
-.srv-card .srv-live{font-family:var(--mono);font-size:.6rem;letter-spacing:.12em;text-transform:uppercase;
+.srv-card .srv-live{font-family:var(--body);font-size:0.8rem;
   color:var(--accent-ink);border:1px solid var(--accent-ink);border-radius:30px;padding:7px 13px;flex-shrink:0}
 .mp-actions{display:flex;gap:10px;margin-top:2px}
-.mp-actions a{flex:1;text-align:center;text-decoration:none;font-family:var(--mono);font-size:.66rem;
-  letter-spacing:.1em;text-transform:uppercase;padding:10px;border-radius:8px;border:1px solid var(--line-strong);
+.mp-actions a{flex:1;text-align:center;text-decoration:none;font-family:var(--body);font-size:0.88rem;
+  padding:10px;border-radius:8px;border:1px solid var(--line-strong);
   color:var(--fg);transition:.2s}
 .mp-actions a.host{background:var(--accent-ink);color:#fff;border-color:var(--accent-ink)}
 .mp-actions a:hover{filter:brightness(1.08);transform:translateY(-2px)}
 </style>
 </head>
-<body class="noise">
+<body>
 
 <div class="status">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
@@ -123,8 +123,7 @@ a.game-card:hover .play-label .arr{transform:translateX(5px)}
 </div>
 
 <div class="page-header">
-  <span class="ph-idx">02 / Games</span>
-  <h1>Built for <em>fun</em></h1>
+  <h1>Built for fun</h1>
   <p>Little web based interactive games.</p>
 </div>
 
@@ -164,7 +163,7 @@ import { CARDS } from '../data/games.js';
 
 function renderCards(target, items) {
   items.forEach(g => {
-    const stack = g.stack.map(s => `<b>${s}</b>`).join('');
+    const stack = `<b>${g.stack.join(', ')}</b>`;
     const cs = g.comingSoon ? ' coming-soon' : '';
     const cta = g.comingSoon
       ? `<span class="soon-label">${g.ctaShort}</span>`
