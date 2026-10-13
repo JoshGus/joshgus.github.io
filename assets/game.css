@@ -33,6 +33,7 @@
 }
 .g-card {
   position: relative; width: min(440px, 100%);
+  margin: auto;   /* centres in a grid or a flex overlay, and never clips when taller than the screen */
   padding: clamp(22px, 4vw, 34px);
   background: var(--surface); color: var(--fg);
   border: 1px solid var(--line-strong); border-radius: 14px;

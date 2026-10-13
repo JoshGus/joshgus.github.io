@@ -34,7 +34,7 @@ html.dark {
   --accent:#ccf73f; --accent-ink:#5e7d0f;
   --line:rgba(29,23,18,.14); --line-strong:rgba(29,23,18,.30);
 }
-body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
+body{background:#0f0d0b;font-family:var(--body);font-size:13px;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 
 .game-wrap {
   position: relative;
@@ -62,7 +62,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   position: absolute;
   top: 8px;
   right: 10px;
-  font-family: var(--mono);
+  font-family:var(--body);
   font-size: 11px;
   color: rgba(255,255,255,0.55);
   background: rgba(0,0,0,0.35);
@@ -70,37 +70,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   border-radius: 4px;
   z-index: 15;
   pointer-events: none;
-  letter-spacing: .04em;
+  
 }
 
 /* ── overlays ── */
-.overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 18px;
-  background: rgba(247,236,225,.96);
-  backdrop-filter: blur(4px);
-  z-index: 20;
-  font-family: var(--mono);
-}
-.overlay h2 {
-  font-family: var(--disp);
-  font-size: clamp(1.4rem,4vw,2.2rem);
-  font-weight: 700;
-  letter-spacing: -.02em;
-  color: var(--fg);
-  margin: 0;
-}
-.overlay .sub {
-  font-size: .58rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--dim);
-}
 
 /* ── ready screen ── */
 .ready-players {
@@ -119,9 +92,9 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 .ready-num.on { color: var(--accent-ink); transform: scale(1.1); }
 .ready-lbl {
-  font-size: .55rem;
-  letter-spacing: .11em;
-  text-transform: uppercase;
+  font-size:0.75rem;
+  
+  
   color: var(--dim);
   margin-top: 5px;
 }
@@ -152,7 +125,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 #sp-right { right: 16px; text-align: right; }
 /* Score panels float over the dark game viewport, so their text is a fixed
    light tan regardless of the site's light/dark toggle. */
-.sp-name  { font-size: 1.1rem; letter-spacing: .14em; text-transform: uppercase; color: rgba(237,227,216,.6); }
+.sp-name  { font-size: 1.1rem;   color: rgba(237,227,216,.6); }
 .sp-score {
   font-size: clamp(4.5rem,12vw,8rem);
   font-weight: 700;
@@ -163,10 +136,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 .sp-score.active { opacity: 1; }
 .sp-turn {
-  font-family: var(--mono);
+  font-family:var(--body);
   font-size: 1.1rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  
+  
   color: var(--accent-ink);
   opacity: 0;
   transition: opacity .3s;
@@ -196,7 +169,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 #throw-flash.show { opacity: 1; }
 .fl-d { color: #3e7e2a; font-size: .75em; font-weight: 600; margin-right: 1px; }
 .fl-t { color: #b03a14; font-size: .75em; font-weight: 600; margin-right: 1px; }
-.fl-pts { display: block; font-family: var(--mono); font-size: .48em; font-weight: 400; opacity: .6; margin-top: 1px; }
+.fl-pts { display: block; font-family:var(--body); font-size: .48em; font-weight: 400; opacity: .6; margin-top: 1px; }
 
 /* ── between-turns side panel ── */
 #between-turns-screen {
@@ -224,10 +197,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   line-height: 1.1;
 }
 #bt-instruction {
-  font-family: var(--mono);
-  font-size: .55rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.75rem;
+  
+  
   color: var(--dim);
 }
 #bt-progress-wrap {
@@ -268,7 +241,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   border: 1px solid rgba(165, 128, 85, 0.55);
   pointer-events: none;
   z-index: 10;
-  font-family: var(--mono);
+  font-family:var(--body);
   font-size: 0;
 }
 .sl-player {
@@ -291,8 +264,8 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 .sl-pname {
   font-size: .95rem;
-  letter-spacing: .15em;
-  text-transform: uppercase;
+  
+  
   color: rgba(90,60,28,.65);
 }
 .sl-total {
@@ -349,7 +322,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   padding: 3px 10px;
   border-bottom: 1px solid rgba(100,255,120,.18);
   font-family: monospace;
-  font-size: .58rem;
+  font-size:0.79rem;
   color: rgba(100,255,120,.5);
   user-select: none;
 }
@@ -359,7 +332,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   border: 1px solid rgba(100,255,120,.3);
   color: rgba(100,255,120,.85);
   font-family: monospace;
-  font-size: .58rem;
+  font-size:0.79rem;
   padding: 1px 8px;
   border-radius: 3px;
 }
@@ -374,7 +347,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   overflow-y: auto;
   overflow-x: auto;
   font-family: monospace;
-  font-size: .62rem;
+  font-size:0.84rem;
   line-height: 1.45;
   user-select: text;
   cursor: text;
@@ -397,24 +370,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   align-items: center;
   z-index: 10;
 }
-.ctrl-btn {
-  font-family: var(--mono);
-  font-size: .55rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  padding: 6px 14px;
-  background: rgba(247,236,225,.88);
-  border: 1px solid var(--line-strong);
-  color: var(--fg);
-  cursor: pointer;
-  transition: background .15s, border-color .15s;
-  backdrop-filter: blur(6px);
-}
-.ctrl-btn:hover { background: var(--accent); border-color: var(--accent-ink); }
 .cam-lbl {
-  font-size: .55rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  font-size:0.75rem;
+  
+  
   color: var(--dim);
   display: flex;
   align-items: center;
@@ -443,10 +402,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 #cam-panel.open, #gp-panel.open, #perf-panel.open { display: flex; }
 .perf-preset {
-  font-family: var(--mono);
-  font-size: .46rem;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.68rem;
+  
+  
   padding: 3px 8px;
   background: rgba(29,23,18,.05);
   border: 1px solid var(--line);
@@ -464,9 +423,9 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   border-bottom: 1px solid var(--line);
 }
 .cp-head-title {
-  font-size: .44rem;
-  letter-spacing: .15em;
-  text-transform: uppercase;
+  font-size:0.68rem;
+  
+  
   color: var(--dim);
 }
 .cp-head button {
@@ -483,19 +442,19 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   flex-wrap: wrap;
 }
 .cp-preset-lbl {
-  font-family: var(--mono);
-  font-size: .42rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.68rem;
+  
+  
   color: var(--dimmer);
   margin-right: 2px;
   flex-shrink: 0;
 }
 .cp-preset {
-  font-family: var(--mono);
-  font-size: .46rem;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.68rem;
+  
+  
   padding: 3px 8px;
   background: rgba(29,23,18,.05);
   border: 1px solid var(--line);
@@ -506,10 +465,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 .cp-preset:hover, .gp-preset:hover { background: rgba(29,23,18,.13); }
 .cp-preset.active, .gp-preset.active { background: var(--accent-ink); color: #fff; border-color: var(--accent-ink); }
 .gp-preset {
-  font-family: var(--mono);
-  font-size: .46rem;
-  letter-spacing: .07em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.68rem;
+  
+  
   padding: 3px 8px;
   background: rgba(29,23,18,.05);
   border: 1px solid var(--line);
@@ -525,8 +484,8 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   gap: 6px;
   padding: 5px 10px;
   border-bottom: 1px solid rgba(29,23,18,.05);
-  font-family: var(--mono);
-  font-size: .5rem;
+  font-family:var(--body);
+  font-size:0.68rem;
 }
 .cp-row:last-child { border-bottom: none; }
 .cp-row .cp-lbl { color: var(--dim); }
@@ -538,10 +497,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 .cp-reset {
   width: 100%;
-  font-family: var(--mono);
-  font-size: .46rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.68rem;
+  
+  
   padding: 5px;
   background: none;
   border: 1px solid var(--line);
@@ -563,10 +522,10 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 .devlog-entry:last-child { border-bottom: none; }
 .devlog-tag {
-  font-family: var(--mono);
-  font-size: .5rem;
-  letter-spacing: .13em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.68rem;
+  
+  
   padding: 3px 6px;
   border-radius: 3px;
   display: inline-block;
@@ -595,8 +554,8 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 .devlog-body p:last-child { margin-bottom: 0; }
 .devlog-body code {
-  font-family: var(--mono);
-  font-size: .76rem;
+  font-family:var(--body);
+  font-size:0.9rem;
   color: var(--fg);
   background: rgba(29,23,18,.07);
   padding: 1px 5px;
@@ -604,33 +563,6 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 }
 
 /* ── tutorial overlay ── */
-#tutorial-screen {
-  overflow-y: auto;
-  align-items: flex-start;
-  justify-content: flex-start;
-}
-.tut-inner {
-  padding: 40px clamp(20px,6vw,80px) 48px;
-  width: 100%;
-  max-width: 780px;
-  margin: 0 auto;
-}
-.tut-title {
-  font-family: var(--disp);
-  font-size: clamp(1.8rem,5vw,2.8rem);
-  font-weight: 800;
-  letter-spacing: -.03em;
-  color: var(--fg);
-  margin-bottom: 5px;
-}
-.tut-subtitle {
-  font-family: var(--mono);
-  font-size: .52rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
-  color: var(--dim);
-  margin-bottom: 32px;
-}
 .tut-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -640,28 +572,15 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 @media(max-width:520px){ .tut-grid { grid-template-columns: 1fr; } }
 .tut-card { border-left: 3px solid var(--accent-ink); padding-left: 13px; }
 .tut-card-title {
-  font-family: var(--mono);
-  font-size: .48rem;
-  letter-spacing: .14em;
-  text-transform: uppercase;
+  font-family:var(--body);
+  font-size:0.68rem;
+  
+  
   color: var(--accent-ink);
   margin-bottom: 6px;
 }
 .tut-card p { font-family: var(--body); font-size: .85rem; line-height: 1.65; color: var(--dim); margin: 0; }
 .tut-card strong { color: var(--fg); }
-.tut-start {
-  font-family: var(--mono);
-  font-size: .56rem;
-  letter-spacing: .12em;
-  text-transform: uppercase;
-  padding: 10px 30px;
-  background: var(--accent-ink);
-  border: none;
-  color: #fff;
-  cursor: pointer;
-  transition: opacity .15s;
-}
-.tut-start:hover { opacity: .82; }
 .tut-perf-note {
   background: rgba(200,30,30,.10);
   border-left: 3px solid #c81e1e;
@@ -678,29 +597,32 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 .tut-perf-note a { color: #c81e1e; }
 
 /* ── tutorial button (bottom left) ── */
-#btn-tutorial {
-  position: absolute;
-  bottom: 16px;
-  left: 16px;
-  z-index: 10;
-  font-family: var(--mono);
-  font-size: .5rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  padding: 5px 10px;
-  border: 1px solid var(--line-strong);
-  background: rgba(247,236,225,.88);
-  color: var(--dim);
-  cursor: pointer;
-  transition: all .15s;
-  backdrop-filter: blur(8px);
+
+/* help and restart, top right like the other games; P2's score sits below them */
+.corner{position:absolute;top:12px;right:12px;z-index:12;display:flex;gap:8px}
+#sp-right{top:58px}
+#fps-meter{top:auto;right:auto;bottom:16px;left:16px}
+.ready-players{justify-content:center;margin:18px 0 14px}
+.tut-grid{margin-top:22px}
+#cam-panel,#gp-panel,#perf-panel{width:270px;border-radius:10px}
+.cp-row{grid-template-columns:92px 1fr 30px}
+/* ── phones ── the ledger would cover the board, so it gives way; the settings
+   popups span the screen instead of hanging off whichever button opened them */
+@media(max-width:700px){
+  #score-ledger{display:none!important}
+  /* no transform here: it would trap the fixed settings popups inside the dock */
+  #controls{gap:6px;bottom:calc(10px + env(safe-area-inset-bottom));left:10px;right:10px;transform:none;max-width:none}
+  #controls .g-chip,.corner .g-chip,.notes-toggle{padding:8px 9px;font-size:.78rem}
+  #cam-box,#gp-box,#perf-box{position:static}
+  #cam-panel,#gp-panel,#perf-panel{position:fixed;left:10px;right:10px;bottom:110px;width:auto;max-width:none;max-height:60vh;overflow-y:auto}
+  .notes-toggle{bottom:auto;top:56px;right:12px}
+  #fps-meter{display:none}
 }
-#btn-tutorial:hover { color: var(--fg); border-color: var(--fg); }
 </style>
 </head>
 <body>
 
-<div class="status">
+<div class="status dark">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
   <nav>
     <a href="../code.html">Code</a>
@@ -717,12 +639,13 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   <div id="fps-meter">-- fps</div>
 
   <!-- Loading -->
-  <div class="overlay" id="loading-screen">
-    <div class="sub" id="loading-msg">Initializing camera…</div>
+  <div class="g-overlay" id="loading-screen">
+    <div class="g-card center"><div class="g-sub" id="loading-msg">Initializing camera…</div></div>
   </div>
 
   <!-- Ready (2-player) -->
-  <div class="overlay" id="ready-screen" style="display:none">
+  <div class="g-overlay" id="ready-screen" style="display:none">
+   <div class="g-card center">
     <h2>Ready up</h2>
     <div class="ready-players">
       <div class="ready-p">
@@ -730,15 +653,16 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
         <div class="ready-lbl">P1 · hold 1 finger</div>
         <div class="ready-progress"><div class="ready-bar" id="rp1-bar"></div></div>
       </div>
-      <div class="sub">vs</div>
+      <div class="g-sub">vs</div>
       <div class="ready-p">
         <div class="ready-num" id="rp2-num">2</div>
         <div class="ready-lbl">P2 · hold 2 fingers</div>
         <div class="ready-progress"><div class="ready-bar" id="rp2-bar"></div></div>
       </div>
     </div>
-    <div class="sub">Hold steady for 1 second · 301 game</div>
-    <button class="ctrl-btn" id="btn-cancel-ready">Cancel</button>
+    <div class="g-sub">Hold steady for 1 second · 301 game</div>
+    <div class="g-actions"><button class="g-btn" id="btn-cancel-ready">Cancel</button></div>
+   </div>
   </div>
 
   <!-- Between turns (side panel, board stays visible) -->
@@ -750,10 +674,11 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   </div>
 
   <!-- Tutorial / welcome screen (shown on first load) -->
-  <div class="overlay" id="tutorial-screen">
-    <div class="tut-inner">
-      <div class="tut-title">Hand-Tracking Darts</div>
-      <div class="tut-subtitle">MediaPipe · fully in-browser · no hardware needed</div>
+  <div class="g-overlay" id="tutorial-screen">
+    <div class="g-card" style="width:min(720px,100%)">
+      <button class="g-close" id="tut-close" aria-label="Close">✕</button>
+      <h2>Hand-Tracking Darts</h2>
+      <div class="g-sub">MediaPipe · fully in-browser · no hardware needed</div>
       <div class="tut-grid">
         <div class="tut-card">
           <div class="tut-card-title">Camera Setup</div>
@@ -777,18 +702,20 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
         <em>Settings → System → Use hardware acceleration when available</em>, then relaunch.
         Verify at <a href="chrome://gpu" target="_blank">chrome://gpu</a>. WebGL should say <em>Hardware accelerated</em>.
       </div>
-      <button class="tut-start" id="btn-tut-start">Start Playing</button>
+      <div class="g-actions"><button class="g-btn primary" id="btn-tut-start">Start playing</button></div>
     </div>
   </div>
 
   <!-- Game over -->
-  <div class="overlay" id="gameover-screen" style="display:none">
+  <div class="g-overlay" id="gameover-screen" style="display:none">
+   <div class="g-card center">
     <h2 id="winner-text"></h2>
-    <div class="sub">301 · game over</div>
-    <div style="display:flex;gap:8px;margin-top:4px">
-      <button class="ctrl-btn" id="btn-rematch">Rematch</button>
-      <button class="ctrl-btn" id="btn-to-practice">Practice</button>
+    <div class="g-sub">301 · game over</div>
+    <div class="g-actions">
+      <button class="g-btn primary" id="btn-rematch">Rematch</button>
+      <button class="g-btn" id="btn-to-practice">Practice</button>
     </div>
+   </div>
   </div>
 
   <!-- Score panels -->
@@ -836,14 +763,18 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   </div>
 
   <!-- Controls -->
+  <div class="corner">
+    <button class="g-chip" id="btn-tutorial">Help</button>
+    <button class="g-chip" id="btn-reset">Restart</button>
+  </div>
+
   <div id="controls">
-    <button class="ctrl-btn" id="btn-mode">2-Player Game</button>
-    <a class="ctrl-btn" href="server.html" title="Open games: host or join">&#127760; Online</a>
-    <button class="ctrl-btn" id="btn-reset">Reset</button>
+    <button class="g-chip" id="btn-mode">2-Player Game</button>
+    <a class="g-chip" href="server.html" title="Open games: host or join">Online</a>
 
     <!-- Camera settings box -->
     <div id="cam-box">
-      <button class="ctrl-btn" id="cam-box-toggle">Camera</button>
+      <button class="g-chip" id="cam-box-toggle">Camera</button>
       <div id="cam-panel">
         <div class="cp-head">
           <span class="cp-head-title">Camera Setup</span>
@@ -884,7 +815,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 
     <!-- Performance settings box -->
     <div id="perf-box">
-      <button class="ctrl-btn" id="perf-box-toggle">Performance</button>
+      <button class="g-chip" id="perf-box-toggle">Performance</button>
       <div id="perf-panel">
         <div class="cp-head">
           <span class="cp-head-title">Camera Quality</span>
@@ -899,11 +830,11 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
         <div class="cp-rows">
           <div class="cp-row">
             <span class="cp-lbl">Resolution</span>
-            <span style="grid-column:2/4; color:var(--dimmer); font-family:var(--mono); font-size:.5rem" id="perf-res-display">1280 × 720</span>
+            <span style="grid-column:2/4; color:var(--dim); font-size:.72rem" id="perf-res-display">1280 × 720</span>
           </div>
           <div class="cp-row">
             <span class="cp-lbl">Frame rate</span>
-            <span style="grid-column:2/4; color:var(--dimmer); font-family:var(--mono); font-size:.5rem" id="perf-fps-display">60 fps</span>
+            <span style="grid-column:2/4; color:var(--dim); font-size:.72rem" id="perf-fps-display">60 fps</span>
           </div>
         </div>
       </div>
@@ -911,7 +842,7 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
 
     <!-- Gameplay settings box -->
     <div id="gp-box">
-      <button class="ctrl-btn" id="gp-box-toggle">Gameplay</button>
+      <button class="g-chip" id="gp-box-toggle">Gameplay</button>
       <div id="gp-panel">
         <div class="cp-head">
           <span class="cp-head-title">Physics</span>
@@ -966,7 +897,6 @@ body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex
   </div>
 
   <!-- Tutorial button (bottom left) -->
-  <button id="btn-tutorial">Tutorial</button>
 
   <!-- Notes -->
   <button class="notes-toggle g-chip" id="notes-toggle">How it works</button>
@@ -2237,11 +2167,16 @@ document.querySelectorAll('.perf-preset').forEach(btn => {
 
 // ── Tutorial screen ───────────────────────────────────────────────────────────
 const tutScreen = document.getElementById('tutorial-screen');
-document.getElementById('btn-tut-start').addEventListener('click', () => {
-  tutScreen.style.display = 'none';
-});
-document.getElementById('btn-tutorial').addEventListener('click', () => {
-  tutScreen.style.display = 'flex';
+function tutSeen() { try { return !!localStorage.getItem('darts_tut_seen'); } catch { return true; } }
+function closeTut() { tutScreen.style.display = 'none'; try { localStorage.setItem('darts_tut_seen', '1'); } catch {} }
+function openTut() { tutScreen.style.display = 'flex'; }
+if (tutSeen()) tutScreen.style.display = 'none';
+document.getElementById('btn-tut-start').addEventListener('click', closeTut);
+document.getElementById('tut-close').addEventListener('click', closeTut);
+document.getElementById('btn-tutorial').addEventListener('click', openTut);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') { closeTut(); camPanel.classList.remove('open'); gpPanel.classList.remove('open'); }
+  else if (e.key === '?') openTut();
 });
 
 // ── Click outside to close either panel ───────────────────────────────────────
