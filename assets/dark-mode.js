@@ -41,6 +41,34 @@
     buildMobileNav(status);   // clones nav links, so it must run after
   });
 
+  // Page transitions (see "moving between pages" in shared.css). An element
+  // marked data-vt="some/page.html" is the thing that turns into that page's
+  // title. Only one element per page may carry the shared name, so it is given
+  // out at the moment of a click towards that page, and again on arrival when
+  // coming back from it.
+  function vtFor(url) {
+    try {
+      const path = new URL(url, location.href).pathname;
+      return [...document.querySelectorAll('[data-vt]')].find(el => path.endsWith('/' + el.dataset.vt)) || null;
+    } catch (e) { return null; }
+  }
+  document.addEventListener('click', function (e) {
+    const a = e.target.closest && e.target.closest('a[href]');
+    const el = a && vtFor(a.href);
+    if (el) el.style.viewTransitionName = 'page-title';
+  }, true);
+  window.addEventListener('pagereveal', function (e) {
+    const from = e.viewTransition && window.navigation && navigation.activation && navigation.activation.from;
+    const el = from && vtFor(from.url);
+    if (!el) return;
+    el.style.viewTransitionName = 'page-title';
+    e.viewTransition.finished.finally(function () { el.style.viewTransitionName = ''; });
+  });
+  // A page restored from the back/forward cache keeps whatever name it left with.
+  window.addEventListener('pageshow', function (e) {
+    if (e.persisted) document.querySelectorAll('[data-vt]').forEach(el => { el.style.viewTransitionName = ''; });
+  });
+
   // Every page loads this file, so injecting the privacy link here is the only
   // way to guarantee it is reachable site-wide without editing each page — and
   // it keeps working for any page added later. Depth is derived from the URL so

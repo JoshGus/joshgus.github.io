@@ -6,6 +6,7 @@
      tokens        colours and fonts (light, then dark further down)
      base          reset and body defaults
      status bar    the top bar, its mobile menu and the dark toggle
+     transitions   the animation when moving between pages
      page header   title block on the site pages
      tool header   title block on the tool pages
      notes panel   the "how it works" drawer on game pages
@@ -202,6 +203,25 @@ html.dark #dark-toggle:hover,
 /* The status bar used to carry a live clock. It's gone; the pages that still
    have the element just don't show it. */
 #clock { display:none; }
+
+/* ── moving between pages ───────────────────────────────────────────────
+   Browsers that support cross-page view transitions animate a normal link
+   click: the old page lifts away, the new one settles in from just below, and
+   the top bar holds still. A homepage section heading that leads to a page
+   (marked with data-vt, named in dark-mode.js at click time) glides into that
+   page's title. Other browsers simply navigate as before. */
+@view-transition { navigation:auto; }
+.status { view-transition-name:site-bar; }
+.page-header h1 { view-transition-name:page-title; }
+::view-transition-old(root) { animation:vt-leave .2s cubic-bezier(.4,0,1,1) both; }
+::view-transition-new(root) { animation:vt-arrive .42s cubic-bezier(.2,.7,.3,1) .05s both; }
+@keyframes vt-leave { to { opacity:0; transform:translateY(-12px); } }
+@keyframes vt-arrive { from { opacity:0; transform:translateY(18px); } }
+::view-transition-group(page-title) { animation-duration:.5s; animation-timing-function:cubic-bezier(.2,.7,.3,1); }
+::view-transition-old(page-title), ::view-transition-new(page-title) { height:100%; width:auto; }
+@media (prefers-reduced-motion:reduce) {
+  ::view-transition-group(*), ::view-transition-old(*), ::view-transition-new(*) { animation:none !important; }
+}
 
 /* ── page header ────────────────────────────────────────────────────────
    The big title block at the top of the site pages (code, photography,
