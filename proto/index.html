@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Joshua Gustaveson (prototype)</title>
+<link rel="stylesheet" href="../notebook.css">
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <a class="me" href="index.html">Joshua Gustaveson</a>
+    <nav>
+      <a href="../code.html">Code</a>
+      <a href="games.html">Games</a>
+      <a href="../gallery.html">Photography</a>
+      <a href="../colormap.html">Color Space</a>
+      <a href="mailto:joshgustaveson@gmail.com">Contact</a>
+    </nav>
+  </header>
+
+  <section class="intro">
+    <div>
+      <h1>code &amp; stuff</h1>
+      <p>Computer science student at the University of Michigan. I build across systems, ML, and the web. Games and bird photography fill the rest.</p>
+      <p class="quiet">Ann Arbor, MI. Open to work.</p>
+      <ul class="jobs">
+        <li><span>IT Technician, CAEN, University of Michigan</span><span class="when">May 2025 to now</span></li>
+        <li><span>Web &amp; Operations Coordinator, Leinweber Institute for Theoretical Physics</span><span class="when">Mar 2025 to now</span></li>
+      </ul>
+    </div>
+    <img src="../718B8CEB-3B6B-4681-B361-BA7F3F3E6A6D_1_105_c.jpeg" alt="Joshua Gustaveson">
+  </section>
+
+  <h2>Games</h2>
+  <div id="games"></div>
+  <p style="margin-top:var(--line)"><a href="games.html">All games and tools</a></p>
+
+  <h2>Code</h2>
+  <ul class="plain">
+    <li><h3>Operating Systems Projects</h3>
+      User-level thread library with cooperative scheduling, mutexes, and condition variables for multi-processor synchronization. Multi-threaded network file server using hand-over-hand locking to enforce disk consistency under concurrent client requests.
+      <span class="quiet">C++, concurrency.</span></li>
+    <li><h3>Client-Side Web Application</h3>
+      React frontend backed by a Flask REST API, with async fetch for interactive features without page reloads. Client-side state managed with hooks; end-to-end tested with Cypress.
+      <span class="quiet">React, Flask, Python.</span></li>
+    <li><h3>Multi-Object Tracker</h3>
+      Benchmarked DeepSORT, ByteTrack, MeMOT, OC-SORT, and StrongSORT against a shared custom-trained YOLO model on real-case robotics data.
+      <span class="quiet">Python, PyTorch, vision.</span></li>
+  </ul>
+  <p style="margin-top:var(--line)"><a href="../code.html">All projects</a></p>
+
+  <h2>Photography</h2>
+  <p class="quiet">Mostly birds, through a 150–600mm.</p>
+  <div class="photos" id="photos" style="margin-top:var(--line)"></div>
+  <p style="margin-top:var(--line)"><a href="../gallery.html">Full gallery</a>, or see all 816 photos <a href="../colormap.html">plotted by colour</a>.</p>
+
+  <footer>
+    <a href="mailto:joshgustaveson@gmail.com">Email</a> ·
+    <a href="https://github.com/JoshGus">GitHub</a> ·
+    <a href="../privacy.html">Privacy</a>
+  </footer>
+</div>
+
+<script type="module">
+import { CARDS } from '../data/games.js';
+import { SKETCH, entry } from './entry.js';
+
+// Home shows only the games that have a notepad page behind them.
+document.getElementById('games').innerHTML =
+  CARDS.filter(c => SKETCH[c.id]).slice(0, 3).map(c => entry(c, '../')).join('');
+
+const CLOUD = 'dgxn8tymb';
+const PICKS = [
+  ['portfolio/15EF51EC-AAD0-43A5-BF7C-38C3E0EC7F2E_1_105_c_zzh8ij', 'Cardinal'],
+  ['portfolio/1C1532DC-6B80-4EE5-A0D9-DE49FBD5BF57_1_105_c_wijm87', 'Great Blue Heron'],
+  ['portfolio/041BA3D1-FDF1-494A-B87F-1F0CFE488683_1_105_c_lqwrno', 'Mallard'],
+  ['portfolio/00D9F4A0-1850-4766-ADEC-243A301716C6_1_105_c_be2noj', 'Robin'],
+];
+document.getElementById('photos').innerHTML = PICKS.map(([id, name]) =>
+  `<figure><img loading="lazy" src="https://res.cloudinary.com/${CLOUD}/image/upload/w_500,f_auto,q_auto/${id}" alt="${name}"><figcaption>${name}</figcaption></figure>`
+).join('');
+</script>
+</body>
+</html>

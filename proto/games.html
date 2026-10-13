@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Games (prototype)</title>
+<link rel="stylesheet" href="../notebook.css">
+</head>
+<body>
+<div class="page">
+
+  <header class="top">
+    <a class="me" href="index.html">Joshua Gustaveson</a>
+    <nav>
+      <a href="../code.html">Code</a>
+      <a href="games.html" aria-current="page">Games</a>
+      <a href="../gallery.html">Photography</a>
+      <a href="../colormap.html">Color Space</a>
+      <a href="mailto:joshgustaveson@gmail.com">Contact</a>
+    </nav>
+  </header>
+
+  <h1>Games</h1>
+  <p>Little web based interactive games.</p>
+  <p><a href="../games/server.html">Game server</a>: browse every open game and join one, or host your own.</p>
+
+  <h2>Games</h2>
+  <div id="g-game"></div>
+
+  <h2>Solvers</h2>
+  <div id="g-solver"></div>
+
+  <h2>Game components</h2>
+  <div id="g-component"></div>
+
+  <footer>
+    <a href="mailto:joshgustaveson@gmail.com">Email</a> ·
+    <a href="https://github.com/JoshGus">GitHub</a> ·
+    <a href="../privacy.html">Privacy</a>
+  </footer>
+</div>
+
+<script type="module">
+import { CARDS } from '../data/games.js';
+import { entry } from './entry.js';
+
+const bucket = c => c.category || 'game';
+for (const k of ['game', 'solver', 'component']) {
+  document.getElementById('g-' + k).innerHTML =
+    CARDS.filter(c => bucket(c) === k).map(c => entry(c, '../')).join('');
+}
+</script>
+</body>
+</html>
