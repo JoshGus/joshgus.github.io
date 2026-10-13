@@ -33,17 +33,7 @@ html.dark {
   --accent:#ccf73f; --accent-ink:#5e7d0f;
   --line:rgba(29,23,18,.14); --line-strong:rgba(29,23,18,.30);
 }
-body {
-  background: #0f0d0b;
-  color: var(--fg);
-  font-family: var(--mono);
-  font-size: 13px;
-  display: flex;
-  flex-direction: column;
-  height: 100dvh;
-  overflow: hidden;
-  -webkit-font-smoothing: antialiased;
-}
+body{background:#0f0d0b;font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 
 .game-wrap {
   position: relative;
@@ -561,30 +551,9 @@ body {
 .cp-reset:hover { color: var(--fg); border-color: var(--fg); }
 
 /* ── notes ── */
-.notes-section {
-  position: absolute;
-  bottom: 0; left: 0; right: 0;
-  max-height: 0;
-  overflow: hidden;
-  transition: max-height .5s cubic-bezier(.2,.7,.3,1);
-  background: rgba(247,236,225,.98);
-  z-index: 22;
-}
-.notes-section.open {
-  max-height: 440px;
-  overflow-y: auto;
-  border-top: 1px solid var(--line);
-}
-.notes-inner { padding: 28px clamp(20px,4vw,72px) 32px; max-width: 900px; }
-.notes-inner h2 {
-  font-family: var(--disp);
-  font-weight: 440;
-  font-size: 1.4rem;
-  letter-spacing: -.02em;
-  color: var(--fg);
-  margin-bottom: 20px;
-  font-variation-settings: "opsz" 36;
-}
+.notes-section{background:rgba(247,236,225,.98);z-index:22}
+.notes-section.open{max-height:440px;border-top:1px solid var(--line)}
+.notes-inner h2{color:var(--fg)}
 .devlog { display: flex; flex-direction: column; gap: 0; }
 .devlog-entry {
   display: grid;
@@ -634,22 +603,7 @@ body {
   padding: 1px 5px;
   border-radius: 2px;
 }
-.notes-toggle {
-  position: absolute;
-  bottom: 18px; right: 18px;
-  font-family: var(--mono);
-  font-size: .5rem;
-  letter-spacing: .1em;
-  text-transform: uppercase;
-  padding: 5px 10px;
-  border: 1px solid var(--line-strong);
-  background: rgba(247,236,225,.88);
-  color: var(--dim);
-  cursor: pointer;
-  transition: all .15s;
-  backdrop-filter: blur(8px);
-  z-index: 25;
-}
+.notes-toggle{border:1px solid var(--line-strong);background:rgba(247,236,225,.88);color:var(--dim)}
 .notes-toggle:hover { color: var(--fg); border-color: var(--fg); }
 
 /* ── tutorial overlay ── */
@@ -747,7 +701,7 @@ body {
 #btn-tutorial:hover { color: var(--fg); border-color: var(--fg); }
 </style>
 </head>
-<body class="noise">
+<body>
 
 <div class="status">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>

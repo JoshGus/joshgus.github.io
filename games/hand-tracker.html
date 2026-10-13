@@ -27,17 +27,7 @@
     --red:        #b84040;
   }
 
-  body {
-    background: var(--bg);
-    color: var(--fg);
-    font-family: var(--mono);
-    font-size: 13px;
-    display: flex;
-    flex-direction: column;
-    height: 100dvh;
-    overflow: hidden;
-    -webkit-font-smoothing: antialiased;
-  }
+  body{font-family:var(--mono);font-size:13px;display:flex;flex-direction:column;height:100dvh;overflow:hidden}
 
   /* ── status indicator (in sidebar) ─────────────────────────── */
   #status-dot {
@@ -169,28 +159,14 @@
   }
 
   /* notes */
-  .notes-section{
-    position:fixed;bottom:0;left:0;right:0;
-    max-height:0;overflow:hidden;transition:max-height .5s cubic-bezier(.2,.7,.3,1);
-    background:rgba(250,243,234,.97);z-index:50;border-top:none
-  }
-  .notes-section.open{max-height:380px;overflow-y:auto;border-top:1px solid var(--line)}
-  .notes-inner{padding:22px clamp(16px,3vw,56px) 28px;max-width:860px}
-  .notes-inner h2{font-family:var(--disp);font-weight:440;font-size:1.25rem;letter-spacing:-.02em;
-    color:var(--fg);margin-bottom:16px;font-variation-settings:"opsz" 36}
-  .note-grid{display:grid;grid-template-columns:1fr 1fr;gap:20px 36px}
-  @media(max-width:600px){.note-grid{grid-template-columns:1fr}}
-  .note-item dt{font-family:var(--mono);font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;
-    color:var(--accent-ink);margin-bottom:6px}
-  .note-item dd{font-family:var(--body);font-size:.86rem;line-height:1.65;color:var(--dim)}
-  .note-item code{font-family:var(--mono);font-size:.73rem;color:var(--fg);
-    background:rgba(29,23,18,.06);padding:1px 5px}
-  .notes-toggle{
-    position:fixed;bottom:16px;right:16px;z-index:55;
-    font-family:var(--mono);font-size:.5rem;letter-spacing:.1em;text-transform:uppercase;
-    padding:5px 10px;border:1px solid var(--line-strong);background:rgba(247,236,225,.92);
-    color:var(--dim);cursor:pointer;transition:all .15s;backdrop-filter:blur(6px)
-  }
+  .notes-section{position:fixed;background:rgba(250,243,234,.97);z-index:50;border-top:none}
+  .notes-section.open{max-height:380px;border-top:1px solid var(--line)}
+  .notes-inner h2{color:var(--fg)}
+  .note-grid{gap:20px 36px}
+  .note-item dt{color:var(--accent-ink)}
+  .note-item dd{font-size:.86rem;color:var(--dim)}
+  .note-item code{font-size:.73rem;color:var(--fg);background:rgba(29,23,18,.06)}
+  .notes-toggle{position:fixed;bottom:16px;right:16px;z-index:55;border:1px solid var(--line-strong);background:rgba(247,236,225,.92);color:var(--dim);backdrop-filter:blur(6px)}
   .notes-toggle:hover{color:var(--accent-ink);border-color:var(--accent-ink)}
 </style>
 </head>

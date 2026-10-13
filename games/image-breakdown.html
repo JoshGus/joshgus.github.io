@@ -24,12 +24,10 @@
 <link rel="stylesheet" href="../assets/shared.css">
 <script src="../assets/dark-mode.js"></script>
 <style>
-body{background:var(--bg);color:var(--fg);font-family:var(--body);min-height:100vh;-webkit-font-smoothing:antialiased}
+body{min-height:100vh}
 .wrap{width:100%;max-width:1320px;margin:0 auto;padding:clamp(24px,4vw,48px) clamp(16px,3vw,36px) 90px}
-.head h1{font-family:var(--disp);font-weight:460;font-size:clamp(2rem,5.5vw,3.4rem);line-height:.92;letter-spacing:-.03em}
-.head h1 em{font-style:italic;color:var(--accent-ink)}
-.head p{font-family:var(--mono);font-size:.72rem;letter-spacing:.05em;color:var(--dim);
-  margin-top:12px;max-width:78ch;line-height:1.7}
+.head h1{font-size:clamp(2rem,5.5vw,3.4rem)}
+.head p{max-width:78ch;line-height:1.7}
 
 /* ── input ─────────────────────────────────────────── */
 .drop{margin-top:26px;border:1.5px dashed var(--line-strong);border-radius:14px;background:var(--surface);
@@ -74,7 +72,7 @@ button.primary{background:var(--accent);border-color:var(--accent);color:#1d1712
 .drop.compact span{display:inline;margin-top:0;margin-left:10px}
 </style>
 </head>
-<body class="noise">
+<body>
 
 <div class="status">
   <a href="../index.html" class="sig">Joshua Gustaveson</a>
