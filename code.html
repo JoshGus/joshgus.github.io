@@ -30,12 +30,23 @@ body{font-size:17px;line-height:1.6}
 
 .projects{padding:0 clamp(20px,5vw,72px) 100px}
 
-/* project row */
-.project{border-bottom:1px solid var(--line);padding:0;overflow:hidden}
-.project-head{display:grid;grid-template-columns:3.5rem 1fr auto;align-items:start;gap:20px;
+/* year marker */
+.year-mark{font-family:var(--disp);font-weight:500;font-size:clamp(1.6rem,3.4vw,2.2rem);letter-spacing:-.02em;
+  font-variation-settings:"opsz" 48;padding:52px 0 12px;border-bottom:1px solid var(--line-strong)}
+.year-mark:first-child{padding-top:30px}
+
+/* project row: the date sits in the left column, on a rail that runs the
+   length of the list with one dot per project (filled if still going) */
+.project{position:relative;border-bottom:1px solid var(--line);padding:0;overflow:hidden;--when:8.5rem}
+.project::before{content:"";position:absolute;top:0;bottom:0;left:calc(var(--when) + 10px);width:1px;background:var(--line-strong)}
+.project-head{display:grid;grid-template-columns:var(--when) 1fr auto;align-items:start;gap:20px;
   padding:28px 0;cursor:pointer;transition:background .2s}
 .project-head:hover .proj-title{color:var(--accent-ink)}
-.proj-num{font-family:var(--mono);font-size:.68rem;letter-spacing:.14em;color:var(--dimmer);padding-top:4px}
+.proj-when{position:relative;font-family:var(--mono);font-size:.74rem;color:var(--dim);padding-top:7px}
+.proj-when::after{content:"";position:absolute;right:-15px;top:11px;width:9px;height:9px;border-radius:50%;
+  box-sizing:border-box;background:var(--bg);border:2px solid var(--accent-ink)}
+.project.ongoing .proj-when::after{background:var(--accent-ink)}
+.project.ongoing .proj-when{color:var(--accent-ink)}
 .proj-title{font-family:var(--disp);font-weight:500;font-size:clamp(1.15rem,2.4vw,1.6rem);letter-spacing:-.02em;
   font-variation-settings:"opsz" 36;transition:color .2s}
 .proj-subtitle{font-family:var(--body);font-size:0.91rem;
@@ -49,8 +60,8 @@ body{font-size:17px;line-height:1.6}
 
 /* expand panel */
 .project-body{max-height:0;overflow:hidden;transition:max-height .45s cubic-bezier(.2,.7,.3,1)}
-.project.open .project-body{max-height:600px}
-.project-detail{padding:0 0 32px 3.5rem;display:grid;grid-template-columns:1fr 240px;gap:32px}
+.project.open .project-body{max-height:900px}
+.project-detail{padding:0 0 32px calc(var(--when) + 20px);display:grid;grid-template-columns:1fr 240px;gap:32px}
 .detail-desc{font-size:1rem;line-height:1.75;color:var(--dim)}
 .detail-desc strong{color:var(--fg)}
 .detail-meta{font-family:var(--mono);font-size:.7rem;letter-spacing:.08em;color:var(--dim)}
@@ -61,9 +72,14 @@ body{font-size:17px;line-height:1.6}
 .dlink{font-family:var(--body);font-size:0.86rem;
   border:1px solid var(--line-strong);padding:8px 14px;color:var(--accent-ink);transition:all .2s}
 .dlink:hover{background:var(--accent-ink);color:var(--bg);border-color:var(--accent-ink)}
+/* phones: the date moves above the title and the rail runs down the left edge */
 @media(max-width:640px){
-  .project-detail{grid-template-columns:1fr}
-  .project-head{grid-template-columns:2.5rem 1fr auto}
+  .project{padding-left:18px}
+  .project::before{left:4px}
+  .project-head{grid-template-columns:1fr auto;gap:4px 12px}
+  .proj-when{grid-column:1 / -1;padding-top:0}
+  .proj-when::after{right:auto;left:-18px;top:4px}
+  .project-detail{grid-template-columns:1fr;padding-left:0}
 }
 </style>
 </head>
@@ -88,83 +104,258 @@ body{font-size:17px;line-height:1.6}
 <div class="projects" id="projects"></div>
 
 <script>
+// Add a project anywhere in this list; the page sorts by `start` (YYYY-MM),
+// newest first, and groups by year. `when` is what is shown.
 const PROJECTS = [
   {
-    num: '001',
-    title: 'Operating Systems Projects',
-    subtitle: 'Systems Programming · C++',
-    tags: ['C++', 'Concurrency', 'Threading', 'Networking', 'OS'],
-    desc: 'Two systems projects from EECS 482. <strong>Thread library:</strong> user-level cooperative scheduler with mutexes and condition variables, supporting multi-processor synchronization via context switching. <strong>Network file server:</strong> multi-threaded server using hand-over-hand locking to enforce disk consistency under concurrent client requests, no deadlocks, no TOCTOU races.',
-    role: 'Solo, EECS 482 Operating Systems, University of Michigan',
-    stack: 'C++17, POSIX threads, TCP sockets',
-    year: '2026',
+    start: '2026-08', when: 'Aug 2026',
+    title: 'Photo Pipeline',
+    subtitle: 'Data · Python',
+    tags: ['Python', 'Cloudinary', 'UMAP', 'Ollama'],
+    desc: 'The scripts behind the gallery on this site. They take a folder of originals, upload them to Cloudinary, read the EXIF and pull the five dominant colours from each photo, then have a local vision model through Ollama write the titles, species and tags. <strong>UMAP embeddings</strong> give every photo a position in 3D for the colour map.',
+    role: 'Personal project',
+    stack: 'Python, Cloudinary, UMAP, Ollama',
+    links: [{ label: 'Gallery', href: 'gallery.html' }, { label: 'Color Space', href: 'colormap.html' }],
+  },
+  {
+    start: '2026-07', when: 'Jul 2026',
+    title: 'Implant Protocol',
+    subtitle: 'Game · Roblox · Luau',
+    tags: ['Luau', 'Roblox', 'MCP'],
+    desc: 'A team deathmatch first-person shooter for Roblox, written in Luau. <strong>Built through MCP</strong>, working in Roblox Studio from a coding agent instead of by hand.',
+    role: 'Personal project',
+    stack: 'Luau, Roblox Studio, MCP',
     links: [],
   },
   {
-    num: '002',
-    title: 'Client-Side Web Application',
+    start: '2026-06', when: 'Summer 2026 – now', ongoing: true,
+    title: 'Portfolio Site',
+    subtitle: 'Web · JavaScript',
+    tags: ['HTML', 'CSS', 'JavaScript', 'Three.js', 'MediaPipe'],
+    desc: 'This site. A photo gallery, a Three.js visualizer that plots every photo by colour, a 3D boids simulation, and <strong>darts you throw with your hand through a webcam</strong> using MediaPipe. Static pages on GitHub Pages, with one Cloudflare Worker relaying the multiplayer games.',
+    role: 'Personal project',
+    stack: 'HTML, CSS, JavaScript, Three.js, MediaPipe',
+    links: [{ label: 'Games', href: 'games/index.html' }, { label: 'Source', href: 'https://github.com/JoshGus/joshgus.github.io' }],
+  },
+  {
+    start: '2026-03b', when: 'Mar – Apr 2026',
+    title: 'Distributed Search Engine',
+    subtitle: 'Web Systems · Python',
+    tags: ['Python', 'MapReduce', 'Flask', 'SQLite', 'PageRank'],
+    desc: 'A search engine in three parts. A <strong>MapReduce pipeline</strong> builds an inverted index with tf-idf weights from a crawl of web pages. Index servers answer queries over a REST API and blend in PageRank. A Flask search server sends each query to all of them and merges the results.',
+    role: 'EECS 485 Web Systems, project 5',
+    stack: 'Python, SQLite, Flask',
+    links: [],
+  },
+  {
+    start: '2026-03a', when: 'Mar – Apr 2026',
+    title: 'Network File Server',
+    subtitle: 'Operating Systems · C++',
+    tags: ['C++', 'TCP', 'Boost', 'Concurrency'],
+    desc: 'A multi-threaded file server that speaks to clients over TCP. Each request runs on its own thread, and <strong>hand-over-hand reader/writer locking</strong> down the directory tree keeps the disk consistent under concurrent requests, with no deadlocks and no time-of-check races.',
+    role: 'Team of three, EECS 482 Operating Systems',
+    stack: 'C++, TCP sockets, Boost threads',
+    links: [],
+  },
+  {
+    start: '2026-02b', when: 'Feb – Mar 2026',
+    title: 'MapReduce Framework',
+    subtitle: 'Web Systems · Python',
+    tags: ['Python', 'Sockets', 'Threads', 'Distributed'],
+    desc: 'A MapReduce framework in Python. A manager splits each job into map and reduce tasks and hands them to worker processes over TCP. Workers send <strong>UDP heartbeats</strong>, and when one goes quiet the manager marks it dead and gives its work to another.',
+    role: 'EECS 485 Web Systems, project 4',
+    stack: 'Python, sockets, threads',
+    links: [],
+  },
+  {
+    start: '2026-02a', when: 'Feb – Mar 2026',
+    title: 'Virtual Memory Pager',
+    subtitle: 'Operating Systems · C++',
+    tags: ['C++', 'Virtual Memory', 'Paging'],
+    desc: 'The pager that sits under user processes and manages their address spaces. Handles <strong>swap-backed and file-backed pages</strong>, shares file pages between processes, and uses a clock algorithm to pick what to evict when physical memory runs out.',
+    role: 'Team of three, EECS 482 Operating Systems',
+    stack: 'C++',
+    links: [],
+  },
+  {
+    start: '2026-01d', when: 'Jan – Feb 2026',
+    title: 'Client-Side Insta485',
     subtitle: 'Full-Stack · React · Flask',
-    tags: ['React', 'JavaScript', 'Python', 'Flask', 'REST API', 'Cypress'],
-    desc: 'Full-stack platform with a <strong>React frontend</strong> and a Flask REST API. Async fetch keeps all interactions reload-free. Client-side state managed with React Hooks throughout. Feature coverage validated with Cypress end-to-end tests.',
-    role: 'Solo project',
-    stack: 'React, JavaScript, Python, Flask, Cypress',
-    year: '2026',
+    tags: ['React', 'JavaScript', 'Flask', 'REST API', 'Cypress'],
+    desc: 'The Instagram clone again, this time with a <strong>React frontend</strong> on a Flask REST API. Async fetch keeps likes, comments and infinite scroll reload-free, state lives in React hooks, and Cypress end-to-end tests cover the features.',
+    role: 'EECS 485 Web Systems, project 3',
+    stack: 'React, JavaScript, Flask, Cypress',
     links: [],
   },
   {
-    num: '003',
+    start: '2026-01c', when: 'Jan – Feb 2026',
+    title: 'Thread Library',
+    subtitle: 'Operating Systems · C++',
+    tags: ['C++', 'ucontext', 'Concurrency', 'Multiprocessor'],
+    desc: 'A user-level thread library for a multiprocessor: threads, mutexes and condition variables built on <strong>ucontext context switches</strong>. Interrupts are disabled around the library\'s own critical sections, and idle CPUs are suspended until there is work for them.',
+    role: 'Team of three, EECS 482 Operating Systems',
+    stack: 'C++ (ucontext)',
+    links: [],
+  },
+  {
+    start: '2026-01b', when: 'Jan 2026',
+    title: 'Server-Side Insta485',
+    subtitle: 'Web Systems · Flask',
+    tags: ['Python', 'Flask', 'SQLite', 'Jinja'],
+    desc: 'An Instagram clone rendered on the server. Flask routes, Jinja templates and a <strong>SQLite database</strong> handle accounts, posts, follows, likes and comments, with salted password hashes, sessions and file uploads.',
+    role: 'EECS 485 Web Systems, project 2',
+    stack: 'Python, Flask, SQLite',
+    links: [],
+  },
+  {
+    start: '2026-01a', when: 'Jan 2026',
+    title: 'Static Site Generator',
+    subtitle: 'Web Systems · Python',
+    tags: ['Python', 'Jinja'],
+    desc: 'A command-line tool that renders <strong>Jinja templates</strong> and a JSON config into a folder of static HTML. Used to build a first, static version of the Instagram clone.',
+    role: 'EECS 485 Web Systems, project 1',
+    stack: 'Python, Jinja',
+    links: [],
+  },
+  {
+    start: '2025-09b', when: 'Sep – Dec 2025',
+    title: 'Fakebook Database Projects',
+    subtitle: 'Databases · SQL · Java',
+    tags: ['SQL', 'Java', 'JDBC', 'MongoDB', 'JavaScript'],
+    desc: 'Three projects around a fictional social network. First the <strong>schema design</strong>, with constraints and views in SQL. Then a Java application that runs the queries through JDBC. Then an export to JSON and the same kind of questions answered in MongoDB.',
+    role: 'EECS 484 Database Management Systems',
+    stack: 'SQL, Java/JDBC, MongoDB, JavaScript',
+    links: [],
+  },
+  {
+    start: '2025-09a', when: 'Sep – Dec 2025',
+    title: 'Computer Vision Homeworks',
+    subtitle: 'Computer Vision · Python',
+    tags: ['Python', 'NumPy', 'PyTorch'],
+    desc: 'The problem sets from the computer vision course, worked in NumPy and PyTorch: <strong>filtering, features, geometry and CNNs</strong>. Several of them are rewritten in plain JavaScript in the CV Lab on this site, where you can run each step on your own image.',
+    role: 'EECS 442 Computer Vision',
+    stack: 'Python, NumPy, PyTorch',
+    links: [{ label: 'CV Lab', href: 'games/cv-lab.html' }],
+  },
+  {
+    start: '2025-08', when: 'Aug – Dec 2025',
     title: 'Multi-Object Tracking Benchmark',
     subtitle: 'Computer Vision · Python',
-    tags: ['Python', 'YOLO', 'DeepSORT', 'ByteTrack', 'MeMOT', 'OC-SORT', 'StrongSORT'],
-    desc: 'Systematic benchmark of five tracking algorithms (<strong>DeepSORT, ByteTrack, MeMOT, OC-SORT, and StrongSORT</strong>) evaluated against a shared custom-trained YOLO model on real robotics data. Designed to isolate the contribution of appearance embeddings versus IoU-only association under real-world conditions.',
+    tags: ['Python', 'PyTorch', 'YOLO', 'DeepSORT', 'ByteTrack', 'MeMOT', 'OC-SORT', 'StrongSORT'],
+    desc: 'A benchmark of five trackers (<strong>DeepSORT, ByteTrack, MeMOT, OC-SORT and StrongSORT</strong>) on FRC match footage. All five are fed by the same custom-trained YOLO detector, so the comparison isolates the tracking step and shows what appearance embeddings add over IoU-only association.',
     role: 'Team project, Michigan Task-Based Robotics Project Team',
-    stack: 'Python, PyTorch, OpenCV, ONNXRuntime',
-    year: '2025',
+    stack: 'Python, PyTorch, YOLO, pandas, NumPy',
     links: [],
   },
   {
-    num: '004',
-    title: 'AI Mental Health App',
-    subtitle: 'Mobile · Swift · C++',
-    tags: ['Swift', 'C++', 'OpenAI API', 'iOS', 'Scrum'],
-    desc: 'iOS mental health support app built in Swift with a Scrum workflow. <strong>Migrated AI from OpenAI API to a locally-hosted model</strong> to reduce cost, cut latency, and keep user data private on-device. Ran user acceptance testing with iterative stakeholder feedback cycles before launch.',
+    start: '2025-03', when: 'Mar 2025 – now', ongoing: true,
+    title: 'LITP Site Accessibility',
+    subtitle: 'Web · Accessibility',
+    tags: ['HTML', 'CSS', 'Siteimprove', 'Indico'],
+    desc: 'Accessibility work on the Leinweber Institute for Theoretical Physics websites. <strong>Raised the Siteimprove score from 80% to 94%</strong> by working through the flagged issues across the site and its event pages.',
+    role: 'Web & Operations Coordinator, Leinweber Institute for Theoretical Physics',
+    stack: 'HTML/CSS, Siteimprove, Indico',
+    links: [],
+  },
+  {
+    start: '2025-01b', when: 'Jan – Apr 2025',
+    title: 'Data-Driven Apps',
+    subtitle: 'Web · Python · Flask',
+    tags: ['Python', 'Flask', 'SQL'],
+    desc: 'A set of <strong>Flask apps backed by outside APIs</strong>, each storing what it fetches in a SQL database and serving it back through its own pages.',
+    role: 'SI 364',
+    stack: 'Python, Flask, SQL',
+    links: [],
+  },
+  {
+    start: '2025-01a', when: 'Jan – Apr 2025',
+    title: 'LC-2K Toolchain and Simulators',
+    subtitle: 'Computer Organization · C',
+    tags: ['C', 'Assembly', 'Computer Architecture'],
+    desc: 'Four projects that build a small computer from the software side, all for the LC-2K instruction set: an <strong>assembler and simulator</strong>, a linker, a pipelined processor simulator and a cache simulator.',
+    role: 'EECS 370 Computer Organization, projects 1 to 4',
+    stack: 'C',
+    links: [],
+  },
+  {
+    start: '2024-09', when: 'Sep – Dec 2024',
+    title: 'Data Structures and Algorithms Projects',
+    subtitle: 'Algorithms · C++',
+    tags: ['C++', 'Algorithms', 'Data Structures'],
+    desc: 'Four projects under tight time and memory limits: path search, a simulation driven by <strong>priority queues</strong> (including a pairing heap written from scratch), a query system built on hash tables, and graph algorithms.',
+    role: 'EECS 281 Data Structures and Algorithms, projects 1 to 4',
+    stack: 'C++',
+    links: [],
+  },
+  {
+    start: '2024-08', when: 'Aug 2024 – now', ongoing: true,
+    title: 'HAIL VEX U Navigation',
+    subtitle: 'Robotics · C++',
+    tags: ['C++', 'PID', 'Pure Pursuit', 'Kalman Filter'],
+    desc: 'Autonomous navigation for the HAIL VEX U robot: <strong>PID control, pure pursuit path following and a Kalman filter</strong> for position estimates. Cut overshoot by about 40%.',
+    role: 'HAIL Robotics, VEX U',
+    stack: 'C++',
+    links: [],
+  },
+  {
+    start: '2024-04', when: 'Apr – Sep 2024',
+    title: 'Slow',
+    subtitle: 'Mobile · Swift',
+    tags: ['Swift', 'C++', 'OpenAI API', 'Ollama', 'iOS'],
+    desc: 'An iOS mental health support app built in Swift with a Scrum workflow. <strong>Moved its AI features from the OpenAI API to Ollama</strong> to reduce cost, cut latency and keep user data off someone else\'s servers. Ran user acceptance testing with rounds of stakeholder feedback before launch.',
     role: 'Lead developer, team of 4',
-    stack: 'Swift, C++, OpenAI API, local LLM inference',
-    year: '2024',
+    stack: 'Swift, C++, OpenAI API, Ollama',
     links: [],
   },
   {
-    num: '005',
-    title: 'Naive Bayes Post Classifier',
+    start: '2024-01b', when: 'Jan – Apr 2024',
+    title: 'ML Post Classifier',
     subtitle: 'Machine Learning · C++',
     tags: ['C++', 'ML', 'Naive Bayes', 'NLP'],
-    desc: 'Naive Bayes classifier built from scratch in C++ to categorize Piazza forum posts by topic. Implements <strong>variant keyword identification</strong> to handle misspellings and morphological variants without a preprocessing library.',
-    role: 'Solo, EECS 280 coursework, University of Michigan',
-    stack: 'C++17',
-    year: '2024',
+    desc: 'A <strong>Bernoulli Naive Bayes classifier</strong> written from scratch in C++ that learns from labelled Piazza posts and predicts the topic of new ones.',
+    role: 'EECS 280, project 5',
+    stack: 'C++',
     links: [],
   },
   {
-    num: '006',
+    start: '2024-01a', when: 'Jan – Apr 2024',
+    title: 'Intro Data Structures Projects',
+    subtitle: 'Programming · C++',
+    tags: ['C++', 'Data Structures'],
+    desc: 'The first four projects of the course: a statistics library, image processing, a full game of <strong>Euchre</strong> with computer players, and a text editor built on a hand-written linked list.',
+    role: 'EECS 280, projects 1 to 4',
+    stack: 'C++',
+    links: [],
+  },
+  {
+    start: '2020-01', when: '2020 – 2023',
     title: 'Dubai Basketball League Site',
     subtitle: 'Web · PHP · MySQL',
     tags: ['PHP', 'MySQL', 'HTML', 'CSS', 'JavaScript'],
     desc: 'Dynamic stats site for the Dubai varsity basketball league, tracking <strong>200+ player profiles</strong> and reaching 500+ monthly viewers. Full CRUD backend in PHP and MySQL with JavaScript-driven filtering on the frontend. Engaged prospective corporate sponsors through stakeholder meetings.',
     role: 'Solo developer',
     stack: 'HTML, CSS, JavaScript, PHP, MySQL',
-    year: '2020–2023',
     links: [],
   },
 ];
 
 function render() {
   const wrap = document.getElementById('projects');
-  PROJECTS.forEach((p, i) => {
+  let year = null;
+  [...PROJECTS].sort((a, b) => (a.start < b.start ? 1 : -1)).forEach(p => {
+    const y = p.start.slice(0, 4);
+    if (y !== year) {
+      year = y;
+      const mark = document.createElement('div');
+      mark.className = 'year-mark';
+      mark.textContent = y;
+      wrap.appendChild(mark);
+    }
     const section = document.createElement('div');
-    section.className = 'project';
+    section.className = 'project' + (p.ongoing ? ' ongoing' : '');
     section.innerHTML = `
-      <div class="project-head" data-idx="${i}">
-        <span class="proj-num">${p.num}</span>
+      <div class="project-head">
+        <span class="proj-when">${p.when}</span>
         <div>
           <div class="proj-title">${p.title}</div>
           <div class="proj-subtitle">${p.subtitle}</div>
@@ -178,8 +369,8 @@ function render() {
           <dl class="detail-meta">
             <dt>Role</dt><dd>${p.role}</dd>
             <dt>Stack</dt><dd>${p.stack}</dd>
-            <dt>Year</dt><dd>${p.year}</dd>
-            ${p.links.length ? '<dt>Links</dt><dd><div class="detail-links">'+p.links.map(l=>'<a href="'+l.href+'" class="dlink" target="_blank">'+l.label+'</a>').join('')+'</div></dd>' : ''}
+            <dt>When</dt><dd>${p.when}</dd>
+            ${p.links.length ? '<dt>Links</dt><dd><div class="detail-links">'+p.links.map(l=>'<a href="'+l.href+'" class="dlink"'+(/^https?:/.test(l.href)?' target="_blank" rel="noopener"':'')+'>'+l.label+'</a>').join('')+'</div></dd>' : ''}
           </dl>
         </div>
       </div>`;
