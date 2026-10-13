@@ -9,11 +9,11 @@ Setup:
   ollama pull moondream          # alternative — 1.6 GB, faster but simpler descriptions
   pip install ollama python-dotenv
 
-Usage:
-  python3 describe.py                    # describe all UUID-titled photos
-  python3 describe.py --limit 10         # test on first 10 first
-  python3 describe.py --model moondream  # use a different model
-  python3 describe.py --all              # re-describe everything
+Usage (from the repo root):
+  python3 tools/photos/describe.py                    # describe all UUID-titled photos
+  python3 tools/photos/describe.py --limit 10         # test on first 10 first
+  python3 tools/photos/describe.py --model moondream  # use a different model
+  python3 tools/photos/describe.py --all              # re-describe everything
 
 Writes back to photos.json after every 10 photos — safe to interrupt and resume.
 """

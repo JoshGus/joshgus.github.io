@@ -2,7 +2,7 @@
 //
 // Every page gets its own 1200x630 card: the page's name in one or two words,
 // set in the site's display face on the site's paper colour. Nothing else. The
-// existing homepage card (og-image.png) is the reference this matches, so the
+// existing homepage card (assets/og/home.png) is the reference this matches, so the
 // whole set reads as one thing when links get shared around.
 //
 // Type is drawn to a canvas rather than laid out in the DOM so the ink can be
@@ -11,8 +11,8 @@
 // "Image Breakdown" sitting on the same baseline grid despite very different
 // widths, and it lets long names shrink to fit instead of running off the edge.
 //
-//   node tools/make-og.mjs           # writes og/*.png
-//   node tools/make-og.mjs --home    # also rewrites og-image.png
+//   node tools/make-og.mjs           # writes assets/og/*.png
+//   node tools/make-og.mjs --home    # also rewrites assets/og/home.png
 //
 // Needs playwright-core plus a Chromium build; see the README.
 //
@@ -23,7 +23,7 @@
 //
 //   python3 -c "
 //   from PIL import Image; import glob
-//   for f in glob.glob('og/*.png'):
+//   for f in glob.glob('assets/og/*.png'):
 //       Image.open(f).convert('RGB').quantize(colors=32, dither=Image.NONE).save(f, optimize=True)"
 
 import { chromium } from 'playwright-core';
@@ -38,7 +38,7 @@ const W = 1200, H = 630;
 const BG = '#f7ece1', FG = '#1d1712';
 const FONT = 'Bricolage Grotesque';
 const WEIGHT = 650;
-const SIZE = 152;          // ink height/width that matches og-image.png
+const SIZE = 152;          // ink height/width that matches assets/og/home.png
 const TRACKING = '-0.02em';
 const LINE = 143;          // baseline pitch between stacked words
 const MARGIN = 89;         // ink starts here, as on the homepage card
@@ -47,27 +47,27 @@ const MAX_W = W - MARGIN * 2;
 // One entry per page carrying an og:image. `words` are stacked one per line,
 // the way "Joshua / Gustaveson" is on the homepage card.
 const CARDS = [
-  { out: 'og/code.png',            words: ['Code'] },
-  { out: 'og/photography.png',     words: ['Photography'] },
-  { out: 'og/color-space.png',     words: ['Color', 'Space'] },
-  { out: 'og/privacy.png',         words: ['Privacy'] },
-  { out: 'og/games.png',           words: ['Games'] },
-  { out: 'og/server.png',          words: ['Game', 'Server'] },
-  { out: 'og/art-match.png',       words: ['Art', 'Match'] },
-  { out: 'og/boids.png',           words: ['3D', 'Boids'] },
-  { out: 'og/cv-lab.png',          words: ['CV', 'Lab'] },
-  { out: 'og/darts.png',           words: ['Darts'] },
-  { out: 'og/gamepigeon.png',      words: ['GamePigeon'] },
-  { out: 'og/hand-tracker.png',    words: ['Hand', 'Tracker'] },
-  { out: 'og/image-breakdown.png', words: ['Image', 'Breakdown'] },
-  { out: 'og/daily-links.png',     words: ['Daily', 'Links'] },
-  { out: 'og/pixel-sim.png',       words: ['Pixel', 'Sim'] },
-  { out: 'og/daily-break.png',     words: ['Daily', 'Break'] },
-  { out: 'og/frontline.png',       words: ['Frontline'] },
-  { out: 'og/word-hunt.png',       words: ['Word', 'Hunt'] },
+  { out: 'assets/og/code.png',            words: ['Code'] },
+  { out: 'assets/og/photography.png',     words: ['Photography'] },
+  { out: 'assets/og/color-space.png',     words: ['Color', 'Space'] },
+  { out: 'assets/og/privacy.png',         words: ['Privacy'] },
+  { out: 'assets/og/games.png',           words: ['Games'] },
+  { out: 'assets/og/server.png',          words: ['Game', 'Server'] },
+  { out: 'assets/og/art-match.png',       words: ['Art', 'Match'] },
+  { out: 'assets/og/boids.png',           words: ['3D', 'Boids'] },
+  { out: 'assets/og/cv-lab.png',          words: ['CV', 'Lab'] },
+  { out: 'assets/og/darts.png',           words: ['Darts'] },
+  { out: 'assets/og/gamepigeon.png',      words: ['GamePigeon'] },
+  { out: 'assets/og/hand-tracker.png',    words: ['Hand', 'Tracker'] },
+  { out: 'assets/og/image-breakdown.png', words: ['Image', 'Breakdown'] },
+  { out: 'assets/og/daily-links.png',     words: ['Daily', 'Links'] },
+  { out: 'assets/og/pixel-sim.png',       words: ['Pixel', 'Sim'] },
+  { out: 'assets/og/daily-break.png',     words: ['Daily', 'Break'] },
+  { out: 'assets/og/frontline.png',       words: ['Frontline'] },
+  { out: 'assets/og/word-hunt.png',       words: ['Word', 'Hunt'] },
 ];
 
-const HOME = { out: 'og-image.png', words: ['Joshua', 'Gustaveson'] };
+const HOME = { out: 'assets/og/home.png', words: ['Joshua', 'Gustaveson'] };
 
 const SHELL = `<!doctype html><html><head><meta charset="utf-8">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -95,7 +95,7 @@ async function main() {
     const file = resolve(ROOT, card.out);
     mkdirSync(dirname(file), { recursive: true });
     writeFileSync(file, Buffer.from(dataUrl.split(',')[1], 'base64'));
-    console.log(`${card.out.padEnd(26)} ${card.words.join(' ')}`);
+    console.log(`${card.out.padEnd(33)} ${card.words.join(' ')}`);
   }
   await browser.close();
 }

@@ -10,8 +10,8 @@ Optional (CLIP semantic search):
   pip install transformers torch
 
 Usage:
-  python process.py --photos ./photos-original --out ./data/photos.json
-  python process.py --photos ./photos-original --out ./data/photos.json --cloudinary-config creds.json
+  python tools/photos/process.py --photos ./photos-original --out ./data/photos.json
+  python tools/photos/process.py --photos ./photos-original --out ./data/photos.json --cloudinary-config creds.json
 
 Cloudinary credentials JSON format (creds.json):
   { "cloud_name": "...", "api_key": "...", "api_secret": "..." }

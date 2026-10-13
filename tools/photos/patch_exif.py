@@ -2,7 +2,7 @@
 """
 One-off script: read EXIF from photos-original/ and patch data/photos.json
 and data/photos-web.json.  Run from the repo root:
-  python patch_exif.py
+  python tools/photos/patch_exif.py
 """
 import json
 from pathlib import Path

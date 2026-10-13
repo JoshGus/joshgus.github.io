@@ -3,26 +3,26 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png">
-<link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png">
-<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="/assets/icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="16x16" href="/assets/icons/favicon-16.png">
+<link rel="apple-touch-icon" href="/assets/icons/apple-touch-icon.png">
 <meta name="description" content="Enter a Word Hunt board and get every word, traced on the grid and ranked by score.">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Joshua Gustaveson">
 <meta property="og:title" content="Word Hunt Solver">
 <meta property="og:description" content="Enter a Word Hunt board and get every word, traced on the grid and ranked by score.">
 <meta property="og:url" content="https://joshg.us/games/wordhunt-solver.html">
-<meta property="og:image" content="https://joshg.us/og/word-hunt.png">
+<meta property="og:image" content="https://joshg.us/assets/og/word-hunt.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:image" content="https://joshg.us/og/word-hunt.png">
+<meta name="twitter:image" content="https://joshg.us/assets/og/word-hunt.png">
 <title>Word Hunt Solver</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,200..800&family=Hanken+Grotesk:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../shared.css">
-<script src="../dark-mode.js"></script>
+<link rel="stylesheet" href="../assets/shared.css">
+<script src="../assets/dark-mode.js"></script>
 <style>
 body{background:var(--bg);color:var(--fg);font-family:var(--body);min-height:100vh;
   display:flex;flex-direction:column;-webkit-font-smoothing:antialiased}
@@ -273,7 +273,7 @@ document.getElementById('link').addEventListener('paste',()=>setTimeout(runDecod
 // ── dictionary ──────────────────────────────────────────────────────
 let DICT=null;                       // Set of valid words
 const dictStatus=document.getElementById('dictStatus');
-fetch('wordlist.txt').then(r=>{
+fetch('../data/wordlist.txt').then(r=>{
   if(!r.ok) throw new Error(r.status); return r.text();
 }).then(t=>{
   DICT=new Set(t.split(/\r?\n/).map(w=>w.trim().toUpperCase()).filter(w=>/^[A-Z]{3,16}$/.test(w)));

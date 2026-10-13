@@ -13,7 +13,7 @@
       l.rel = 'icon';
       l.type = 'image/png';
       l.sizes = sizes;
-      l.href = '/favicon-' + n + (on ? '-dark' : '') + '.png';
+      l.href = '/assets/icons/favicon-' + n + (on ? '-dark' : '') + '.png';
       head.appendChild(l);
     });
   }
